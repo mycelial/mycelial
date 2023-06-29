@@ -6,3 +6,9 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+tokio = {version = "1", features = ["full"] }
+clap = {version = "4", features = ["derive", "env"] }
+reqwest = {version = "0.11" }
+#exp2 = { git="https://github.com/mycelial/pipexperiments" }
+exp2 = { path = "../../pipexperiments/exp2" }
+anyhow = "1"
