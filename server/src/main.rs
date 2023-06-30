@@ -8,12 +8,14 @@ use axum::{
     response::{IntoResponse, Response},
     routing::{get, post},
     Router, Server, TypedHeader, Json,
+    http::StatusCode,
 };
 use chrono::Utc;
 use clap::Parser;
 use futures::StreamExt;
-use serde::Serialize;
 use serde_json::json;
+
+use serde::{Deserialize, Serialize};
 use std::net::SocketAddr;
 
 #[derive(Parser)]
@@ -105,12 +107,61 @@ async fn log<B>(
     response
 }
 
+#[derive(Deserialize, Serialize)]
+struct ProvisionClientRequest {
+    id: String,
+    metadata: Vec<String>,
+}
+
+#[derive(Deserialize, Serialize, Debug)]
+struct ProvisionClientResponse {
+    id: String,
+}
+
+async fn provision_client(Json(payload): Json<ProvisionClientRequest>) -> impl IntoResponse {
+    // get the info from the payload and insert into db
+    // table: clients
+
+    let response = ProvisionClientResponse { id: payload.id };
+
+    let x = Json(response);
+    println!("{:?}", x);
+    (StatusCode::OK, x)
+}
+
+#[derive(Deserialize)]
+struct IssueTokenRequest {
+    client_id: String,
+}
+
+#[derive(Serialize)]
+struct IssueTokenResponse {
+    id: String,
+    client_id: String,
+}
+
+async fn issue_token(Json(payload): Json<IssueTokenRequest>) -> impl IntoResponse {
+    // get the client id from the payload
+    // generate a random token
+    // insert into db
+    // table: tokens
+
+    let response = IssueTokenResponse {
+        id: "test123".to_string(),
+        client_id: payload.client_id,
+    };
+
+    (StatusCode::OK, Json(response))
+}
+
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let cli = CLI::try_parse()?;
     let router = Router::new()
         .route("/ingestion", post(ingestion))
         .route("/pipe/configs", get(get_pipe_configs))
+        .route("/api/client", post(provision_client))
+        .route("/api/tokens", post(issue_token))
         .layer(middleware::from_fn(log));
 
     let addr: SocketAddr = cli.listen_addr.as_str().parse()?;
