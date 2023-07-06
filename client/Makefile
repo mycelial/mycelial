@@ -12,7 +12,7 @@ bootstrap_sqlite:
 		-cmd '.mode table'
 
 .PHONY: dev
-dev:
+dev: bootstrap_sqlite
 	cargo-watch -c -q \
 		-i test.sqlite \
 		-s 'cargo run -r -- --endpoint="http://localhost:8080" --token="foobar"'
