@@ -22,9 +22,11 @@ import styles from './Flow.module.css';
 
 import { DatabaseSourceNode, DatabaseSinkNode, SourceTableNode, TargetTableNode, ViewNode } from '@/components/nodes';
 
-import { Grid } from '@/components/layout';
+import { Grid, Container, Anchor, Group } from '@/components/layout';
 
 import { UserButton } from '@/components/UserButton';
+
+// import { Container,  } from '@/components/core';
 
 import {
   createStyles,
@@ -34,7 +36,7 @@ import {
   UnstyledButton,
   Badge,
   Text,
-  Group,
+  // Group,
   ActionIcon,
   Tooltip,
   rem,
@@ -286,7 +288,7 @@ function NavbarSearch() {
   ));
 
   return (
-    <Navbar height={700} width={{ sm: 250 }} p="md" className={classes.navbar}>
+    <Navbar height="100vh" width={{ sm: 250 }} p="md" className={classes.navbar}>
       <Navbar.Section className={classes.section}>
         <UserButton
           image="https://i.imgur.com/fGxgcDF.png"
@@ -386,32 +388,32 @@ function Flow() {
 
   return (
     <ReactFlowProvider>
-      <Grid>
-        <Grid.Col span={2}><NavbarSearch /></Grid.Col>
-        <Grid.Col span={10}><div className={styles.flow} ref={reactFlowWrapper}>
-          <ReactFlow
-            nodes={nodes}
-            onNodesChange={onNodesChange}
-            edges={edges}
-            onEdgesChange={onEdgesChange}
-            onConnect={onConnect}
-            nodeTypes={nodeTypes}
-            defaultEdgeOptions={defaultEdgeOptions}
-            connectionLineType={ConnectionLineType.SmoothStep}
-            onInit={setReactFlowInstance}
-            onDrop={onDrop}
-            onDragOver={onDragOver}
-            fitView
-            snapToGrid={true}
-          >
-            <MiniMap style={minimapStyle} zoomable pannable />
-            <Controls />
-            <Background color="#aaa" gap={16} />
-          </ReactFlow>
-        </div></Grid.Col>
+      <Grid gutter={0}>
+        <Grid.Col span="content"><NavbarSearch /></Grid.Col>
+        <Grid.Col span="auto">
+          <div className={styles.flow} ref={reactFlowWrapper}>
+            <ReactFlow
+              nodes={nodes}
+              onNodesChange={onNodesChange}
+              edges={edges}
+              onEdgesChange={onEdgesChange}
+              onConnect={onConnect}
+              nodeTypes={nodeTypes}
+              defaultEdgeOptions={defaultEdgeOptions}
+              connectionLineType={ConnectionLineType.SmoothStep}
+              onInit={setReactFlowInstance}
+              onDrop={onDrop}
+              onDragOver={onDragOver}
+              fitView
+              snapToGrid={true}
+            >
+              <MiniMap style={minimapStyle} zoomable pannable />
+              <Controls />
+              <Background color="#aaa" gap={16} />
+            </ReactFlow>
+          </div>
+        </Grid.Col>
       </Grid>
-
-    
     </ReactFlowProvider>
   );
 }
