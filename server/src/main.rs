@@ -2,6 +2,7 @@
 use sqlx::{sqlite::SqliteConnectOptions, ConnectOptions, SqliteConnection};
 use std::{str::FromStr, sync::Arc};
 use tokio::sync::Mutex;
+use uuid::Uuid;
 
 mod error;
 
@@ -126,15 +127,21 @@ async fn provision_client(
 ) -> impl IntoResponse {
     let client_id = payload.id;
 
-    // todo: do something depending on result or error
     let result = state.database.insert_client(&client_id).await;
-    println!("{:?}", result);
+    match result {
+        Ok(_) => {
+            let response = ProvisionClientResponse { id: client_id };
 
-    let response = ProvisionClientResponse { id: client_id };
-
-    let x = Json(response);
-    println!("{:?}", x);
-    (StatusCode::OK, x)
+            let x = Json(response);
+            println!("{:?}", x);
+            return (StatusCode::OK, x);
+        }
+        Err(e) => {
+            println!("{:?}", e);
+            let response = ProvisionClientResponse { id: "".to_string() };
+            return (StatusCode::INTERNAL_SERVER_ERROR, Json(response));
+        }
+    }
 }
 
 #[derive(Deserialize)]
@@ -153,18 +160,29 @@ async fn issue_token(
     Json(payload): Json<IssueTokenRequest>,
 ) -> impl IntoResponse {
     let client_id = payload.client_id.clone();
-    // todo: generate a random token
-    let token = "test123".to_string();
 
-    // todo: do something depending on result or error
+    // todo: It'd be smarter/safer to store the salted & hashed token in the database
+    let token = Uuid::new_v4().to_string();
+
     let result = state.database.insert_token(&client_id, &token).await;
+    match result {
+        Ok(_) => {
+            let response = IssueTokenResponse {
+                id: token,
+                client_id,
+            };
 
-    let response = IssueTokenResponse {
-        id: token,
-        client_id: client_id,
+            return (StatusCode::OK, Json(response));
+        }
+        Err(e) => {
+            println!("{:?}", e);
+            let response = IssueTokenResponse {
+                id: "".to_string(),
+                client_id,
+            };
+            return (StatusCode::INTERNAL_SERVER_ERROR, Json(response));
+        }
     };
-
-    (StatusCode::OK, Json(response))
 }
 
 #[tokio::main]
