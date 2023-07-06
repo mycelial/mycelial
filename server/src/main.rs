@@ -56,7 +56,7 @@ async fn get_pipe_configs() -> Json<Configs>{
                         "section": [
                             {
                                 "name": "sqlite",
-                                "path": "/tmp/sqlite",
+                                "path": "/tmp/test.sqlite",
                                 "query": "select * from test",
                             },
                             {
