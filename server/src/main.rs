@@ -92,7 +92,6 @@ async fn log<B>(
         "path": uri.path(),
     });
     println!("{}", log);
-
     response
 }
 
@@ -122,6 +121,7 @@ async fn provision_client(
             (StatusCode::OK, x)
         }
         Err(e) => {
+            // FIXME: store error in response to allow log through middleware
             println!("{:?}", e);
             let response = ProvisionClientResponse { id: "".to_string() };
             (StatusCode::INTERNAL_SERVER_ERROR, Json(response))
@@ -160,6 +160,7 @@ async fn issue_token(
             (StatusCode::OK, Json(response))
         }
         Err(e) => {
+            // FIXME: store error in response to allow log through middleware
             println!("{:?}", e);
             let response = IssueTokenResponse {
                 id: "".to_string(),
@@ -255,6 +256,7 @@ impl App {
         let database = Database::new(database_dir.as_ref()).await?;
         Ok(Self {
             database,
+            // FIXME: temporary in-mem storage, should be persisted in DB
             configs: Mutex::new(HashMap::new()),
         })
     }
@@ -265,6 +267,7 @@ async fn main() -> anyhow::Result<()> {
     let cli = CLI::try_parse()?;
     let app = App::new("").await?;
     let state = Arc::new(app);
+    // FIXME: consistent endpoint namings
     let router = Router::new()
         .route("/ingestion", post(ingestion))
         .route(
