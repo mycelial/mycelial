@@ -3,7 +3,7 @@
 //!     - dumb server endpoint polling
 //!     - server dumbly returns all existing pipes
 //! - schedules and runs pipes
-use std::time::Duration;
+use std::{time::Duration, collections::HashSet};
 
 use base64::engine::{general_purpose::STANDARD as BASE64, Engine};
 use clap::Parser;
@@ -107,11 +107,16 @@ async fn main() -> anyhow::Result<()> {
                     )
                     .collect::<Result<Vec<_>, _>>();
                 if let Ok(configs) = res {
+                    let mut ids: HashSet<u64> = HashSet::from_iter(scheduler.list_ids().await.unwrap().into_iter());
                     for (id, config) in configs {
                         if let Err(e) = scheduler.add_pipe(id, config).await {
                             println!("failed to schedule pipe: {:?}", e);
                         }
+                        ids.remove(&id);
                     }
+                    for id in ids.into_iter(){
+                        scheduler.remove_pipe(id).await.unwrap()
+                    };
                 } else {
                     println!("raw_configs: {:?}", raw_configs);
                     println!("failed to parse configs: {:?}", res);
