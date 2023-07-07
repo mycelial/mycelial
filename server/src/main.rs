@@ -118,15 +118,10 @@ async fn provision_client(
         Ok(_) => {
             let response = ProvisionClientResponse { id: client_id };
 
-            let x = Json(response);
-            println!("{:?}", x);
-            (StatusCode::OK, x)
+            (StatusCode::OK, Ok(Json(response)))
         }
         Err(e) => {
-            // FIXME: store error in response to allow log through middleware
-            println!("{:?}", e);
-            let response = ProvisionClientResponse { id: "".to_string() };
-            (StatusCode::INTERNAL_SERVER_ERROR, Json(response))
+            (StatusCode::INTERNAL_SERVER_ERROR, Err(e))
         }
     }
 }
@@ -158,17 +153,10 @@ async fn issue_token(
                 id: token,
                 client_id,
             };
-
-            (StatusCode::OK, Json(response))
+            (StatusCode::OK, Ok(Json(response)))
         }
         Err(e) => {
-            // FIXME: store error in response to allow log through middleware
-            println!("{:?}", e);
-            let response = IssueTokenResponse {
-                id: "".to_string(),
-                client_id,
-            };
-            (StatusCode::INTERNAL_SERVER_ERROR, Json(response))
+            (StatusCode::INTERNAL_SERVER_ERROR, Err(e))
         }
     }
 }
