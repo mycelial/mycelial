@@ -1,4 +1,4 @@
-import { memo, FC, useEffect } from 'react';
+import { memo, FC, useEffect, useCallback } from 'react';
 import { Handle, Position, NodeProps, NodeResizer, useNodeId, useReactFlow } from 'reactflow';
 
 import { Select, MultiSelect, Textarea, TextInput } from '@/components/inputs';
@@ -6,10 +6,82 @@ import { Select, MultiSelect, Textarea, TextInput } from '@/components/inputs';
 import styles from '@/components/Flow/Flow.module.css';
 
 
+const SqliteSourceNode: FC<NodeProps> = memo(({ id, data }) => {
+  const instance = useReactFlow();
+
+  const handleChange = useCallback((name: string, value: string) => {
+    instance.setNodes((nodes) => nodes.map((node) => {
+      if (node.id === id) {
+        node.data = {
+          ...node.data,
+          [name]: value
+        }
+      }
+
+      return node;
+    }));
+  }, []);
+
+  return (
+    <div className={styles.customNode}>
+      <TextInput
+        placeholder="/tmp/test.sqlite"
+        defaultValue="/tmp/test.sqlite"
+        label="SQLite Database Path"
+        onChange={(event) => handleChange("path", event.currentTarget.value)}
+      />
+      <TextInput
+        placeholder="select * from test;"
+        defaultValue="select * from test;"
+        label="SQL query"
+        onChange={(event) => handleChange("query", event.currentTarget.value)}
+      />
+      <Handle type="source" position={Position.Right} id={id} />
+    </div>
+  )
+});
+
+const MycelialNetworkNode: FC<NodeProps> = memo(({ id, data }) => {
+  const instance = useReactFlow();
+
+  const handleChange = useCallback((name: string, value: string) => {
+    instance.setNodes((nodes) => nodes.map((node) => {
+      console.log(id, node.id);
+
+      if (node.id === id) {
+        node.data = {
+          ...node.data,
+          [name]: value
+        }
+      }
+
+      return node;
+    }));
+  }, []);
+
+  return (
+    <div className={styles.customNode}>
+      <Handle type="target" position={Position.Left} id={id} />
+      <TextInput
+        placeholder="http://localhost:8000/ingestion"
+        defaultValue="http://localhost:8000/ingestion"
+        label="Mycelial Network Endpoint"
+        onChange={(event) => handleChange('endpoint', event.currentTarget.value)}
+      />
+      <TextInput
+        placeholder="8dh5UPbaqQhdpF"
+        label="Token"
+        defaultValue="..."
+        onChange={(event) => handleChange('token', event.currentTarget.value)}
+      />
+    </div>
+  )
+});
+
 const DatabaseSourceNode: FC<NodeProps> = memo(({ id, data }) => {
   const instance = useReactFlow();
   
-  console.log('DatabaseSourceNode.data', data);
+  // console.log('DatabaseSourceNode.data', data, instance, instance.getEdges());
 
   useEffect(() => {
     instance.setNodes((nodes) => nodes.map((node) => {
@@ -109,4 +181,12 @@ const ViewNode: FC<NodeProps> = memo(({ id, data }) => {
   );
 })
 
-export { DatabaseSourceNode, DatabaseSinkNode, SourceTableNode, TargetTableNode, ViewNode };
+export {
+  DatabaseSourceNode,
+  DatabaseSinkNode,
+  SourceTableNode,
+  TargetTableNode,
+  ViewNode,
+  SqliteSourceNode,
+  MycelialNetworkNode,
+};

@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useState, useRef, DOMElement } from 'react';
+import { useCallback, useState, useRef, DOMElement, useEffect } from 'react';
 import ReactFlow, {
   Node,
   useNodesState,
@@ -17,16 +17,19 @@ import ReactFlow, {
 } from 'reactflow';
 import CustomNode from './CustomNode';
 
+import { IconDatabase } from '@tabler/icons-react';
+
+
 import styles from './Flow.module.css';
 // import DatabaseNode from './DatabaseNode';
 
-import { DatabaseSourceNode, DatabaseSinkNode, SourceTableNode, TargetTableNode, ViewNode } from '@/components/nodes';
+import { DatabaseSourceNode, DatabaseSinkNode, SourceTableNode, TargetTableNode, ViewNode, SqliteSourceNode, MycelialNetworkNode } from '@/components/nodes';
 
 import { Grid, Container, Anchor, Group } from '@/components/layout';
 
 import { UserButton } from '@/components/UserButton';
 
-// import { Container,  } from '@/components/core';
+import { Button, Box } from '@/components/core';
 
 import {
   createStyles,
@@ -158,6 +161,8 @@ const collections = [
   { emoji: '👍', label: 'Source Table', nodeType: 'sourceTable' },
   { emoji: '👍', label: 'Sink Table', nodeType: 'targetTable' },
   { emoji: '👍', label: 'View', nodeType: 'view' },
+  { label: 'Sqlite Query', nodeType: 'sqliteSource'},
+  { label: 'Mycelial Network', nodeType: 'mycelialNetwork'},
 ];
 
 const initialNodes: Node[] = [
@@ -219,6 +224,8 @@ const nodeTypes = {
   sourceTable: SourceTableNode,
   targetTable: TargetTableNode,
   view: ViewNode,
+  sqliteSource: SqliteSourceNode,
+  mycelialNetwork: MycelialNetworkNode,
 };
 
 const defaultEdgeOptions = {
@@ -259,7 +266,11 @@ function Sidebar() {
   );
 }
 
-function NavbarSearch() {
+type NavbarSearchProps = {
+  onSave: () => void;
+}
+
+function NavbarSearch(props: NavbarSearchProps) {
   const { classes } = useStyles();
 
   const onDragStart = (event: any, nodeType: string) => {
@@ -324,6 +335,13 @@ function NavbarSearch() {
           </Tooltip>
         </Group>
         <div className={classes.collections}>{collectionLinks}</div>
+        <div>
+          <Box style={{ padding: '1rem' }}>
+            <Button variant="light" color="teal" fullWidth leftIcon={<IconDatabase size="1rem" />} onClick={props.onSave}>
+              Publish
+            </Button>
+          </Box>
+        </div>
       </Navbar.Section>
     </Navbar>
   );
@@ -340,6 +358,77 @@ function Flow() {
   console.log(edges);
 
   const [reactFlowInstance, setReactFlowInstance] = useState<ReactFlowInstance | null>(null);
+
+  const handleSave = useCallback(async () => {
+    // console.log('whatever');
+    
+    let configs = [];
+
+    if (reactFlowInstance === null) {
+      return;
+    }
+
+    const rf = reactFlowInstance;
+
+    let configId = 0;
+
+    for (const edge of edges) {
+      // console.log(edge, edge.sourceNode, edge.targetNode, edge.source, edge.target);
+
+      ++configId;
+
+      const section = [];
+
+      const sourceNode = rf.getNode(edge.source);
+      const targetNode = rf.getNode(edge.target);
+
+      if (sourceNode?.type === 'sqliteSource') {
+        section.push({
+          name: 'sqlite',
+          path: sourceNode.data.path,
+          query: sourceNode.data.query,
+        });
+      }
+
+      if (targetNode?.type === 'mycelialNetwork') {
+        section.push({
+          name: 'mycelial_net',
+          endpoint: targetNode.data.endpoint,
+          token: targetNode.data.token,
+        })
+      }
+
+      configs.push({
+        "id": configId,
+        "raw_config": JSON.stringify({
+          section: section
+        })
+      });
+
+      // console.log(sourceNode?.data, targetNode?.data);
+    }
+
+    const payload = {
+      configs: configs,
+    };
+
+    
+    try {
+        const response = await fetch("http://localhost:8080/pipe/configs", {
+        method: "POST", // or 'PUT'
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+  
+      const result = await response.json();
+      console.log("Success:", result);
+    } catch (error) {
+      console.error("Error:", error);
+    }
+
+  }, [edges]);
 
   const onDragOver = useCallback((event: any) => {
     event.preventDefault();
@@ -386,10 +475,20 @@ function Flow() {
     height: 120,
   };
 
+  useEffect(() => {
+
+    if (reactFlowInstance === null) {
+      return;
+    }
+
+    console.log('edges', reactFlowInstance.getEdges())
+
+  }, [reactFlowInstance]);
+
   return (
     <ReactFlowProvider>
       <Grid gutter={0}>
-        <Grid.Col span="content"><NavbarSearch /></Grid.Col>
+        <Grid.Col span="content"><NavbarSearch onSave={handleSave} /></Grid.Col>
         <Grid.Col span="auto">
           <div className={styles.flow} ref={reactFlowWrapper}>
             <ReactFlow

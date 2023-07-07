@@ -12,4 +12,6 @@ export {
   ActionIcon,
   Tooltip,
   rem,
+  Button,
+  Box,
 } from '@mantine/core';

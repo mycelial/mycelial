@@ -3,6 +3,8 @@ use sqlx::{sqlite::SqliteConnectOptions, ConnectOptions, SqliteConnection};
 use std::{collections::HashMap, str::FromStr, sync::Arc};
 use tokio::sync::Mutex;
 use uuid::Uuid;
+use tower_http::cors::{Any, CorsLayer};
+
 
 mod error;
 
@@ -11,7 +13,7 @@ use axum::{
     extract::{BodyStream, State},
     headers::{authorization::Basic, Authorization},
     http::StatusCode,
-    http::{Method, Request, Uri},
+    http::{Method, Request, Uri, HeaderValue},
     middleware::{self, Next},
     response::{IntoResponse, Response},
     routing::{get, post},
@@ -61,7 +63,7 @@ async fn get_pipe_configs(State(app): State<Arc<App>>) -> Json<Configs> {
 
 async fn post_pipe_config(State(app): State<Arc<App>>, Json(configs): Json<Configs>) -> impl IntoResponse {
     app.set_configs(configs).await;
-    "ok"
+    Json("ok")
 }
 
 // log response middleware
@@ -277,6 +279,12 @@ async fn main() -> anyhow::Result<()> {
         .route("/api/client", post(provision_client))
         .route("/api/tokens", post(issue_token))
         .layer(middleware::from_fn(log))
+        .layer(
+            CorsLayer::new()
+                .allow_origin(Any)
+                .allow_headers(Any)
+                .allow_methods([Method::GET, Method::POST]),
+        )
         .with_state(state);
 
     let addr: SocketAddr = cli.listen_addr.as_str().parse()?;
