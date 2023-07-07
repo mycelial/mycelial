@@ -1,20 +1,31 @@
 //! # Client
-//! - communicates with server, grabs and persists pipe configs: 
+//! - communicates with server, grabs and persists pipe configs:
 //!     - dumb server endpoint polling
 //!     - server dumbly returns all existing pipes
 //! - schedules and runs pipes
 use std::time::Duration;
 
+use base64::engine::{general_purpose::STANDARD as BASE64, Engine};
 use clap::Parser;
-use exp2::dynamic_pipe::{registry::{Registry, Constructor}, scheduler::Scheduler, section_impls::{sqlite, mycelial_net}, config::{Value, Config}, section};
+use exp2::dynamic_pipe::{
+    config::Config,
+    registry::{Constructor, Registry},
+    scheduler::Scheduler,
+    section,
+    section_impls::{mycelial_net, sqlite},
+};
 use serde::Deserialize;
 use tokio::time::sleep;
-use base64::engine::{general_purpose::STANDARD as BASE64, Engine};
 
 #[derive(Parser)]
 struct CLI {
     /// Server endpoint
-    #[clap(short, long, env = "ENDPOINT", default_value = "http://localhost:8080/pipe/configs")]
+    #[clap(
+        short,
+        long,
+        env = "ENDPOINT",
+        default_value = "http://localhost:8080/pipe/configs"
+    )]
     endpoint: String,
 
     /// Server authorization token
@@ -26,10 +37,9 @@ struct CLI {
 fn setup_registry() -> Registry {
     let arr: &[(&str, Constructor)] = &[
         ("sqlite", sqlite::constructor),
-        ("mycelial_net", mycelial_net::constructor)
+        ("mycelial_net", mycelial_net::constructor),
     ];
-    arr
-        .into_iter()
+    arr.iter()
         .fold(Registry::new(), |mut acc, &(section_name, constructor)| {
             acc.register_section(section_name, constructor);
             acc
@@ -45,12 +55,12 @@ struct Client {
 #[derive(Debug, Deserialize)]
 pub struct RawConfig {
     id: u64,
-    raw_config: String
+    raw_config: String,
 }
 
 #[derive(Debug, Deserialize)]
 pub struct Configs {
-    configs: Vec<RawConfig>
+    configs: Vec<RawConfig>,
 }
 
 impl Client {
@@ -63,7 +73,8 @@ impl Client {
     async fn get_configs(&self) -> Result<Vec<RawConfig>, section::Error> {
         let client = reqwest::Client::new();
         let url = format!("{}/pipe/configs", self.endpoint.as_str());
-        let configs: Configs = client.get(url)
+        let configs: Configs = client
+            .get(url)
             .header("Authorization", self.basic_auth())
             .send()
             .await?
@@ -88,12 +99,12 @@ async fn main() -> anyhow::Result<()> {
             Ok(raw_configs) => {
                 let res = raw_configs
                     .iter()
-                    .map(|raw_conf| {
-                        match Config::try_from_json(&raw_conf.raw_config) {
+                    .map(
+                        |raw_conf| match Config::try_from_json(&raw_conf.raw_config) {
                             Ok(c) => Ok((raw_conf.id, c)),
-                            Err(e) => Err(e)
-                        }
-                    })
+                            Err(e) => Err(e),
+                        },
+                    )
                     .collect::<Result<Vec<_>, _>>();
                 if let Ok(configs) = res {
                     for (id, config) in configs {
@@ -105,7 +116,7 @@ async fn main() -> anyhow::Result<()> {
                     println!("raw_configs: {:?}", raw_configs);
                     println!("failed to parse configs: {:?}", res);
                 }
-            },
+            }
             Err(e) => {
                 println!("failed to contact server: {:?}", e);
             }
