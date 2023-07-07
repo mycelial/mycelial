@@ -1,4 +1,7 @@
-use axum::{http::{StatusCode}, response::{IntoResponse, Response}};
+use axum::{
+    http::StatusCode,
+    response::{IntoResponse, Response},
+};
 use sqlx::migrate::MigrateError;
 
 // TODO: figure out this error stuff, I just copied and pasted this for now.

@@ -1,6 +1,6 @@
 //! Mycelial server
 use sqlx::{sqlite::SqliteConnectOptions, ConnectOptions, SqliteConnection};
-use std::{str::FromStr, sync::Arc};
+use std::{collections::HashMap, str::FromStr, sync::Arc};
 use tokio::sync::Mutex;
 use uuid::Uuid;
 
@@ -44,39 +44,24 @@ async fn ingestion(mut body: BodyStream) -> impl IntoResponse {
     ""
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize)]
 struct Configs {
     configs: Vec<RawConfig>,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize)]
 struct RawConfig {
     id: u64,
     raw_config: String,
 }
 
-async fn get_pipe_configs() -> Json<Configs> {
-    let configs = Configs {
-        configs: vec![RawConfig {
-            id: 1,
-            raw_config: serde_json::to_string(&json!({
-                "section": [
-                    {
-                        "name": "sqlite",
-                        "path": "/tmp/test.sqlite",
-                        "query": "select * from test",
-                    },
-                    {
-                        "name": "mycelial_net",
-                        "endpoint": "http://localhost:8080/ingestion",
-                        "token": "mycelial_net_token"
-                    }
-                ]
-            }))
-            .unwrap(),
-        }],
-    };
-    Json(configs)
+async fn get_pipe_configs(State(app): State<Arc<App>>) -> Json<Configs> {
+    Json(app.get_configs().await)
+}
+
+async fn post_pipe_config(State(app): State<Arc<App>>, Json(configs): Json<Configs>) -> impl IntoResponse {
+    app.set_configs(configs).await;
+    "ok"
 }
 
 // log response middleware
@@ -134,12 +119,12 @@ async fn provision_client(
 
             let x = Json(response);
             println!("{:?}", x);
-            return (StatusCode::OK, x);
+            (StatusCode::OK, x)
         }
         Err(e) => {
             println!("{:?}", e);
             let response = ProvisionClientResponse { id: "".to_string() };
-            return (StatusCode::INTERNAL_SERVER_ERROR, Json(response));
+            (StatusCode::INTERNAL_SERVER_ERROR, Json(response))
         }
     }
 }
@@ -172,7 +157,7 @@ async fn issue_token(
                 client_id,
             };
 
-            return (StatusCode::OK, Json(response));
+            (StatusCode::OK, Json(response))
         }
         Err(e) => {
             println!("{:?}", e);
@@ -180,33 +165,9 @@ async fn issue_token(
                 id: "".to_string(),
                 client_id,
             };
-            return (StatusCode::INTERNAL_SERVER_ERROR, Json(response));
+            (StatusCode::INTERNAL_SERVER_ERROR, Json(response))
         }
-    };
-}
-
-#[tokio::main]
-async fn main() -> anyhow::Result<()> {
-    let cli = CLI::try_parse()?;
-    let app = App::new("".to_string()).await?;
-    let state = Arc::new(app);
-    let router = Router::new()
-        .route("/ingestion", post(ingestion))
-        .route("/pipe/configs", get(get_pipe_configs))
-        .layer(middleware::from_fn(log))
-        .merge(
-            Router::new()
-                .route("/api/client", post(provision_client))
-                .route("/api/tokens", post(issue_token))
-                .with_state(state)
-                .layer(middleware::from_fn(log)),
-        );
-
-    let addr: SocketAddr = cli.listen_addr.as_str().parse()?;
-    Server::bind(&addr)
-        .serve(router.into_make_service())
-        .await?;
-    Ok(())
+    }
 }
 
 #[derive(Debug)]
@@ -218,9 +179,6 @@ pub struct Database {
 
 impl Database {
     pub async fn new(database_dir: &str) -> Result<Self, error::Error> {
-        let _ = SqliteConnectOptions::from_str("sqlite://:memory:")?
-            .connect()
-            .await?;
         let database_path = std::path::Path::new(database_dir)
             .join("mycelial.db")
             .to_string_lossy()
@@ -230,7 +188,6 @@ impl Database {
             .create_if_missing(true)
             .connect()
             .await?;
-        // reset default endpoint to disable replicator queries
         sqlx::migrate!().run(&mut connection).await?;
         Ok(Self {
             connection: Arc::new(Mutex::new(connection)),
@@ -263,14 +220,65 @@ impl Database {
 #[derive(Debug)]
 pub struct App {
     database: Database,
+    // FIXME: this is temporary in-memory state
+    configs: Mutex<HashMap<u64, String>>,
 }
 
 impl App {
-    pub async fn new(database_dir: String) -> anyhow::Result<Self> {
-        tokio::fs::create_dir_all(database_dir.as_str()).await?;
-
-        let database = Database::new(database_dir.as_str()).await?;
-
-        Ok(Self { database })
+    /// Set pipe configs
+    async fn set_configs(&self, new_configs: Configs) {
+        let mut configs = self.configs.lock().await;
+        configs.clear();
+        new_configs.configs.into_iter().for_each(|config| {
+            configs.insert(config.id, config.raw_config);
+        });
     }
+
+    /// Return pipe configs
+    async fn get_configs(&self) -> Configs {
+        let configs = self.configs.lock().await;
+        Configs {
+            configs: configs
+                .iter()
+                .map(|(&id, raw_config)| RawConfig {
+                    id,
+                    raw_config: raw_config.clone(),
+                })
+                .collect(),
+        }
+    }
+}
+
+impl App {
+    pub async fn new(database_dir: impl AsRef<str>) -> anyhow::Result<Self> {
+        tokio::fs::create_dir_all(database_dir.as_ref()).await?;
+        let database = Database::new(database_dir.as_ref()).await?;
+        Ok(Self {
+            database,
+            configs: Mutex::new(HashMap::new()),
+        })
+    }
+}
+
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
+    let cli = CLI::try_parse()?;
+    let app = App::new("").await?;
+    let state = Arc::new(app);
+    let router = Router::new()
+        .route("/ingestion", post(ingestion))
+        .route(
+            "/pipe/configs",
+            get(get_pipe_configs).post(post_pipe_config),
+        )
+        .route("/api/client", post(provision_client))
+        .route("/api/tokens", post(issue_token))
+        .layer(middleware::from_fn(log))
+        .with_state(state);
+
+    let addr: SocketAddr = cli.listen_addr.as_str().parse()?;
+    Server::bind(&addr)
+        .serve(router.into_make_service())
+        .await?;
+    Ok(())
 }
