@@ -10,7 +10,7 @@ use clap::Parser;
 use exp2::dynamic_pipe::{
     config::Config,
     registry::{Constructor, Registry},
-    scheduler::Scheduler,
+    scheduler::{Scheduler, ScheduleResult},
     section,
     section_impls::{mycelial_net, sqlite},
 };
@@ -109,8 +109,17 @@ async fn main() -> anyhow::Result<()> {
                 if let Ok(configs) = res {
                     let mut ids: HashSet<u64> = HashSet::from_iter(scheduler.list_ids().await.unwrap().into_iter());
                     for (id, config) in configs {
-                        if let Err(e) = scheduler.add_pipe(id, config).await {
-                            println!("failed to schedule pipe: {:?}", e);
+                        match scheduler.add_pipe(id, config.clone()).await {
+                            Err(e) => {
+                                println!("failed to schedule pipe with id '{id}', error: {e:?}, config:\n{config:?}")
+                            },
+                            Ok(ScheduleResult::New) => {
+                                println!("new pipe with id '{id}' scheduled with config:\n{config:?}")
+                            },
+                            Ok(ScheduleResult::Updated) => {
+                                println!("pipe with id '{id}' re-scheduled, new config:\n{config:?}")
+                            },
+                            _ => (),
                         }
                         ids.remove(&id);
                     }
