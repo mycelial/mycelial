@@ -1,5 +1,5 @@
 //! Mycelial server
-use sqlx::{sqlite::SqliteConnectOptions, ConnectOptions, SqliteConnection};
+use sqlx::{sqlite::SqliteConnectOptions, ConnectOptions, SqliteConnection, Row};
 use std::{collections::HashMap, str::FromStr, sync::Arc};
 use tokio::sync::Mutex;
 use uuid::Uuid;
@@ -53,7 +53,7 @@ struct Configs {
 
 #[derive(Serialize, Deserialize)]
 struct RawConfig {
-    id: u64,
+    id: u32,
     raw_config: String,
 }
 
@@ -169,7 +169,7 @@ pub struct Database {
 }
 
 impl Database {
-    pub async fn new(database_dir: &str) -> Result<Self, error::Error> {
+    async fn new(database_dir: &str) -> Result<Self, error::Error> {
         let database_path = std::path::Path::new(database_dir)
             .join("mycelial.db")
             .to_string_lossy()
@@ -186,7 +186,7 @@ impl Database {
         })
     }
 
-    pub async fn insert_client(&self, client_id: &str) -> Result<(), error::Error> {
+    async fn insert_client(&self, client_id: &str) -> Result<(), error::Error> {
         let mut connection = self.connection.lock().await;
         let _ = sqlx::query("INSERT INTO clients (id) VALUES (?)")
             .bind(client_id)
@@ -195,7 +195,7 @@ impl Database {
         Ok(())
     }
 
-    pub async fn insert_token(&self, client_id: &str, token: &str) -> Result<(), error::Error> {
+    async fn insert_token(&self, client_id: &str, token: &str) -> Result<(), error::Error> {
         let mut connection = self.connection.lock().await;
         let _ = sqlx::query(
             "INSERT INTO tokens (client_id, id) VALUES (?,?) ON CONFLICT (id) DO NOTHING",
@@ -206,37 +206,71 @@ impl Database {
         .await?;
         Ok(())
     }
+
+    async fn insert_config(&self, id: &u32, config: &str) -> Result<(), error::Error> {
+        let mut connection = self.connection.lock().await;
+        let _ = sqlx::query(
+            "INSERT INTO configs (id, raw_config) VALUES (?, ?)",
+        )
+        .bind(id)
+        .bind(config)
+        .execute(&mut *connection)
+        .await?;
+        Ok(())
+    }
+
+    async fn get_configs(&self) -> Result<Option<Configs>, error::Error> {
+        let mut connection = self.connection.lock().await;
+        let rows = sqlx::query("SELECT * FROM configs GROUP BY id HAVING MAX(created_at)")
+            .fetch_all(&mut *connection)
+            .await?;
+        let configs: Configs = Configs {
+            configs: rows.iter().map(|row| {
+                let id: u32 = row.try_get("id").unwrap();
+                let raw_config: String = row.try_get("raw_config").unwrap();
+                RawConfig {
+                    id,
+                    raw_config,
+                }
+            }).collect(),
+        };
+        Ok(Some(configs))
+    }
+
+    async fn get_config(&self, id: &str) -> Result<Option<String>, error::Error> {
+        let mut connection = self.connection.lock().await;
+        let row = sqlx::query("SELECT raw_config FROM configs WHERE id = ?")
+            .bind(id)
+            .fetch_one(&mut *connection)
+            .await?;
+        let config: String = row.try_get("raw_config")?;
+        Ok(Some(config))
+    }
+
+
 }
 
 #[derive(Debug)]
 pub struct App {
     database: Database,
-    // FIXME: this is temporary in-memory state
-    configs: Mutex<HashMap<u64, String>>,
 }
 
 impl App {
     /// Set pipe configs
     async fn set_configs(&self, new_configs: Configs) {
-        let mut configs = self.configs.lock().await;
-        configs.clear();
-        new_configs.configs.into_iter().for_each(|config| {
-            configs.insert(config.id, config.raw_config);
-        });
+        for config in new_configs.configs {
+             match self.database.insert_config(&config.id, config.raw_config.as_str()).await {
+                Ok(_) => { }
+                Err(e) => {
+                    println!("Failed to insert config: {:?}", e);
+                }
+             };
+        };
     }
 
     /// Return pipe configs
     async fn get_configs(&self) -> Configs {
-        let configs = self.configs.lock().await;
-        Configs {
-            configs: configs
-                .iter()
-                .map(|(&id, raw_config)| RawConfig {
-                    id,
-                    raw_config: raw_config.clone(),
-                })
-                .collect(),
-        }
+        self.database.get_configs().await.unwrap().unwrap()
     }
 }
 
@@ -246,8 +280,6 @@ impl App {
         let database = Database::new(database_dir.as_ref()).await?;
         Ok(Self {
             database,
-            // FIXME: temporary in-mem storage, should be persisted in DB
-            configs: Mutex::new(HashMap::new()),
         })
     }
 }
