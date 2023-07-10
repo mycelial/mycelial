@@ -1,19 +1,10 @@
 //! Mycelial server
-use sqlx::{sqlite::SqliteConnectOptions, ConnectOptions, SqliteConnection, Row};
-use std::{collections::HashMap, str::FromStr, sync::Arc};
-use tokio::sync::Mutex;
-use uuid::Uuid;
-use tower_http::cors::{Any, CorsLayer};
-
-
-mod error;
-
 use arrow::ipc::reader::StreamReader;
 use axum::{
     extract::{BodyStream, State},
     headers::{authorization::Basic, Authorization},
     http::StatusCode,
-    http::{Method, Request, Uri, HeaderValue},
+    http::{Method, Request, Uri},
     middleware::{self, Next},
     response::{IntoResponse, Response},
     routing::{get, post},
@@ -22,10 +13,16 @@ use axum::{
 use chrono::Utc;
 use clap::Parser;
 use futures::StreamExt;
-use serde_json::json;
-
 use serde::{Deserialize, Serialize};
+use serde_json::json;
+use sqlx::{sqlite::SqliteConnectOptions, ConnectOptions, Row, SqliteConnection};
 use std::net::SocketAddr;
+use std::{str::FromStr, sync::Arc};
+use tokio::sync::Mutex;
+use tower_http::cors::{Any, CorsLayer};
+use uuid::Uuid;
+
+mod error;
 
 #[derive(Parser)]
 struct CLI {
@@ -61,7 +58,10 @@ async fn get_pipe_configs(State(app): State<Arc<App>>) -> Json<Configs> {
     Json(app.get_configs().await)
 }
 
-async fn post_pipe_config(State(app): State<Arc<App>>, Json(configs): Json<Configs>) -> impl IntoResponse {
+async fn post_pipe_config(
+    State(app): State<Arc<App>>,
+    Json(configs): Json<Configs>,
+) -> impl IntoResponse {
     app.set_configs(configs).await;
     Json("ok")
 }
@@ -120,9 +120,7 @@ async fn provision_client(
 
             (StatusCode::OK, Ok(Json(response)))
         }
-        Err(e) => {
-            (StatusCode::INTERNAL_SERVER_ERROR, Err(e))
-        }
+        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, Err(e)),
     }
 }
 
@@ -155,9 +153,7 @@ async fn issue_token(
             };
             (StatusCode::OK, Ok(Json(response)))
         }
-        Err(e) => {
-            (StatusCode::INTERNAL_SERVER_ERROR, Err(e))
-        }
+        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, Err(e)),
     }
 }
 
@@ -209,13 +205,11 @@ impl Database {
 
     async fn insert_config(&self, id: &u32, config: &str) -> Result<(), error::Error> {
         let mut connection = self.connection.lock().await;
-        let _ = sqlx::query(
-            "INSERT INTO configs (id, raw_config) VALUES (?, ?)",
-        )
-        .bind(id)
-        .bind(config)
-        .execute(&mut *connection)
-        .await?;
+        let _ = sqlx::query("INSERT INTO configs (id, raw_config) VALUES (?, ?)")
+            .bind(id)
+            .bind(config)
+            .execute(&mut *connection)
+            .await?;
         Ok(())
     }
 
@@ -225,18 +219,19 @@ impl Database {
             .fetch_all(&mut *connection)
             .await?;
         let configs: Configs = Configs {
-            configs: rows.iter().map(|row| {
-                let id: u32 = row.try_get("id").unwrap();
-                let raw_config: String = row.try_get("raw_config").unwrap();
-                RawConfig {
-                    id,
-                    raw_config,
-                }
-            }).collect(),
+            configs: rows
+                .iter()
+                .map(|row| {
+                    let id: u32 = row.try_get("id").unwrap();
+                    let raw_config: String = row.try_get("raw_config").unwrap();
+                    RawConfig { id, raw_config }
+                })
+                .collect(),
         };
         Ok(Some(configs))
     }
 
+    #[allow(unused)]
     async fn get_config(&self, id: &str) -> Result<Option<String>, error::Error> {
         let mut connection = self.connection.lock().await;
         let row = sqlx::query("SELECT raw_config FROM configs WHERE id = ?")
@@ -246,8 +241,6 @@ impl Database {
         let config: String = row.try_get("raw_config")?;
         Ok(Some(config))
     }
-
-
 }
 
 #[derive(Debug)]
@@ -259,13 +252,17 @@ impl App {
     /// Set pipe configs
     async fn set_configs(&self, new_configs: Configs) {
         for config in new_configs.configs {
-             match self.database.insert_config(&config.id, config.raw_config.as_str()).await {
-                Ok(_) => { }
+            match self
+                .database
+                .insert_config(&config.id, config.raw_config.as_str())
+                .await
+            {
+                Ok(_) => {}
                 Err(e) => {
                     println!("Failed to insert config: {:?}", e);
                 }
-             };
-        };
+            };
+        }
     }
 
     /// Return pipe configs
@@ -278,9 +275,7 @@ impl App {
     pub async fn new(database_dir: impl AsRef<str>) -> anyhow::Result<Self> {
         tokio::fs::create_dir_all(database_dir.as_ref()).await?;
         let database = Database::new(database_dir.as_ref()).await?;
-        Ok(Self {
-            database,
-        })
+        Ok(Self { database })
     }
 }
 
