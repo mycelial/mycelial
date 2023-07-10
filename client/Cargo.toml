@@ -9,8 +9,8 @@ edition = "2021"
 tokio = { version = "1", features = ["full"] }
 clap = { version = "4", features = ["derive", "env"] }
 reqwest = { version = "0.11", features = ["json"] }
-#exp2 = { git="https://github.com/mycelial/pipexperiments" }
-exp2 = { path = "../../pipexperiments/exp2" }
+exp2 = { git="https://github.com/mycelial/pipexperiments", rev="6d9689f2d425aa4593588bf2933753586f7707f9" }
+#exp2 = { path = "../../pipexperiments/exp2" }
 anyhow = "1"
 base64 = { version = "0.21" }
 serde = { version = "1", features = ["derive"]}
