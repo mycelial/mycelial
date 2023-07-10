@@ -8,11 +8,11 @@ use std::{time::Duration, collections::HashSet};
 use base64::engine::{general_purpose::STANDARD as BASE64, Engine};
 use clap::Parser;
 use exp2::dynamic_pipe::{
-    config::Config,
+    config::{Config, Value},
     registry::{Constructor, Registry},
     scheduler::{Scheduler, ScheduleResult},
     section,
-    section_impls::{mycelial_net, sqlite},
+    section_impls::{mycelial_net, sqlite, self},
 };
 use serde::Deserialize;
 use tokio::time::sleep;
@@ -46,21 +46,63 @@ fn setup_registry() -> Registry {
         })
 }
 
+/// Http Client
 #[derive(Debug)]
 struct Client {
+    /// Mycelial server endpoint
     endpoint: String,
+    /// Auth token (FIXME: unused)
     token: String,
 }
 
+/// PipeConfig
 #[derive(Debug, Deserialize)]
-pub struct RawConfig {
+struct PipeConfig {
+    /// Scheduler needs to maintain pipe processes:
+    /// - start new pipes
+    /// - restart pipes on configuration update
+    /// - stop pipes, when pipe was removed from configuration list
+    ///
+    /// To do that - each pipe config needs to be uniquely identified, so here is u64 integer to
+    /// help with that.
     id: u64,
-    raw_config: String,
+
+    /// # Example of config
+    /// ```json
+    /// {"configs": [
+    ///     {
+    ///         "id":1,
+    ///         "pipe": {
+    ///         "section": [
+    ///             {
+    ///                 "name": "sqlite",
+    ///                 "path": "/tmp/test.sqlite",
+    ///                 "query": "select * from test"
+    ///             },
+    ///             {
+    ///                 "endpoint": "http://localhost:8080/ingestion",
+    ///                 "name": "mycelial_net",
+    ///                 "token": "mycelial_net_token"
+    ///             }
+    ///         ]
+    ///     }
+    /// }]}
+    /// ```
+    pipe: serde_json::Value,
+}
+
+impl TryInto<Config> for PipeConfig {
+    type Error = section::Error;
+
+    fn try_into(self) -> Result<Config, Self::Error> {
+        let value: Value = self.pipe.try_into()?;
+        Ok(Config::try_from(value)?)
+    }
 }
 
 #[derive(Debug, Deserialize)]
-pub struct Configs {
-    configs: Vec<RawConfig>,
+struct PipeConfigs {
+    configs: Vec<PipeConfig>,
 }
 
 impl Client {
@@ -70,10 +112,11 @@ impl Client {
             token: token.into(),
         }
     }
-    async fn get_configs(&self) -> Result<Vec<RawConfig>, section::Error> {
+
+    async fn get_configs(&self) -> Result<Vec<PipeConfig>, section::Error> {
         let client = reqwest::Client::new();
         let url = format!("{}/pipe/configs", self.endpoint.as_str());
-        let configs: Configs = client
+        let configs: PipeConfigs = client
             .get(url)
             .header("Authorization", self.basic_auth())
             .send()
@@ -88,6 +131,9 @@ impl Client {
     }
 }
 
+/// FIXME:
+/// - prints & unwraps in error handling
+/// - better structure - http client and scheduler mushed together in the same loop
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let cli = CLI::try_parse()?;
@@ -96,40 +142,25 @@ async fn main() -> anyhow::Result<()> {
 
     loop {
         match client.get_configs().await {
-            Ok(raw_configs) => {
-                let res = raw_configs
-                    .iter()
-                    .map(
-                        |raw_conf| match Config::try_from_json(&raw_conf.raw_config) {
-                            Ok(c) => Ok((raw_conf.id, c)),
-                            Err(e) => Err(e),
-                        },
-                    )
-                    .collect::<Result<Vec<_>, _>>();
-                if let Ok(configs) = res {
-                    let mut ids: HashSet<u64> = HashSet::from_iter(scheduler.list_ids().await.unwrap().into_iter());
-                    for (id, config) in configs {
-                        match scheduler.add_pipe(id, config.clone()).await {
-                            Err(e) => {
-                                println!("failed to schedule pipe with id '{id}', error: {e:?}, config:\n{config:?}")
-                            },
-                            Ok(ScheduleResult::New) => {
-                                println!("new pipe with id '{id}' scheduled with config:\n{config:?}")
-                            },
-                            Ok(ScheduleResult::Updated) => {
-                                println!("pipe with id '{id}' re-scheduled, new config:\n{config:?}")
-                            },
-                            _ => (),
+            Ok(pipe_configs) => {
+                let mut ids: HashSet<u64> = HashSet::from_iter(scheduler.list_ids().await.unwrap().into_iter());
+                for pipe_config in pipe_configs.into_iter() {
+                    let id = pipe_config.id;
+                    let config: Config = match pipe_config.try_into() {
+                        Ok(c) => c,
+                        Err(e) => {
+                            println!("bad pipe config: {:?}", e);
+                            continue
                         }
-                        ids.remove(&id);
-                    }
-                    for id in ids.into_iter(){
-                        scheduler.remove_pipe(id).await.unwrap()
                     };
-                } else {
-                    println!("raw_configs: {:?}", raw_configs);
-                    println!("failed to parse configs: {:?}", res);
+                    if let Err(e) = scheduler.add_pipe(id, config).await {
+                        println!("failed to schedule pipe: {:?}", e);
+                    }
+                    ids.remove(&id);
                 }
+                for id in ids.into_iter(){
+                    scheduler.remove_pipe(id).await.unwrap()
+                };
             }
             Err(e) => {
                 println!("failed to contact server: {:?}", e);

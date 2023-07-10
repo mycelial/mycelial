@@ -45,13 +45,13 @@ async fn ingestion(mut body: BodyStream) -> impl IntoResponse {
 
 #[derive(Serialize, Deserialize)]
 struct Configs {
-    configs: Vec<RawConfig>,
+    configs: Vec<PipeConfig>,
 }
 
 #[derive(Serialize, Deserialize)]
-struct RawConfig {
+struct PipeConfig{
     id: u32,
-    raw_config: String,
+    pipe: serde_json::Value,
 }
 
 async fn get_pipe_configs(State(app): State<Arc<App>>) -> Json<Configs> {
@@ -203,8 +203,10 @@ impl Database {
         Ok(())
     }
 
-    async fn insert_config(&self, id: &u32, config: &str) -> Result<(), error::Error> {
+    async fn insert_config(&self, id: &u32, config: &serde_json::Value) -> Result<(), error::Error> {
         let mut connection = self.connection.lock().await;
+        // FIXME: unwrap
+        let config: String = serde_json::to_string(config).unwrap();
         let _ = sqlx::query("INSERT INTO configs (id, raw_config) VALUES (?, ?)")
             .bind(id)
             .bind(config)
@@ -215,16 +217,19 @@ impl Database {
 
     async fn get_configs(&self) -> Result<Option<Configs>, error::Error> {
         let mut connection = self.connection.lock().await;
-        let rows = sqlx::query("SELECT * FROM configs GROUP BY id HAVING MAX(created_at)")
+        // FIXME: sqlx allows query_as<Struct>
+        let rows = sqlx::query("SELECT id, raw_config FROM configs GROUP BY id HAVING MAX(created_at)")
             .fetch_all(&mut *connection)
             .await?;
         let configs: Configs = Configs {
             configs: rows
-                .iter()
+                .into_iter()
                 .map(|row| {
-                    let id: u32 = row.try_get("id").unwrap();
-                    let raw_config: String = row.try_get("raw_config").unwrap();
-                    RawConfig { id, raw_config }
+                    // FIXME: get() will panic if column not presented
+                    let id: u32 = row.get("id");
+                    let raw_config: String = row.get("raw_config");
+                    let pipe: serde_json::Value = serde_json::from_str(raw_config.as_str()).unwrap();
+                    PipeConfig { id, pipe }
                 })
                 .collect(),
         };
@@ -243,7 +248,7 @@ impl App {
         for config in new_configs.configs {
             match self
                 .database
-                .insert_config(&config.id, config.raw_config.as_str())
+                .insert_config(&config.id, &config.pipe)
                 .await
             {
                 Ok(_) => {}
