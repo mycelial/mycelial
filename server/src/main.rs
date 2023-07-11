@@ -230,17 +230,6 @@ impl Database {
         };
         Ok(Some(configs))
     }
-
-    #[allow(unused)]
-    async fn get_config(&self, id: &str) -> Result<Option<String>, error::Error> {
-        let mut connection = self.connection.lock().await;
-        let row = sqlx::query("SELECT raw_config FROM configs WHERE id = ?")
-            .bind(id)
-            .fetch_one(&mut *connection)
-            .await?;
-        let config: String = row.try_get("raw_config")?;
-        Ok(Some(config))
-    }
 }
 
 #[derive(Debug)]
