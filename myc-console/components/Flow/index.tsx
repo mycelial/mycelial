@@ -347,15 +347,49 @@ function NavbarSearch(props: NavbarSearchProps) {
   );
 }
 
+async function getStartingUI() {
+    try {
+        const response = await fetch("http://localhost:8080/api/ui-metadata", {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+      const result = await response.json();
+      return result;
+    } catch (error) {
+    }
+}
+
 function Flow() {
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
+
 
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
   const onConnect = useCallback((params: Connection | Edge) => setEdges((eds) => addEdge(params, eds)), []);
 
-  console.log(nodes);
-  console.log(edges);
+  const setInitialElements = useCallback(async () => {
+    let ui_metadata = await getStartingUI();
+
+    ui_metadata?.ui_metadata.nodes.forEach((node: any) => {
+      setNodes((nds) => nds.concat(node));
+      id++; // this is super jank, but is required to prevent an id collision issue that was happening
+            // when adding new nodes after nodes have already been pre-populated from the server
+    });
+
+    ui_metadata?.ui_metadata.edges.forEach((edge: any) => {
+      setEdges((eds) => eds.concat(edge));
+    });
+
+  }, []);
+
+  useEffect(() => {
+    setInitialElements();
+  }, []);
+
+  // console.log(nodes);
+  // console.log(edges);
 
   const [reactFlowInstance, setReactFlowInstance] = useState<ReactFlowInstance | null>(null);
 
@@ -405,6 +439,7 @@ function Flow() {
 
     const payload = {
       configs: configs,
+      ui_metadata: rf.toObject(),
     };
 
     
