@@ -9,6 +9,11 @@ import styles from '@/components/Flow/Flow.module.css';
 const SqliteSourceNode: FC<NodeProps> = memo(({ id, data }) => {
   const instance = useReactFlow();
 
+  let defaultValues = {
+    databasePath: "/tmp/test.sqlite",
+    sqlQuery: "select * from test;"
+  };
+
   const handleChange = useCallback((name: string, value: string) => {
     instance.setNodes((nodes) => nodes.map((node) => {
       if (node.id === id) {
@@ -22,18 +27,23 @@ const SqliteSourceNode: FC<NodeProps> = memo(({ id, data }) => {
     }));
   }, []);
 
+  useEffect(() => {
+    handleChange("path", defaultValues.databasePath);
+    handleChange("query", defaultValues.sqlQuery);
+  }, [id]);
+
   return (
     <div className={styles.customNode}>
       <TextInput
-        placeholder="/tmp/test.sqlite"
-        defaultValue="/tmp/test.sqlite"
         label="SQLite Database Path"
+        placeholder={defaultValues.databasePath}
+        defaultValue={defaultValues.databasePath}
         onChange={(event) => handleChange("path", event.currentTarget.value)}
       />
       <TextInput
-        placeholder="select * from test;"
-        defaultValue="select * from test;"
         label="SQL query"
+        placeholder={defaultValues.sqlQuery}
+        defaultValue={defaultValues.sqlQuery}
         onChange={(event) => handleChange("query", event.currentTarget.value)}
       />
       <Handle type="source" position={Position.Right} id={id} />
@@ -43,6 +53,11 @@ const SqliteSourceNode: FC<NodeProps> = memo(({ id, data }) => {
 
 const MycelialNetworkNode: FC<NodeProps> = memo(({ id, data }) => {
   const instance = useReactFlow();
+
+  let defaultValues = {
+    endpoint: "http://localhost:8000/ingestion",
+    token: "..."
+  };
 
   const handleChange = useCallback((name: string, value: string) => {
     instance.setNodes((nodes) => nodes.map((node) => {
@@ -59,19 +74,24 @@ const MycelialNetworkNode: FC<NodeProps> = memo(({ id, data }) => {
     }));
   }, []);
 
+  useEffect(() => {
+    handleChange("endpoint", defaultValues.endpoint);
+    handleChange("token", defaultValues.token);
+  }, [id]);
+
   return (
     <div className={styles.customNode}>
       <Handle type="target" position={Position.Left} id={id} />
       <TextInput
-        placeholder="http://localhost:8000/ingestion"
-        defaultValue="http://localhost:8000/ingestion"
         label="Mycelial Network Endpoint"
+        placeholder={defaultValues.endpoint}
+        defaultValue={defaultValues.endpoint}
         onChange={(event) => handleChange('endpoint', event.currentTarget.value)}
       />
       <TextInput
-        placeholder="8dh5UPbaqQhdpF"
         label="Token"
-        defaultValue="..."
+        placeholder={defaultValues.token}
+        defaultValue={defaultValues.token}
         onChange={(event) => handleChange('token', event.currentTarget.value)}
       />
     </div>
