@@ -7,12 +7,6 @@ use sqlx::migrate::MigrateError;
 // TODO: figure out this error stuff, I just copied and pasted this for now.
 #[derive(Debug)]
 pub enum Error {
-    // unauthorized request to hub endpoint
-    HubAuthError,
-
-    // unauthorized request to client endpoint
-    ClientAuthError,
-
     // status code wrap, probably not needed
     StatusCode(StatusCode),
 
@@ -99,7 +93,6 @@ impl IntoResponse for Error {
     fn into_response(self) -> Response {
         let mut response: Response = match self {
             Self::StatusCode(s) => s,
-            Self::HubAuthError | Self::ClientAuthError => StatusCode::FORBIDDEN,
             _ => StatusCode::INTERNAL_SERVER_ERROR,
         }
         .into_response();
