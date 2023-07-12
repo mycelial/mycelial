@@ -43,12 +43,18 @@ async fn ingestion(mut body: BodyStream) -> impl IntoResponse {
     ""
 }
 
-#[derive(Serialize, Deserialize)]
-struct Configs {
-    configs: Vec<PipeConfig>,
+#[derive(Serialize, Deserialize, Debug)]
+struct UIConfig {
+    ui_metadata: Option<serde_json::Value>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
+struct Configs {
+    configs: Vec<PipeConfig>,
+    ui_metadata: Option<serde_json::Value>,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
 struct PipeConfig{
     id: u32,
     pipe: serde_json::Value,
@@ -106,6 +112,11 @@ struct ProvisionClientRequest {
 struct ProvisionClientResponse {
     id: String,
 }
+
+async fn get_ui_metadata(State(app): State<Arc<App>>) -> Json<UIConfig> {
+    Json(app.get_ui_metadata().await)
+}
+
 
 async fn provision_client(
     State(state): State<Arc<App>>,
@@ -215,12 +226,40 @@ impl Database {
         Ok(())
     }
 
+    async fn insert_ui_metadata(&self, ui_metadata: &Option<serde_json::Value>) -> Result<(), error::Error> {
+        let ui_metadata = match ui_metadata {
+            Some(ui_metadata) => ui_metadata,
+            None => return Ok(()),
+        };
+        let mut connection = self.connection.lock().await;
+
+        // FIXME: unwrap
+        let config: String = serde_json::to_string(ui_metadata).unwrap();
+        let _ = sqlx::query("INSERT INTO ui_metadata (raw_config) VALUES (?)")
+            .bind(config)
+            .execute(&mut *connection)
+            .await?;
+        Ok(())
+    }
+
+    async fn get_ui_metadata(&self) -> Result<UIConfig, error::Error> {
+        let mut connection = self.connection.lock().await;
+        let row = sqlx::query("SELECT raw_config FROM ui_metadata ORDER BY created_at DESC LIMIT 1")
+            .fetch_one(&mut *connection)
+            .await?;
+        // FIXME: get() will panic if column not presented
+        let raw: String = row.get("raw_config");
+        let ui_metadata: serde_json::Value = serde_json::from_str(raw.as_str()).unwrap();
+        Ok(UIConfig { ui_metadata: Some(ui_metadata) })
+    }
+
     async fn get_configs(&self) -> Result<Option<Configs>, error::Error> {
         let mut connection = self.connection.lock().await;
         // FIXME: sqlx allows query_as<Struct>
         let rows = sqlx::query("SELECT id, raw_config FROM configs GROUP BY id HAVING MAX(created_at)")
             .fetch_all(&mut *connection)
             .await?;
+
         let configs: Configs = Configs {
             configs: rows
                 .into_iter()
@@ -232,6 +271,7 @@ impl Database {
                     PipeConfig { id, pipe }
                 })
                 .collect(),
+            ui_metadata: None,
         };
         Ok(Some(configs))
     }
@@ -256,12 +296,25 @@ impl App {
                     println!("Failed to insert config: {:?}", e);
                 }
             };
+
+            // FIXME unwrap
+            self.database.insert_ui_metadata(&new_configs.ui_metadata).await.unwrap();
         }
     }
 
     /// Return pipe configs
     async fn get_configs(&self) -> Configs {
         self.database.get_configs().await.unwrap().unwrap()
+    }
+
+    async fn get_ui_metadata(&self) -> UIConfig {
+        match self.database.get_ui_metadata().await {
+            Ok(ui_metadata) => ui_metadata,
+            Err(e) => {
+                println!("Failed to get ui_metadata: {:?}", e);
+                UIConfig { ui_metadata: None }
+            }
+        }
     }
 }
 
@@ -287,6 +340,7 @@ async fn main() -> anyhow::Result<()> {
         )
         .route("/api/client", post(provision_client))
         .route("/api/tokens", post(issue_token))
+        .route("/api/ui-metadata", get(get_ui_metadata))
         .layer(middleware::from_fn(log))
         .layer(
             CorsLayer::new()
