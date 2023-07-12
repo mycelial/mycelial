@@ -398,12 +398,7 @@ function Flow() {
         })
       }
 
-      configs.push({
-        "id": configId,
-        "raw_config": JSON.stringify({
-          section: section
-        })
-      });
+      configs.push({ "id": configId, "pipe": section });
 
       // console.log(sourceNode?.data, targetNode?.data);
     }
