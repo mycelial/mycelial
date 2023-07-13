@@ -9,9 +9,9 @@ import styles from '@/components/Flow/Flow.module.css';
 const SqliteSourceNode: FC<NodeProps> = memo(({ id, data }) => {
   const instance = useReactFlow();
 
-  let defaultValues = {
-    databasePath: "/tmp/test.sqlite",
-    sqlQuery: "select * from test;"
+  let initialValues = {
+    databasePath: data.path ? data.path : "/tmp/test.sqlite",
+    sqlQuery: data.query ? data.query : "select * from test;"
   };
 
   const handleChange = useCallback((name: string, value: string) => {
@@ -28,22 +28,22 @@ const SqliteSourceNode: FC<NodeProps> = memo(({ id, data }) => {
   }, []);
 
   useEffect(() => {
-    handleChange("path", defaultValues.databasePath);
-    handleChange("query", defaultValues.sqlQuery);
+    handleChange("path", initialValues.databasePath);
+    handleChange("query", initialValues.sqlQuery);
   }, [id]);
 
   return (
     <div className={styles.customNode}>
       <TextInput
         label="SQLite Database Path"
-        placeholder={defaultValues.databasePath}
-        defaultValue={defaultValues.databasePath}
+        placeholder={initialValues.databasePath}
+        defaultValue={initialValues.databasePath}
         onChange={(event) => handleChange("path", event.currentTarget.value)}
       />
       <TextInput
         label="SQL query"
-        placeholder={defaultValues.sqlQuery}
-        defaultValue={defaultValues.sqlQuery}
+        placeholder={initialValues.sqlQuery}
+        defaultValue={initialValues.sqlQuery}
         onChange={(event) => handleChange("query", event.currentTarget.value)}
       />
       <Handle type="source" position={Position.Right} id={id} />
@@ -54,9 +54,9 @@ const SqliteSourceNode: FC<NodeProps> = memo(({ id, data }) => {
 const MycelialNetworkNode: FC<NodeProps> = memo(({ id, data }) => {
   const instance = useReactFlow();
 
-  let defaultValues = {
-    endpoint: "http://localhost:8000/ingestion",
-    token: "..."
+  let initialValues = {
+    endpoint: data.endpoint ? data.endpoint : "http://localhost:8000/ingestion",
+    token: data.token ? data.token : "...",
   };
 
   const handleChange = useCallback((name: string, value: string) => {
@@ -75,8 +75,8 @@ const MycelialNetworkNode: FC<NodeProps> = memo(({ id, data }) => {
   }, []);
 
   useEffect(() => {
-    handleChange("endpoint", defaultValues.endpoint);
-    handleChange("token", defaultValues.token);
+    handleChange("endpoint", initialValues.endpoint);
+    handleChange("token", initialValues.token);
   }, [id]);
 
   return (
@@ -84,14 +84,14 @@ const MycelialNetworkNode: FC<NodeProps> = memo(({ id, data }) => {
       <Handle type="target" position={Position.Left} id={id} />
       <TextInput
         label="Mycelial Network Endpoint"
-        placeholder={defaultValues.endpoint}
-        defaultValue={defaultValues.endpoint}
+        placeholder={initialValues.endpoint}
+        defaultValue={initialValues.endpoint}
         onChange={(event) => handleChange('endpoint', event.currentTarget.value)}
       />
       <TextInput
         label="Token"
-        placeholder={defaultValues.token}
-        defaultValue={defaultValues.token}
+        placeholder={initialValues.token}
+        defaultValue={initialValues.token}
         onChange={(event) => handleChange('token', event.currentTarget.value)}
       />
     </div>
@@ -102,9 +102,9 @@ const MycelialNetworkNode: FC<NodeProps> = memo(({ id, data }) => {
 const KafkaSourceNode: FC<NodeProps> = memo(({ id, data }) => {
   const instance = useReactFlow();
 
-  let defaultValues = {
-    brokers: "localhost:9090",
-    topics: "topic-0"
+  let initialValues = {
+    brokers: data.brokers ? data.brokers : "localhost:9090",
+    topics: data.topics ? data.topics : "topic-0",
   };
 
   const handleChange = useCallback((name: string, value: string) => {
@@ -121,22 +121,22 @@ const KafkaSourceNode: FC<NodeProps> = memo(({ id, data }) => {
   }, []);
 
   useEffect(() => {
-    handleChange("brokers", defaultValues.brokers);
-    handleChange("topics", defaultValues.topics);
+    handleChange("brokers", initialValues.brokers);
+    handleChange("topics", initialValues.topics);
   }, [id]);
 
   return (
     <div className={styles.customNode}>
       <TextInput
         label="Brokers"
-        placeholder={defaultValues.brokers}
-        defaultValue={defaultValues.brokers}
+        placeholder={initialValues.brokers}
+        defaultValue={initialValues.brokers}
         onChange={(event) => handleChange("brokers", event.currentTarget.value)}
       />
       <TextInput
         label="Topics"
-        placeholder={defaultValues.topics}
-        defaultValue={defaultValues.topics}
+        placeholder={initialValues.topics}
+        defaultValue={initialValues.topics}
         onChange={(event) => handleChange("topics", event.currentTarget.value)}
       />
       <Handle type="source" position={Position.Right} id={id} />
