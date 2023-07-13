@@ -65,10 +65,7 @@ struct PipeConfig {
 }
 
 async fn get_pipe_configs(State(app): State<Arc<App>>) -> Result<impl IntoResponse, error::Error> {
-    match app.get_configs().await {
-        Ok(configs) => Ok(axum::Json(configs)),
-        Err(e) => Err(error::Error::from(e)),
-    }
+    Ok(app.get_configs().await.map(Json)?)
 }
 
 async fn post_pipe_config(
@@ -117,16 +114,8 @@ struct ProvisionClientRequest {
     id: String,
 }
 
-#[derive(Deserialize, Serialize, Debug)]
-struct ProvisionClientResponse {
-    id: String,
-}
-
 async fn get_ui_metadata(State(app): State<Arc<App>>) -> Result<impl IntoResponse, error::Error> {
-    match app.get_ui_metadata().await {
-        Ok(ui_metadata) => Ok(axum::Json(ui_metadata)),
-        Err(e) => Err(error::Error::from(e)),
-    }
+    Ok(app.get_ui_metadata().await.map(Json)?)
 }
 
 async fn provision_client(
@@ -135,8 +124,7 @@ async fn provision_client(
 ) -> Result<impl IntoResponse, error::Error> {
     let client_id = payload.id;
 
-    // todo: need to return the id here...
-    state.database.insert_client(&client_id).await
+    state.database.insert_client(&client_id).await.map(|_| Json(json!({"id": client_id})))
 }
 
 #[derive(Deserialize)]
