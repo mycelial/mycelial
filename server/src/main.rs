@@ -3,7 +3,6 @@ use arrow::{ipc::reader::StreamReader, util::pretty::pretty_format_batches};
 use axum::{
     extract::{BodyStream, State},
     headers::{authorization::Basic, Authorization},
-    http::StatusCode,
     http::{Method, Request, Uri},
     middleware::{self, Next},
     response::{IntoResponse, Response},
@@ -39,7 +38,10 @@ async fn ingestion(mut body: BodyStream) -> impl IntoResponse {
     let reader = StreamReader::try_new(buf.as_slice(), None).unwrap();
     for record_batch in reader {
         if let Ok(record_batch) = record_batch {
-            println!("got new record batch:\n{}", pretty_format_batches(&[record_batch]).unwrap());
+            println!(
+                "got new record batch:\n{}",
+                pretty_format_batches(&[record_batch]).unwrap()
+            );
         }
     }
     ""
@@ -57,21 +59,20 @@ struct Configs {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-struct PipeConfig{
+struct PipeConfig {
     id: u32,
     pipe: serde_json::Value,
 }
 
-async fn get_pipe_configs(State(app): State<Arc<App>>) -> Json<Configs> {
-    Json(app.get_configs().await)
+async fn get_pipe_configs(State(app): State<Arc<App>>) -> Result<impl IntoResponse, error::Error> {
+    Ok(app.get_configs().await.map(Json)?)
 }
 
 async fn post_pipe_config(
     State(app): State<Arc<App>>,
     Json(configs): Json<Configs>,
-) -> impl IntoResponse {
-    app.set_configs(configs).await;
-    Json("ok")
+) -> Result<impl IntoResponse, error::Error> {
+    app.set_configs(configs).await
 }
 
 // log response middleware
@@ -92,6 +93,8 @@ async fn log<B>(
         None => "",
         Some(TypedHeader(Authorization(basic))) => basic.username(),
     };
+
+    let error: Option<&error::Error> = response.extensions().get();
     // FIXME: do not log token
     let log = json!({
         "token": token,
@@ -100,6 +103,7 @@ async fn log<B>(
         "method": method.as_str(),
         "status_code": response.status().as_u16(),
         "path": uri.path(),
+        "error": error.map(|e| format!("{:?}", e)),
     });
     println!("{}", log);
     response
@@ -110,31 +114,17 @@ struct ProvisionClientRequest {
     id: String,
 }
 
-#[derive(Deserialize, Serialize, Debug)]
-struct ProvisionClientResponse {
-    id: String,
+async fn get_ui_metadata(State(app): State<Arc<App>>) -> Result<impl IntoResponse, error::Error> {
+    Ok(app.get_ui_metadata().await.map(Json)?)
 }
-
-async fn get_ui_metadata(State(app): State<Arc<App>>) -> Json<UIConfig> {
-    Json(app.get_ui_metadata().await)
-}
-
 
 async fn provision_client(
     State(state): State<Arc<App>>,
     Json(payload): Json<ProvisionClientRequest>,
-) -> impl IntoResponse {
+) -> Result<impl IntoResponse, error::Error> {
     let client_id = payload.id;
 
-    let result = state.database.insert_client(&client_id).await;
-    match result {
-        Ok(_) => {
-            let response = ProvisionClientResponse { id: client_id };
-
-            (StatusCode::OK, Ok(Json(response)))
-        }
-        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, Err(e)),
-    }
+    state.database.insert_client(&client_id).await.map(|_| Json(json!({"id": client_id})))
 }
 
 #[derive(Deserialize)]
@@ -151,7 +141,7 @@ struct IssueTokenResponse {
 async fn issue_token(
     State(state): State<Arc<App>>,
     Json(payload): Json<IssueTokenRequest>,
-) -> impl IntoResponse {
+) -> Result<impl IntoResponse, error::Error> {
     let client_id = payload.client_id.clone();
 
     // todo: It'd be smarter/safer to store the salted & hashed token in the database
@@ -164,9 +154,9 @@ async fn issue_token(
                 id: token,
                 client_id,
             };
-            (StatusCode::OK, Ok(Json(response)))
+            Ok(Json(response))
         }
-        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, Err(e)),
+        Err(e) => Err(e),
     }
 }
 
@@ -216,10 +206,14 @@ impl Database {
         Ok(())
     }
 
-    async fn insert_config(&self, id: &u32, config: &serde_json::Value) -> Result<(), error::Error> {
+    async fn insert_config(
+        &self,
+        id: &u32,
+        config: &serde_json::Value,
+    ) -> Result<(), error::Error> {
         let mut connection = self.connection.lock().await;
         // FIXME: unwrap
-        let config: String = serde_json::to_string(config).unwrap();
+        let config: String = serde_json::to_string(config)?;
         let _ = sqlx::query("INSERT INTO configs (id, raw_config) VALUES (?, ?)")
             .bind(id)
             .bind(config)
@@ -228,7 +222,10 @@ impl Database {
         Ok(())
     }
 
-    async fn insert_ui_metadata(&self, ui_metadata: &Option<serde_json::Value>) -> Result<(), error::Error> {
+    async fn insert_ui_metadata(
+        &self,
+        ui_metadata: &Option<serde_json::Value>,
+    ) -> Result<(), error::Error> {
         let ui_metadata = match ui_metadata {
             Some(ui_metadata) => ui_metadata,
             None => return Ok(()),
@@ -246,21 +243,25 @@ impl Database {
 
     async fn get_ui_metadata(&self) -> Result<UIConfig, error::Error> {
         let mut connection = self.connection.lock().await;
-        let row = sqlx::query("SELECT raw_config FROM ui_metadata ORDER BY created_at DESC LIMIT 1")
-            .fetch_one(&mut *connection)
-            .await?;
+        let row =
+            sqlx::query("SELECT raw_config FROM ui_metadata ORDER BY created_at DESC LIMIT 1")
+                .fetch_one(&mut *connection)
+                .await?;
         // FIXME: get() will panic if column not presented
         let raw: String = row.get("raw_config");
         let ui_metadata: serde_json::Value = serde_json::from_str(raw.as_str()).unwrap();
-        Ok(UIConfig { ui_metadata: Some(ui_metadata) })
+        Ok(UIConfig {
+            ui_metadata: Some(ui_metadata),
+        })
     }
 
-    async fn get_configs(&self) -> Result<Option<Configs>, error::Error> {
+    async fn get_configs(&self) -> Result<Configs, error::Error> {
         let mut connection = self.connection.lock().await;
         // FIXME: sqlx allows query_as<Struct>
-        let rows = sqlx::query("SELECT id, raw_config FROM configs GROUP BY id HAVING MAX(created_at)")
-            .fetch_all(&mut *connection)
-            .await?;
+        let rows =
+            sqlx::query("SELECT id, raw_config FROM configs GROUP BY id HAVING MAX(created_at)")
+                .fetch_all(&mut *connection)
+                .await?;
 
         let configs: Configs = Configs {
             configs: rows
@@ -269,13 +270,17 @@ impl Database {
                     // FIXME: get() will panic if column not presented
                     let id: u32 = row.get("id");
                     let raw_config: String = row.get("raw_config");
-                    let pipe: serde_json::Value = serde_json::from_str(raw_config.as_str()).unwrap();
-                    PipeConfig { id, pipe: serde_json::json!({ "section": pipe }) }
+                    let pipe: serde_json::Value =
+                        serde_json::from_str(raw_config.as_str()).unwrap();
+                    PipeConfig {
+                        id,
+                        pipe: serde_json::json!({ "section": pipe }),
+                    }
                 })
                 .collect(),
             ui_metadata: None,
         };
-        Ok(Some(configs))
+        Ok(configs)
     }
 }
 
@@ -286,37 +291,26 @@ pub struct App {
 
 impl App {
     /// Set pipe configs
-    async fn set_configs(&self, new_configs: Configs) {
+    async fn set_configs(&self, new_configs: Configs) -> Result<(), error::Error> {
         for config in new_configs.configs {
-            match self
-                .database
+            self.database
                 .insert_config(&config.id, &config.pipe)
-                .await
-            {
-                Ok(_) => {}
-                Err(e) => {
-                    println!("Failed to insert config: {:?}", e);
-                }
-            };
-
-            // FIXME unwrap
-            self.database.insert_ui_metadata(&new_configs.ui_metadata).await.unwrap();
+                .await?
         }
+
+        self.database
+            .insert_ui_metadata(&new_configs.ui_metadata)
+            .await?;
+        Ok(())
     }
 
     /// Return pipe configs
-    async fn get_configs(&self) -> Configs {
-        self.database.get_configs().await.unwrap().unwrap()
+    async fn get_configs(&self) -> Result<Configs, error::Error> {
+        self.database.get_configs().await
     }
 
-    async fn get_ui_metadata(&self) -> UIConfig {
-        match self.database.get_ui_metadata().await {
-            Ok(ui_metadata) => ui_metadata,
-            Err(e) => {
-                println!("Failed to get ui_metadata: {:?}", e);
-                UIConfig { ui_metadata: None }
-            }
-        }
+    async fn get_ui_metadata(&self) -> Result<UIConfig, error::Error> {
+        self.database.get_ui_metadata().await
     }
 }
 

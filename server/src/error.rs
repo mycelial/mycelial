@@ -27,6 +27,9 @@ pub enum Error {
 
     // axum error wrap
     AxumError(axum::Error),
+
+    // serde error wrap
+    SerdeJsonError(serde_json::Error),
 }
 
 impl std::fmt::Display for Error {
@@ -86,6 +89,12 @@ impl From<std::io::Error> for Error {
 impl From<axum::Error> for Error {
     fn from(e: axum::Error) -> Self {
         Self::AxumError(e)
+    }
+}
+
+impl From<serde_json::Error> for Error {
+    fn from(e: serde_json::Error) -> Self {
+        Self::SerdeJsonError(e)
     }
 }
 
