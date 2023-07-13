@@ -268,7 +268,7 @@ impl Database {
                     let id: u32 = row.get("id");
                     let raw_config: String = row.get("raw_config");
                     let pipe: serde_json::Value = serde_json::from_str(raw_config.as_str()).unwrap();
-                    PipeConfig { id, pipe }
+                    PipeConfig { id, pipe: serde_json::json!({ "section": pipe }) }
                 })
                 .collect(),
             ui_metadata: None,
