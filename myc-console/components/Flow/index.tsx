@@ -163,7 +163,7 @@ const collections = [
   { emoji: '👍', label: 'View', nodeType: 'view' },
   { label: 'Sqlite Query', nodeType: 'sqliteSource'},
   { label: 'Mycelial Network', nodeType: 'mycelialNetwork'},
-  { label: 'Kafka Source', nodeType: 'kafkaSourceNode'},
+  { label: 'Kafka Source', nodeType: 'kafkaSource'},
 ];
 
 const initialNodes: Node[] = [
@@ -227,7 +227,7 @@ const nodeTypes = {
   view: ViewNode,
   sqliteSource: SqliteSourceNode,
   mycelialNetwork: MycelialNetworkNode,
-  kafkaSourceNode: KafkaSourceNode,
+  kafkaSource: KafkaSourceNode,
 };
 
 const defaultEdgeOptions = {
@@ -423,6 +423,14 @@ function Flow() {
           name: 'sqlite',
           path: sourceNode.data.path,
           query: sourceNode.data.query,
+        });
+      }
+
+      if (sourceNode?.type === 'kafkaSource') {
+        section.push({
+          name: 'kafka_source',
+          brokers: sourceNode.data.brokers,
+          topics: sourceNode.data.topics,
         });
       }
 
