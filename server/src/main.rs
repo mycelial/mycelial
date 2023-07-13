@@ -1,5 +1,5 @@
 //! Mycelial server
-use arrow::ipc::reader::StreamReader;
+use arrow::{ipc::reader::StreamReader, util::pretty::pretty_format_batches};
 use axum::{
     extract::{BodyStream, State},
     headers::{authorization::Basic, Authorization},
@@ -38,7 +38,9 @@ async fn ingestion(mut body: BodyStream) -> impl IntoResponse {
     }
     let reader = StreamReader::try_new(buf.as_slice(), None).unwrap();
     for record_batch in reader {
-        println!("got new record batch:\n{:?}", record_batch);
+        if let Ok(record_batch) = record_batch {
+            println!("got new record batch:\n{}", pretty_format_batches(&[record_batch]).unwrap());
+        }
     }
     ""
 }
