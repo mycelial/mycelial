@@ -23,7 +23,7 @@ import { IconDatabase } from '@tabler/icons-react';
 import styles from './Flow.module.css';
 // import DatabaseNode from './DatabaseNode';
 
-import { DatabaseSourceNode, DatabaseSinkNode, SourceTableNode, TargetTableNode, ViewNode, SqliteSourceNode, MycelialNetworkNode } from '@/components/nodes';
+import { DatabaseSourceNode, DatabaseSinkNode, SourceTableNode, TargetTableNode, ViewNode, SqliteSourceNode, MycelialNetworkNode, KafkaSourceNode } from '@/components/nodes';
 
 import { Grid, Container, Anchor, Group } from '@/components/layout';
 
@@ -163,6 +163,7 @@ const collections = [
   { emoji: '👍', label: 'View', nodeType: 'view' },
   { label: 'Sqlite Query', nodeType: 'sqliteSource'},
   { label: 'Mycelial Network', nodeType: 'mycelialNetwork'},
+  { label: 'Kafka Source', nodeType: 'kafkaSourceNode'},
 ];
 
 const initialNodes: Node[] = [
@@ -226,6 +227,7 @@ const nodeTypes = {
   view: ViewNode,
   sqliteSource: SqliteSourceNode,
   mycelialNetwork: MycelialNetworkNode,
+  kafkaSourceNode: KafkaSourceNode,
 };
 
 const defaultEdgeOptions = {

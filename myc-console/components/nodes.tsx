@@ -98,6 +98,52 @@ const MycelialNetworkNode: FC<NodeProps> = memo(({ id, data }) => {
   )
 });
 
+
+const KafkaSourceNode: FC<NodeProps> = memo(({ id, data }) => {
+  const instance = useReactFlow();
+
+  let defaultValues = {
+    brokers: "localhost:9090",
+    topics: "topic-0"
+  };
+
+  const handleChange = useCallback((name: string, value: string) => {
+    instance.setNodes((nodes) => nodes.map((node) => {
+      if (node.id === id) {
+        node.data = {
+          ...node.data,
+          [name]: value
+        }
+      }
+
+      return node;
+    }));
+  }, []);
+
+  useEffect(() => {
+    handleChange("brokers", defaultValues.brokers);
+    handleChange("topics", defaultValues.topics);
+  }, [id]);
+
+  return (
+    <div className={styles.customNode}>
+      <TextInput
+        label="Brokers"
+        placeholder={defaultValues.brokers}
+        defaultValue={defaultValues.brokers}
+        onChange={(event) => handleChange("brokers", event.currentTarget.value)}
+      />
+      <TextInput
+        label="Topics"
+        placeholder={defaultValues.topics}
+        defaultValue={defaultValues.topics}
+        onChange={(event) => handleChange("topics", event.currentTarget.value)}
+      />
+      <Handle type="source" position={Position.Right} id={id} />
+    </div>
+  )
+});
+
 const DatabaseSourceNode: FC<NodeProps> = memo(({ id, data }) => {
   const instance = useReactFlow();
   
@@ -209,4 +255,5 @@ export {
   ViewNode,
   SqliteSourceNode,
   MycelialNetworkNode,
+  KafkaSourceNode, 
 };
