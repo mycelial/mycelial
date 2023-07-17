@@ -39,12 +39,14 @@ const SqliteSourceNode: FC<NodeProps> = memo(({ id, data }) => {
         placeholder={initialValues.databasePath}
         defaultValue={initialValues.databasePath}
         onChange={(event) => handleChange("path", event.currentTarget.value)}
+        className="nodrag"
       />
       <TextInput
         label="SQL query"
         placeholder={initialValues.sqlQuery}
         defaultValue={initialValues.sqlQuery}
         onChange={(event) => handleChange("query", event.currentTarget.value)}
+        className="nodrag"
       />
       <Handle type="source" position={Position.Right} id={id} />
     </div>
@@ -83,12 +85,14 @@ const MycelialNetworkNode: FC<NodeProps> = memo(({ id, data }) => {
     <div className={styles.customNode}>
       <Handle type="target" position={Position.Left} id={id} />
       <TextInput
+        className="nodrag"
         label="Mycelial Network Endpoint"
         placeholder={initialValues.endpoint}
         defaultValue={initialValues.endpoint}
         onChange={(event) => handleChange('endpoint', event.currentTarget.value)}
       />
       <TextInput
+        className="nodrag"
         label="Token"
         placeholder={initialValues.token}
         defaultValue={initialValues.token}
@@ -128,12 +132,14 @@ const KafkaSourceNode: FC<NodeProps> = memo(({ id, data }) => {
   return (
     <div className={styles.customNode}>
       <TextInput
+        className="nodrag"
         label="Brokers"
         placeholder={initialValues.brokers}
         defaultValue={initialValues.brokers}
         onChange={(event) => handleChange("brokers", event.currentTarget.value)}
       />
       <TextInput
+        className="nodrag"
         label="Topics"
         placeholder={initialValues.topics}
         defaultValue={initialValues.topics}
@@ -165,6 +171,7 @@ const DatabaseSourceNode: FC<NodeProps> = memo(({ id, data }) => {
   return (
     <div className={styles.customNode}>
       <Select
+        className="nodrag"
         label="Database Source"
         placeholder="Pick one"
         searchable
@@ -173,6 +180,7 @@ const DatabaseSourceNode: FC<NodeProps> = memo(({ id, data }) => {
         withinPortal
       />
       <MultiSelect
+        className="nodrag"
         label="Node labels"
         placeholder="Pick multiple"
         searchable
@@ -190,6 +198,7 @@ const DatabaseSinkNode: FC<NodeProps> = memo(({ id, data }) => {
     <div className={styles.customNode}>
       <Handle type="target" position={Position.Left} id={id} />
       <Select
+        className="nodrag"
         label="Database Sink"
         placeholder="Pick one"
         searchable
@@ -210,6 +219,7 @@ const SourceTableNode: FC<NodeProps> = memo((props) => {
     <div className={styles.customNode}>
       <Handle type="target" position={Position.Left} id={id} />
       <Select
+        className="nodrag"
         label="Table"
         placeholder="Pick multiple"
         searchable
@@ -227,6 +237,7 @@ const TargetTableNode: FC<NodeProps> = memo(({ id, data }) => {
     <div className={styles.customNode}>
       <Handle type="target" position={Position.Left} id={id} />
       <TextInput
+        className="nodrag"
         placeholder="e.g. orders.orders_pending_hourly"
         label="Target table name"
       />
@@ -240,6 +251,7 @@ const ViewNode: FC<NodeProps> = memo(({ id, data }) => {
     <div className={styles.customNode}>
       <Handle type="target" position={Position.Left} id={id} />
       <Textarea
+        className="nodrag"
         placeholder="SQL query"
         label="View" />
       <Handle type="source" position={Position.Right} id={id} />
