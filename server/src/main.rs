@@ -1,9 +1,10 @@
 //! Mycelial server
 use arrow::{ipc::reader::StreamReader, util::pretty::pretty_format_batches};
+use base64::engine::{general_purpose::STANDARD as BASE64, Engine};
 use axum::{
     extract::{BodyStream, State},
     headers::{authorization::Basic, Authorization},
-    http::{Method, Request, Uri},
+    http::{Method, Request, Uri, StatusCode, self},
     middleware::{self, Next},
     response::{IntoResponse, Response},
     routing::{get, post},
@@ -27,6 +28,10 @@ mod error;
 struct CLI {
     #[clap(short, long, env = "LISTEN_ADDR", default_value = "0.0.0.0:8080")]
     listen_addr: String,
+
+    /// Server authorization token
+    #[clap(short, long, env = "ENDPOINT_TOKEN")]
+    token: String,
 }
 
 // FIXME: full body accumulation
@@ -73,6 +78,26 @@ async fn post_pipe_config(
     Json(configs): Json<Configs>,
 ) -> Result<impl IntoResponse, error::Error> {
     app.set_configs(configs).await
+}
+
+async fn basic_auth<B>(
+    State(app): State<Arc<App>>,
+    req: Request<B>,
+    next: Next<B>,
+) -> Result<Response, StatusCode> {
+    let auth_header = req.headers()
+        .get(http::header::AUTHORIZATION)
+        .and_then(|header| header.to_str().ok());
+
+    match auth_header {
+        Some(auth_header)  => {
+            match app.basic_auth(auth_header) {
+                true => Ok(next.run(req).await),
+                false => Err(StatusCode::UNAUTHORIZED),
+            }
+        }
+        _ => Err(StatusCode::UNAUTHORIZED),
+    }
 }
 
 // log response middleware
@@ -124,7 +149,11 @@ async fn provision_client(
 ) -> Result<impl IntoResponse, error::Error> {
     let client_id = payload.id;
 
-    state.database.insert_client(&client_id).await.map(|_| Json(json!({"id": client_id})))
+    state
+        .database
+        .insert_client(&client_id)
+        .await
+        .map(|_| Json(json!({ "id": client_id })))
 }
 
 #[derive(Deserialize)]
@@ -287,6 +316,7 @@ impl Database {
 #[derive(Debug)]
 pub struct App {
     database: Database,
+    token: String,
 }
 
 impl App {
@@ -315,17 +345,31 @@ impl App {
 }
 
 impl App {
-    pub async fn new(database_dir: impl AsRef<str>) -> anyhow::Result<Self> {
+    pub async fn new(
+        database_dir: impl AsRef<str>,
+        token: impl Into<String>,
+    ) -> anyhow::Result<Self> {
         tokio::fs::create_dir_all(database_dir.as_ref()).await?;
         let database = Database::new(database_dir.as_ref()).await?;
-        Ok(Self { database })
+        Ok(Self {
+            database,
+            token: token.into(),
+        })
+    }
+
+    fn basic_auth(&self, token: &str) -> bool {
+        token == self.basic_auth_token()
+    }
+
+    fn basic_auth_token(&self) -> String {
+        format!("Basic {}", BASE64.encode(format!("{}:", self.token)))
     }
 }
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let cli = CLI::try_parse()?;
-    let app = App::new("").await?;
+    let app = App::new("", cli.token).await?;
     let state = Arc::new(app);
     // FIXME: consistent endpoint namings
     let router = Router::new()
@@ -337,6 +381,7 @@ async fn main() -> anyhow::Result<()> {
         .route("/api/client", post(provision_client))
         .route("/api/tokens", post(issue_token))
         .route("/api/ui-metadata", get(get_ui_metadata))
+        .layer(middleware::from_fn_with_state(state.clone(), basic_auth))
         .layer(middleware::from_fn(log))
         .layer(
             CorsLayer::new()

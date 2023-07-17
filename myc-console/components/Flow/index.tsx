@@ -355,6 +355,7 @@ async function getStartingUI() {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
+          "Authorization": "Basic " + btoa("foobar:"),
         },
       });
       const result = await response.json();
@@ -458,6 +459,7 @@ function Flow() {
         method: "POST", // or 'PUT'
         headers: {
           "Content-Type": "application/json",
+          "Authorization": "Basic " + btoa("foobar:"),
         },
         body: JSON.stringify(payload),
       });
