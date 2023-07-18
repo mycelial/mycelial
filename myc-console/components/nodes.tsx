@@ -145,7 +145,7 @@ const KafkaSourceNode: FC<NodeProps> = memo(({ id, data }) => {
         label="GroupId"
         placeholder={initialValues.group_id}
         defaultValue={initialValues.group_id}
-        onChange={(event) => handleChange("grou_id", event.currentTarget.value)}
+        onChange={(event) => handleChange("group_id", event.currentTarget.value)}
       />
       <TextInput
         className="nodrag"
