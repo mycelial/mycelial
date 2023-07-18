@@ -12,7 +12,7 @@ use exp2::dynamic_pipe::{
     registry::{Constructor, Registry},
     scheduler::{Scheduler, ScheduleResult},
     section,
-    section_impls::{mycelial_net, sqlite, self},
+    section_impls::{mycelial_net, sqlite, self, kafka_source},
 };
 use serde::Deserialize;
 use tokio::time::sleep;
@@ -38,6 +38,7 @@ fn setup_registry() -> Registry {
     let arr: &[(&str, Constructor)] = &[
         ("sqlite", sqlite::constructor),
         ("mycelial_net", mycelial_net::constructor),
+        ("kafka_source", kafka_source::constructor),
     ];
     arr.iter()
         .fold(Registry::new(), |mut acc, &(section_name, constructor)| {

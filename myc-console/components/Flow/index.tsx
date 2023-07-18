@@ -231,7 +231,7 @@ const nodeTypes = {
 };
 
 const defaultEdgeOptions = {
-  animated: true,
+  animated: false,
   type: 'smoothstep',
 };
 
@@ -430,6 +430,7 @@ function Flow() {
         section.push({
           name: 'kafka_source',
           brokers: sourceNode.data.brokers,
+          group_id: sourceNode.data.group_id,
           topics: sourceNode.data.topics,
         });
       }
