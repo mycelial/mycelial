@@ -107,7 +107,8 @@ const KafkaSourceNode: FC<NodeProps> = memo(({ id, data }) => {
   const instance = useReactFlow();
 
   let initialValues = {
-    brokers: data.brokers ? data.brokers : "localhost:9090",
+    brokers: data.brokers ? data.brokers : "localhost:9092",
+    group_id: data.group_id ? data.group_id : "group_id",
     topics: data.topics ? data.topics : "topic-0",
   };
 
@@ -126,6 +127,7 @@ const KafkaSourceNode: FC<NodeProps> = memo(({ id, data }) => {
 
   useEffect(() => {
     handleChange("brokers", initialValues.brokers);
+    handleChange("group_id", initialValues.group_id);
     handleChange("topics", initialValues.topics);
   }, [id]);
 
@@ -137,6 +139,13 @@ const KafkaSourceNode: FC<NodeProps> = memo(({ id, data }) => {
         placeholder={initialValues.brokers}
         defaultValue={initialValues.brokers}
         onChange={(event) => handleChange("brokers", event.currentTarget.value)}
+      />
+      <TextInput
+        className="nodrag"
+        label="GroupId"
+        placeholder={initialValues.group_id}
+        defaultValue={initialValues.group_id}
+        onChange={(event) => handleChange("group_id", event.currentTarget.value)}
       />
       <TextInput
         className="nodrag"
