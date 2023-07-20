@@ -27,7 +27,7 @@ jobs:
           ssh-private-key: ${{ secrets.PIPE_EXPERIMENTS_REPOSITORY_KEY }}
 
       - uses: superfly/flyctl-actions/setup-flyctl@master
-      - run: |
+        run: |
           mkdir -p .cargo/
           cp build/cargo.config .cargo/config
           cd server 
