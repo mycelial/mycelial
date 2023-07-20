@@ -3,6 +3,7 @@ FROM rust:alpine AS build_server
 
 WORKDIR /app
 COPY server/ /app
+COPY Cargo.lock /app
 COPY server/build/docker_cargo_config.toml /app/.cargo/config.toml
 
 RUN apk add musl-dev openssl-dev && \
