@@ -30,6 +30,7 @@ jobs:
 
       - uses: superfly/flyctl-actions/setup-flyctl@master
       - run: |
+          git config --global url.ssh://git@github.com/.insteadOf https://github.com/
           cd server 
           cargo vendor 
           make deploy_at_flyio
