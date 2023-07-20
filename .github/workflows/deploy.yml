@@ -15,7 +15,8 @@ jobs:
     
     steps:
       - uses: dtolnay/rust-toolchain@master
-        toolchain: stable
+        with:
+          toolchain: stable
       - uses: actions/checkout@v3
       - uses: superfly/flyctl-actions/setup-flyctl@master
       - run: |
@@ -32,7 +33,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: dtolnay/rust-toolchain@master
-        toolchain: stable
+        with:
+          toolchain: stable
       - uses: actions/checkout@v3
       - uses: superfly/flyctl-actions/setup-flyctl@master
       - run: |
