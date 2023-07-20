@@ -14,10 +14,18 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-      - uses: dtolnay/rust-toolchain@master
+      - name: checkout 
+        uses: actions/checkout@v3
+
+      - name: setup rust toolchain
         with:
           toolchain: stable
-      - uses: actions/checkout@v3
+
+      - name: Give GitHub Actions access to pipe experiments repository
+        uses: webfactory/ssh-agent@v0.7.0
+        with:
+          ssh-private-key: ${{ secrets.PIPE_EXPERIMENTS_REPOSITORY_KEY }}
+
       - uses: superfly/flyctl-actions/setup-flyctl@master
       - run: |
           mkdir -p .cargo/
@@ -26,18 +34,18 @@ jobs:
           cargo vendor 
           make deploy_at_flyio
 
-  deploy-client:
-    name: deploy pipe client
-    runs-on: ubuntu-latest
-    steps:
-      - uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: stable
-      - uses: actions/checkout@v3
-      - uses: superfly/flyctl-actions/setup-flyctl@master
-      - run: |
-          mkdir -p .cargo/
-          cp build/cargo.config .cargo/config
-          cd client 
-          cargo vendor 
-          make deploy_at_flyio
+ #deploy-client:
+ #  name: deploy pipe client
+ #  runs-on: ubuntu-latest
+ #  steps:
+ #    - uses: dtolnay/rust-toolchain@master
+ #      with:
+ #        toolchain: stable
+ #    - uses: actions/checkout@v3
+ #    - uses: superfly/flyctl-actions/setup-flyctl@master
+ #    - run: |
+ #        mkdir -p .cargo/
+ #        cp build/cargo.config .cargo/config
+ #        cd client 
+ #        cargo vendor 
+ #        make deploy_at_flyio
