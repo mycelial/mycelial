@@ -7,7 +7,7 @@ use axum::{
     http::{Method, Request, Uri, StatusCode, self},
     middleware::{self, Next},
     response::{IntoResponse, Response},
-    routing::{get, post},
+    routing::{get, post, get_service},
     Json, Router, Server, TypedHeader,
 };
 use chrono::Utc;
@@ -19,7 +19,7 @@ use sqlx::{sqlite::SqliteConnectOptions, ConnectOptions, Row, SqliteConnection};
 use std::net::SocketAddr;
 use std::{str::FromStr, sync::Arc};
 use tokio::sync::Mutex;
-use tower_http::cors::{Any, CorsLayer};
+use tower_http::{cors::{Any, CorsLayer}, services::ServeDir};
 use uuid::Uuid;
 
 mod error;
@@ -32,6 +32,9 @@ struct CLI {
     /// Server authorization token
     #[clap(short, long, env = "ENDPOINT_TOKEN")]
     token: String,
+
+    #[clap(short, long, env = "ASSETS_DIR")]
+    assets_dir: String,
 }
 
 // FIXME: full body accumulation
@@ -371,8 +374,10 @@ async fn main() -> anyhow::Result<()> {
     let cli = CLI::try_parse()?;
     let app = App::new("", cli.token).await?;
     let state = Arc::new(app);
+
+        //.route("/", get(|| async { "ok" }).head(|| async { "ok" }))
     // FIXME: consistent endpoint namings
-    let router = Router::new()
+    let api = Router::new()
         .route("/ingestion", post(ingestion))
         .route(
             "/pipe/configs",
@@ -390,6 +395,14 @@ async fn main() -> anyhow::Result<()> {
                 .allow_methods([Method::GET, Method::POST]),
         )
         .with_state(state);
+
+    let assets = Router::new()
+        .nest_service("/", get_service(ServeDir::new(cli.assets_dir)));
+
+    let router = Router::new()
+        .merge(api)
+        .merge(assets)
+        .layer(middleware::from_fn(log));
 
     let addr: SocketAddr = cli.listen_addr.as_str().parse()?;
     Server::bind(&addr)
