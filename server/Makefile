@@ -4,4 +4,4 @@ all:
 
 .PHONY: dev
 dev:
-	cargo-watch -q -c -s "cargo run"
+	cargo-watch -q -c -s 'cargo run -- --token="foobar"'
