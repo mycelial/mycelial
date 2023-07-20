@@ -36,3 +36,7 @@ run_docker:
 .PHONY: stop_docker
 stop_docker:
 	docker rm -f $(TAG)
+
+.PHONY: deploy_at_flyio
+deploy_at_flyio:
+	cd ../ && flyctl deploy -c client/flyio.toml

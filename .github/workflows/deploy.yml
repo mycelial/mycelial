@@ -1,0 +1,27 @@
+name: Deploy 
+
+on: push
+#   branches:
+#     - main
+
+env:
+  FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+  NO_COLOR: 1
+
+jobs:
+  deploy-server:
+    name: deploy pipe server
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v2
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+      - run: flyctl deploy . -c server/flyio.toml
+
+  deploy-client:
+    name: deploy pipe client
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+      - run: flyctl deploy . -c client/flyio.toml
