@@ -6,6 +6,7 @@ on: push
 
 env:
   FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+  CARGO_NET_GIT_FETCH_WITH_CLI: true
   NO_COLOR: 1
 
 jobs:
@@ -29,8 +30,6 @@ jobs:
 
       - uses: superfly/flyctl-actions/setup-flyctl@master
       - run: |
-          mkdir -p .cargo/
-          cp build/cargo.config .cargo/config
           cd server 
           cargo vendor 
           make deploy_at_flyio
