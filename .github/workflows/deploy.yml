@@ -27,8 +27,8 @@ jobs:
         uses: webfactory/ssh-agent@v0.7.0
         with:
           ssh-private-key: |
-            ${{ secrets.PIPE_EXPERIMENTS_REPOSITORY_KEY }}
             ${{ secrets.SNOWFLAKE_RS_KEY }}
+            ${{ secrets.PIPE_EXPERIMENTS_REPOSITORY_KEY }}
 
       - uses: superfly/flyctl-actions/setup-flyctl@master
 
