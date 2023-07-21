@@ -16,6 +16,7 @@ use futures::StreamExt;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use sqlx::{sqlite::SqliteConnectOptions, ConnectOptions, Row, SqliteConnection};
+use tower_http::services::ServeDir;
 use std::net::SocketAddr;
 use std::{str::FromStr, sync::Arc};
 use tokio::sync::Mutex;
@@ -31,6 +32,7 @@ struct CLI {
     #[clap(short, long, env = "ENDPOINT_TOKEN")]
     token: String,
 
+    /// Assets dir
     #[clap(short, long, env = "ASSETS_DIR")]
     assets_dir: String,
 }

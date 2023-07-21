@@ -10,7 +10,6 @@ all:
 dev:
 	cargo-watch -q -c -s 'cargo run -- --token="foobar"'
 
-
 .PHONY: vendor
 vendor:
 	cargo vendor 2>/dev/null > build/docker_cargo_config.toml
