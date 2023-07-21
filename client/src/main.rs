@@ -10,9 +10,9 @@ use clap::Parser;
 use exp2::dynamic_pipe::{
     config::{Config, Value},
     registry::{Constructor, Registry},
-    scheduler::{Scheduler, ScheduleResult},
+    scheduler::Scheduler,
     section,
-    section_impls::{mycelial_net, sqlite, self, kafka_source},
+    section_impls::{mycelial_net, sqlite, kafka_source, snowflake_source, snowflake_destination},
 };
 use serde::Deserialize;
 use tokio::time::sleep;
@@ -39,6 +39,8 @@ fn setup_registry() -> Registry {
         ("sqlite", sqlite::constructor),
         ("mycelial_net", mycelial_net::constructor),
         ("kafka_source", kafka_source::constructor),
+        ("snowflake_source", snowflake_source::constructor),
+        ("snowflake_destination", snowflake_destination::constructor),
     ];
     arr.iter()
         .fold(Registry::new(), |mut acc, &(section_name, constructor)| {
