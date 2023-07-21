@@ -10,9 +10,17 @@ env:
   NO_COLOR: 1
 
 jobs:
-  deploy-server:
-    name: deploy pipe server
+  deploy:
+    name: deploy
     runs-on: ubuntu-latest
+
+  strategy:
+    matrix:
+      include:
+        - build: server
+          dir: server
+        - build client:
+          dir: client
     
     steps:
       - name: checkout 
@@ -32,27 +40,11 @@ jobs:
 
       - uses: superfly/flyctl-actions/setup-flyctl@master
 
-      - name: Setup tmate session
-        uses: mxschmitt/action-tmate@v3
+  #   - name: Setup tmate session
+  #     uses: mxschmitt/action-tmate@v3
 
       - run: |
           git config --global url.ssh://git@github.com/.insteadOf https://github.com/
-          cd server 
+          cd ${{ matrix.dir }}
           cargo vendor 
           make deploy_at_flyio
-
- #deploy-client:
- #  name: deploy pipe client
- #  runs-on: ubuntu-latest
- #  steps:
- #    - uses: dtolnay/rust-toolchain@master
- #      with:
- #        toolchain: stable
- #    - uses: actions/checkout@v3
- #    - uses: superfly/flyctl-actions/setup-flyctl@master
- #    - run: |
- #        mkdir -p .cargo/
- #        cp build/cargo.config .cargo/config
- #        cd client 
- #        cargo vendor 
- #        make deploy_at_flyio
