@@ -19,9 +19,7 @@ use sqlx::{sqlite::SqliteConnectOptions, ConnectOptions, Row, SqliteConnection};
 use std::net::SocketAddr;
 use std::{str::FromStr, sync::Arc};
 use tokio::sync::Mutex;
-use tower_http::{cors::{Any, CorsLayer}, services::ServeDir};
 use uuid::Uuid;
-
 mod error;
 
 #[derive(Parser)]
@@ -375,7 +373,6 @@ async fn main() -> anyhow::Result<()> {
     let app = App::new("", cli.token).await?;
     let state = Arc::new(app);
 
-        //.route("/", get(|| async { "ok" }).head(|| async { "ok" }))
     // FIXME: consistent endpoint namings
     let api = Router::new()
         .route("/ingestion", post(ingestion))
@@ -387,13 +384,6 @@ async fn main() -> anyhow::Result<()> {
         .route("/api/tokens", post(issue_token))
         .route("/api/ui-metadata", get(get_ui_metadata))
         .layer(middleware::from_fn_with_state(state.clone(), basic_auth))
-        .layer(middleware::from_fn(log))
-        .layer(
-            CorsLayer::new()
-                .allow_origin(Any)
-                .allow_headers(Any)
-                .allow_methods([Method::GET, Method::POST]),
-        )
         .with_state(state);
 
     let assets = Router::new()
