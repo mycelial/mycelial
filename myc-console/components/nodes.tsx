@@ -102,6 +102,207 @@ const MycelialNetworkNode: FC<NodeProps> = memo(({ id, data }) => {
   )
 });
 
+const SnowflakeDestinationNode: FC<NodeProps> = memo(({ id, data }) => {
+  const instance = useReactFlow();
+
+  let initialValues = {
+    username: data.username ? data.username : "SVCMYCELIAL",
+    password: data.password ? data.password : "",
+    role: data.role ? data.role : "MYCELIAL",
+    account_identifier: data.account_identifier ? data.account_identifier : "UW17194-STREAMLITPR",
+    warehouse: data.warehouse ? data.warehouse : "MYCELIAL",
+    database: data.database ? data.database : "MYCELIAL",
+    schema: data.schema ? data.schema : "PIPE",
+    table: data.table ? data.table : "TEST_DESTINATION",
+  };
+
+  const handleChange = useCallback((name: string, value: string) => {
+    instance.setNodes((nodes) => nodes.map((node) => {
+      if (node.id === id) {
+        node.data = {
+          ...node.data,
+          [name]: value
+        }
+      }
+
+      return node;
+    }));
+  }, []);
+
+  useEffect(() => {
+    handleChange("username", initialValues.username);
+    handleChange("password", initialValues.password);
+    handleChange("role", initialValues.role);
+    handleChange("account_identifier", initialValues.account_identifier);
+    handleChange("warehouse", initialValues.warehouse);
+    handleChange("database", initialValues.database);
+    handleChange("schema", initialValues.schema);
+    handleChange("table", initialValues.table);
+  }, [id]);
+
+  return (
+    <div className={styles.customNode}>
+      <TextInput
+        className="nodrag"
+        label="Username"
+        placeholder={initialValues.username}
+        defaultValue={initialValues.username}
+        onChange={(event) => handleChange("username", event.currentTarget.value)}
+      />
+      <TextInput
+        className="nodrag"
+        label="Password"
+        placeholder={initialValues.password}
+        defaultValue={initialValues.password}
+        onChange={(event) => handleChange("password", event.currentTarget.value)}
+      />
+      <TextInput
+        className="nodrag"
+        label="Role"
+        placeholder={initialValues.role}
+        defaultValue={initialValues.role}
+        onChange={(event) => handleChange("role", event.currentTarget.value)}
+      />
+      <TextInput
+        className="nodrag"
+        label="Account Identifier"
+        placeholder={initialValues.account_identifier}
+        defaultValue={initialValues.account_identifier}
+        onChange={(event) => handleChange("account_identifier", event.currentTarget.value)}
+      />
+      <TextInput
+        className="nodrag"
+        label="Warehouse"
+        placeholder={initialValues.warehouse}
+        defaultValue={initialValues.warehouse}
+        onChange={(event) => handleChange("warehouse", event.currentTarget.value)}
+      />
+      <TextInput
+        className="nodrag"
+        label="Database"
+        placeholder={initialValues.database}
+        defaultValue={initialValues.database}
+        onChange={(event) => handleChange("database", event.currentTarget.value)}
+      />
+      <TextInput
+        className="nodrag"
+        label="Schema"
+        placeholder={initialValues.schema}
+        defaultValue={initialValues.schema}
+        onChange={(event) => handleChange("schema", event.currentTarget.value)}
+      />
+      <TextInput
+        className="nodrag"
+        label="Table"
+        placeholder={initialValues.table}
+        defaultValue={initialValues.table}
+        onChange={(event) => handleChange("table", event.currentTarget.value)}
+      />
+      <Handle type="target" position={Position.Left} id={id} />
+    </div>
+  )
+});
+
+const SnowflakeSourceNode: FC<NodeProps> = memo(({ id, data }) => {
+  const instance = useReactFlow();
+
+  let initialValues = {
+    username: data.username ? data.username : "SVCMYCELIAL",
+    password: data.password ? data.password : "",
+    role: data.role ? data.role : "MYCELIAL",
+    account_identifier: data.account_identifier ? data.account_identifier : "UW17194-STREAMLITPR",
+    warehouse: data.warehouse ? data.warehouse : "MYCELIAL",
+    database: data.database ? data.database : "MYCELIAL",
+    schema: data.schema ? data.schema : "GITHUB",
+    query: data.query ? data.query : "SELECT * FROM COMMIT",
+  };
+
+  const handleChange = useCallback((name: string, value: string) => {
+    instance.setNodes((nodes) => nodes.map((node) => {
+      if (node.id === id) {
+        node.data = {
+          ...node.data,
+          [name]: value
+        }
+      }
+
+      return node;
+    }));
+  }, []);
+
+  useEffect(() => {
+    handleChange("username", initialValues.username);
+    handleChange("password", initialValues.password);
+    handleChange("role", initialValues.role);
+    handleChange("account_identifier", initialValues.account_identifier);
+    handleChange("warehouse", initialValues.warehouse);
+    handleChange("database", initialValues.database);
+    handleChange("schema", initialValues.schema);
+    handleChange("query", initialValues.query);
+  }, [id]);
+
+  return (
+    <div className={styles.customNode}>
+      <TextInput
+        className="nodrag"
+        label="Username"
+        placeholder={initialValues.username}
+        defaultValue={initialValues.username}
+        onChange={(event) => handleChange("username", event.currentTarget.value)}
+      />
+      <TextInput
+        className="nodrag"
+        label="Password"
+        placeholder={initialValues.password}
+        defaultValue={initialValues.password}
+        onChange={(event) => handleChange("password", event.currentTarget.value)}
+      />
+      <TextInput
+        className="nodrag"
+        label="Role"
+        placeholder={initialValues.role}
+        defaultValue={initialValues.role}
+        onChange={(event) => handleChange("role", event.currentTarget.value)}
+      />
+      <TextInput
+        className="nodrag"
+        label="Account Identifier"
+        placeholder={initialValues.account_identifier}
+        defaultValue={initialValues.account_identifier}
+        onChange={(event) => handleChange("account_identifier", event.currentTarget.value)}
+      />
+      <TextInput
+        className="nodrag"
+        label="Warehouse"
+        placeholder={initialValues.warehouse}
+        defaultValue={initialValues.warehouse}
+        onChange={(event) => handleChange("warehouse", event.currentTarget.value)}
+      />
+      <TextInput
+        className="nodrag"
+        label="Database"
+        placeholder={initialValues.database}
+        defaultValue={initialValues.database}
+        onChange={(event) => handleChange("database", event.currentTarget.value)}
+      />
+      <TextInput
+        className="nodrag"
+        label="Schema"
+        placeholder={initialValues.schema}
+        defaultValue={initialValues.schema}
+        onChange={(event) => handleChange("schema", event.currentTarget.value)}
+      />
+      <TextInput
+        className="nodrag"
+        label="Query"
+        placeholder={initialValues.query}
+        defaultValue={initialValues.query}
+        onChange={(event) => handleChange("query", event.currentTarget.value)}
+      />
+      <Handle type="source" position={Position.Right} id={id} />
+    </div>
+  )
+});
 
 const KafkaSourceNode: FC<NodeProps> = memo(({ id, data }) => {
   const instance = useReactFlow();
@@ -276,5 +477,7 @@ export {
   ViewNode,
   SqliteSourceNode,
   MycelialNetworkNode,
-  KafkaSourceNode, 
+  KafkaSourceNode,
+  SnowflakeSourceNode,
+  SnowflakeDestinationNode
 };

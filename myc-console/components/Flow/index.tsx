@@ -23,7 +23,18 @@ import { IconDatabase } from '@tabler/icons-react';
 import styles from './Flow.module.css';
 // import DatabaseNode from './DatabaseNode';
 
-import { DatabaseSourceNode, DatabaseSinkNode, SourceTableNode, TargetTableNode, ViewNode, SqliteSourceNode, MycelialNetworkNode, KafkaSourceNode } from '@/components/nodes';
+import {
+  DatabaseSourceNode,
+  DatabaseSinkNode,
+  SourceTableNode,
+  TargetTableNode,
+  ViewNode,
+  SqliteSourceNode,
+  MycelialNetworkNode,
+  KafkaSourceNode,
+  SnowflakeSourceNode,
+  SnowflakeDestinationNode
+} from '@/components/nodes';
 
 import { Grid, Container, Anchor, Group } from '@/components/layout';
 
@@ -164,6 +175,8 @@ const collections = [
   { label: 'Sqlite Query', nodeType: 'sqliteSource'},
   { label: 'Mycelial Network', nodeType: 'mycelialNetwork'},
   { label: 'Kafka Source', nodeType: 'kafkaSource'},
+  { label: 'Snowflake Source', nodeType: 'snowflakeSource'},
+  { label: 'Snowflake Sink', nodeType: 'snowflakeDestination'},
 ];
 
 const initialNodes: Node[] = [
@@ -228,6 +241,8 @@ const nodeTypes = {
   sqliteSource: SqliteSourceNode,
   mycelialNetwork: MycelialNetworkNode,
   kafkaSource: KafkaSourceNode,
+  snowflakeSource: SnowflakeSourceNode,
+  snowflakeDestination: SnowflakeDestinationNode
 };
 
 const defaultEdgeOptions = {
@@ -426,6 +441,20 @@ function Flow() {
         });
       }
 
+      if (sourceNode?.type === 'snowflakeSource') {
+        section.push({
+          name: 'snowflake_source',
+          username: sourceNode.data.username,
+          password: sourceNode.data.password,
+          role: sourceNode.data.role,
+          account_identifier: sourceNode.data.account_identifier,
+          warehouse: sourceNode.data.warehouse,
+          database: sourceNode.data.database,
+          schema: sourceNode.data.schema,
+          query: sourceNode.data.query,
+        });
+      }
+
       if (sourceNode?.type === 'kafkaSource') {
         section.push({
           name: 'kafka_source',
@@ -441,6 +470,20 @@ function Flow() {
           endpoint: targetNode.data.endpoint,
           token: targetNode.data.token,
         })
+      }
+
+      if (targetNode?.type === 'snowflakeDestination') {
+        section.push({
+          name: 'snowflake_destination',
+          username: targetNode.data.username,
+          password: targetNode.data.password,
+          role: targetNode.data.role,
+          account_identifier: targetNode.data.account_identifier,
+          warehouse: targetNode.data.warehouse,
+          database: targetNode.data.database,
+          schema: targetNode.data.schema,
+          table: targetNode.data.table,
+        });
       }
 
       configs.push({ "id": configId, "pipe": section });
