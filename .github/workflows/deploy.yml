@@ -31,6 +31,12 @@ jobs:
             ${{ secrets.SNOWFLAKE_RS_KEY }}
 
       - uses: superfly/flyctl-actions/setup-flyctl@master
+
+      - name: Setup upterm session
+        uses: lhotari/action-upterm@v1
+        with:
+          limit-access-to-actor: true
+
       - run: |
           git config --global url.ssh://git@github.com/.insteadOf https://github.com/
           cd server 
