@@ -22,29 +22,29 @@ jobs:
         - build client:
           dir: client
     
-    steps:
-      - name: checkout 
-        uses: actions/checkout@v3
+  steps:
+    - name: checkout 
+      uses: actions/checkout@v3
 
-      - name: setup rust toolchain
-        uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: stable
+    - name: setup rust toolchain
+      uses: dtolnay/rust-toolchain@master
+      with:
+        toolchain: stable
 
-      - name: Give GitHub Actions access to pipe experiments repository
-        uses: webfactory/ssh-agent@v0.7.0
-        with:
-          ssh-private-key: |
-            ${{ secrets.SNOWFLAKE_RS_KEY }}
-            ${{ secrets.PIPE_EXPERIMENTS_REPOSITORY_KEY }}
+    - name: Give GitHub Actions access to pipe experiments repository
+      uses: webfactory/ssh-agent@v0.7.0
+      with:
+        ssh-private-key: |
+          ${{ secrets.SNOWFLAKE_RS_KEY }}
+          ${{ secrets.PIPE_EXPERIMENTS_REPOSITORY_KEY }}
 
-      - uses: superfly/flyctl-actions/setup-flyctl@master
+    - uses: superfly/flyctl-actions/setup-flyctl@master
 
-  #   - name: Setup tmate session
-  #     uses: mxschmitt/action-tmate@v3
+#   - name: Setup tmate session
+#     uses: mxschmitt/action-tmate@v3
 
-      - run: |
-          git config --global url.ssh://git@github.com/.insteadOf https://github.com/
-          cd ${{ matrix.dir }}
-          cargo vendor 
-          make deploy_at_flyio
+    - run: |
+        git config --global url.ssh://git@github.com/.insteadOf https://github.com/
+        cd ${{ matrix.dir }}
+        cargo vendor 
+        make deploy_at_flyio
