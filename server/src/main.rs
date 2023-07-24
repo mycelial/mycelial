@@ -4,7 +4,7 @@ use base64::engine::{general_purpose::STANDARD as BASE64, Engine};
 use axum::{
     extract::{BodyStream, State},
     headers::{authorization::Basic, Authorization},
-    http::{Method, Request, Uri, StatusCode, self},
+    http::{Method, Request, Uri, StatusCode, self, header},
     middleware::{self, Next},
     response::{IntoResponse, Response},
     routing::{get, post, get_service},
@@ -87,20 +87,17 @@ async fn basic_auth<B>(
     State(app): State<Arc<App>>,
     req: Request<B>,
     next: Next<B>,
-) -> Result<Response, StatusCode> {
+) -> Result<Response, impl IntoResponse> {
     let auth_header = req.headers()
         .get(http::header::AUTHORIZATION)
         .and_then(|header| header.to_str().ok());
 
     match auth_header {
-        Some(auth_header)  => {
-            match app.basic_auth(auth_header) {
-                true => Ok(next.run(req).await),
-                false => Err(StatusCode::UNAUTHORIZED),
-            }
-        }
-        _ => Err(StatusCode::UNAUTHORIZED),
-    }
+        Some(auth_header) if app.basic_auth(auth_header) => return Ok(next.run(req).await),
+        _ => ()
+    };
+    let response = ([(header::WWW_AUTHENTICATE, "Basic auth")], StatusCode::UNAUTHORIZED);
+    Err(response)
 }
 
 // log response middleware
@@ -385,8 +382,7 @@ async fn main() -> anyhow::Result<()> {
         .route("/api/client", post(provision_client))
         .route("/api/tokens", post(issue_token))
         .route("/api/ui-metadata", get(get_ui_metadata))
-        .layer(middleware::from_fn_with_state(state.clone(), basic_auth))
-        .with_state(state);
+        .with_state(state.clone());
 
     let assets = Router::new()
         .nest_service("/", get_service(ServeDir::new(cli.assets_dir)));
@@ -394,6 +390,7 @@ async fn main() -> anyhow::Result<()> {
     let router = Router::new()
         .merge(api)
         .merge(assets)
+        .layer(middleware::from_fn_with_state(state.clone(), basic_auth))
         .layer(middleware::from_fn(log));
 
     let addr: SocketAddr = cli.listen_addr.as_str().parse()?;
