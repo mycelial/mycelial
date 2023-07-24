@@ -8,7 +8,9 @@ all:
 
 .PHONY: dev
 dev:
-	cargo-watch -q -c -s 'cargo run -- --token="foobar"'
+	cargo-watch -q -c \
+		-i mycelial.db \
+		-s 'cargo run -- --token="foobar"'
 
 .PHONY: vendor
 vendor:
