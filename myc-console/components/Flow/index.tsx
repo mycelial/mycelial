@@ -366,7 +366,7 @@ function NavbarSearch(props: NavbarSearchProps) {
 
 async function getStartingUI() {
     try {
-        const response = await fetch("http://localhost:8080/api/ui-metadata", {
+        const response = await fetch("/api/ui-metadata", {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
@@ -499,7 +499,7 @@ function Flow() {
 
     
     try {
-        const response = await fetch("http://localhost:8080/pipe/configs", {
+        const response = await fetch("/pipe/configs", {
         method: "POST", // or 'PUT'
         headers: {
           "Content-Type": "application/json",
