@@ -7,7 +7,7 @@ use axum::{
     http::{Method, Request, Uri, StatusCode, self},
     middleware::{self, Next},
     response::{IntoResponse, Response},
-    routing::{get, post},
+    routing::{get, post, get_service},
     Json, Router, Server, TypedHeader,
 };
 use chrono::Utc;
@@ -16,12 +16,11 @@ use futures::StreamExt;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use sqlx::{sqlite::SqliteConnectOptions, ConnectOptions, Row, SqliteConnection};
+use tower_http::services::ServeDir;
 use std::net::SocketAddr;
 use std::{str::FromStr, sync::Arc};
 use tokio::sync::Mutex;
-use tower_http::cors::{Any, CorsLayer};
 use uuid::Uuid;
-
 mod error;
 
 #[derive(Parser)]
@@ -32,6 +31,10 @@ struct CLI {
     /// Server authorization token
     #[clap(short, long, env = "ENDPOINT_TOKEN")]
     token: String,
+
+    /// Assets dir
+    #[clap(short, long, env = "ASSETS_DIR")]
+    assets_dir: String,
 }
 
 // FIXME: full body accumulation
@@ -371,8 +374,9 @@ async fn main() -> anyhow::Result<()> {
     let cli = CLI::try_parse()?;
     let app = App::new("", cli.token).await?;
     let state = Arc::new(app);
+
     // FIXME: consistent endpoint namings
-    let router = Router::new()
+    let api = Router::new()
         .route("/ingestion", post(ingestion))
         .route(
             "/pipe/configs",
@@ -382,14 +386,15 @@ async fn main() -> anyhow::Result<()> {
         .route("/api/tokens", post(issue_token))
         .route("/api/ui-metadata", get(get_ui_metadata))
         .layer(middleware::from_fn_with_state(state.clone(), basic_auth))
-        .layer(middleware::from_fn(log))
-        .layer(
-            CorsLayer::new()
-                .allow_origin(Any)
-                .allow_headers(Any)
-                .allow_methods([Method::GET, Method::POST]),
-        )
         .with_state(state);
+
+    let assets = Router::new()
+        .nest_service("/", get_service(ServeDir::new(cli.assets_dir)));
+
+    let router = Router::new()
+        .merge(api)
+        .merge(assets)
+        .layer(middleware::from_fn(log));
 
     let addr: SocketAddr = cli.listen_addr.as_str().parse()?;
     Server::bind(&addr)

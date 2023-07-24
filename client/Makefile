@@ -1,4 +1,6 @@
+SHELL := bash
 SQLITE_PATH ?= "/tmp/test.sqlite"
+TAG ?= pipe_client
 
 .PHONY: all
 all:
@@ -16,3 +18,25 @@ dev: bootstrap_sqlite
 	cargo-watch -c -q \
 		-i test.sqlite \
 		-s 'cargo run -- --endpoint="http://localhost:8080" --token="foobar"'
+
+.PHONY: vendor
+vendor:
+	cargo vendor 2>/dev/null > build/docker_cargo_config.toml
+
+.PHONY: dockerize_vendored
+dockerize_vendored:
+	cd ../ && docker build -f client/Dockerfile -t $(TAG) .
+
+
+.PHONY: run_docker
+run_docker:
+	docker run -d --rm --name $(TAG) -p 0.0.0.0:8080:8080 $(TAG) 
+
+
+.PHONY: stop_docker
+stop_docker:
+	docker rm -f $(TAG)
+
+.PHONY: deploy_at_flyio
+deploy_at_flyio:
+	cd ../ && flyctl deploy -c client/flyio.toml

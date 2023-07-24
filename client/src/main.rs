@@ -24,7 +24,7 @@ struct CLI {
         short,
         long,
         env = "ENDPOINT",
-        default_value = "http://localhost:8080/pipe/configs"
+        default_value = "http://localhost:8080/"
     )]
     endpoint: String,
 
