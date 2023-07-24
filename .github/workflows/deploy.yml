@@ -1,9 +1,9 @@
 name: Deploy 
 
 on:
-  push:
-    branches:
-      - main
+  push
+  # branches:
+  #   - main
 
 env:
   FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
@@ -18,8 +18,8 @@ jobs:
     strategy:
       matrix:
         include:
-          - build: server
-            dir: server
+        # - build: server
+        #   dir: server
           - build: client
             dir: client
       
@@ -41,8 +41,8 @@ jobs:
 
       - uses: superfly/flyctl-actions/setup-flyctl@master
 
-  #   - name: Setup tmate session
-  #     uses: mxschmitt/action-tmate@v3
+      - name: Setup tmate session
+        uses: mxschmitt/action-tmate@v3
 
       - run: |
           git config --global url.ssh://git@github.com/.insteadOf https://github.com/
