@@ -21,4 +21,4 @@ primary_region = "iad"
 
 [env]
   ENDPOINT = "https://pipe-server.fly.dev"
-  ENDPOINT_TOKEN = "TODO"
+  ENDPOINT_TOKEN = "TOKEN"
