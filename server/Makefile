@@ -12,7 +12,7 @@ dev:
 
 .PHONY: vendor
 vendor:
-	cargo vendor 2>/dev/null > build/docker_cargo_config.toml
+	cargo vendor > build/docker_cargo_config.toml
 
 .PHONY: dockerize_vendored
 dockerize_vendored:

@@ -41,11 +41,10 @@ jobs:
 
       - uses: superfly/flyctl-actions/setup-flyctl@master
 
-      - name: Setup tmate session
-        uses: mxschmitt/action-tmate@v3
+   #  - name: Setup tmate session
+   #    uses: mxschmitt/action-tmate@v3
 
       - run: |
           git config --global url.ssh://git@github.com/.insteadOf https://github.com/
           cd ${{ matrix.dir }}
-          cargo vendor 
-          make deploy_at_flyio
+          make vendor deploy_at_flyio
