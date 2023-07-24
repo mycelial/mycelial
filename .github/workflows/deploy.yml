@@ -20,7 +20,7 @@ jobs:
         include:
           - build: server
             dir: server
-          - build client:
+          - build: client
             dir: client
       
     steps:
