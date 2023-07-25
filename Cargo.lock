@@ -1018,7 +1018,7 @@ checksum = "0206175f82b8d6bf6652ff7d71a1e27fd2e4efde587fd368662814d6ec1d9ce0"
 [[package]]
 name = "exp2"
 version = "0.1.0"
-source = "git+https://github.com/mycelial/pipexperiments?rev=39fe36edffa5cb996740248df14ff8a8bf85e90e#39fe36edffa5cb996740248df14ff8a8bf85e90e"
+source = "git+https://github.com/mycelial/pipexperiments?rev=e801fc7d782500131cc37be3e8594af36eb278e2#e801fc7d782500131cc37be3e8594af36eb278e2"
 dependencies = [
  "arrow",
  "base64 0.21.2",
