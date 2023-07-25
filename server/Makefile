@@ -10,7 +10,7 @@ all:
 dev:
 	cargo-watch -q -c \
 		-i mycelial.db \
-		-s 'cargo run -- --token="foobar"'
+		-s 'cargo run -- --token=token'
 
 .PHONY: vendor
 vendor:
@@ -19,7 +19,6 @@ vendor:
 .PHONY: dockerize_vendored
 dockerize_vendored:
 	cd ../ && docker build -f server/Dockerfile -t $(TAG) .
-
 
 .PHONY: run_docker
 run_docker:
