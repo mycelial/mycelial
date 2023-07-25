@@ -10,4 +10,9 @@
   padding: 10px;
   width: 200px;
   border-radius: 5px;
+  background-color: whitesmoke;
+}
+
+.selected {
+  border: 1px solid red;
 }

@@ -1,14 +1,14 @@
 import { memo, FC, useEffect, useContext, useCallback } from 'react';
 import { Handle, Position, NodeProps, NodeResizer, useNodeId, useReactFlow } from 'reactflow';
 
-import { Select, MultiSelect, Textarea, TextInput } from '@/components/inputs';
+import { Select, MultiSelect, Textarea, TextInput} from '@/components/inputs';
 
 import styles from '@/components/Flow/Flow.module.css';
 import { ClientContext } from './context/clientContext';
 import { ClientContextType } from './@types/client';
 
 
-const SqliteSourceNode: FC<NodeProps> = memo(({ id, data }) => {
+const SqliteSourceNode: FC<NodeProps> = memo(({ id, data, selected }) => {
   const instance = useReactFlow();
   const { clients } = useContext(ClientContext) as ClientContextType;
 
@@ -37,17 +37,22 @@ const SqliteSourceNode: FC<NodeProps> = memo(({ id, data }) => {
     handleChange("client", initialValues.client);
   }, [id]);
 
+  let classNames = `${styles.customNode} `;
+  if (selected) {
+    classNames = classNames + `${styles.selected}`;
+  }
+
   return (
-    <div className={styles.customNode}>
+    <div className={classNames}>
       <TextInput
         name="sqliteDatabasePath"
         label="Sqlite Database Path"
         placeholder={initialValues.databasePath}
         defaultValue={initialValues.databasePath}
         onChange={(event) => handleChange("path", event.currentTarget.value)}
-        className="nodrag"
       />
       <TextInput
+        name="sqliteQuery"
         label="SQL query"
         placeholder={initialValues.sqlQuery}
         defaultValue={initialValues.sqlQuery}
@@ -69,7 +74,7 @@ const SqliteSourceNode: FC<NodeProps> = memo(({ id, data }) => {
   )
 });
 
-const MycelialNetworkNode: FC<NodeProps> = memo(({ id, data }) => {
+const MycelialNetworkNode: FC<NodeProps> = memo(({ id, data, selected }) => {
   const instance = useReactFlow();
   const { clients } = useContext(ClientContext) as ClientContextType;
 
@@ -80,7 +85,6 @@ const MycelialNetworkNode: FC<NodeProps> = memo(({ id, data }) => {
 
   const handleChange = useCallback((name: string, value: string) => {
     instance.setNodes((nodes) => nodes.map((node) => {
-      console.log(id, node.id);
 
       if (node.id === id) {
         node.data = {
@@ -98,18 +102,22 @@ const MycelialNetworkNode: FC<NodeProps> = memo(({ id, data }) => {
     handleChange("token", initialValues.token);
   }, [id]);
 
+  let classNames = `${styles.customNode} `;
+  if (selected) {
+    classNames = classNames + `${styles.selected}`;
+  }
   return (
-    <div className={styles.customNode}>
+    <div className={classNames}>
       <Handle type="target" position={Position.Left} id={id} />
-      <TextInput
-        className="nodrag"
-        label="Mycelial Network Endpoint"
+      <TextInput 
+        name="MycelialNetworkEndpoint"
+        label="Mycelial Network Endpoint:"
         placeholder={initialValues.endpoint}
         defaultValue={initialValues.endpoint}
         onChange={(event) => handleChange('endpoint', event.currentTarget.value)}
-      />
+        />
       <TextInput
-        className="nodrag"
+        name="token"
         label="Token"
         placeholder={initialValues.token}
         defaultValue={initialValues.token}
@@ -321,7 +329,7 @@ const SnowflakeSourceNode: FC<NodeProps> = memo(({ id, data }) => {
   )
 });
 
-const KafkaSourceNode: FC<NodeProps> = memo(({ id, data }) => {
+const KafkaSourceNode: FC<NodeProps> = memo(({ id, data, selected }) => {
   const instance = useReactFlow();
   const { clients } = useContext(ClientContext) as ClientContextType;
 
@@ -352,24 +360,28 @@ const KafkaSourceNode: FC<NodeProps> = memo(({ id, data }) => {
     handleChange("client", initialValues.client);
   }, [id]);
 
+  let classNames = `${styles.customNode} `;
+  if (selected) {
+    classNames = classNames + `${styles.selected}`;
+  }
   return (
-    <div className={styles.customNode}>
+    <div className={classNames}>
       <TextInput
-        className="nodrag"
+        name="brokers"
         label="Brokers"
         placeholder={initialValues.brokers}
         defaultValue={initialValues.brokers}
         onChange={(event) => handleChange("brokers", event.currentTarget.value)}
       />
       <TextInput
-        className="nodrag"
+        name="groupId"
         label="GroupId"
         placeholder={initialValues.group_id}
         defaultValue={initialValues.group_id}
         onChange={(event) => handleChange("group_id", event.currentTarget.value)}
       />
       <TextInput
-        className="nodrag"
+        name="topics"
         label="Topics"
         placeholder={initialValues.topics}
         defaultValue={initialValues.topics}
@@ -391,11 +403,9 @@ const KafkaSourceNode: FC<NodeProps> = memo(({ id, data }) => {
   )
 });
 
-const DatabaseSourceNode: FC<NodeProps> = memo(({ id, data }) => {
+const DatabaseSourceNode: FC<NodeProps> = memo(({ id, data, selected }) => {
   const instance = useReactFlow();
   
-  // console.log('DatabaseSourceNode.data', data, instance, instance.getEdges());
-
   useEffect(() => {
     instance.setNodes((nodes) => nodes.map((node) => {
       if (node.id === id) {
@@ -409,8 +419,12 @@ const DatabaseSourceNode: FC<NodeProps> = memo(({ id, data }) => {
     }));
   }, [id]);
 
+  let classNames = `${styles.customNode} `;
+  if (selected) {
+    classNames = classNames + `${styles.selected}`;
+  }
   return (
-    <div className={styles.customNode}>
+    <div className={classNames}>
       <Select
         className="nodrag"
         label="Database Source"
@@ -434,9 +448,14 @@ const DatabaseSourceNode: FC<NodeProps> = memo(({ id, data }) => {
   );
 })
 
-const DatabaseSinkNode: FC<NodeProps> = memo(({ id, data }) => {
+const DatabaseSinkNode: FC<NodeProps> = memo(({ id, data, selected }) => {
+
+  let classNames = `${styles.customNode} `;
+  if (selected) {
+    classNames = classNames + `${styles.selected}`;
+  }
   return (
-    <div className={styles.customNode}>
+    <div className={classNames}>
       <Handle type="target" position={Position.Left} id={id} />
       <Select
         className="nodrag"
@@ -454,10 +473,12 @@ const DatabaseSinkNode: FC<NodeProps> = memo(({ id, data }) => {
 const SourceTableNode: FC<NodeProps> = memo((props) => {
   const { id, data } = props;
 
-  console.log(props);
-
+  let classNames = `${styles.customNode} `;
+  if (props.selected) {
+    classNames = classNames + `${styles.selected}`;
+  }
   return (
-    <div className={styles.customNode}>
+    <div className={classNames}>
       <Handle type="target" position={Position.Left} id={id} />
       <Select
         className="nodrag"
@@ -473,23 +494,33 @@ const SourceTableNode: FC<NodeProps> = memo((props) => {
   );
 })
 
-const TargetTableNode: FC<NodeProps> = memo(({ id, data }) => {
+const TargetTableNode: FC<NodeProps> = memo(({ selected, id, data }) => {
+  let classNames = `${styles.customNode} `;
+  if (selected) {
+    classNames = classNames + `${styles.selected}`;
+  }
   return (
-    <div className={styles.customNode}>
+    <div className={classNames}>
       <Handle type="target" position={Position.Left} id={id} />
       <TextInput
-        className="nodrag"
+        name="targetTableName"
         placeholder="e.g. orders.orders_pending_hourly"
+        defaultValue="e.g. orders.orders_pending_hourly"
         label="Target table name"
+        onChange={(event) => console.log(event.currentTarget.value)}
       />
       <Handle type="source" position={Position.Right} id={id} />
     </div>
   );
 })
 
-const ViewNode: FC<NodeProps> = memo(({ id, data }) => {
+const ViewNode: FC<NodeProps> = memo(({ id, data, selected }) => {
+  let classNames = `${styles.customNode} `;
+  if (selected) {
+    classNames = classNames + `${styles.selected}`;
+  }
   return (
-    <div className={styles.customNode}>
+    <div className={classNames}>
       <Handle type="target" position={Position.Left} id={id} />
       <Textarea
         className="nodrag"

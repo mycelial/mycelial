@@ -2,6 +2,7 @@
 
 import { useCallback, useContext, useState, useRef, DOMElement, useEffect, createContext } from 'react';
 import ReactFlow, {
+  MarkerType,
   Node,
   useNodesState,
   useEdgesState,
@@ -162,18 +163,7 @@ const useStyles = createStyles((theme) => ({
   },
 }));
 
-const links = [
-  { icon: IconBulb, label: 'Activity', notifications: 3 },
-  { icon: IconCheckbox, label: 'Tasks', notifications: 4 },
-  // { icon: IconUser, label: 'Contacts' },
-];
-
 const collections = [
-  { emoji: '👍', label: 'Database Source', nodeType: 'databaseSource' },
-  { emoji: '👍', label: 'Database Sink', nodeType: 'databaseSink' },
-  { emoji: '👍', label: 'Source Table', nodeType: 'sourceTable' },
-  { emoji: '👍', label: 'Sink Table', nodeType: 'targetTable' },
-  { emoji: '👍', label: 'View', nodeType: 'view' },
   { label: 'Sqlite Query', nodeType: 'sqliteSource'},
   { label: 'Mycelial Network', nodeType: 'mycelialNetwork'},
   { label: 'Kafka Source', nodeType: 'kafkaSource'},
@@ -181,57 +171,9 @@ const collections = [
   { label: 'Snowflake Sink', nodeType: 'snowflakeDestination'},
 ];
 
-const initialNodes: Node[] = [
-  /* {
-    id: '1',
-    type: 'input',
-    data: { label: 'Node 1' },
-    position: { x: 250, y: 5 },
-  },
-  {
-    id: '2',
-    data: { label: 'Node 2' },
-    position: { x: 100, y: 100 },
-  },
-  {
-    id: '3',
-    data: { label: 'Node 3' },
-    position: { x: 400, y: 100 },
-  },
-  {
-    id: '4',
-    data: { label: 'Node 4' },
-    position: { x: 400, y: 200 },
-    type: 'custom',
-    className: styles.customNode,
-  },
-  {
-    id: '5',
-    data: { label: 'Database Node' },
-    position: { x: 500, y: 400 },
-    type: 'database',
-    className: styles.customNode,
-  },
-  {
-    id: '6',
-    data: { label: 'Table Node' },
-    position: { x: 500, y: 400 },
-    type: 'table',
-    className: styles.customNode,
-  },
-  {
-    id: '7',
-    data: { label: 'View Node' },
-    position: { x: 500, y: 400 },
-    type: 'view',
-    className: styles.customNode,
-  }, */
-];
+const initialNodes: Node[] = [];
 
-const initialEdges: Edge[] = [
-  /* { id: 'e1-2', source: '1', target: '2' },
-  { id: 'e1-3', source: '1', target: '3' }, */
-];
+const initialEdges: Edge[] = [];
 
 const nodeTypes = {
   custom: CustomNode,
@@ -250,40 +192,13 @@ const nodeTypes = {
 const defaultEdgeOptions = {
   animated: false,
   type: 'smoothstep',
+  markerEnd: {
+    type: MarkerType.ArrowClosed,
+  },
 };
 
 let id = 0;
 const getId = () => `dndnode_${id++}`;
-
-// const onInit = (reactFlowInstance: any) => console.log('flow loaded:', reactFlowInstance);
-
-function Sidebar() {
-  const onDragStart = (event: any, nodeType: string) => {
-    event.dataTransfer.setData('application/reactflow', nodeType);
-    event.dataTransfer.effectAllowed = 'move';
-  };
-
-  return (
-    <aside>
-      <div className="description">You can drag these nodes to the main pane.</div>
-      <div className="dndnode" onDragStart={(event) => onDragStart(event, 'databaseSource')} draggable>
-        Database Source Node
-      </div>
-      <div className="dndnode" onDragStart={(event) => onDragStart(event, 'databaseSink')} draggable>
-        Database Sink Node
-      </div>
-      <div className="dndnode" onDragStart={(event) => onDragStart(event, 'sourceTable')} draggable>
-        Pick Tables Node
-      </div>
-      <div className="dndnode" onDragStart={(event) => onDragStart(event, 'targetTable')} draggable>
-        Target Table Node
-      </div>
-      <div className="dndnode" onDragStart={(event) => onDragStart(event, 'view')} draggable>
-        View Node
-      </div>
-    </aside>
-  );
-}
 
 type NavbarSearchProps = {
   onSave: () => void;
@@ -299,20 +214,6 @@ function NavbarSearch(props: NavbarSearchProps) {
     event.dataTransfer.effectAllowed = 'move';
   };
 
-  const mainLinks = links.map((link) => (
-    <UnstyledButton key={link.label} className={classes.mainLink}>
-      <div className={classes.mainLinkInner}>
-        <link.icon size={20} className={classes.mainLinkIcon} stroke={1.5} />
-        <span>{link.label}</span>
-      </div>
-      {link.notifications && (
-        <Badge size="sm" variant="filled" className={classes.mainLinkBadge}>
-          {link.notifications}
-        </Badge>
-      )}
-    </UnstyledButton>
-  ));
-
   const collectionLinks = collections.map((collection) => (
     <div className={classes.collectionLink} key={collection.label} onDragStart={(event) => onDragStart(event, collection.nodeType)} draggable>
     {collection.label}
@@ -322,43 +223,15 @@ function NavbarSearch(props: NavbarSearchProps) {
   return (
     <Navbar height="100vh" width={{ sm: 250 }} p="md" className={classes.navbar}>
       <Navbar.Section className={classes.section}>
-        <UserButton
-          image="https://i.imgur.com/fGxgcDF.png"
-          name="Petya Batkovich"
-          email="Business Analyst"
-          icon={<IconSelector size="0.9rem" stroke={1.5} />}
-        />
-      </Navbar.Section>
-
-      <TextInput
-        placeholder="Search"
-        size="xs"
-        icon={<IconSearch size="0.8rem" stroke={1.5} />}
-        rightSectionWidth={70}
-        rightSection={<Code className={classes.searchCode}>Ctrl + K</Code>}
-        styles={{ rightSection: { pointerEvents: 'none' } }}
-        mb="sm"
-      />
-
-      <Navbar.Section className={classes.section}>
-        <div className={classes.mainLinks}>{mainLinks}</div>
-      </Navbar.Section>
-
-      <Navbar.Section className={classes.section}>
         <Group className={classes.collectionsHeader} position="apart">
           <Text size="xs" weight={500} color="dimmed">
             Available Nodes
           </Text>
-          <Tooltip label="Create collection" withArrow position="right">
-            <ActionIcon variant="default" size={18}>
-              <IconPlus size="0.8rem" stroke={1.5} />
-            </ActionIcon>
-          </Tooltip>
         </Group>
         <div className={classes.collections}>{collectionLinks}</div>
         <div>
           <Box style={{ padding: '1rem' }}>
-            <Button variant="light" color="teal" fullWidth leftIcon={<IconDatabase size="1rem" />} onClick={props.onSave}>
+            <Button variant="light" color="aqua" fullWidth leftIcon={<IconDatabase size="1rem" />} onClick={props.onSave}>
               Publish
             </Button>
           </Box>
@@ -423,13 +296,9 @@ function Flow()  {
     setInitialElements();
   }, []);
 
-  // console.log(nodes);
-  // console.log(edges);
-
   const [reactFlowInstance, setReactFlowInstance] = useState<ReactFlowInstance | null>(null);
 
   const handleSave = useCallback(async () => {
-    // console.log('whatever');
     
     let configs = [];
 
@@ -442,7 +311,6 @@ function Flow()  {
     let configId = 0;
 
     for (const edge of edges) {
-      // console.log(edge, edge.sourceNode, edge.targetNode, edge.source, edge.target);
 
       ++configId;
 
@@ -508,7 +376,6 @@ function Flow()  {
 
       configs.push({ "id": configId, "pipe": section });
 
-      // console.log(sourceNode?.data, targetNode?.data);
     }
 
     const payload = {
