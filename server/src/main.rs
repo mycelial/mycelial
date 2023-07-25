@@ -17,7 +17,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 use sqlx::{sqlite::SqliteConnectOptions, ConnectOptions, Row, SqliteConnection};
 use tower_http::services::ServeDir;
-use std::net::SocketAddr;
+use std::{net::SocketAddr, path::Path};
 use std::{str::FromStr, sync::Arc};
 use tokio::sync::Mutex;
 use uuid::Uuid;
@@ -35,6 +35,10 @@ struct CLI {
     /// Assets dir
     #[clap(short, long, env = "ASSETS_DIR")]
     assets_dir: String,
+
+    /// Database path
+    #[clap(short, long, env = "DATABASE_PATH", default_value = "mycelial.db")]
+    database_path: String
 }
 
 // FIXME: full body accumulation
@@ -197,11 +201,7 @@ pub struct Database {
 }
 
 impl Database {
-    async fn new(database_dir: &str) -> Result<Self, error::Error> {
-        let database_path = std::path::Path::new(database_dir)
-            .join("mycelial.db")
-            .to_string_lossy()
-            .to_string();
+    async fn new(database_path: &str) -> Result<Self, error::Error> {
         let database_url = format!("sqlite://{database_path}");
         let mut connection = SqliteConnectOptions::from_str(database_url.as_str())?
             .create_if_missing(true)
@@ -210,7 +210,7 @@ impl Database {
         sqlx::migrate!().run(&mut connection).await?;
         Ok(Self {
             connection: Arc::new(Mutex::new(connection)),
-            database_path,
+            database_path: database_path.into(),
         })
     }
 
@@ -346,11 +346,14 @@ impl App {
 
 impl App {
     pub async fn new(
-        database_dir: impl AsRef<str>,
+        db_path: impl AsRef<str>,
         token: impl Into<String>,
     ) -> anyhow::Result<Self> {
-        tokio::fs::create_dir_all(database_dir.as_ref()).await?;
-        let database = Database::new(database_dir.as_ref()).await?;
+        let db_path: &str = db_path.as_ref();
+        if let Some(parent) = Path::new(db_path).parent() {
+            tokio::fs::create_dir_all(parent).await?;
+        };
+        let database = Database::new(db_path).await?;
         Ok(Self {
             database,
             token: token.into(),
@@ -369,7 +372,7 @@ impl App {
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let cli = CLI::try_parse()?;
-    let app = App::new("", cli.token).await?;
+    let app = App::new(cli.database_path, cli.token).await?;
     let state = Arc::new(app);
 
     // FIXME: consistent endpoint namings
