@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useState, useRef, DOMElement, useEffect } from 'react';
+import { useCallback, useContext, useState, useRef, DOMElement, useEffect, createContext } from 'react';
 import ReactFlow, {
   Node,
   useNodesState,
@@ -64,6 +64,8 @@ import {
   IconPlus,
   IconSelector,
 } from '@tabler/icons-react';
+import ClientProvider, { ClientContext } from '../context/clientContext';
+import { ClientContextType } from '../@types/client';
 
 const useStyles = createStyles((theme) => ({
   navbar: {
@@ -289,6 +291,8 @@ type NavbarSearchProps = {
 
 function NavbarSearch(props: NavbarSearchProps) {
   const { classes } = useStyles();
+  const ctx = useContext(ClientContext) as ClientContextType || {};
+  const { clients } = ctx;
 
   const onDragStart = (event: any, nodeType: string) => {
     event.dataTransfer.setData('application/reactflow', nodeType);
@@ -360,17 +364,29 @@ function NavbarSearch(props: NavbarSearchProps) {
           </Box>
         </div>
       </Navbar.Section>
+      <Navbar.Section className={classes.section}>
+        <Group className={classes.collectionsHeader} position="apart">
+          <Text size="xs" weight={500} color="dimmed">
+            Available Clients
+          </Text>
+        </Group>
+        <div className={classes.collections}>
+          {(clients || []).map((client) => (
+            <div className={classes.collectionLink} key={client.id}>{client.id}</div>
+          ))}
+        </div>
+      </Navbar.Section>
     </Navbar>
   );
 }
 
-async function getStartingUI() {
+async function getStartingUI(token: string) {
     try {
         const response = await fetch("/api/ui-metadata", {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": "Basic " + btoa("token:"),
+          "X-Authorization": "Bearer " + btoa(token),
         },
       });
       const result = await response.json();
@@ -379,16 +395,17 @@ async function getStartingUI() {
     }
 }
 
-function Flow() {
+function Flow()  {
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
-
 
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
   const onConnect = useCallback((params: Connection | Edge) => setEdges((eds) => addEdge(params, eds)), []);
 
+  const { token } = useContext(ClientContext) as ClientContextType || {};
+
   const setInitialElements = useCallback(async () => {
-    let ui_metadata = await getStartingUI();
+    let ui_metadata = await getStartingUI(token);
 
     ui_metadata?.ui_metadata.nodes.forEach((node: any) => {
       setNodes((nds) => nds.concat(node));
@@ -437,6 +454,7 @@ function Flow() {
       if (sourceNode?.type === 'sqliteSource') {
         section.push({
           name: 'sqlite',
+          client: sourceNode.data.client,
           path: sourceNode.data.path,
           query: sourceNode.data.query,
         });
@@ -459,6 +477,7 @@ function Flow() {
       if (sourceNode?.type === 'kafkaSource') {
         section.push({
           name: 'kafka_source',
+          client: sourceNode.data.client,
           brokers: sourceNode.data.brokers,
           group_id: sourceNode.data.group_id,
           topics: sourceNode.data.topics,
@@ -497,13 +516,12 @@ function Flow() {
       ui_metadata: rf.toObject(),
     };
 
-    
     try {
         const response = await fetch("/pipe/configs", {
         method: "POST", // or 'PUT'
         headers: {
           "Content-Type": "application/json",
-          "Authorization": "Basic " + btoa("token:"),
+          "X-Authorization": "Bearer " + btoa(token),
         },
         body: JSON.stringify(payload),
       });
@@ -567,38 +585,40 @@ function Flow() {
       return;
     }
 
-    console.log('edges', reactFlowInstance.getEdges())
-
   }, [reactFlowInstance]);
 
   return (
     <ReactFlowProvider>
-      <Grid gutter={0}>
-        <Grid.Col span="content"><NavbarSearch onSave={handleSave} /></Grid.Col>
-        <Grid.Col span="auto">
-          <div className={styles.flow} ref={reactFlowWrapper}>
-            <ReactFlow
-              nodes={nodes}
-              onNodesChange={onNodesChange}
-              edges={edges}
-              onEdgesChange={onEdgesChange}
-              onConnect={onConnect}
-              nodeTypes={nodeTypes}
-              defaultEdgeOptions={defaultEdgeOptions}
-              connectionLineType={ConnectionLineType.SmoothStep}
-              onInit={setReactFlowInstance}
-              onDrop={onDrop}
-              onDragOver={onDragOver}
-              fitView
-              snapToGrid={true}
-            >
-              <MiniMap style={minimapStyle} zoomable pannable />
-              <Controls />
-              <Background color="#aaa" gap={16} />
-            </ReactFlow>
-          </div>
-        </Grid.Col>
-      </Grid>
+      <ClientProvider>
+        <Grid gutter={0}>
+          <Grid.Col span="content">
+            <NavbarSearch onSave={handleSave} />
+          </Grid.Col>
+          <Grid.Col span="auto">
+            <div className={styles.flow} ref={reactFlowWrapper}>
+              <ReactFlow
+                nodes={nodes}
+                onNodesChange={onNodesChange}
+                edges={edges}
+                onEdgesChange={onEdgesChange}
+                onConnect={onConnect}
+                nodeTypes={nodeTypes}
+                defaultEdgeOptions={defaultEdgeOptions}
+                connectionLineType={ConnectionLineType.SmoothStep}
+                onInit={setReactFlowInstance}
+                onDrop={onDrop}
+                onDragOver={onDragOver}
+                fitView
+                snapToGrid={true}
+              >
+                <MiniMap style={minimapStyle} zoomable pannable />
+                <Controls />
+                <Background color="#c8cbcc" gap={16} />
+              </ReactFlow>
+            </div>
+          </Grid.Col>
+        </Grid>
+      </ClientProvider>
     </ReactFlowProvider>
   );
 }

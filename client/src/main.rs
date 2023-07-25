@@ -15,6 +15,7 @@ use exp2::dynamic_pipe::{
     section_impls::{mycelial_net, sqlite, kafka_source, snowflake_source, snowflake_destination},
 };
 use serde::Deserialize;
+use serde_json::json;
 use tokio::time::sleep;
 
 #[derive(Parser)]
@@ -54,8 +55,10 @@ fn setup_registry() -> Registry {
 struct Client {
     /// Mycelial server endpoint
     endpoint: String,
-    /// Auth token (FIXME: unused)
+    /// Basic Auth token
     token: String,
+    /// Client token
+    client_token: String,
 }
 
 /// PipeConfig
@@ -103,6 +106,12 @@ impl TryInto<Config> for PipeConfig {
     }
 }
 
+
+#[derive(Debug, Deserialize)]
+struct ClientInfo {
+    id: String,
+}
+
 #[derive(Debug, Deserialize)]
 struct PipeConfigs {
     configs: Vec<PipeConfig>,
@@ -113,7 +122,32 @@ impl Client {
         Self {
             endpoint: endpoint.into(),
             token: token.into(),
+            client_token: "".into(),
         }
+    }
+
+    async fn register(&mut self, client_id: String) -> Result<(), reqwest::Error> {
+        let client = reqwest::Client::new();
+        let url = format!("{}/api/client", self.endpoint.as_str());
+        let x: ClientInfo = client
+            .post(url)
+            .header("Authorization", self.basic_auth())
+            .json(&json!({ "id": client_id }))
+            .send()
+            .await?.json().await?;
+
+        let url = format!("{}/api/tokens", self.endpoint.as_str());
+        let token: ClientInfo = client
+            .post(url)
+            .header("Authorization", self.basic_auth())
+            .json(&json!({ "client_id": client_id }))
+            .send()
+            .await?
+            .json()
+            .await?;
+
+        self.client_token = token.id;
+        Ok(())
     }
 
     async fn get_configs(&self) -> Result<Vec<PipeConfig>, section::Error> {
@@ -122,6 +156,7 @@ impl Client {
         let configs: PipeConfigs = client
             .get(url)
             .header("Authorization", self.basic_auth())
+            .header("X-Authorization", self.client_auth())
             .send()
             .await?
             .json()
@@ -132,6 +167,11 @@ impl Client {
     fn basic_auth(&self) -> String {
         format!("Basic {}", BASE64.encode(format!("{}:", self.token)))
     }
+
+    fn client_auth(&self) -> String {
+        format!("Bearer {}", self.client_token)
+    }
+
 }
 
 /// FIXME:
@@ -140,7 +180,8 @@ impl Client {
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let cli = CLI::try_parse()?;
-    let client = Client::new(cli.endpoint, cli.token);
+    let mut client = Client::new(cli.endpoint, cli.token);
+    client.register("test client".to_string()).await?;
     let scheduler = Scheduler::new(setup_registry()).spawn();
 
     loop {
