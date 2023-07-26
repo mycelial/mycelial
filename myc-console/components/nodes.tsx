@@ -7,7 +7,6 @@ import styles from '@/components/Flow/Flow.module.css';
 import { ClientContext } from './context/clientContext';
 import { ClientContextType } from './@types/client';
 
-
 const SqliteSourceNode: FC<NodeProps> = memo(({ id, data, selected }) => {
   const instance = useReactFlow();
   const { clients } = useContext(ClientContext) as ClientContextType;
@@ -127,7 +126,7 @@ const MycelialNetworkNode: FC<NodeProps> = memo(({ id, data, selected }) => {
   )
 });
 
-const SnowflakeDestinationNode: FC<NodeProps> = memo(({ id, data }) => {
+const SnowflakeDestinationNode: FC<NodeProps> = memo(({ id, data, selected }) => {
   const instance = useReactFlow();
 
   let initialValues = {
@@ -165,8 +164,14 @@ const SnowflakeDestinationNode: FC<NodeProps> = memo(({ id, data }) => {
     handleChange("table", initialValues.table);
   }, [id]);
 
+
+  let classNames = `${styles.customNode} `;
+  if (selected) {
+    classNames = classNames + `${styles.selected}`;
+  }
+
   return (
-    <div className={styles.customNode}>
+    <div className={classNames}>
       <TextInput
         name="username"
         label="Username"
@@ -228,7 +233,7 @@ const SnowflakeDestinationNode: FC<NodeProps> = memo(({ id, data }) => {
   )
 });
 
-const SnowflakeSourceNode: FC<NodeProps> = memo(({ id, data }) => {
+const SnowflakeSourceNode: FC<NodeProps> = memo(({ id, data, selected }) => {
   const instance = useReactFlow();
 
   let initialValues = {
@@ -266,8 +271,13 @@ const SnowflakeSourceNode: FC<NodeProps> = memo(({ id, data }) => {
     handleChange("query", initialValues.query);
   }, [id]);
 
+  let classNames = `${styles.customNode} `;
+  if (selected) {
+    classNames = classNames + `${styles.selected}`;
+  }
+
   return (
-    <div className={styles.customNode}>
+    <div className={classNames}>
       <TextInput
         name="nodrag"
         label="Username"
