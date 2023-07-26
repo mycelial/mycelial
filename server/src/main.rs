@@ -428,9 +428,9 @@ async fn main() -> anyhow::Result<()> {
     let api = Router::new()
         .route("/api/client", post(provision_client)) // no client auth needed
         .route("/api/tokens", post(issue_token)) // no client auth needed
+        .route("/ingestion", post(ingestion))
         .merge(
             Router::new()
-                .route("/ingestion", post(ingestion))
                 .route(
                     "/pipe/configs",
                     get(get_pipe_configs).post(post_pipe_config),
