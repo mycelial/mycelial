@@ -40,3 +40,7 @@ stop_docker:
 .PHONY: deploy_at_flyio
 deploy_at_flyio:
 	cd ../ && flyctl deploy -c client/flyio.toml
+
+.PHONY: attach_to_flyio
+attach_to_flyio:
+	flyctl -c flyio.toml ssh console
