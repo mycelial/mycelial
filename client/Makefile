@@ -17,7 +17,7 @@ bootstrap_sqlite:
 dev: bootstrap_sqlite
 	cargo-watch -c -q \
 		-i test.sqlite \
-		-s 'cargo run -- --endpoint="http://localhost:8080" --token=token'
+		-s 'cargo run -- --endpoint="http://localhost:8080" --token=token --name="dev_client"'
 
 .PHONY: vendor
 vendor:
