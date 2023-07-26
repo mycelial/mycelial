@@ -1,7 +1,7 @@
 import { memo, FC, useEffect, useContext, useCallback } from 'react';
 import { Handle, Position, NodeProps, NodeResizer, useNodeId, useReactFlow } from 'reactflow';
 
-import { Select, MultiSelect, Textarea, TextInput} from '@/components/inputs';
+import { Select, MultiSelect, TextArea, TextInput} from '@/components/inputs';
 
 import styles from '@/components/Flow/Flow.module.css';
 import { ClientContext } from './context/clientContext';
@@ -51,7 +51,7 @@ const SqliteSourceNode: FC<NodeProps> = memo(({ id, data, selected }) => {
         defaultValue={initialValues.databasePath}
         onChange={(event) => handleChange("path", event.currentTarget.value)}
       />
-      <TextInput
+      <TextArea
         name="sqliteQuery"
         label="SQL query"
         placeholder={initialValues.sqlQuery}
@@ -168,56 +168,56 @@ const SnowflakeDestinationNode: FC<NodeProps> = memo(({ id, data }) => {
   return (
     <div className={styles.customNode}>
       <TextInput
-        className="nodrag"
+        name="username"
         label="Username"
         placeholder={initialValues.username}
         defaultValue={initialValues.username}
         onChange={(event) => handleChange("username", event.currentTarget.value)}
       />
       <TextInput
-        className="nodrag"
+        name="password"
         label="Password"
         placeholder={initialValues.password}
         defaultValue={initialValues.password}
         onChange={(event) => handleChange("password", event.currentTarget.value)}
       />
       <TextInput
-        className="nodrag"
+        name="role"
         label="Role"
         placeholder={initialValues.role}
         defaultValue={initialValues.role}
         onChange={(event) => handleChange("role", event.currentTarget.value)}
       />
       <TextInput
-        className="nodrag"
+        name="account_identifier"
         label="Account Identifier"
         placeholder={initialValues.account_identifier}
         defaultValue={initialValues.account_identifier}
         onChange={(event) => handleChange("account_identifier", event.currentTarget.value)}
       />
       <TextInput
-        className="nodrag"
+        name="warehouse"
         label="Warehouse"
         placeholder={initialValues.warehouse}
         defaultValue={initialValues.warehouse}
         onChange={(event) => handleChange("warehouse", event.currentTarget.value)}
       />
       <TextInput
-        className="nodrag"
+        name="database"
         label="Database"
         placeholder={initialValues.database}
         defaultValue={initialValues.database}
         onChange={(event) => handleChange("database", event.currentTarget.value)}
       />
       <TextInput
-        className="nodrag"
+        name="schema"
         label="Schema"
         placeholder={initialValues.schema}
         defaultValue={initialValues.schema}
         onChange={(event) => handleChange("schema", event.currentTarget.value)}
       />
       <TextInput
-        className="nodrag"
+        name="table"
         label="Table"
         placeholder={initialValues.table}
         defaultValue={initialValues.table}
@@ -269,56 +269,56 @@ const SnowflakeSourceNode: FC<NodeProps> = memo(({ id, data }) => {
   return (
     <div className={styles.customNode}>
       <TextInput
-        className="nodrag"
+        name="nodrag"
         label="Username"
         placeholder={initialValues.username}
         defaultValue={initialValues.username}
         onChange={(event) => handleChange("username", event.currentTarget.value)}
       />
       <TextInput
-        className="nodrag"
+        name="password"
         label="Password"
         placeholder={initialValues.password}
         defaultValue={initialValues.password}
         onChange={(event) => handleChange("password", event.currentTarget.value)}
       />
       <TextInput
-        className="nodrag"
+        name="role"
         label="Role"
         placeholder={initialValues.role}
         defaultValue={initialValues.role}
         onChange={(event) => handleChange("role", event.currentTarget.value)}
       />
       <TextInput
-        className="nodrag"
+        name="account_identifier"
         label="Account Identifier"
         placeholder={initialValues.account_identifier}
         defaultValue={initialValues.account_identifier}
         onChange={(event) => handleChange("account_identifier", event.currentTarget.value)}
       />
       <TextInput
-        className="nodrag"
+        name="warehouse"
         label="Warehouse"
         placeholder={initialValues.warehouse}
         defaultValue={initialValues.warehouse}
         onChange={(event) => handleChange("warehouse", event.currentTarget.value)}
       />
       <TextInput
-        className="nodrag"
+        name="database"
         label="Database"
         placeholder={initialValues.database}
         defaultValue={initialValues.database}
         onChange={(event) => handleChange("database", event.currentTarget.value)}
       />
       <TextInput
-        className="nodrag"
+        name="schema"
         label="Schema"
         placeholder={initialValues.schema}
         defaultValue={initialValues.schema}
         onChange={(event) => handleChange("schema", event.currentTarget.value)}
       />
       <TextInput
-        className="nodrag"
+        name="query"
         label="Query"
         placeholder={initialValues.query}
         defaultValue={initialValues.query}
@@ -522,10 +522,12 @@ const ViewNode: FC<NodeProps> = memo(({ id, data, selected }) => {
   return (
     <div className={classNames}>
       <Handle type="target" position={Position.Left} id={id} />
-      <Textarea
-        className="nodrag"
+      <TextArea
+        label="View"
         placeholder="SQL query"
-        label="View" />
+        name="sql_query"
+        onChange={(event) => console.log(event.currentTarget.value)}
+      />
       <Handle type="source" position={Position.Right} id={id} />
     </div>
   );
