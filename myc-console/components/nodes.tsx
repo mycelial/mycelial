@@ -1,17 +1,21 @@
-import { memo, FC, useEffect, useCallback } from 'react';
+import { memo, FC, useEffect, useContext, useCallback } from 'react';
 import { Handle, Position, NodeProps, NodeResizer, useNodeId, useReactFlow } from 'reactflow';
 
 import { Select, MultiSelect, Textarea, TextInput } from '@/components/inputs';
 
 import styles from '@/components/Flow/Flow.module.css';
+import { ClientContext } from './context/clientContext';
+import { ClientContextType } from './@types/client';
 
 
 const SqliteSourceNode: FC<NodeProps> = memo(({ id, data }) => {
   const instance = useReactFlow();
+  const { clients } = useContext(ClientContext) as ClientContextType;
 
   let initialValues = {
     databasePath: data.path ? data.path : "/tmp/test.sqlite",
-    sqlQuery: data.query ? data.query : "select * from test;"
+    sqlQuery: data.query ? data.query : "select * from test;",
+    client: data.client ? data.client : "",
   };
 
   const handleChange = useCallback((name: string, value: string) => {
@@ -30,12 +34,14 @@ const SqliteSourceNode: FC<NodeProps> = memo(({ id, data }) => {
   useEffect(() => {
     handleChange("path", initialValues.databasePath);
     handleChange("query", initialValues.sqlQuery);
+    handleChange("client", initialValues.client);
   }, [id]);
 
   return (
     <div className={styles.customNode}>
       <TextInput
-        label="SQLite Database Path"
+        name="sqliteDatabasePath"
+        label="Sqlite Database Path"
         placeholder={initialValues.databasePath}
         defaultValue={initialValues.databasePath}
         onChange={(event) => handleChange("path", event.currentTarget.value)}
@@ -46,7 +52,17 @@ const SqliteSourceNode: FC<NodeProps> = memo(({ id, data }) => {
         placeholder={initialValues.sqlQuery}
         defaultValue={initialValues.sqlQuery}
         onChange={(event) => handleChange("query", event.currentTarget.value)}
+      />
+      <Select
         className="nodrag"
+        label="Client"
+        placeholder="Pick one"
+        defaultValue={initialValues.client}
+        searchable
+        nothingFound="No options"
+        data={(clients || []).map(c => c.id)}
+        onChange={(value) => handleChange("client", value || "")}
+        withinPortal
       />
       <Handle type="source" position={Position.Right} id={id} />
     </div>
@@ -55,6 +71,7 @@ const SqliteSourceNode: FC<NodeProps> = memo(({ id, data }) => {
 
 const MycelialNetworkNode: FC<NodeProps> = memo(({ id, data }) => {
   const instance = useReactFlow();
+  const { clients } = useContext(ClientContext) as ClientContextType;
 
   let initialValues = {
     endpoint: data.endpoint ? data.endpoint : "http://localhost:8000/ingestion",
@@ -306,11 +323,13 @@ const SnowflakeSourceNode: FC<NodeProps> = memo(({ id, data }) => {
 
 const KafkaSourceNode: FC<NodeProps> = memo(({ id, data }) => {
   const instance = useReactFlow();
+  const { clients } = useContext(ClientContext) as ClientContextType;
 
   let initialValues = {
     brokers: data.brokers ? data.brokers : "localhost:9092",
     group_id: data.group_id ? data.group_id : "group_id",
     topics: data.topics ? data.topics : "topic-0",
+    client: data.client ? data.client : "",
   };
 
   const handleChange = useCallback((name: string, value: string) => {
@@ -330,6 +349,7 @@ const KafkaSourceNode: FC<NodeProps> = memo(({ id, data }) => {
     handleChange("brokers", initialValues.brokers);
     handleChange("group_id", initialValues.group_id);
     handleChange("topics", initialValues.topics);
+    handleChange("client", initialValues.client);
   }, [id]);
 
   return (
@@ -354,6 +374,17 @@ const KafkaSourceNode: FC<NodeProps> = memo(({ id, data }) => {
         placeholder={initialValues.topics}
         defaultValue={initialValues.topics}
         onChange={(event) => handleChange("topics", event.currentTarget.value)}
+      />
+      <Select
+        className="nodrag"
+        label="Client"
+        placeholder="Pick one"
+        defaultValue={initialValues.client}
+        searchable
+        nothingFound="No options"
+        data={(clients || []).map(c => c.id)}
+        onChange={(value) => handleChange("client", value || "")}
+        withinPortal
       />
       <Handle type="source" position={Position.Right} id={id} />
     </div>

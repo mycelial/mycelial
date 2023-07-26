@@ -1,25 +1,25 @@
 //! Mycelial server
 use arrow::{ipc::reader::StreamReader, util::pretty::pretty_format_batches};
-use base64::engine::{general_purpose::STANDARD as BASE64, Engine};
 use axum::{
     extract::{BodyStream, State},
     headers::{authorization::Basic, Authorization},
-    http::{Method, Request, Uri, StatusCode, self, header},
+    http::{self, header, Method, Request, StatusCode, Uri},
     middleware::{self, Next},
     response::{IntoResponse, Response},
-    routing::{get, post, get_service},
+    routing::{get, get_service, post},
     Json, Router, Server, TypedHeader,
 };
+use base64::engine::{general_purpose::STANDARD as BASE64, Engine};
 use chrono::Utc;
 use clap::Parser;
 use futures::StreamExt;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use sqlx::{sqlite::SqliteConnectOptions, ConnectOptions, Row, SqliteConnection};
-use tower_http::services::ServeDir;
 use std::{net::SocketAddr, path::Path};
 use std::{str::FromStr, sync::Arc};
 use tokio::sync::Mutex;
+use tower_http::services::ServeDir;
 use uuid::Uuid;
 mod error;
 
@@ -38,7 +38,7 @@ struct CLI {
 
     /// Database path
     #[clap(short, long, env = "DATABASE_PATH", default_value = "mycelial.db")]
-    database_path: String
+    database_path: String,
 }
 
 // FIXME: full body accumulation
@@ -71,6 +71,16 @@ struct Configs {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
+struct Clients {
+    clients: Vec<Client>,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+struct Client {
+    id: String,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
 struct PipeConfig {
     id: u32,
     pipe: serde_json::Value,
@@ -87,21 +97,45 @@ async fn post_pipe_config(
     app.set_configs(configs).await
 }
 
+async fn get_clients(State(app): State<Arc<App>>) -> Result<impl IntoResponse, error::Error> {
+    Ok(app.database.get_clients().await.map(Json)?)
+}
+
 async fn basic_auth<B>(
     State(app): State<Arc<App>>,
     req: Request<B>,
     next: Next<B>,
 ) -> Result<Response, impl IntoResponse> {
-    let auth_header = req.headers()
+    let auth_header = req
+        .headers()
         .get(http::header::AUTHORIZATION)
         .and_then(|header| header.to_str().ok());
 
     match auth_header {
         Some(auth_header) if app.basic_auth(auth_header) => return Ok(next.run(req).await),
-        _ => ()
+        _ => (),
     };
-    let response = ([(header::WWW_AUTHENTICATE, "Basic auth")], StatusCode::UNAUTHORIZED);
+    let response = (
+        [(header::WWW_AUTHENTICATE, "Basic")],
+        StatusCode::UNAUTHORIZED,
+    );
     Err(response)
+}
+
+async fn client_auth<B>(
+    State(app): State<Arc<App>>,
+    req: Request<B>,
+    next: Next<B>,
+) -> Result<Response, StatusCode> {
+    let auth_header = req
+        .headers()
+        .get("X-Authorization")
+        .and_then(|header| header.to_str().ok());
+
+    match auth_header {
+        Some(auth_header) => Ok(next.run(req).await),
+        _ => Err(StatusCode::UNAUTHORIZED),
+    }
 }
 
 // log response middleware
@@ -216,7 +250,7 @@ impl Database {
 
     async fn insert_client(&self, client_id: &str) -> Result<(), error::Error> {
         let mut connection = self.connection.lock().await;
-        let _ = sqlx::query("INSERT INTO clients (id) VALUES (?)")
+        let _ = sqlx::query("INSERT INTO clients (id) VALUES (?) ON CONFLICT (id) DO NOTHING")
             .bind(client_id)
             .execute(&mut *connection)
             .await?;
@@ -284,6 +318,24 @@ impl Database {
         })
     }
 
+    async fn get_clients(&self) -> Result<Clients, error::Error> {
+        let mut connection = self.connection.lock().await;
+        let rows = sqlx::query("SELECT id FROM clients")
+            .fetch_all(&mut *connection)
+            .await?;
+
+        let clients = Clients {
+            clients: rows
+                .into_iter()
+                .map(|row| {
+                    let id = row.get("id");
+                    Client { id }
+                })
+                .collect(),
+        };
+        Ok(clients)
+    }
+
     async fn get_configs(&self) -> Result<Configs, error::Error> {
         let mut connection = self.connection.lock().await;
         // FIXME: sqlx allows query_as<Struct>
@@ -345,10 +397,7 @@ impl App {
 }
 
 impl App {
-    pub async fn new(
-        db_path: impl AsRef<str>,
-        token: impl Into<String>,
-    ) -> anyhow::Result<Self> {
+    pub async fn new(db_path: impl AsRef<str>, token: impl Into<String>) -> anyhow::Result<Self> {
         let db_path: &str = db_path.as_ref();
         if let Some(parent) = Path::new(db_path).parent() {
             tokio::fs::create_dir_all(parent).await?;
@@ -377,18 +426,22 @@ async fn main() -> anyhow::Result<()> {
 
     // FIXME: consistent endpoint namings
     let api = Router::new()
-        .route("/ingestion", post(ingestion))
-        .route(
-            "/pipe/configs",
-            get(get_pipe_configs).post(post_pipe_config),
+        .route("/api/client", post(provision_client)) // no client auth needed
+        .route("/api/tokens", post(issue_token)) // no client auth needed
+        .merge(
+            Router::new()
+                .route("/ingestion", post(ingestion))
+                .route(
+                    "/pipe/configs",
+                    get(get_pipe_configs).post(post_pipe_config),
+                )
+                .route("/api/clients", get(get_clients))
+                .route("/api/ui-metadata", get(get_ui_metadata))
+                .layer(middleware::from_fn_with_state(state.clone(), client_auth)),
         )
-        .route("/api/client", post(provision_client))
-        .route("/api/tokens", post(issue_token))
-        .route("/api/ui-metadata", get(get_ui_metadata))
         .with_state(state.clone());
 
-    let assets = Router::new()
-        .nest_service("/", get_service(ServeDir::new(cli.assets_dir)));
+    let assets = Router::new().nest_service("/", get_service(ServeDir::new(cli.assets_dir)));
 
     let router = Router::new()
         .merge(api)
