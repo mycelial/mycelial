@@ -32,6 +32,10 @@ struct CLI {
     /// Server authorization token
     #[clap(short, long, env = "ENDPOINT_TOKEN")]
     token: String,
+
+    /// Client name
+    #[clap(short, long, env = "CLIENT_NAME", default_value = "test client")]
+    name: String,
 }
 
 /// Setup & populate registry
@@ -126,10 +130,11 @@ impl Client {
         }
     }
 
-    async fn register(&mut self, client_id: String) -> Result<(), reqwest::Error> {
+    async fn register(&mut self, client_id: impl AsRef<str>) -> Result<(), reqwest::Error> {
+        let client_id = client_id.as_ref();
         let client = reqwest::Client::new();
         let url = format!("{}/api/client", self.endpoint.as_str());
-        let x: ClientInfo = client
+        let _x: ClientInfo = client
             .post(url)
             .header("Authorization", self.basic_auth())
             .json(&json!({ "id": client_id }))
@@ -181,7 +186,11 @@ impl Client {
 async fn main() -> anyhow::Result<()> {
     let cli = CLI::try_parse()?;
     let mut client = Client::new(cli.endpoint, cli.token);
-    client.register("test client".to_string()).await?;
+    while let Err(e) = client.register(&cli.name).await {
+        println!("failed to register client: {:?}", e);
+        tokio::time::sleep(Duration::from_secs(3)).await;
+    }
+
     let scheduler = Scheduler::new(setup_registry()).spawn();
 
     loop {
