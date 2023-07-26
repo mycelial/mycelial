@@ -197,8 +197,13 @@ const defaultEdgeOptions = {
   },
 };
 
-let id = 0;
-const getId = () => `dndnode_${id++}`;
+const getRandomString = () => {
+  return String(
+    Date.now().toString(32) +
+      Math.random().toString(16)
+  ).replace(/\./g, '');
+}
+const getId = () => `dndnode_${getRandomString()}`;
 
 type NavbarSearchProps = {
   onSave: () => void;
@@ -282,8 +287,6 @@ function Flow()  {
 
     ui_metadata?.ui_metadata.nodes.forEach((node: any) => {
       setNodes((nds) => nds.concat(node));
-      id++; // this is super jank, but is required to prevent an id collision issue that was happening
-            // when adding new nodes after nodes have already been pre-populated from the server
     });
 
     ui_metadata?.ui_metadata.edges.forEach((edge: any) => {
