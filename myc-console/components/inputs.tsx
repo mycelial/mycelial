@@ -14,7 +14,7 @@ interface TextInputProps {
 export function TextInput(props: TextInputProps) {
     return (
       <div>
-        <label htmlFor={props.name} className="block text-sm font-medium leading-6 text-gray-900">
+        <label style={{"cursor": "inherit"}} htmlFor={props.name} className="block text-sm font-medium leading-6 text-gray-900">
           {props.label}
         </label>
         <div className="mt-2">
