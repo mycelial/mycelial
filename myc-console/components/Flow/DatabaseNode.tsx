@@ -9,11 +9,11 @@ const DatabaseNode: FC<NodeProps> = ({ id, data }) => {
   return (
     <div>
       <Select
+        name="database"
         label="Database"
         placeholder="Pick one"
-        searchable
-        nothingFound="No options"
-        data={['Sqlite', 'PostgreSQL', 'Snowflake']}
+        options={['Sqlite', 'PostgreSQL', 'Snowflake']}
+        onChange={() => {}}
       />
     </div>
   );
