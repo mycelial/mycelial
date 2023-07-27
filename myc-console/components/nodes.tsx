@@ -43,6 +43,7 @@ const SqliteSourceNode: FC<NodeProps> = memo(({ id, data, selected }) => {
 
   return (
     <div className={classNames}>
+      <h2 className="text-slate-400 font-normal">SQLite Source</h2>
       <TextInput
         name="sqliteDatabasePath"
         label="Sqlite Database Path"
@@ -58,15 +59,14 @@ const SqliteSourceNode: FC<NodeProps> = memo(({ id, data, selected }) => {
         onChange={(event) => handleChange("query", event.currentTarget.value)}
       />
       <Select
-        className="nodrag"
+        name="client"
         label="Client"
         placeholder="Pick one"
         defaultValue={initialValues.client}
-        searchable
-        nothingFound="No options"
-        data={(clients || []).map(c => c.id)}
-        onChange={(value) => handleChange("client", value || "")}
-        withinPortal
+        options={(clients || []).map(c => c.id)}
+        onChange={(value) => {
+          handleChange("client", value || "")
+        }}
       />
       <Handle type="source" position={Position.Right} id={id} />
     </div>
@@ -108,9 +108,10 @@ const MycelialNetworkNode: FC<NodeProps> = memo(({ id, data, selected }) => {
   return (
     <div className={classNames}>
       <Handle type="target" position={Position.Left} id={id} />
+      <h2 className="text-slate-400 font-normal">Mycelial Network</h2>
       <TextInput 
-        name="MycelialNetworkEndpoint"
-        label="Mycelial Network Endpoint:"
+        name="endpoint"
+        label="Endpoint"
         placeholder={initialValues.endpoint}
         defaultValue={initialValues.endpoint}
         onChange={(event) => handleChange('endpoint', event.currentTarget.value)}
@@ -172,6 +173,7 @@ const SnowflakeDestinationNode: FC<NodeProps> = memo(({ id, data, selected }) =>
 
   return (
     <div className={classNames}>
+      <h2 className="text-slate-400 font-normal">Snowflake Sink</h2>
       <TextInput
         name="username"
         label="Username"
@@ -278,6 +280,7 @@ const SnowflakeSourceNode: FC<NodeProps> = memo(({ id, data, selected }) => {
 
   return (
     <div className={classNames}>
+      <h2 className="text-slate-400 font-normal">Snowflake Source</h2>
       <TextInput
         name="nodrag"
         label="Username"
@@ -347,7 +350,7 @@ const KafkaSourceNode: FC<NodeProps> = memo(({ id, data, selected }) => {
     brokers: data.brokers ? data.brokers : "localhost:9092",
     group_id: data.group_id ? data.group_id : "group_id",
     topics: data.topics ? data.topics : "topic-0",
-    client: data.client ? data.client : "",
+    client: data.client ? data.client : " ",
   };
 
   const handleChange = useCallback((name: string, value: string) => {
@@ -376,6 +379,7 @@ const KafkaSourceNode: FC<NodeProps> = memo(({ id, data, selected }) => {
   }
   return (
     <div className={classNames}>
+      <h2 className="text-slate-400 font-normal">Kafka Source</h2>
       <TextInput
         name="brokers"
         label="Brokers"
@@ -398,15 +402,12 @@ const KafkaSourceNode: FC<NodeProps> = memo(({ id, data, selected }) => {
         onChange={(event) => handleChange("topics", event.currentTarget.value)}
       />
       <Select
-        className="nodrag"
+        name="client"
         label="Client"
         placeholder="Pick one"
         defaultValue={initialValues.client}
-        searchable
-        nothingFound="No options"
-        data={(clients || []).map(c => c.id)}
+        options={(clients || []).map(c => c.id)}
         onChange={(value) => handleChange("client", value || "")}
-        withinPortal
       />
       <Handle type="source" position={Position.Right} id={id} />
     </div>
@@ -435,14 +436,12 @@ const DatabaseSourceNode: FC<NodeProps> = memo(({ id, data, selected }) => {
   }
   return (
     <div className={classNames}>
+      <h2 className="text-slate-400 font-normal">Database Source</h2>
       <Select
-        className="nodrag"
+        name="database_source"
         label="Database Source"
-        placeholder="Pick one"
-        searchable
-        nothingFound="No options"
-        data={['Sqlite', 'PostgreSQL', 'Snowflake']}
-        withinPortal
+        options={['Sqlite', 'PostgreSQL', 'Snowflake']}
+        onChange={(event) => {}}
       />
       <MultiSelect
         className="nodrag"
@@ -466,15 +465,13 @@ const DatabaseSinkNode: FC<NodeProps> = memo(({ id, data, selected }) => {
   }
   return (
     <div className={classNames}>
+      <h2 className="text-slate-400 font-normal">Database Sink</h2>
       <Handle type="target" position={Position.Left} id={id} />
       <Select
-        className="nodrag"
+        name="database_sink"
         label="Database Sink"
-        placeholder="Pick one"
-        searchable
-        nothingFound="No options"
-        data={['Snowflake']}
-        withinPortal
+        options={['Snowflake']}
+        onChange={() => {}}
       />
     </div>
   );
@@ -491,13 +488,10 @@ const SourceTableNode: FC<NodeProps> = memo((props) => {
     <div className={classNames}>
       <Handle type="target" position={Position.Left} id={id} />
       <Select
-        className="nodrag"
+        name="table"
         label="Table"
-        placeholder="Pick multiple"
-        searchable
-        nothingFound="No options"
-        data={['users', 'orders', 'orders_pending', 'orders_complete']}
-        withinPortal
+        options={['users', 'orders', 'orders_pending', 'orders_complete']}
+        onChange={() => {}}
       />
       <Handle type="source" position={Position.Right} id={id} />
     </div>
