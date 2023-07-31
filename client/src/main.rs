@@ -12,7 +12,7 @@ use exp2::dynamic_pipe::{
     registry::{Constructor, Registry},
     scheduler::Scheduler,
     section,
-    section_impls::{mycelial_net, sqlite, kafka_source, snowflake_source, snowflake_destination},
+    section_impls::{mycelial_net, sqlite, kafka, snowflake},
 };
 use serde::Deserialize;
 use serde_json::json;
@@ -41,11 +41,12 @@ struct CLI {
 /// Setup & populate registry
 fn setup_registry() -> Registry {
     let arr: &[(&str, Constructor)] = &[
-        ("sqlite", sqlite::constructor),
-        ("mycelial_net", mycelial_net::constructor),
-        ("kafka_source", kafka_source::constructor),
-        ("snowflake_source", snowflake_source::constructor),
-        ("snowflake_destination", snowflake_destination::constructor),
+        ("sqlite_source", sqlite::source::constructor),
+        ("sqlite_destination", sqlite::destination::constructor),
+        ("mycelial_net", mycelial_net::destination::constructor),
+        ("kafka_source", kafka::source::constructor),
+        ("snowflake_source", snowflake::source::constructor),
+        ("snowflake_destination", snowflake::destination::constructor),
     ];
     arr.iter()
         .fold(Registry::new(), |mut acc, &(section_name, constructor)| {

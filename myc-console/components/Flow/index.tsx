@@ -31,6 +31,7 @@ import {
   TargetTableNode,
   ViewNode,
   SqliteSourceNode,
+  SqliteDestinationNode,
   MycelialNetworkNode,
   KafkaSourceNode,
   SnowflakeSourceNode,
@@ -165,7 +166,8 @@ const useStyles = createStyles((theme) => ({
 }));
 
 const collections = [
-  { label: 'Sqlite Query', nodeType: 'sqliteSource'},
+  { label: 'Sqlite Source', nodeType: 'sqliteSource'},
+  { label: 'Sqlite Destination', nodeType: 'sqliteDestination'},
   { label: 'Mycelial Network', nodeType: 'mycelialNetwork'},
   { label: 'Kafka Source', nodeType: 'kafkaSource'},
   { label: 'Snowflake Source', nodeType: 'snowflakeSource'},
@@ -184,6 +186,7 @@ const nodeTypes = {
   targetTable: TargetTableNode,
   view: ViewNode,
   sqliteSource: SqliteSourceNode,
+  sqliteDestination: SqliteDestinationNode,
   mycelialNetwork: MycelialNetworkNode,
   kafkaSource: KafkaSourceNode,
   snowflakeSource: SnowflakeSourceNode,
@@ -325,10 +328,17 @@ function Flow()  {
 
       if (sourceNode?.type === 'sqliteSource') {
         section.push({
-          name: 'sqlite',
+          name: 'sqlite_source',
           client: sourceNode.data.client,
           path: sourceNode.data.path,
-          query: sourceNode.data.query,
+          tables: sourceNode.data.tables,
+        });
+      }
+
+      if (targetNode?.type === 'sqliteDestination') {
+        section.push({
+          name: 'sqlite_destination',
+          path: targetNode.data.path,
         });
       }
 

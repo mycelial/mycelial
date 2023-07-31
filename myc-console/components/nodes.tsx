@@ -20,7 +20,7 @@ const SqliteSourceNode: FC<NodeProps> = memo(({ id, data, selected }) => {
 
   let initialValues = {
     databasePath: data.path ? data.path : "/tmp/test.sqlite",
-    sqlQuery: data.query ? data.query : "select * from test;",
+    tables: data.tables? data.tables: "*",
     client: data.client ? data.client : "",
   };
 
@@ -41,7 +41,7 @@ const SqliteSourceNode: FC<NodeProps> = memo(({ id, data, selected }) => {
 
   useEffect(() => {
     handleChange("path", initialValues.databasePath);
-    handleChange("query", initialValues.sqlQuery);
+    handleChange("tables", initialValues.tables);
     handleChange("client", initialValues.client);
   }, [id]);
 
@@ -61,12 +61,12 @@ const SqliteSourceNode: FC<NodeProps> = memo(({ id, data, selected }) => {
           defaultValue={initialValues.databasePath}
           onChange={(event) => handleChange("path", event.currentTarget.value)}
         />
-        <TextArea
+        <TextInput
           name="sqliteQuery"
-          label="SQL query"
-          placeholder={initialValues.sqlQuery}
-          defaultValue={initialValues.sqlQuery}
-          onChange={(event) => handleChange("query", event.currentTarget.value)}
+          label="Tables"
+          placeholder={initialValues.tables}
+          defaultValue={initialValues.tables}
+          onChange={(event) => handleChange("tables", event.currentTarget.value)}
         />
         <Select
           name="client"
@@ -84,12 +84,61 @@ const SqliteSourceNode: FC<NodeProps> = memo(({ id, data, selected }) => {
   );
 });
 
+const SqliteDestinationNode: FC<NodeProps> = memo(({ id, data, selected }) => {
+  const instance = useReactFlow();
+  const { clients } = useContext(ClientContext) as ClientContextType;
+
+  let initialValues = {
+    databasePath: data.path ? data.path : "/tmp/test_dst.sqlite",
+  };
+
+  const handleChange = useCallback((name: string, value: string) => {
+    instance.setNodes((nodes) =>
+      nodes.map((node) => {
+        if (node.id === id) {
+          node.data = {
+            ...node.data,
+            [name]: value,
+          };
+        }
+
+        return node;
+      })
+    );
+  }, []);
+
+  useEffect(() => {
+    handleChange("path", initialValues.databasePath);
+  }, [id]);
+
+  let classNames = `${styles.customNode} `;
+  if (selected) {
+    classNames = classNames + `${styles.selected}`;
+  }
+
+  return (
+    <div className={classNames}>
+      <div className=" grid grid-cols-1 gap-x-6 gap-y-2">
+        <h2 className="text-slate-400 font-normal">SQLite Source</h2>
+        <TextInput
+          name="sqliteDatabasePath"
+          label="Sqlite Database Path"
+          placeholder={initialValues.databasePath}
+          defaultValue={initialValues.databasePath}
+          onChange={(event) => handleChange("path", event.currentTarget.value)}
+        />
+        <Handle type="target" position={Position.Left} id={id} />
+      </div>
+    </div>
+  );
+})
+
 const MycelialNetworkNode: FC<NodeProps> = memo(({ id, data, selected }) => {
   const instance = useReactFlow();
   const { clients } = useContext(ClientContext) as ClientContextType;
 
   let initialValues = {
-    endpoint: data.endpoint ? data.endpoint : "http://localhost:8000/ingestion",
+    endpoint: data.endpoint ? data.endpoint : "http://localhost:8080/ingestion",
     token: data.token ? data.token : "...",
   };
 
@@ -608,6 +657,7 @@ export {
   TargetTableNode,
   ViewNode,
   SqliteSourceNode,
+  SqliteDestinationNode,
   MycelialNetworkNode,
   KafkaSourceNode,
   SnowflakeSourceNode,
