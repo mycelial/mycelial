@@ -190,7 +190,7 @@ fn is_for_client(config: &Config, name: &str) -> bool {
             }
             None => None,
         }
-    }).collect().len() > 0
+    }).collect::<Vec<bool>>().len() > 0
 }
 
 /// FIXME:
