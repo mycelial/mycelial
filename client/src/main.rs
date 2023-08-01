@@ -224,8 +224,8 @@ async fn main() -> anyhow::Result<()> {
                         if let Err(e) = scheduler.add_pipe(id, config).await {
                             println!("failed to schedule pipe: {:?}", e);
                         }
+                        ids.remove(&id);
                     }
-                    ids.remove(&id);
                 }
                 for id in ids.into_iter(){
                     scheduler.remove_pipe(id).await.unwrap()
