@@ -335,12 +335,6 @@ function Flow()  {
         });
       }
 
-      if (targetNode?.type === 'sqliteDestination') {
-        section.push({
-          name: 'sqlite_destination',
-          path: targetNode.data.path,
-        });
-      }
 
       if (sourceNode?.type === 'snowflakeSource') {
         section.push({
@@ -363,6 +357,13 @@ function Flow()  {
           brokers: sourceNode.data.brokers,
           group_id: sourceNode.data.group_id,
           topics: sourceNode.data.topics,
+        });
+      }
+
+      if (targetNode?.type === 'sqliteDestination') {
+        section.push({
+          name: 'sqlite_destination',
+          path: targetNode.data.path,
         });
       }
 
