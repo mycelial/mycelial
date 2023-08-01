@@ -90,6 +90,7 @@ const SqliteDestinationNode: FC<NodeProps> = memo(({ id, data, selected }) => {
 
   let initialValues = {
     databasePath: data.path ? data.path : "/tmp/test_dst.sqlite",
+    client: data.client ? data.client : "",
   };
 
   const handleChange = useCallback((name: string, value: string) => {
@@ -126,6 +127,16 @@ const SqliteDestinationNode: FC<NodeProps> = memo(({ id, data, selected }) => {
           placeholder={initialValues.databasePath}
           defaultValue={initialValues.databasePath}
           onChange={(event) => handleChange("path", event.currentTarget.value)}
+        />
+        <Select
+          name="client"
+          label="Client"
+          placeholder="Pick one"
+          defaultValue={initialValues.client}
+          options={(clients || []).map((c) => c.id)}
+          onChange={(value) => {
+            handleChange("client", value || "");
+          }}
         />
         <Handle type="target" position={Position.Left} id={id} />
       </div>
