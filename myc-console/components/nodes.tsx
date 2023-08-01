@@ -119,7 +119,7 @@ const SqliteDestinationNode: FC<NodeProps> = memo(({ id, data, selected }) => {
   return (
     <div className={classNames}>
       <div className=" grid grid-cols-1 gap-x-6 gap-y-2">
-        <h2 className="text-slate-400 font-normal">SQLite Source</h2>
+        <h2 className="text-slate-400 font-normal">SQLite Destination</h2>
         <TextInput
           name="sqliteDatabasePath"
           label="Sqlite Database Path"
