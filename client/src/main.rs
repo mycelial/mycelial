@@ -179,6 +179,20 @@ impl Client {
 
 }
 
+fn is_for_client(config: &Config, name: &str) -> bool {
+    config.get_sections().into_iter().filter_map(|section | {
+        match section.get("client") {
+            Some(value) => {
+                match value {
+                    Value::String(client) => Some(client.eq(name)),
+                    _ => None,
+                }
+            }
+            None => None,
+        }
+    }).collect().len() > 0
+}
+
 /// FIXME:
 /// - prints & unwraps in error handling
 /// - better structure - http client and scheduler mushed together in the same loop
@@ -206,8 +220,10 @@ async fn main() -> anyhow::Result<()> {
                             continue
                         }
                     };
-                    if let Err(e) = scheduler.add_pipe(id, config).await {
-                        println!("failed to schedule pipe: {:?}", e);
+                    if is_for_client(&config, &cli.name) {
+                        if let Err(e) = scheduler.add_pipe(id, config).await {
+                            println!("failed to schedule pipe: {:?}", e);
+                        }
                     }
                     ids.remove(&id);
                 }
