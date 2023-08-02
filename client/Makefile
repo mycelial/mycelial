@@ -9,7 +9,7 @@ all:
 bootstrap_sqlite:
 	rm -f $(SQLITE_PATH)
 	echo "SELECT * FROM test" | sqlite3 $(SQLITE_PATH) \
-		-cmd 'CREATE TABLE test (key INT PRIMARY KEY, text TEXT, bin BLOB)' \
+		-cmd 'CREATE TABLE test (id INT PRIMARY KEY, text TEXT, bin BLOB)' \
 		-cmd 'INSERT INTO test VALUES(1, "foo", "foo"), (2, "bar", "bar"), (NULL, NULL, NULL)' \
 		-cmd '.mode table'
 
