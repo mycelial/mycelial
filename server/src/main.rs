@@ -1,5 +1,8 @@
 //! Mycelial server
-use arrow::{ipc::reader::StreamReader, util::pretty::pretty_format_batches};
+use arrow::{
+    ipc::{reader::StreamReader, writer::StreamWriter},
+    record_batch::RecordBatch,
+};
 use axum::{
     extract::{BodyStream, State},
     headers::{authorization::Basic, Authorization},
@@ -16,7 +19,7 @@ use futures::StreamExt;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use sqlx::{sqlite::SqliteConnectOptions, ConnectOptions, Row, SqliteConnection};
-use std::{net::SocketAddr, path::Path};
+use std::{collections::HashMap, net::SocketAddr, path::Path};
 use std::{str::FromStr, sync::Arc};
 use tokio::sync::Mutex;
 use tower_http::services::ServeDir;
@@ -42,7 +45,7 @@ struct CLI {
 }
 
 // FIXME: full body accumulation
-async fn ingestion(mut body: BodyStream) -> impl IntoResponse {
+async fn ingestion(State(app): State<Arc<App>>, mut body: BodyStream) -> impl IntoResponse {
     let mut buf = vec![];
     while let Some(chunk) = body.next().await {
         buf.append(&mut chunk.unwrap().to_vec());
@@ -50,13 +53,21 @@ async fn ingestion(mut body: BodyStream) -> impl IntoResponse {
     let reader = StreamReader::try_new(buf.as_slice(), None).unwrap();
     for record_batch in reader {
         if let Ok(record_batch) = record_batch {
-            println!(
-                "got new record batch:\n{}",
-                pretty_format_batches(&[record_batch]).unwrap()
-            );
+            app.database
+                // FIXME: topic should be passed in or something
+                .store_record("test_topic", &record_batch)
+                .await
+                .unwrap()
         }
     }
     ""
+}
+
+async fn get_record(
+    State(app): State<Arc<App>>,
+    axum::extract::Path((topic, offset)): axum::extract::Path<(String, u32)>,
+) -> Result<impl IntoResponse, error::Error> {
+    Ok(app.database.get_record(&topic, offset).await)
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -304,6 +315,42 @@ impl Database {
         Ok(())
     }
 
+    async fn store_record(
+        &self,
+        topic: &str,
+        record_batch: &RecordBatch,
+    ) -> Result<(), error::Error> {
+        let mut stream_writer: StreamWriter<_> =
+            StreamWriter::try_new(vec![], record_batch.schema().as_ref()).unwrap();
+        // FIXME: unwrap
+        stream_writer.write(record_batch).unwrap();
+        stream_writer.finish().unwrap();
+
+        let bytes: Vec<u8> = stream_writer.into_inner().unwrap().into();
+
+        let mut connection = self.connection.lock().await;
+        sqlx::query("INSERT INTO records (topic, data) VALUES (?, ?)")
+            .bind(topic)
+            .bind(bytes)
+            .execute(&mut *connection)
+            .await?;
+        Ok(())
+    }
+
+    async fn get_record(&self, topic: &str, offset: u32) -> Result<Vec<u8>, error::Error> {
+        let mut connection = self.connection.lock().await;
+        let row = sqlx::query(
+            "SELECT data FROM records WHERE topic = ? AND id > ? ORDER BY id ASC LIMIT 1",
+        )
+        .bind(topic)
+        .bind(offset)
+        .fetch_one(&mut *connection)
+        .await?;
+        // FIXME: get() will panic if column not presented
+        let raw: Vec<u8> = row.get("data");
+        Ok(raw)
+    }
+
     async fn get_ui_metadata(&self) -> Result<UIConfig, error::Error> {
         let mut connection = self.connection.lock().await;
         let row =
@@ -429,6 +476,7 @@ async fn main() -> anyhow::Result<()> {
         .route("/api/client", post(provision_client)) // no client auth needed
         .route("/api/tokens", post(issue_token)) // no client auth needed
         .route("/ingestion", post(ingestion))
+        .route("/ingestion/:topic/:offset", get(get_record))
         .merge(
             Router::new()
                 .route(
