@@ -180,17 +180,12 @@ impl Client {
 }
 
 fn is_for_client(config: &Config, name: &str) -> bool {
-    config.get_sections().into_iter().filter_map(|section | {
+    config.get_sections().iter().any(|section | {
         match section.get("client") {
-            Some(value) => {
-                match value {
-                    Value::String(client) => Some(client.eq(name)),
-                    _ => None,
-                }
-            }
-            None => None,
+            Some(Value::String(client)) if client == name => true,
+            _ => false
         }
-    }).collect::<Vec<bool>>().len() > 0
+    })
 }
 
 /// FIXME:
