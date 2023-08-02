@@ -25,11 +25,6 @@ import styles from './Flow.module.css';
 // import DatabaseNode from './DatabaseNode';
 
 import {
-  DatabaseSourceNode,
-  DatabaseSinkNode,
-  SourceTableNode,
-  TargetTableNode,
-  ViewNode,
   SqliteSourceNode,
   SqliteDestinationNode,
   MycelialNetworkNode,
@@ -171,7 +166,7 @@ const collections = [
   { label: 'Mycelial Network', nodeType: 'mycelialNetwork'},
   { label: 'Kafka Source', nodeType: 'kafkaSource'},
   { label: 'Snowflake Source', nodeType: 'snowflakeSource'},
-  { label: 'Snowflake Sink', nodeType: 'snowflakeDestination'},
+  { label: 'Snowflake Destination', nodeType: 'snowflakeDestination'},
 ];
 
 const initialNodes: Node[] = [];
@@ -180,11 +175,6 @@ const initialEdges: Edge[] = [];
 
 const nodeTypes = {
   custom: CustomNode,
-  databaseSource: DatabaseSourceNode,
-  databaseSink: DatabaseSinkNode,
-  sourceTable: SourceTableNode,
-  targetTable: TargetTableNode,
-  view: ViewNode,
   sqliteSource: SqliteSourceNode,
   sqliteDestination: SqliteDestinationNode,
   mycelialNetwork: MycelialNetworkNode,
