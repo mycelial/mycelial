@@ -1,4 +1,4 @@
-import { memo, FC, useEffect, useContext, useCallback } from "react";
+import { useMemo, memo, FC, useEffect, useContext, useCallback } from "react";
 import {
   Handle,
   Position,
@@ -19,11 +19,14 @@ const SqliteSourceNode: FC<NodeProps> = memo(({ id, data, selected }) => {
   const instance = useReactFlow();
   const { clients } = useContext(ClientContext) as ClientContextType;
 
-  let initialValues = {
-    databasePath: data.path ? data.path : "/tmp/test.sqlite",
-    tables: data.tables ? data.tables : "*",
-    client: data.client ? data.client : "",
-  };
+  let initialValues = useMemo(() => {
+    return {
+      databasePath: data.path ? data.path : "/tmp/test.sqlite",
+      tables: data.tables ? data.tables : "*",
+      client: data.client ? data.client : "",
+      topic: data.topic ? data.topic : "",
+    };
+  }, [data]);
 
   const handleChange = useCallback((name: string, value: string) => {
     instance.setNodes((nodes) =>
@@ -44,7 +47,8 @@ const SqliteSourceNode: FC<NodeProps> = memo(({ id, data, selected }) => {
     handleChange("path", initialValues.databasePath);
     handleChange("tables", initialValues.tables);
     handleChange("client", initialValues.client);
-  }, [id]);
+    handleChange("topic", initialValues.topic);
+  }, [id, handleChange, initialValues]);
 
   let classNames = `${styles.customNode} `;
   if (selected) {
@@ -101,6 +105,13 @@ const SqliteSourceNode: FC<NodeProps> = memo(({ id, data, selected }) => {
             handleChange("client", value || "");
           }}
         />
+        <TextInput
+          name="topic"
+          label="Topic"
+          placeholder={initialValues.topic}
+          defaultValue={initialValues.topic}
+          onChange={(event) => handleChange("topic", event.currentTarget.value)}
+        />
         <Handle type="source" position={Position.Right} id={id} />
       </div>
     </div>
@@ -111,10 +122,13 @@ const SqliteDestinationNode: FC<NodeProps> = memo(({ id, data, selected }) => {
   const instance = useReactFlow();
   const { clients } = useContext(ClientContext) as ClientContextType;
 
-  let initialValues = {
-    databasePath: data.path ? data.path : "/tmp/test_dst.sqlite",
-    client: data.client ? data.client : "",
-  };
+  let initialValues = useMemo(() => {
+    return {
+      databasePath: data.path ? data.path : "/tmp/test_dst.sqlite",
+      client: data.client ? data.client : "",
+      topic: data.topic ? data.topic : "",
+    };
+  }, [data]);
 
   const handleChange = useCallback((name: string, value: string) => {
     instance.setNodes((nodes) =>
@@ -141,7 +155,9 @@ const SqliteDestinationNode: FC<NodeProps> = memo(({ id, data, selected }) => {
 
   useEffect(() => {
     handleChange("path", initialValues.databasePath);
-  }, [id]);
+    handleChange("client", initialValues.client);
+    handleChange("topic", initialValues.topic);
+  }, [id, initialValues, handleChange]);
 
   let classNames = `${styles.customNode} `;
   if (selected) {
@@ -181,6 +197,13 @@ const SqliteDestinationNode: FC<NodeProps> = memo(({ id, data, selected }) => {
             handleChange("client", value || "");
           }}
         />
+        <TextInput
+          name="topic"
+          label="Topic"
+          placeholder={initialValues.topic}
+          defaultValue={initialValues.topic}
+          onChange={(event) => handleChange("topic", event.currentTarget.value)}
+        />
         <Handle type="target" position={Position.Left} id={id} />
       </div>
     </div>
@@ -189,12 +212,15 @@ const SqliteDestinationNode: FC<NodeProps> = memo(({ id, data, selected }) => {
 
 const MycelialNetworkNode: FC<NodeProps> = memo(({ id, data, selected }) => {
   const instance = useReactFlow();
-  const { clients } = useContext(ClientContext) as ClientContextType;
 
-  let initialValues = {
-    endpoint: data.endpoint ? data.endpoint : "http://localhost:8080/ingestion",
-    token: data.token ? data.token : "...",
-  };
+  let initialValues = useMemo(() => {
+    return {
+      endpoint: data.endpoint
+        ? data.endpoint
+        : "http://localhost:8080/ingestion",
+      token: data.token ? data.token : "...",
+    };
+  }, [data]);
 
   const removeNode = useCallback((id: string) => {
     instance.setNodes((nodes) =>
@@ -202,7 +228,7 @@ const MycelialNetworkNode: FC<NodeProps> = memo(({ id, data, selected }) => {
         return node.id !== id;
       })
     );
-  }, []);
+  }, [instance]);
 
   const handleChange = useCallback((name: string, value: string) => {
     instance.setNodes((nodes) =>
@@ -217,12 +243,12 @@ const MycelialNetworkNode: FC<NodeProps> = memo(({ id, data, selected }) => {
         return node;
       })
     );
-  }, []);
+  }, [id, instance]);
 
   useEffect(() => {
     handleChange("endpoint", initialValues.endpoint);
     handleChange("token", initialValues.token);
-  }, [id]);
+  }, [id, handleChange, initialValues]);
 
   let classNames = `${styles.customNode} `;
   if (selected) {
@@ -232,6 +258,7 @@ const MycelialNetworkNode: FC<NodeProps> = memo(({ id, data, selected }) => {
     <div className={classNames}>
       <div className=" grid grid-cols-1 gap-x-6 gap-y-2">
         <Handle type="target" position={Position.Left} id={id} />
+        <Handle type="source" position={Position.Right} id={id} />
         <h2 className="text-slate-400 font-normal">Mycelial Network</h2>
 
         <button
@@ -271,18 +298,21 @@ const SnowflakeDestinationNode: FC<NodeProps> = memo(
   ({ id, data, selected }) => {
     const instance = useReactFlow();
 
-    let initialValues = {
-      username: data.username ? data.username : "SVCMYCELIAL",
-      password: data.password ? data.password : "",
-      role: data.role ? data.role : "MYCELIAL",
-      account_identifier: data.account_identifier
-        ? data.account_identifier
-        : "UW17194-STREAMLITPR",
-      warehouse: data.warehouse ? data.warehouse : "MYCELIAL",
-      database: data.database ? data.database : "MYCELIAL",
-      schema: data.schema ? data.schema : "PIPE",
-      table: data.table ? data.table : "TEST_DESTINATION",
-    };
+    let initialValues = useMemo(() => {
+      return {
+        username: data.username ? data.username : "SVCMYCELIAL",
+        password: data.password ? data.password : "",
+        role: data.role ? data.role : "MYCELIAL",
+        account_identifier: data.account_identifier
+          ? data.account_identifier
+          : "UW17194-STREAMLITPR",
+        warehouse: data.warehouse ? data.warehouse : "MYCELIAL",
+        database: data.database ? data.database : "MYCELIAL",
+        schema: data.schema ? data.schema : "PIPE",
+        table: data.table ? data.table : "TEST_DESTINATION",
+        topic: data.topic ? data.topic : "",
+      };
+    }, [data]);
 
     const handleChange = useCallback((name: string, value: string) => {
       instance.setNodes((nodes) =>
@@ -308,7 +338,8 @@ const SnowflakeDestinationNode: FC<NodeProps> = memo(
       handleChange("database", initialValues.database);
       handleChange("schema", initialValues.schema);
       handleChange("table", initialValues.table);
-    }, [id]);
+      handleChange("topic", initialValues.topic);
+    }, [id, handleChange, initialValues]);
 
     let classNames = `${styles.customNode} `;
     if (selected) {
@@ -411,6 +442,15 @@ const SnowflakeDestinationNode: FC<NodeProps> = memo(
               handleChange("table", event.currentTarget.value)
             }
           />
+          <TextInput
+            name="topic"
+            label="Topic"
+            placeholder={initialValues.topic}
+            defaultValue={initialValues.topic}
+            onChange={(event) =>
+              handleChange("topic", event.currentTarget.value)
+            }
+          />
           <Handle type="target" position={Position.Left} id={id} />
         </div>
       </div>
@@ -421,33 +461,39 @@ const SnowflakeDestinationNode: FC<NodeProps> = memo(
 const SnowflakeSourceNode: FC<NodeProps> = memo(({ id, data, selected }) => {
   const instance = useReactFlow();
 
-  let initialValues = {
-    username: data.username ? data.username : "SVCMYCELIAL",
-    password: data.password ? data.password : "",
-    role: data.role ? data.role : "MYCELIAL",
-    account_identifier: data.account_identifier
-      ? data.account_identifier
-      : "UW17194-STREAMLITPR",
-    warehouse: data.warehouse ? data.warehouse : "MYCELIAL",
-    database: data.database ? data.database : "MYCELIAL",
-    schema: data.schema ? data.schema : "GITHUB",
-    query: data.query ? data.query : "SELECT * FROM COMMIT",
-  };
+  let initialValues = useMemo(() => {
+    return {
+      username: data.username ? data.username : "SVCMYCELIAL",
+      password: data.password ? data.password : "",
+      role: data.role ? data.role : "MYCELIAL",
+      account_identifier: data.account_identifier
+        ? data.account_identifier
+        : "UW17194-STREAMLITPR",
+      warehouse: data.warehouse ? data.warehouse : "MYCELIAL",
+      database: data.database ? data.database : "MYCELIAL",
+      schema: data.schema ? data.schema : "GITHUB",
+      query: data.query ? data.query : "SELECT * FROM COMMIT",
+      topic: data.topic ? data.topic : "",
+    };
+  }, [data]);
 
-  const handleChange = useCallback((name: string, value: string) => {
-    instance.setNodes((nodes) =>
-      nodes.map((node) => {
-        if (node.id === id) {
-          node.data = {
-            ...node.data,
-            [name]: value,
-          };
-        }
+  const handleChange = useCallback(
+    (name: string, value: string) => {
+      instance.setNodes((nodes) =>
+        nodes.map((node) => {
+          if (node.id === id) {
+            node.data = {
+              ...node.data,
+              [name]: value,
+            };
+          }
 
-        return node;
-      })
-    );
-  }, []);
+          return node;
+        })
+      );
+    },
+    [instance, id]
+  );
 
   useEffect(() => {
     handleChange("username", initialValues.username);
@@ -458,19 +504,23 @@ const SnowflakeSourceNode: FC<NodeProps> = memo(({ id, data, selected }) => {
     handleChange("database", initialValues.database);
     handleChange("schema", initialValues.schema);
     handleChange("query", initialValues.query);
-  }, [id]);
+    handleChange("topic", initialValues.topic);
+  }, [id, handleChange, initialValues]);
 
   let classNames = `${styles.customNode} `;
   if (selected) {
     classNames = classNames + `${styles.selected}`;
   }
-  const removeNode = useCallback((id: string) => {
-    instance.setNodes((nodes) =>
-      nodes.filter((node) => {
-        return node.id !== id;
-      })
-    );
-  }, []);
+  const removeNode = useCallback(
+    (id: string) => {
+      instance.setNodes((nodes) =>
+        nodes.filter((node) => {
+          return node.id !== id;
+        })
+      );
+    },
+    [instance]
+  );
 
   return (
     <div className={classNames}>
@@ -556,6 +606,13 @@ const SnowflakeSourceNode: FC<NodeProps> = memo(({ id, data, selected }) => {
           defaultValue={initialValues.query}
           onChange={(event) => handleChange("query", event.currentTarget.value)}
         />
+        <TextInput
+          name="topic"
+          label="Topic"
+          placeholder={initialValues.topic}
+          defaultValue={initialValues.topic}
+          onChange={(event) => handleChange("topic", event.currentTarget.value)}
+        />
         <Handle type="source" position={Position.Right} id={id} />
       </div>
     </div>
@@ -566,42 +623,52 @@ const KafkaSourceNode: FC<NodeProps> = memo(({ id, data, selected }) => {
   const instance = useReactFlow();
   const { clients } = useContext(ClientContext) as ClientContextType;
 
-  let initialValues = {
-    brokers: data.brokers ? data.brokers : "localhost:9092",
-    group_id: data.group_id ? data.group_id : "group_id",
-    topics: data.topics ? data.topics : "topic-0",
-    client: data.client ? data.client : " ",
-  };
+  let initialValues = useMemo(() => {
+    return {
+      brokers: data.brokers ? data.brokers : "localhost:9092",
+      group_id: data.group_id ? data.group_id : "group_id",
+      topics: data.topics ? data.topics : "topic-0",
+      client: data.client ? data.client : " ",
+      topic: data.topic ? data.topic : "",
+    };
+  }, [data]);
 
-  const handleChange = useCallback((name: string, value: string) => {
-    instance.setNodes((nodes) =>
-      nodes.map((node) => {
-        if (node.id === id) {
-          node.data = {
-            ...node.data,
-            [name]: value,
-          };
-        }
+  const handleChange = useCallback(
+    (name: string, value: string) => {
+      instance.setNodes((nodes) =>
+        nodes.map((node) => {
+          if (node.id === id) {
+            node.data = {
+              ...node.data,
+              [name]: value,
+            };
+          }
 
-        return node;
-      })
-    );
-  }, []);
+          return node;
+        })
+      );
+    },
+    [id, instance]
+  );
 
-  const removeNode = useCallback((id: string) => {
-    instance.setNodes((nodes) =>
-      nodes.filter((node) => {
-        return node.id !== id;
-      })
-    );
-  }, []);
+  const removeNode = useCallback(
+    (id: string) => {
+      instance.setNodes((nodes) =>
+        nodes.filter((node) => {
+          return node.id !== id;
+        })
+      );
+    },
+    [instance]
+  );
 
   useEffect(() => {
     handleChange("brokers", initialValues.brokers);
     handleChange("group_id", initialValues.group_id);
     handleChange("topics", initialValues.topics);
     handleChange("client", initialValues.client);
-  }, [id]);
+    handleChange("topic", initialValues.topic);
+  }, [id, handleChange, initialValues]);
 
   let classNames = `${styles.customNode} `;
   if (selected) {
@@ -657,6 +724,13 @@ const KafkaSourceNode: FC<NodeProps> = memo(({ id, data, selected }) => {
           defaultValue={initialValues.client}
           options={(clients || []).map((c) => c.id)}
           onChange={(value) => handleChange("client", value || "")}
+        />
+        <TextInput
+          name="topic"
+          label="Topic"
+          placeholder={initialValues.topic}
+          defaultValue={initialValues.topic}
+          onChange={(event) => handleChange("topic", event.currentTarget.value)}
         />
         <Handle type="source" position={Position.Right} id={id} />
       </div>

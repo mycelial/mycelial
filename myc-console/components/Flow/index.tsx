@@ -1,6 +1,14 @@
-'use client'
+"use client";
 
-import { useCallback, useContext, useState, useRef, DOMElement, useEffect, createContext } from 'react';
+import {
+  useCallback,
+  useContext,
+  useState,
+  useRef,
+  DOMElement,
+  useEffect,
+  createContext,
+} from "react";
 import ReactFlow, {
   MarkerType,
   Node,
@@ -15,13 +23,12 @@ import ReactFlow, {
   Background,
   ReactFlowProvider,
   ReactFlowInstance,
-} from 'reactflow';
-import CustomNode from './CustomNode';
+} from "reactflow";
+import CustomNode from "./CustomNode";
 
-import { IconDatabase } from '@tabler/icons-react';
+import { IconDatabase } from "@tabler/icons-react";
 
-
-import styles from './Flow.module.css';
+import styles from "./Flow.module.css";
 // import DatabaseNode from './DatabaseNode';
 
 import {
@@ -30,14 +37,14 @@ import {
   MycelialNetworkNode,
   KafkaSourceNode,
   SnowflakeSourceNode,
-  SnowflakeDestinationNode
-} from '@/components/nodes';
+  SnowflakeDestinationNode,
+} from "@/components/nodes";
 
-import { Grid, Container, Anchor, Group } from '@/components/layout';
+import { Grid, Container, Anchor, Group } from "@/components/layout";
 
-import { UserButton } from '@/components/UserButton';
+import { UserButton } from "@/components/UserButton";
 
-import { Button, Box } from '@/components/core';
+import { Button, Box } from "@/components/core";
 
 import {
   createStyles,
@@ -51,7 +58,7 @@ import {
   ActionIcon,
   Tooltip,
   rem,
-} from '@/components/core';
+} from "@/components/core";
 
 import {
   IconBulb,
@@ -74,9 +81,11 @@ const useStyles = createStyles((theme) => ({
     marginRight: `calc(${theme.spacing.md} * -1)`,
     marginBottom: theme.spacing.md,
 
-    '&:not(:last-of-type)': {
+    "&:not(:last-of-type)": {
       borderBottom: `${rem(1)} solid ${
-        theme.colorScheme === 'dark' ? theme.colors.dark[4] : theme.colors.gray[3]
+        theme.colorScheme === "dark"
+          ? theme.colors.dark[4]
+          : theme.colors.gray[3]
       }`,
     },
   },
@@ -84,9 +93,12 @@ const useStyles = createStyles((theme) => ({
   searchCode: {
     fontWeight: 700,
     fontSize: rem(10),
-    backgroundColor: theme.colorScheme === 'dark' ? theme.colors.dark[7] : theme.colors.gray[0],
+    backgroundColor:
+      theme.colorScheme === "dark"
+        ? theme.colors.dark[7]
+        : theme.colors.gray[0],
     border: `${rem(1)} solid ${
-      theme.colorScheme === 'dark' ? theme.colors.dark[7] : theme.colors.gray[2]
+      theme.colorScheme === "dark" ? theme.colors.dark[7] : theme.colors.gray[2]
     }`,
   },
 
@@ -97,37 +109,46 @@ const useStyles = createStyles((theme) => ({
   },
 
   mainLink: {
-    display: 'flex',
-    alignItems: 'center',
-    width: '100%',
+    display: "flex",
+    alignItems: "center",
+    width: "100%",
     fontSize: theme.fontSizes.xs,
     padding: `${rem(8)} ${theme.spacing.xs}`,
     borderRadius: theme.radius.sm,
     fontWeight: 500,
-    color: theme.colorScheme === 'dark' ? theme.colors.dark[0] : theme.colors.gray[7],
+    color:
+      theme.colorScheme === "dark"
+        ? theme.colors.dark[0]
+        : theme.colors.gray[7],
 
-    '&:hover': {
-      backgroundColor: theme.colorScheme === 'dark' ? theme.colors.dark[6] : theme.colors.gray[0],
-      color: theme.colorScheme === 'dark' ? theme.white : theme.black,
+    "&:hover": {
+      backgroundColor:
+        theme.colorScheme === "dark"
+          ? theme.colors.dark[6]
+          : theme.colors.gray[0],
+      color: theme.colorScheme === "dark" ? theme.white : theme.black,
     },
   },
 
   mainLinkInner: {
-    display: 'flex',
-    alignItems: 'center',
+    display: "flex",
+    alignItems: "center",
     flex: 1,
   },
 
   mainLinkIcon: {
     marginRight: theme.spacing.sm,
-    color: theme.colorScheme === 'dark' ? theme.colors.dark[2] : theme.colors.gray[6],
+    color:
+      theme.colorScheme === "dark"
+        ? theme.colors.dark[2]
+        : theme.colors.gray[6],
   },
 
   mainLinkBadge: {
     padding: 0,
     width: rem(20),
     height: rem(20),
-    pointerEvents: 'none',
+    pointerEvents: "none",
   },
 
   collections: {
@@ -143,30 +164,36 @@ const useStyles = createStyles((theme) => ({
   },
 
   collectionLink: {
-    display: 'block',
+    display: "block",
     padding: `${rem(8)} ${theme.spacing.xs}`,
-    textDecoration: 'none',
+    textDecoration: "none",
     borderRadius: theme.radius.sm,
     fontSize: theme.fontSizes.xs,
-    color: theme.colorScheme === 'dark' ? theme.colors.dark[0] : theme.colors.gray[7],
+    color:
+      theme.colorScheme === "dark"
+        ? theme.colors.dark[0]
+        : theme.colors.gray[7],
     lineHeight: 1,
     fontWeight: 500,
-    cursor: 'grab',
+    cursor: "grab",
 
-    '&:hover': {
-      backgroundColor: theme.colorScheme === 'dark' ? theme.colors.dark[6] : theme.colors.gray[0],
-      color: theme.colorScheme === 'dark' ? theme.white : theme.black,
+    "&:hover": {
+      backgroundColor:
+        theme.colorScheme === "dark"
+          ? theme.colors.dark[6]
+          : theme.colors.gray[0],
+      color: theme.colorScheme === "dark" ? theme.white : theme.black,
     },
   },
 }));
 
 const collections = [
-  { label: 'Sqlite Source', nodeType: 'sqliteSource'},
-  { label: 'Sqlite Destination', nodeType: 'sqliteDestination'},
-  { label: 'Mycelial Network', nodeType: 'mycelialNetwork'},
-  { label: 'Kafka Source', nodeType: 'kafkaSource'},
-  { label: 'Snowflake Source', nodeType: 'snowflakeSource'},
-  { label: 'Snowflake Destination', nodeType: 'snowflakeDestination'},
+  { label: "Sqlite Source", nodeType: "sqliteSource" },
+  { label: "Sqlite Destination", nodeType: "sqliteDestination" },
+  { label: "Mycelial Network", nodeType: "mycelialNetwork" },
+  { label: "Kafka Source", nodeType: "kafkaSource" },
+  { label: "Snowflake Source", nodeType: "snowflakeSource" },
+  { label: "Snowflake Destination", nodeType: "snowflakeDestination" },
 ];
 
 const initialNodes: Node[] = [];
@@ -180,47 +207,57 @@ const nodeTypes = {
   mycelialNetwork: MycelialNetworkNode,
   kafkaSource: KafkaSourceNode,
   snowflakeSource: SnowflakeSourceNode,
-  snowflakeDestination: SnowflakeDestinationNode
+  snowflakeDestination: SnowflakeDestinationNode,
 };
 
 const defaultEdgeOptions = {
   animated: false,
-  type: 'smoothstep',
+  type: "smoothstep",
   markerEnd: {
     type: MarkerType.ArrowClosed,
   },
 };
 
 const getRandomString = () => {
-  return String(
-    Date.now().toString(32) +
-      Math.random().toString(16)
-  ).replace(/\./g, '');
-}
+  return String(Date.now().toString(32) + Math.random().toString(16)).replace(
+    /\./g,
+    ""
+  );
+};
 const getId = () => `dndnode_${getRandomString()}`;
 
 type NavbarSearchProps = {
   onSave: () => void;
-}
+};
 
 function NavbarSearch(props: NavbarSearchProps) {
   const { classes } = useStyles();
-  const ctx = useContext(ClientContext) as ClientContextType || {};
+  const ctx = (useContext(ClientContext) as ClientContextType) || {};
   const { clients } = ctx;
 
   const onDragStart = (event: any, nodeType: string) => {
-    event.dataTransfer.setData('application/reactflow', nodeType);
-    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData("application/reactflow", nodeType);
+    event.dataTransfer.effectAllowed = "move";
   };
 
   const collectionLinks = collections.map((collection) => (
-    <div className={classes.collectionLink} key={collection.label} onDragStart={(event) => onDragStart(event, collection.nodeType)} draggable>
-    {collection.label}
+    <div
+      className={classes.collectionLink}
+      key={collection.label}
+      onDragStart={(event) => onDragStart(event, collection.nodeType)}
+      draggable
+    >
+      {collection.label}
     </div>
   ));
 
   return (
-    <Navbar height="100vh" width={{ sm: 250 }} p="md" className={classes.navbar}>
+    <Navbar
+      height="100vh"
+      width={{ sm: 250 }}
+      p="md"
+      className={classes.navbar}
+    >
       <Navbar.Section className={classes.section}>
         <Group className={classes.collectionsHeader} position="apart">
           <Text size="xs" weight={500} color="dimmed">
@@ -229,8 +266,14 @@ function NavbarSearch(props: NavbarSearchProps) {
         </Group>
         <div className={classes.collections}>{collectionLinks}</div>
         <div>
-          <Box style={{ padding: '1rem' }}>
-            <Button variant="light" color="aqua" fullWidth leftIcon={<IconDatabase size="1rem" />} onClick={props.onSave}>
+          <Box style={{ padding: "1rem" }}>
+            <Button
+              variant="light"
+              color="aqua"
+              fullWidth
+              leftIcon={<IconDatabase size="1rem" />}
+              onClick={props.onSave}
+            >
               Publish
             </Button>
           </Box>
@@ -244,7 +287,9 @@ function NavbarSearch(props: NavbarSearchProps) {
         </Group>
         <div className={classes.collections}>
           {(clients || []).map((client) => (
-            <div className={classes.collectionLink} key={client.id}>{client.id}</div>
+            <div className={classes.collectionLink} key={client.id}>
+              {client.id}
+            </div>
           ))}
         </div>
       </Navbar.Section>
@@ -253,28 +298,30 @@ function NavbarSearch(props: NavbarSearchProps) {
 }
 
 async function getStartingUI(token: string) {
-    try {
-        const response = await fetch("/api/ui-metadata", {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          "X-Authorization": "Bearer " + btoa(token),
-        },
-      });
-      const result = await response.json();
-      return result;
-    } catch (error) {
-    }
+  try {
+    const response = await fetch("/api/ui-metadata", {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Authorization": "Bearer " + btoa(token),
+      },
+    });
+    const result = await response.json();
+    return result;
+  } catch (error) {}
 }
 
-function Flow()  {
+function Flow() {
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
 
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
-  const onConnect = useCallback((params: Connection | Edge) => setEdges((eds) => addEdge(params, eds)), []);
+  const onConnect = useCallback(
+    (params: Connection | Edge) => setEdges((eds) => addEdge(params, eds)),
+    [setEdges]
+  );
 
-  const { token } = useContext(ClientContext) as ClientContextType || {};
+  const { token } = (useContext(ClientContext) as ClientContextType) || {};
 
   const setInitialElements = useCallback(async () => {
     let ui_metadata = await getStartingUI(token);
@@ -286,17 +333,80 @@ function Flow()  {
     ui_metadata?.ui_metadata.edges.forEach((edge: any) => {
       setEdges((eds) => eds.concat(edge));
     });
-
-  }, []);
+  }, [setEdges, setNodes, token]);
 
   useEffect(() => {
     setInitialElements();
+  }, [setInitialElements]);
+
+  const [reactFlowInstance, setReactFlowInstance] =
+    useState<ReactFlowInstance | null>(null);
+
+  const getDetailsForNode = useCallback((node: Node | undefined) => {
+    if (node?.type === "sqliteSource") {
+      return {
+        name: "sqlite_source",
+        client: node.data.client,
+        path: node.data.path,
+        tables: node.data.tables,
+      };
+    }
+
+    if (node?.type === "snowflakeSource") {
+      return {
+        name: "snowflake_source",
+        username: node.data.username,
+        password: node.data.password,
+        role: node.data.role,
+        account_identifier: node.data.account_identifier,
+        warehouse: node.data.warehouse,
+        database: node.data.database,
+        schema: node.data.schema,
+        query: node.data.query,
+      };
+    }
+
+    if (node?.type === "kafkaSource") {
+      return {
+        name: "kafka_source",
+        client: node.data.client,
+        brokers: node.data.brokers,
+        group_id: node.data.group_id,
+        topics: node.data.topics,
+      };
+    }
+
+    if (node?.type === "sqliteDestination") {
+      return {
+        name: "sqlite_destination",
+        path: node.data.path,
+      };
+    }
+
+    if (node?.type === "mycelialNetwork") {
+      return {
+        name: "mycelial_net",
+        endpoint: node.data.endpoint,
+        token: node.data.token,
+      };
+    }
+
+    if (node?.type === "snowflakeDestination") {
+      return {
+        name: "snowflake_destination",
+        username: node.data.username,
+        password: node.data.password,
+        role: node.data.role,
+        account_identifier: node.data.account_identifier,
+        warehouse: node.data.warehouse,
+        database: node.data.database,
+        schema: node.data.schema,
+        table: node.data.table,
+      };
+    }
   }, []);
 
-  const [reactFlowInstance, setReactFlowInstance] = useState<ReactFlowInstance | null>(null);
-
   const handleSave = useCallback(async () => {
-    
     let configs = [];
 
     if (reactFlowInstance === null) {
@@ -308,7 +418,6 @@ function Flow()  {
     let configId = 0;
 
     for (const edge of edges) {
-
       ++configId;
 
       const section = [];
@@ -322,6 +431,7 @@ function Flow()  {
           client: sourceNode.data.client,
           path: sourceNode.data.path,
           tables: sourceNode.data.tables,
+          topic: sourceNode.data.topic,
         });
       }
 
@@ -337,6 +447,7 @@ function Flow()  {
           database: sourceNode.data.database,
           schema: sourceNode.data.schema,
           query: sourceNode.data.query,
+          topic: sourceNode.data.topic,
         });
       }
 
@@ -347,22 +458,32 @@ function Flow()  {
           brokers: sourceNode.data.brokers,
           group_id: sourceNode.data.group_id,
           topics: sourceNode.data.topics,
+          topic: sourceNode.data.topic,
         });
+      }
+
+      if (sourceNode?.type === 'mycelialNetwork') {
+        section.push({
+          name: 'mycelial_net_source',
+          endpoint: sourceNode.data.endpoint,
+          token: sourceNode.data.token,
+        })
+      }
+
+      if (targetNode?.type === 'mycelialNetwork') {
+        section.push({
+          name: 'mycelial_net_destination',
+          endpoint: targetNode.data.endpoint,
+          token: targetNode.data.token,
+        })
       }
 
       if (targetNode?.type === 'sqliteDestination') {
         section.push({
           name: 'sqlite_destination',
           path: targetNode.data.path,
+          topic: targetNode.data.topic,
         });
-      }
-
-      if (targetNode?.type === 'mycelialNetwork') {
-        section.push({
-          name: 'mycelial_net',
-          endpoint: targetNode.data.endpoint,
-          token: targetNode.data.token,
-        })
       }
 
       if (targetNode?.type === 'snowflakeDestination') {
@@ -376,11 +497,11 @@ function Flow()  {
           database: targetNode.data.database,
           schema: targetNode.data.schema,
           table: targetNode.data.table,
+          topic: targetNode.data.topic,
         });
       }
 
-      configs.push({ "id": configId, "pipe": section });
-
+      configs.push({ id: configId, pipe: section });
     }
 
     const payload = {
@@ -389,7 +510,7 @@ function Flow()  {
     };
 
     try {
-        const response = await fetch("/pipe/configs", {
+      const response = await fetch("/pipe/configs", {
         method: "POST", // or 'PUT'
         headers: {
           "Content-Type": "application/json",
@@ -397,18 +518,17 @@ function Flow()  {
         },
         body: JSON.stringify(payload),
       });
-  
+
       const result = await response.json();
       console.log("Success:", result);
     } catch (error) {
       console.error("Error:", error);
     }
-
-  }, [edges]);
+  }, [edges, reactFlowInstance, token]);
 
   const onDragOver = useCallback((event: any) => {
     event.preventDefault();
-    event.dataTransfer.dropEffect = 'move';
+    event.dataTransfer.dropEffect = "move";
   }, []);
 
   const onDrop = useCallback(
@@ -424,10 +544,10 @@ function Flow()  {
       event.preventDefault();
 
       const reactFlowBounds = reactFlowWrapper.current.getBoundingClientRect();
-      const type = event.dataTransfer.getData('application/reactflow');
+      const type = event.dataTransfer.getData("application/reactflow");
 
       // check if the dropped element is valid
-      if (typeof type === 'undefined' || !type) {
+      if (typeof type === "undefined" || !type) {
         return;
       }
 
@@ -444,7 +564,7 @@ function Flow()  {
 
       setNodes((nds) => nds.concat(newNode));
     },
-    [reactFlowInstance]
+    [reactFlowInstance, setNodes]
   );
 
   const minimapStyle = {
@@ -452,11 +572,9 @@ function Flow()  {
   };
 
   useEffect(() => {
-
     if (reactFlowInstance === null) {
       return;
     }
-
   }, [reactFlowInstance]);
 
   return (
