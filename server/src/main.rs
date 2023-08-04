@@ -45,7 +45,11 @@ struct CLI {
 }
 
 // FIXME: full body accumulation
-async fn ingestion(State(app): State<Arc<App>>, mut body: BodyStream) -> impl IntoResponse {
+async fn ingestion(
+    State(app): State<Arc<App>>,
+    axum::extract::Path(topic): axum::extract::Path<String>,
+    mut body: BodyStream,
+) -> impl IntoResponse {
     let mut buf = vec![];
     while let Some(chunk) = body.next().await {
         buf.append(&mut chunk.unwrap().to_vec());
@@ -54,8 +58,7 @@ async fn ingestion(State(app): State<Arc<App>>, mut body: BodyStream) -> impl In
     for record_batch in reader {
         if let Ok(record_batch) = record_batch {
             app.database
-                // FIXME: topic should be passed in or something
-                .store_record("test_topic", &record_batch)
+                .store_record(&topic, &record_batch)
                 .await
                 .unwrap()
         }
@@ -134,7 +137,7 @@ async fn basic_auth<B>(
 }
 
 async fn client_auth<B>(
-    State(app): State<Arc<App>>,
+    State(_app): State<Arc<App>>,
     req: Request<B>,
     next: Next<B>,
 ) -> Result<Response, StatusCode> {
@@ -144,7 +147,7 @@ async fn client_auth<B>(
         .and_then(|header| header.to_str().ok());
 
     match auth_header {
-        Some(auth_header) => Ok(next.run(req).await),
+        Some(_auth_header) => Ok(next.run(req).await),
         _ => Err(StatusCode::UNAUTHORIZED),
     }
 }
@@ -475,7 +478,7 @@ async fn main() -> anyhow::Result<()> {
     let api = Router::new()
         .route("/api/client", post(provision_client)) // no client auth needed
         .route("/api/tokens", post(issue_token)) // no client auth needed
-        .route("/ingestion", post(ingestion))
+        .route("/ingestion/:topic", post(ingestion))
         .route("/ingestion/:topic/:offset", get(get_record))
         .merge(
             Router::new()
