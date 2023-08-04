@@ -117,7 +117,7 @@ export const Select: React.FC<SelectProps> = (props) => {
   const [selected, setSelected] = useState(props.defaultValue);
   useEffect(() => {
     onChange(selected || "");
-  }, [selected, onChange]);
+  }, []);
 
   return (
     <Listbox value={selected} onChange={setSelected}>
