@@ -467,7 +467,7 @@ function Flow() {
     } catch (error) {
       console.error("Error:", error);
     }
-  }, [edges, reactFlowInstance, token]);
+  }, [edges, reactFlowInstance, token, getDetailsForNode]);
 
   const onDragOver = useCallback((event: any) => {
     event.preventDefault();

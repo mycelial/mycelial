@@ -23,7 +23,7 @@ const SqliteSourceNode: FC<NodeProps> = memo(({ id, data, selected }) => {
     return {
       databasePath: data.path ? data.path : "/tmp/test.sqlite",
       tables: data.tables ? data.tables : "*",
-      client: data.client ? data.client : "",
+      client: data.client ? data.client : "-",
       topic: data.topic ? data.topic : "",
     };
   }, [data]);
@@ -125,7 +125,7 @@ const SqliteDestinationNode: FC<NodeProps> = memo(({ id, data, selected }) => {
   let initialValues = useMemo(() => {
     return {
       databasePath: data.path ? data.path : "/tmp/test_dst.sqlite",
-      client: data.client ? data.client : "",
+      client: data.client ? data.client : "-",
       topic: data.topic ? data.topic : "",
     };
   }, [data]);
@@ -628,7 +628,7 @@ const KafkaSourceNode: FC<NodeProps> = memo(({ id, data, selected }) => {
       brokers: data.brokers ? data.brokers : "localhost:9092",
       group_id: data.group_id ? data.group_id : "group_id",
       topics: data.topics ? data.topics : "topic-0",
-      client: data.client ? data.client : " ",
+      client: data.client ? data.client : "-",
       topic: data.topic ? data.topic : "",
     };
   }, [data]);
