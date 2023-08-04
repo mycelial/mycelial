@@ -342,13 +342,14 @@ function Flow() {
   const [reactFlowInstance, setReactFlowInstance] =
     useState<ReactFlowInstance | null>(null);
 
-  const getDetailsForNode = useCallback((node: Node | undefined) => {
+  const getDetailsForNode = useCallback((node: Node | undefined, kind: String) => {
     if (node?.type === "sqliteSource") {
       return {
         name: "sqlite_source",
         client: node.data.client,
         path: node.data.path,
         tables: node.data.tables,
+        topic: node.data.topic,
       };
     }
 
@@ -363,6 +364,7 @@ function Flow() {
         database: node.data.database,
         schema: node.data.schema,
         query: node.data.query,
+        topic: node.data.topic,
       };
     }
 
@@ -373,6 +375,7 @@ function Flow() {
         brokers: node.data.brokers,
         group_id: node.data.group_id,
         topics: node.data.topics,
+        topic: node.data.topic,
       };
     }
 
@@ -380,12 +383,21 @@ function Flow() {
       return {
         name: "sqlite_destination",
         path: node.data.path,
+        topic: node.data.topic,
       };
     }
 
-    if (node?.type === "mycelialNetwork") {
+    if (node?.type === "mycelialNetwork" && kind === "source") {
       return {
-        name: "mycelial_net",
+        name: "mycelial_net_source",
+        endpoint: node.data.endpoint,
+        token: node.data.token,
+      };
+    }
+
+    if (node?.type === "mycelialNetwork" && kind === "destination") {
+      return {
+        name: "mycelial_net_destination",
         endpoint: node.data.endpoint,
         token: node.data.token,
       };
@@ -402,6 +414,7 @@ function Flow() {
         database: node.data.database,
         schema: node.data.schema,
         table: node.data.table,
+        topic: node.data.topic,
       };
     }
   }, []);
@@ -425,81 +438,11 @@ function Flow() {
       const sourceNode = rf.getNode(edge.source);
       const targetNode = rf.getNode(edge.target);
 
-      if (sourceNode?.type === 'sqliteSource') {
-        section.push({
-          name: 'sqlite_source',
-          client: sourceNode.data.client,
-          path: sourceNode.data.path,
-          tables: sourceNode.data.tables,
-          topic: sourceNode.data.topic,
-        });
-      }
+      const sourceNodeInfo = getDetailsForNode(sourceNode, "source");
+      const targetNodeInfo = getDetailsForNode(targetNode, "destination");
 
-
-      if (sourceNode?.type === 'snowflakeSource') {
-        section.push({
-          name: 'snowflake_source',
-          username: sourceNode.data.username,
-          password: sourceNode.data.password,
-          role: sourceNode.data.role,
-          account_identifier: sourceNode.data.account_identifier,
-          warehouse: sourceNode.data.warehouse,
-          database: sourceNode.data.database,
-          schema: sourceNode.data.schema,
-          query: sourceNode.data.query,
-          topic: sourceNode.data.topic,
-        });
-      }
-
-      if (sourceNode?.type === 'kafkaSource') {
-        section.push({
-          name: 'kafka_source',
-          client: sourceNode.data.client,
-          brokers: sourceNode.data.brokers,
-          group_id: sourceNode.data.group_id,
-          topics: sourceNode.data.topics,
-          topic: sourceNode.data.topic,
-        });
-      }
-
-      if (sourceNode?.type === 'mycelialNetwork') {
-        section.push({
-          name: 'mycelial_net_source',
-          endpoint: sourceNode.data.endpoint,
-          token: sourceNode.data.token,
-        })
-      }
-
-      if (targetNode?.type === 'mycelialNetwork') {
-        section.push({
-          name: 'mycelial_net_destination',
-          endpoint: targetNode.data.endpoint,
-          token: targetNode.data.token,
-        })
-      }
-
-      if (targetNode?.type === 'sqliteDestination') {
-        section.push({
-          name: 'sqlite_destination',
-          path: targetNode.data.path,
-          topic: targetNode.data.topic,
-        });
-      }
-
-      if (targetNode?.type === 'snowflakeDestination') {
-        section.push({
-          name: 'snowflake_destination',
-          username: targetNode.data.username,
-          password: targetNode.data.password,
-          role: targetNode.data.role,
-          account_identifier: targetNode.data.account_identifier,
-          warehouse: targetNode.data.warehouse,
-          database: targetNode.data.database,
-          schema: targetNode.data.schema,
-          table: targetNode.data.table,
-          topic: targetNode.data.topic,
-        });
-      }
+      section.push(sourceNodeInfo);
+      section.push(targetNodeInfo);
 
       configs.push({ id: configId, pipe: section });
     }
