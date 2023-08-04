@@ -207,7 +207,7 @@ async fn main() -> anyhow::Result<()> {
     loop {
         match client.get_configs().await {
             Ok(pipe_configs) => {
-                //println!("pipe_configs: {:#?}", pipe_configs);
+                println!("pipe_configs: {:#?}", pipe_configs);
                 let mut ids: HashSet<u64> = HashSet::from_iter(scheduler.list_ids().await.unwrap().into_iter());
                 for pipe_config in pipe_configs.into_iter() {
                     let id = pipe_config.id;
