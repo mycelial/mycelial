@@ -43,7 +43,7 @@ fn setup_registry() -> Registry {
     let arr: &[(&str, Constructor)] = &[
         ("sqlite_source", sqlite::source::constructor),
         ("sqlite_destination", sqlite::destination::constructor),
-        ("mycelial_net_source", mycelial_net::destination::constructor),
+        ("mycelial_net_source", mycelial_net::source::constructor),
         ("mycelial_net_destination", mycelial_net::destination::constructor),
         ("kafka_source", kafka::source::constructor),
         ("snowflake_source", snowflake::source::constructor),
