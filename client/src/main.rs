@@ -43,7 +43,7 @@ fn setup_registry() -> Registry {
     let arr: &[(&str, Constructor)] = &[
         ("sqlite_source", sqlite::source::constructor),
         ("sqlite_destination", sqlite::destination::constructor),
-        ("mycelial_net", mycelial_net::destination::constructor),
+        ("mycelial_net_source", mycelial_net::destination::constructor),
         ("mycelial_net_destination", mycelial_net::destination::constructor),
         ("kafka_source", kafka::source::constructor),
         ("snowflake_source", snowflake::source::constructor),
@@ -185,6 +185,7 @@ fn is_for_client(config: &Config, name: &str) -> bool {
     config.get_sections().iter().any(|section | {
         match section.get("client") {
             Some(Value::String(client)) if client == name => true,
+            None => true,
             _ => false
         }
     })
@@ -223,6 +224,8 @@ async fn main() -> anyhow::Result<()> {
                             println!("failed to schedule pipe: {:?}", e);
                         }
                         ids.remove(&id);
+                    } else {
+                        println!("pipe ignored, config: {:?}", config);
                     }
                 }
                 for id in ids.into_iter(){
