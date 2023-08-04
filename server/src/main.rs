@@ -68,9 +68,12 @@ async fn ingestion(
 
 async fn get_record(
     State(app): State<Arc<App>>,
-    axum::extract::Path((topic, offset)): axum::extract::Path<(String, u32)>,
+    axum::extract::Path((topic, offset)): axum::extract::Path<(String, i64)>,
 ) -> Result<impl IntoResponse, error::Error> {
-    Ok(app.database.get_record(&topic, offset).await)
+    match app.database.get_record(&topic, offset).await? {
+        Some((id, data)) => Ok(([("x-message-id", id)], data)),
+        None => Ok(([("x-message-id", offset)], vec![]))
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -340,18 +343,16 @@ impl Database {
         Ok(())
     }
 
-    async fn get_record(&self, topic: &str, offset: u32) -> Result<Vec<u8>, error::Error> {
+    async fn get_record(&self, topic: &str, offset: i64) -> Result<Option<(i64, Vec<u8>)>, error::Error> {
         let mut connection = self.connection.lock().await;
         let row = sqlx::query(
-            "SELECT data FROM records WHERE topic = ? AND id > ? ORDER BY id ASC LIMIT 1",
+            "SELECT id, data FROM records WHERE topic = ? AND id > ? ORDER BY id ASC LIMIT 1",
         )
-        .bind(topic)
-        .bind(offset)
-        .fetch_one(&mut *connection)
-        .await?;
-        // FIXME: get() will panic if column not presented
-        let raw: Vec<u8> = row.get("data");
-        Ok(raw)
+            .bind(topic)
+            .bind(offset)
+            .fetch_optional(&mut *connection)
+            .await?;
+        Ok(row.map(|row| (row.get("id"), row.get("data"))))
     }
 
     async fn get_ui_metadata(&self) -> Result<UIConfig, error::Error> {
