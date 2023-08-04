@@ -380,6 +380,7 @@ function Flow() {
       return {
         name: "sqlite_destination",
         path: node.data.path,
+        client: node.data.client,
       };
     }
 
