@@ -44,6 +44,7 @@ fn setup_registry() -> Registry {
         ("sqlite_source", sqlite::source::constructor),
         ("sqlite_destination", sqlite::destination::constructor),
         ("mycelial_net", mycelial_net::destination::constructor),
+        ("mycelial_net_destination", mycelial_net::destination::constructor),
         ("kafka_source", kafka::source::constructor),
         ("snowflake_source", snowflake::source::constructor),
         ("snowflake_destination", snowflake::destination::constructor),
