@@ -349,7 +349,6 @@ function Flow() {
         client: node.data.client,
         path: node.data.path,
         tables: node.data.tables,
-        topic: node.data.topic,
       };
     }
 
@@ -364,7 +363,6 @@ function Flow() {
         database: node.data.database,
         schema: node.data.schema,
         query: node.data.query,
-        topic: node.data.topic,
       };
     }
 
@@ -375,7 +373,6 @@ function Flow() {
         brokers: node.data.brokers,
         group_id: node.data.group_id,
         topics: node.data.topics,
-        topic: node.data.topic,
       };
     }
 
@@ -383,7 +380,6 @@ function Flow() {
       return {
         name: "sqlite_destination",
         path: node.data.path,
-        topic: node.data.topic,
       };
     }
 
@@ -392,6 +388,7 @@ function Flow() {
         name: "mycelial_net_source",
         endpoint: node.data.endpoint,
         token: node.data.token,
+        topic: node.data.topic,
       };
     }
 
@@ -400,6 +397,7 @@ function Flow() {
         name: "mycelial_net_destination",
         endpoint: node.data.endpoint,
         token: node.data.token,
+        topic: node.data.topic,
       };
     }
 
@@ -414,7 +412,6 @@ function Flow() {
         database: node.data.database,
         schema: node.data.schema,
         table: node.data.table,
-        topic: node.data.topic,
       };
     }
   }, []);
