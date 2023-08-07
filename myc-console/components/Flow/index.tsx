@@ -9,6 +9,7 @@ import {
   useEffect,
   createContext,
 } from "react";
+import Image from "next/image";
 import ReactFlow, {
   MarkerType,
   Node,
@@ -67,9 +68,9 @@ import {
   IconSearch,
   IconPlus,
   IconSelector,
-} from '@tabler/icons-react';
-import ClientProvider, { ClientContext } from '../context/clientContext';
-import { ClientContextType } from '../@types/client';
+} from "@tabler/icons-react";
+import ClientProvider, { ClientContext } from "../context/clientContext";
+import { ClientContextType } from "../@types/client";
 
 const useStyles = createStyles((theme) => ({
   navbar: {
@@ -254,10 +255,18 @@ function NavbarSearch(props: NavbarSearchProps) {
   return (
     <Navbar
       height="100vh"
-      width={{ sm: 250 }}
+      width={{ sm: 200 }}
       p="md"
       className={classes.navbar}
     >
+      <Image
+        className="p-1 mb-2"
+        src="/mycelial.svg"
+        alt="Mycelial Logo"
+        width={217}
+        height={47}
+        priority
+      />
       <Navbar.Section className={classes.section}>
         <Group className={classes.collectionsHeader} position="apart">
           <Text size="xs" weight={500} color="dimmed">
