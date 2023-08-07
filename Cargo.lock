@@ -602,6 +602,7 @@ dependencies = [
  "reqwest",
  "serde",
  "serde_json",
+ "sqlx",
  "tokio",
 ]
 
@@ -1049,7 +1050,7 @@ checksum = "0206175f82b8d6bf6652ff7d71a1e27fd2e4efde587fd368662814d6ec1d9ce0"
 [[package]]
 name = "exp2"
 version = "0.1.0"
-source = "git+https://github.com/mycelial/pipexperiments?rev=da54b0535f5bcd2386f903445266c470078f4a39#da54b0535f5bcd2386f903445266c470078f4a39"
+source = "git+https://github.com/mycelial/pipexperiments?rev=1b831708f9e324fc4605c7df0d6ec412c22c2b63#1b831708f9e324fc4605c7df0d6ec412c22c2b63"
 dependencies = [
  "arrow",
  "base64 0.21.2",
