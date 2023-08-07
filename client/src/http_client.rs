@@ -89,7 +89,6 @@ fn is_for_client(config: &Config, name: &str) -> bool {
     config.get_sections().iter().any(|section | {
         match section.get("client") {
             Some(Value::String(client)) if client == name => true,
-            None => true,
             _ => false
         }
     })
