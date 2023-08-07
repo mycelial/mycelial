@@ -10,7 +10,7 @@ use clap::Parser;
 use exp2::dynamic_pipe::section;
 
 #[derive(Parser)]
-struct CLI {
+struct Cli {
     /// Server endpoint
     #[clap(
         short,
@@ -35,9 +35,9 @@ struct CLI {
 
 #[tokio::main]
 async fn main() -> Result<(), section::Error> {
-    let cli = CLI::try_parse()?;
+    let cli = Cli::try_parse()?;
     let storage_handle = storage::new(cli.storage_path).await?;
     let runtime_handle = runtime::new(storage_handle);
     let client_handle = http_client::new(cli.name, cli.endpoint, cli.token, runtime_handle);
-    Ok(client_handle.await??)
+    client_handle.await?
 }

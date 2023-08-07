@@ -25,7 +25,7 @@ impl TryInto<Config> for PipeConfig {
 
     fn try_into(self) -> Result<Config, Self::Error> {
         let value: Value = self.pipe.try_into()?;
-        Ok(Config::try_from(value)?)
+        Config::try_from(value)
     }
 }
 

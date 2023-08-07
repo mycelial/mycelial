@@ -15,6 +15,7 @@ use tokio::sync::{
 };
 
 pub struct SqliteStorage {
+    #[allow(unused)]
     path: String,
     connection: SqliteConnection,
 }
