@@ -6,6 +6,10 @@ export ASSETS_DIR ?= $(shell echo `dirname $(PWD)`/myc-console/out/)
 all:
 
 
+.PHONY: clean
+clean:
+	rm -f mycelial.db*
+
 .PHONY: dev
 dev:
 	cargo-watch -q -c \
@@ -32,3 +36,4 @@ stop_docker:
 .PHONY: deploy_at_flyio
 deploy_at_flyio:
 	cd ../ && flyctl deploy -c server/flyio.toml
+

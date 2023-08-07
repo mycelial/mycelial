@@ -196,8 +196,6 @@ impl Client {
                         println!("failed to schedule pipe: {:?}", e);
                     }
                     ids.remove(&id);
-                } else {
-                    println!("pipe ignored, config: {:?}", config);
                 }
             }
             for id in ids.into_iter(){
