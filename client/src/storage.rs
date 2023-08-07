@@ -1,23 +1,25 @@
 //! storage backend for client
 
 
-use std::str::FromStr;
-
-use exp2::dynamic_pipe::section::{self, State};
-use sqlx::{sqlite::SqliteConnectOptions, ConnectOptions, SqliteConnection};
+use std::{str::FromStr, pin::Pin};
+use std::future::Future;
+use exp2::call;
+use exp2::dynamic_pipe::{
+    scheduler::Storage,
+    section::{self, State},
+};
+use sqlx::{sqlite::SqliteConnectOptions, ConnectOptions, SqliteConnection, Row};
 use tokio::sync::{
     mpsc::{channel, Sender, Receiver},
     oneshot::{channel as oneshot_channel, Sender as OneshotSender},
 };
 
-use crate::call;
-
-pub struct Storage {
+pub struct SqliteStorage {
     path: String,
     connection: SqliteConnection,
 }
 
-impl Storage {
+impl SqliteStorage {
     pub async fn new(path: impl Into<String>) -> Result<Self, section::Error> {
         let path = path.into();
         let mut connection = SqliteConnectOptions::from_str(path.as_str())?
@@ -28,22 +30,41 @@ impl Storage {
         Ok(Self { path, connection })
     }
 
-    pub fn spawn(mut self) -> StorageHandle {
+    pub fn spawn(mut self) -> SqliteStorageHandle {
         let (tx, mut rx) = channel::<Message>(1);
         tokio::spawn(async move { self.enter_loop(&mut rx).await });
-        StorageHandle { tx }
+        SqliteStorageHandle { tx }
     }
 
     async fn enter_loop(&mut self, rx: &mut Receiver<Message>) -> Result<(), section::Error> {
         while let Some(msg) = rx.recv().await {
             match msg {
                 Message::StoreState { id, section_id, section_name, state, reply_to } => {
-                    println!("storing state for pipe {id}/{section_id}/{section_name}: {state:?}");
-                    reply_to.send(Ok(())).ok();
+                    let result = sqlx::query(
+                        "INSERT INTO state VALUES(?, ?, ?, ?) ON CONFLICT (id, section_id, section_name) DO UPDATE SET state = excluded.state"
+                    )
+                        .bind(id as i64)
+                        .bind(section_id as i64)
+                        .bind(section_name)
+                        .bind(state.serialize().unwrap())
+                        .execute(&mut self.connection)
+                        .await
+                        .map(|_| ())
+                        .map_err(|e| e.into());
+                    reply_to.send(result).ok();
                 },
                 Message::RetrieveState { id, section_id, section_name, reply_to } => {
-                    println!("retrieving state for pipe {id}/{section_id}/{section_name}");
-                    reply_to.send(Ok(None)).ok();
+                    let result = sqlx::query(
+                        "SELECT state FROM state WHERE id = ? and section_id = ? and section_name = ?"
+                    )
+                        .bind(id as i64)
+                        .bind(section_id as i64)
+                        .bind(section_name)
+                        .fetch_optional(&mut self.connection)
+                        .await
+                        .map(|row| row.map(|val| State::deserialize(&val.get::<String, _>("state")).unwrap() ))
+                        .map_err(|e| e.into());
+                    reply_to.send(result).ok();
                 },
             }
         };
@@ -68,26 +89,42 @@ pub enum Message {
     }
 }
 
-pub struct StorageHandle {
+#[derive(Clone)]
+pub struct SqliteStorageHandle {
     tx: Sender<Message>
 }
 
-impl StorageHandle {
-    pub async fn store_state(&self, id: u64, section_id: u64, section_name: String, state: State) -> Result<(), section::Error> {
-        call!(self, Message::StoreState{ id, section_id, section_name, state })
-    }
-
-    pub async fn retrieve_state(&self, id: u64, section_id: u64, section_name: String) -> Result<Option<State>, section::Error> {
-        call!(self, Message::RetrieveState{ id, section_id, section_name })
-    }
-
-
+impl SqliteStorageHandle {
     async fn send(&self, message: Message) -> Result<(), section::Error> {
         Ok(self.tx.send(message).await?)
     }
 }
 
+impl Storage for SqliteStorageHandle {
+    fn store_state(
+        &self,
+        id: u64,
+        section_id: u64,
+        section_name: String,
+        state: State
+    ) -> Pin<Box<dyn Future<Output=Result<(), section::Error>> + Send + 'static>> {
+        let this = self.clone();
+        Box::pin(async move { call!(this, Message::StoreState{ id, section_id, section_name, state }) })
+    }
 
-pub async fn new(storage_path: String) -> Result<StorageHandle, section::Error> {
-    Ok(Storage::new(storage_path).await?.spawn())
+    fn retrieve_state(
+        &self, 
+        id: u64,
+        section_id: u64,
+        section_name: String
+    ) -> Pin<Box<dyn Future<Output=Result<Option<State>, section::Error>> + Send + 'static>> {
+        let this = self.clone();
+        Box::pin(async move { call!(this, Message::RetrieveState{ id, section_id, section_name }) })
+    }
+
+}
+
+
+pub async fn new(storage_path: String) -> Result<SqliteStorageHandle, section::Error> {
+    Ok(SqliteStorage::new(storage_path).await?.spawn())
 }

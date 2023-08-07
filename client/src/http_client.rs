@@ -4,13 +4,11 @@
 
 use std::{time::Duration, collections::HashSet};
 
-use exp2::dynamic_pipe::{config::{Config, Value}, section};
+use exp2::dynamic_pipe::{config::{Config, Value}, section, scheduler::SchedulerHandle};
 use serde::Deserialize;
 use serde_json::json;
 use tokio::task::JoinHandle;
 use base64::engine::{general_purpose::STANDARD as BASE64, Engine};
-
-use crate::runtime::RuntimeHandle;
 
 #[derive(Debug, Deserialize)]
 struct ClientInfo {
@@ -46,8 +44,8 @@ struct Client {
     /// Client token
     client_token: String,
 
-    /// Runtime Handle
-    runtime_handle: RuntimeHandle,
+    /// SchedulerHandle
+    scheduler_handle: SchedulerHandle,
 }
 
 /// PipeConfig
@@ -91,20 +89,25 @@ fn is_for_client(config: &Config, name: &str) -> bool {
     config.get_sections().iter().any(|section | {
         match section.get("client") {
             Some(Value::String(client)) if client == name => true,
-            None => false,
+            None => true,
             _ => false
         }
     })
 }
 
 impl Client {
-    fn new(name: impl Into<String>, endpoint: impl Into<String>, token: impl Into<String>, runtime_handle: RuntimeHandle) -> Self {
+    fn new(
+        name: impl Into<String>,
+        endpoint: impl Into<String>,
+        token: impl Into<String>,
+        scheduler_handle: SchedulerHandle
+    ) -> Self {
         Self {
             name: name.into(),
             endpoint: endpoint.into(),
             token: token.into(),
             client_token: "".into(),
-            runtime_handle
+            scheduler_handle
         }
     }
 
@@ -175,10 +178,10 @@ impl Client {
                 }
             };
 
-            println!("pipe configs: {:#?}", pipe_configs);
+            //println!("pipe configs: {:#?}", pipe_configs);
 
             let mut ids: HashSet<u64> = HashSet::from_iter(
-                self.runtime_handle.list_ids().await?.into_iter()
+                self.scheduler_handle.list_ids().await?.into_iter()
             );
             for pipe_config in pipe_configs.into_iter() {
                 let id = pipe_config.id;
@@ -190,7 +193,7 @@ impl Client {
                     }
                 };
                 if is_for_client(&config, &self.name) {
-                    if let Err(e) = self.runtime_handle.add_pipe(id, config).await {
+                    if let Err(e) = self.scheduler_handle.add_pipe(id, config).await {
                         println!("failed to schedule pipe: {:?}", e);
                     }
                     ids.remove(&id);
@@ -199,10 +202,10 @@ impl Client {
                 }
             }
             for id in ids.into_iter(){
-                self.runtime_handle.remove_pipe(id).await.unwrap()
+                self.scheduler_handle.remove_pipe(id).await.unwrap()
             };
 
-            tokio::time::sleep(Duration::from_secs(50)).await
+            tokio::time::sleep(Duration::from_secs(5)).await
         }
     }
 
@@ -213,7 +216,7 @@ pub fn new(
     name: impl Into<String>,
     endpoint: impl Into<String>,
     token: impl Into<String>,
-    runtime_handle: RuntimeHandle
+    scheduler_handle: SchedulerHandle
 ) -> JoinHandle<Result<(), section::Error>> {
-    Client::new(name, endpoint, token, runtime_handle).spawn()
+    Client::new(name, endpoint, token, scheduler_handle).spawn()
 }

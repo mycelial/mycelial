@@ -5,7 +5,6 @@
 //! - schedules and runs pipes
 mod http_client;
 mod runtime; mod storage;
-mod macros;
 
 use clap::Parser;
 use exp2::dynamic_pipe::section;
