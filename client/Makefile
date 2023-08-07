@@ -13,12 +13,16 @@ bootstrap_sqlite:
 		-cmd 'INSERT INTO test VALUES(1, "foo", "foo"), (2, "bar", "bar"), (NULL, NULL, NULL)' \
 		-cmd '.mode table'
 
+.PHONY: clean
+clean:
+	rm -f dev_client.sqlite*
+
 .PHONY: dev
 dev: bootstrap_sqlite
 	cargo-watch -c -q \
 		-i dev_client.sqlite \
 		-i dev_client.sqlite-journal \
-		-s 'cargo run -- --endpoint="http://localhost:8080" --token=token --name="dev_client" --storage-path="dev_client.sqlite"'
+		-s 'cargo run -r -- --endpoint="http://localhost:8080" --token=token --name="dev_client" --storage-path="dev_client.sqlite"'
 
 .PHONY: vendor
 vendor:
