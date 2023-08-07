@@ -113,11 +113,10 @@ export const Select: React.FC<SelectProps> = (props) => {
     id.current = getId(props.name);
   }, [props.name]);
 
-  let onChange = props.onChange;
   const [selected, setSelected] = useState(props.defaultValue);
   useEffect(() => {
-    onChange(selected || "");
-  }, []);
+    props.onChange(selected || "");
+  }, [selected]);
 
   return (
     <Listbox value={selected} onChange={setSelected}>
