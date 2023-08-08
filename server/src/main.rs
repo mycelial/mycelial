@@ -48,8 +48,14 @@ struct CLI {
 async fn ingestion(
     State(app): State<Arc<App>>,
     axum::extract::Path(topic): axum::extract::Path<String>,
+    headers: axum::http::header::HeaderMap,
     mut body: BodyStream,
-) -> impl IntoResponse {
+) -> Result<impl IntoResponse, error::Error>  {
+    let origin = match headers.get("x-message-origin") {
+        Some(origin) => origin.to_str().map_err(|_| "bad x-message-origin header value")?,
+        None => Err(StatusCode::BAD_REQUEST)?,
+    };
+
     let mut buf = vec![];
     while let Some(chunk) = body.next().await {
         buf.append(&mut chunk.unwrap().to_vec());
@@ -58,22 +64,23 @@ async fn ingestion(
     for record_batch in reader {
         if let Ok(record_batch) = record_batch {
             app.database
-                .store_record(&topic, &record_batch)
+                .store_record(&topic, origin, &record_batch)
                 .await
                 .unwrap()
         }
     }
-    ""
+    Ok(Json("ok"))
 }
 
 async fn get_record(
     State(app): State<Arc<App>>,
     axum::extract::Path((topic, offset)): axum::extract::Path<(String, i64)>,
 ) -> Result<impl IntoResponse, error::Error> {
-    match app.database.get_record(&topic, offset).await? {
-        Some((id, data)) => Ok(([("x-message-id", id)], data)),
-        None => Ok(([("x-message-id", offset)], vec![]))
-    }
+    let response = match app.database.get_record(&topic, offset).await? {
+        Some((id, origin, data)) => ([("x-message-id", id.to_string()), ("x-message-origin", origin)], data),
+        None => ([("x-message-id", offset.to_string()), ("x-message-origin", String::new())], vec![]),
+    };
+    Ok(response)
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -324,6 +331,7 @@ impl Database {
     async fn store_record(
         &self,
         topic: &str,
+        origin: &str,
         record_batch: &RecordBatch,
     ) -> Result<(), error::Error> {
         let mut stream_writer: StreamWriter<_> =
@@ -335,24 +343,25 @@ impl Database {
         let bytes: Vec<u8> = stream_writer.into_inner().unwrap().into();
 
         let mut connection = self.connection.lock().await;
-        sqlx::query("INSERT INTO records (topic, data) VALUES (?, ?)")
+        sqlx::query("INSERT INTO records (topic, origin, data) VALUES (?, ?, ?)")
             .bind(topic)
+            .bind(origin)
             .bind(bytes)
             .execute(&mut *connection)
             .await?;
         Ok(())
     }
 
-    async fn get_record(&self, topic: &str, offset: i64) -> Result<Option<(i64, Vec<u8>)>, error::Error> {
+    async fn get_record(&self, topic: &str, offset: i64) -> Result<Option<(i64, String, Vec<u8>)>, error::Error> {
         let mut connection = self.connection.lock().await;
         let row = sqlx::query(
-            "SELECT id, data FROM records WHERE topic = ? AND id > ? ORDER BY id ASC LIMIT 1",
+            "SELECT id, origin, data FROM records WHERE topic = ? AND id > ? ORDER BY id ASC LIMIT 1",
         )
             .bind(topic)
             .bind(offset)
             .fetch_optional(&mut *connection)
             .await?;
-        Ok(row.map(|row| (row.get("id"), row.get("data"))))
+        Ok(row.map(|row| (row.get("id"), row.get("origin"), row.get("data"))))
     }
 
     async fn get_ui_metadata(&self) -> Result<UIConfig, error::Error> {

@@ -30,6 +30,9 @@ pub enum Error {
 
     // serde error wrap
     SerdeJsonError(serde_json::Error),
+
+    // &'static str error
+    Str(&'static str) 
 }
 
 impl std::fmt::Display for Error {
@@ -98,6 +101,12 @@ impl From<serde_json::Error> for Error {
     }
 }
 
+impl From<&'static str> for Error {
+    fn from(e: &'static str) -> Self {
+        Self::Str(e)
+    }
+}
+
 impl IntoResponse for Error {
     fn into_response(self) -> Response {
         let mut response: Response = match self {
@@ -109,6 +118,3 @@ impl IntoResponse for Error {
         response
     }
 }
-
-unsafe impl Sync for Error {}
-unsafe impl Send for Error {}
