@@ -7,9 +7,10 @@ all:
 
 .PHONY: bootstrap_sqlite
 bootstrap_sqlite:
+	rm -f $(SQLITE_PATH)
 	echo "SELECT * FROM test" | sqlite3 $(SQLITE_PATH) \
 		-cmd 'CREATE TABLE test (id INT PRIMARY KEY, text TEXT, bin BLOB)' \
-		-cmd 'INSERT OR IGNORE INTO test VALUES(1, "foo", "foo"), (2, "bar", "bar"), (3, '3', '3')' \
+		-cmd 'INSERT OR IGNORE INTO test VALUES(1, "foo", "foo"), (2, "bar", "bar"), (3, NULL, NULL)' \
 		-cmd '.mode table'
 
 .PHONY: clean
