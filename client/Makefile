@@ -9,7 +9,7 @@ all:
 bootstrap_sqlite:
 	echo "SELECT * FROM test" | sqlite3 $(SQLITE_PATH) \
 		-cmd 'CREATE TABLE test (id INT PRIMARY KEY, text TEXT, bin BLOB)' \
-		-cmd 'INSERT OR IGNORE INTO test VALUES(1, "foo", "foo"), (2, "bar", "bar"), (NULL, NULL, NULL)' \
+		-cmd 'INSERT OR IGNORE INTO test VALUES(1, "foo", "foo"), (2, "bar", "bar"), (3, '3', '3')' \
 		-cmd '.mode table'
 
 .PHONY: clean
@@ -17,7 +17,7 @@ clean:
 	rm -f dev_client.sqlite*
 
 .PHONY: dev
-dev: bootstrap_sqlite
+dev:
 	cargo-watch -c -q \
 		-i dev_client.sqlite \
 		-i dev_client.sqlite-journal \
