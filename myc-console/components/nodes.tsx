@@ -6,6 +6,7 @@ import {
   NodeResizer,
   useNodeId,
   useReactFlow,
+  getConnectedEdges,
 } from "reactflow";
 import { XMarkIcon } from "@heroicons/react/20/solid";
 
@@ -54,11 +55,14 @@ const SqliteSourceNode: FC<NodeProps> = memo(({ id, data, selected }) => {
   }
 
   const removeNode = useCallback((id: string) => {
-    instance.setNodes((nodes) =>
-      nodes.filter((node) => {
-        return node.id !== id;
-      })
-    );
+    const node = instance.getNode(id);
+    if (node === undefined) {
+      return;
+    }
+    instance.deleteElements({
+      edges: getConnectedEdges([node], []),
+      nodes: [node],
+    });
   }, []);
 
   return (
@@ -136,11 +140,12 @@ const SqliteDestinationNode: FC<NodeProps> = memo(({ id, data, selected }) => {
   }, []);
 
   const removeNode = useCallback((id: string) => {
-    instance.setNodes((nodes) =>
-      nodes.filter((node) => {
-        return node.id !== id;
-      })
-    );
+    let node = instance.getNode(id);
+    if (node === undefined) {
+      return;
+    }
+    let edges = getConnectedEdges([node], []);
+    instance.deleteElements({ edges, nodes: [node] });
   }, []);
 
   useEffect(() => {
@@ -206,11 +211,12 @@ const MycelialNetworkNode: FC<NodeProps> = memo(({ id, data, selected }) => {
   }, []);
 
   const removeNode = useCallback((id: string) => {
-    instance.setNodes((nodes) =>
-      nodes.filter((node) => {
-        return node.id !== id;
-      })
-    );
+    let node = instance.getNode(id);
+    if (node === undefined) {
+      return;
+    }
+    let edges = getConnectedEdges([node], []);
+    instance.deleteElements({ edges, nodes: [node] });
   }, []);
 
   const handleChange = useCallback((name: string, value: string) => {
@@ -336,11 +342,12 @@ const SnowflakeDestinationNode: FC<NodeProps> = memo(
     }
 
     const removeNode = useCallback((id: string) => {
-      instance.setNodes((nodes) =>
-        nodes.filter((node) => {
-          return node.id !== id;
-        })
-      );
+      let node = instance.getNode(id);
+      if (node === undefined) {
+        return;
+      }
+      let edges = getConnectedEdges([node], []);
+      instance.deleteElements({ edges, nodes: [node] });
     }, []);
 
     return (
@@ -456,23 +463,20 @@ const SnowflakeSourceNode: FC<NodeProps> = memo(({ id, data, selected }) => {
     };
   }, []);
 
-  const handleChange = useCallback(
-    (name: string, value: string) => {
-      instance.setNodes((nodes) =>
-        nodes.map((node) => {
-          if (node.id === id) {
-            node.data = {
-              ...node.data,
-              [name]: value,
-            };
-          }
+  const handleChange = useCallback((name: string, value: string) => {
+    instance.setNodes((nodes) =>
+      nodes.map((node) => {
+        if (node.id === id) {
+          node.data = {
+            ...node.data,
+            [name]: value,
+          };
+        }
 
-          return node;
-        })
-      );
-    },
-    []
-  );
+        return node;
+      })
+    );
+  }, []);
 
   useEffect(() => {
     handleChange("username", initialValues.username);
@@ -489,16 +493,14 @@ const SnowflakeSourceNode: FC<NodeProps> = memo(({ id, data, selected }) => {
   if (selected) {
     classNames = classNames + `${styles.selected}`;
   }
-  const removeNode = useCallback(
-    (id: string) => {
-      instance.setNodes((nodes) =>
-        nodes.filter((node) => {
-          return node.id !== id;
-        })
-      );
-    },
-    []
-  );
+  const removeNode = useCallback((id: string) => {
+    let node = instance.getNode(id);
+    if (node === undefined) {
+      return;
+    }
+    let edges = getConnectedEdges([node], []);
+    instance.deleteElements({ edges, nodes: [node] });
+  }, []);
 
   return (
     <div className={classNames}>
@@ -603,34 +605,29 @@ const KafkaSourceNode: FC<NodeProps> = memo(({ id, data, selected }) => {
     };
   }, []);
 
-  const handleChange = useCallback(
-    (name: string, value: string) => {
-      instance.setNodes((nodes) =>
-        nodes.map((node) => {
-          if (node.id === id) {
-            node.data = {
-              ...node.data,
-              [name]: value,
-            };
-          }
+  const handleChange = useCallback((name: string, value: string) => {
+    instance.setNodes((nodes) =>
+      nodes.map((node) => {
+        if (node.id === id) {
+          node.data = {
+            ...node.data,
+            [name]: value,
+          };
+        }
 
-          return node;
-        })
-      );
-    },
-    []
-  );
+        return node;
+      })
+    );
+  }, []);
 
-  const removeNode = useCallback(
-    (id: string) => {
-      instance.setNodes((nodes) =>
-        nodes.filter((node) => {
-          return node.id !== id;
-        })
-      );
-    },
-    []
-  );
+  const removeNode = useCallback((id: string) => {
+    let node = instance.getNode(id);
+    if (node === undefined) {
+      return;
+    }
+    let edges = getConnectedEdges([node], []);
+    instance.deleteElements({ edges, nodes: [node] });
+  }, []);
 
   useEffect(() => {
     handleChange("brokers", initialValues.brokers);
