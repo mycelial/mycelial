@@ -1,12 +1,6 @@
 "use client";
 
-import {
-  useCallback,
-  useContext,
-  useState,
-  useRef,
-  useEffect,
-} from "react";
+import { useCallback, useContext, useState, useRef, useEffect } from "react";
 
 import dagre from "dagre";
 
@@ -31,7 +25,6 @@ import ReactFlow, {
 } from "reactflow";
 import CustomNode from "./CustomNode";
 
-
 import { IconDatabase } from "@tabler/icons-react";
 
 import styles from "./Flow.module.css";
@@ -50,12 +43,7 @@ import { Grid, Group } from "@/components/layout";
 
 import { Button, Box } from "@/components/core";
 
-import {
-  createStyles,
-  Navbar,
-  Text,
-  rem,
-} from "@/components/core";
+import { createStyles, Navbar, Text, rem } from "@/components/core";
 
 import ClientProvider, { ClientContext } from "../context/clientContext";
 import { ClientContextType } from "../@types/client";
@@ -265,20 +253,6 @@ function NavbarSearch(props: NavbarSearchProps) {
           </Box>
         </div>
       </Navbar.Section>
-      <Navbar.Section className={classes.section}>
-        <Group className={classes.collectionsHeader} position="apart">
-          <Text size="xs" weight={500} color="dimmed">
-            Available Clients
-          </Text>
-        </Group>
-        <div className={classes.collections}>
-          {(clients || []).map((client) => (
-            <div className={classes.collectionLink} key={client.id}>
-              {client.id}
-            </div>
-          ))}
-        </div>
-      </Navbar.Section>
     </Navbar>
   );
 }
@@ -300,8 +274,8 @@ async function getConfigs(token: string) {
 const dagreGraph = new dagre.graphlib.Graph();
 dagreGraph.setDefaultEdgeLabel(() => ({}));
 
-const getLayoutedElements = (nodes: any[], edges: any[], direction = 'TB') => {
-  const isHorizontal = direction === 'LR';
+const getLayoutedElements = (nodes: any[], edges: any[], direction = "TB") => {
+  const isHorizontal = direction === "LR";
   dagreGraph.setGraph({ rankdir: direction });
 
   nodes.forEach((node) => {
@@ -316,8 +290,8 @@ const getLayoutedElements = (nodes: any[], edges: any[], direction = 'TB') => {
 
   nodes.forEach((node) => {
     const nodeWithPosition = dagreGraph.node(node.id);
-    node.targetPosition = isHorizontal ? 'left' : 'top';
-    node.sourcePosition = isHorizontal ? 'right' : 'bottom';
+    node.targetPosition = isHorizontal ? "left" : "top";
+    node.sourcePosition = isHorizontal ? "right" : "bottom";
 
     // We are shifting the dagre node position (anchor=center center) to the top left
     // so it matches the React Flow node anchor point (top left).
@@ -370,72 +344,68 @@ function Flow() {
 
     let nodeMap = new Map<string, Node>();
 
-      for (const config of configs.configs) {
-        let source = null;
-        for (const element of config.pipe.section) {
-          let { name, ...data } = element;
-          const id = getId();
-          let node = {
-            id: "temp",
-            type: nodeTypes(element.name),
-            position: {
-              x: 0,
-              y: 0,
-            },
-            data: data,
-          };
+    for (const config of configs.configs) {
+      let source = null;
+      for (const element of config.pipe.section) {
+        let { name, ...data } = element;
+        const id = getId();
+        let node = {
+          id: "temp",
+          type: nodeTypes(element.name),
+          position: {
+            x: 0,
+            y: 0,
+          },
+          data: data,
+        };
 
-          let actualNode = {
+        let actualNode = {
+          ...node,
+          id,
+        };
+
+        const key = JSON.stringify(node);
+
+        if (nodeMap.has(key)) {
+          let existingNode = nodeMap.get(key);
+          if (existingNode === undefined) {
+            continue;
+          }
+          actualNode = {
             ...node,
-            id,
-          }
-
-          const key = JSON.stringify(node);
-
-          if (nodeMap.has(key)) {
-            let existingNode = nodeMap.get(key);
-            if (existingNode === undefined) {
-              continue;
-            }
-            actualNode = {
-              ...node,
-              id: existingNode.id,
-            }
-          }
-
-          nodeMap.set(key, actualNode);
-          setNodes((nds) => nds.concat(actualNode));
-
-          if (source !== null) {
-            let edge = {
-              id: getId(),
-              source: source.id,
-              target: actualNode.id,
-              animated: false,
-              type: "smoothstep",
-              markerEnd: {
-                type: MarkerType.ArrowClosed,
-              },
-              data: {
-                id: config.id,
-              },
-            };
-            setEdges((eds) => eds.concat(edge));
-          }
-
-          source = actualNode;
+            id: existingNode.id,
+          };
         }
-      }
 
+        nodeMap.set(key, actualNode);
+        setNodes((nds) => nds.concat(actualNode));
+
+        if (source !== null) {
+          let edge = {
+            id: getId(),
+            source: source.id,
+            target: actualNode.id,
+            animated: false,
+            type: "smoothstep",
+            markerEnd: {
+              type: MarkerType.ArrowClosed,
+            },
+            data: {
+              id: config.id,
+            },
+          };
+          setEdges((eds) => eds.concat(edge));
+        }
+
+        source = actualNode;
+      }
+    }
   }, [setEdges, setNodes, token]);
 
   const onLayout = useCallback(
     (direction: string | undefined) => {
-      const { nodes: layoutedNodes, edges: layoutedEdges } = getLayoutedElements(
-        nodes,
-        edges,
-        direction
-      );
+      const { nodes: layoutedNodes, edges: layoutedEdges } =
+        getLayoutedElements(nodes, edges, direction);
 
       setNodes([...layoutedNodes]);
       setEdges([...layoutedEdges]);
@@ -444,23 +414,19 @@ function Flow() {
   );
 
   const setInitialElements = useCallback(async () => {
-
     await loadConfig();
 
     await new Promise((r) => setTimeout(r, 100));
     setInitialDataLoaded(true);
-
   }, [setEdges, setNodes, token]);
 
   useEffect(() => {
     onLayout("LR");
-  }, [initialDataLoaded])
+  }, [initialDataLoaded]);
 
   useEffect(() => {
     setInitialElements();
   }, [setInitialElements]);
-
-
 
   const [reactFlowInstance, setReactFlowInstance] =
     useState<ReactFlowInstance | null>(null);
@@ -471,88 +437,93 @@ function Flow() {
         const ed = eds[eid];
         if (ed.type === "remove") {
           let edgeChange = ed as EdgeRemoveChange;
-          let storedEdgeId = reactFlowInstance?.getEdge(edgeChange.id)?.data?.id;
+          let storedEdgeId = reactFlowInstance?.getEdge(edgeChange.id)?.data
+            ?.id;
           setEdgesToBeDeleted((eds) => eds.concat(storedEdgeId));
         }
       }
       onEdgesChange(eds);
-    }
-  , [reactFlowInstance, onEdgesChange])
+    },
+    [reactFlowInstance, onEdgesChange]
+  );
 
-  const getDetailsForNode = useCallback((node: Node | undefined, kind: String) => {
-    if (node?.type === "sqliteSource") {
-      return {
-        name: "sqlite_source",
-        client: node.data.client,
-        path: node.data.path,
-        tables: node.data.tables,
-      };
-    }
+  const getDetailsForNode = useCallback(
+    (node: Node | undefined, kind: String) => {
+      if (node?.type === "sqliteSource") {
+        return {
+          name: "sqlite_source",
+          client: node.data.client,
+          path: node.data.path,
+          tables: node.data.tables,
+        };
+      }
 
-    if (node?.type === "snowflakeSource") {
-      return {
-        name: "snowflake_source",
-        username: node.data.username,
-        password: node.data.password,
-        role: node.data.role,
-        account_identifier: node.data.account_identifier,
-        warehouse: node.data.warehouse,
-        database: node.data.database,
-        schema: node.data.schema,
-        query: node.data.query,
-      };
-    }
+      if (node?.type === "snowflakeSource") {
+        return {
+          name: "snowflake_source",
+          username: node.data.username,
+          password: node.data.password,
+          role: node.data.role,
+          account_identifier: node.data.account_identifier,
+          warehouse: node.data.warehouse,
+          database: node.data.database,
+          schema: node.data.schema,
+          query: node.data.query,
+        };
+      }
 
-    if (node?.type === "kafkaSource") {
-      return {
-        name: "kafka_source",
-        client: node.data.client,
-        brokers: node.data.brokers,
-        group_id: node.data.group_id,
-        topics: node.data.topics,
-      };
-    }
+      if (node?.type === "kafkaSource") {
+        return {
+          name: "kafka_source",
+          client: node.data.client,
+          brokers: node.data.brokers,
+          group_id: node.data.group_id,
+          topics: node.data.topics,
+        };
+      }
 
-    if (node?.type === "sqliteDestination") {
-      return {
-        name: "sqlite_destination",
-        path: node.data.path,
-        client: node.data.client,
-      };
-    }
+      if (node?.type === "sqliteDestination") {
+        return {
+          name: "sqlite_destination",
+          path: node.data.path,
+          client: node.data.client,
+        };
+      }
 
-    if (node?.type === "mycelialNetwork" && kind === "source") {
-      return {
-        name: "mycelial_net_source",
-        endpoint: node.data.endpoint,
-        token: node.data.token,
-        topic: node.data.topic,
-      };
-    }
+      if (node?.type === "mycelialNetwork" && kind === "source") {
+        return {
+          name: "mycelial_net_source",
+          endpoint: node.data.endpoint,
+          token: node.data.token,
+          topic: node.data.topic,
+        };
+      }
 
-    if (node?.type === "mycelialNetwork" && kind === "destination") {
-      return {
-        name: "mycelial_net_destination",
-        endpoint: node.data.endpoint,
-        token: node.data.token,
-        topic: node.data.topic,
-      };
-    }
+      if (node?.type === "mycelialNetwork" && kind === "destination") {
+        return {
+          name: "mycelial_net_destination",
+          endpoint: node.data.endpoint,
+          token: node.data.token,
+          topic: node.data.topic,
+        };
+      }
 
-    if (node?.type === "snowflakeDestination") {
-      return {
-        name: "snowflake_destination",
-        username: node.data.username,
-        password: node.data.password,
-        role: node.data.role,
-        account_identifier: node.data.account_identifier,
-        warehouse: node.data.warehouse,
-        database: node.data.database,
-        schema: node.data.schema,
-        table: node.data.table,
-      };
-    }
-  }, []);
+      if (node?.type === "snowflakeDestination") {
+        return {
+          name: "snowflake_destination",
+          username: node.data.username,
+          password: node.data.password,
+          role: node.data.role,
+          account_identifier: node.data.account_identifier,
+          warehouse: node.data.warehouse,
+          database: node.data.database,
+          schema: node.data.schema,
+          table: node.data.table,
+        };
+      }
+    },
+    []
+  );
 
   const handleSave = useCallback(async () => {
     let new_configs = [];
@@ -565,8 +536,7 @@ function Flow() {
     const rf = reactFlowInstance;
 
     for (const edge of edges) {
-
-      const section = [];
+      let section = [];
 
       const sourceNode = rf.getNode(edge.source);
       const targetNode = rf.getNode(edge.target);
@@ -574,13 +544,60 @@ function Flow() {
       const sourceNodeInfo = getDetailsForNode(sourceNode, "source");
       const targetNodeInfo = getDetailsForNode(targetNode, "destination");
 
-      section.push(sourceNodeInfo);
-      section.push(targetNodeInfo);
+      if (sourceNodeInfo === undefined || targetNodeInfo === undefined) {
+        continue;
+      }
 
-      if (edge.data?.id ) {
-        configs.push({ id: edge.data?.id, pipe: section });
+      // FIXME: This logic feels brittle
+      if (
+        sourceNodeInfo.name === "snowflake_source" ||
+        targetNodeInfo.name === "snowflake_destination" ||
+        sourceNodeInfo.name === "mycelial_net_source" ||
+        targetNodeInfo.name === "mycelial_net_destination"
+      ) {
+        section.push(sourceNodeInfo);
+        section.push(targetNodeInfo);
+
+        if (edge.data?.id) {
+          configs.push({ id: edge.data?.id, pipe: section });
+        } else {
+          new_configs.push({ id: 0, pipe: section, ui_id: edge.id });
+        }
       } else {
-        new_configs.push({ id: 0, pipe: section, ui_id: edge.id });
+        // inject a mycelial network node
+        console.log("injecting");
+
+        const baseURL = window.location.origin;
+        const mycNetTargetNodeInfo = {
+          name: "mycelial_net_destination",
+          endpoint: `${baseURL}/ingestion`,
+          token: token,
+          topic: targetNode?.data.topic,
+        };
+
+        const mycNetSourceNodeInfo = {
+          name: "mycelial_net_source",
+          endpoint: `${baseURL}/ingestion`,
+          token: token,
+          topic: targetNode?.data.topic,
+        };
+
+        section.push(sourceNodeInfo);
+        section.push(mycNetTargetNodeInfo);
+        if (edge.data?.id) {
+          configs.push({ id: edge.data?.id, pipe: section });
+        } else {
+          new_configs.push({ id: 0, pipe: section, ui_id: edge.id });
+        }
+
+        section = [];
+        section.push(mycNetSourceNodeInfo);
+        section.push(targetNodeInfo);
+        if (edge.data?.id) {
+          configs.push({ id: edge.data?.id, pipe: section });
+        } else {
+          new_configs.push({ id: 0, pipe: section, ui_id: edge.id });
+        }
       }
     }
 
@@ -608,7 +625,7 @@ function Flow() {
     for (const config of new_configs) {
       const new_payload = {
         configs: [config],
-      }
+      };
       try {
         // todo: execute the fetches in parallel
         const response = await fetch("/api/pipe/configs", {
@@ -622,15 +639,16 @@ function Flow() {
 
         const result = await response.json();
 
-        rf.setEdges((eds) => {return eds.map((ed) => {
-          return {
-            data: {
-              id: result[0].id,
-            },
-            ...ed,
-          }
-        })});
-
+        rf.setEdges((eds) => {
+          return eds.map((ed) => {
+            return {
+              data: {
+                id: result[0].id,
+              },
+              ...ed,
+            };
+          });
+        });
       } catch (error) {
         console.error("Error:", error);
       }
@@ -638,21 +656,22 @@ function Flow() {
 
     for (const key in edgesToBeDeleted) {
       try {
-        const response = await fetch(`/api/pipe/configs/${edgesToBeDeleted[key]}`, {
-          method: "DELETE",
-          headers: {
-            "Content-Type": "application/json",
-            "X-Authorization": "Bearer " + btoa(token),
-          },
-        });
+        const response = await fetch(
+          `/api/pipe/configs/${edgesToBeDeleted[key]}`,
+          {
+            method: "DELETE",
+            headers: {
+              "Content-Type": "application/json",
+              "X-Authorization": "Bearer " + btoa(token),
+            },
+          }
+        );
 
-      await response.json();
-    } catch (error) {
-      console.error("Error:", error);
+        await response.json();
+      } catch (error) {
+        console.error("Error:", error);
+      }
     }
-
-    }
-
   }, [edges, reactFlowInstance, token, getDetailsForNode, edgesToBeDeleted]);
 
   const onDragOver = useCallback((event: any) => {
