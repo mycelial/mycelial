@@ -166,6 +166,12 @@ const useStyles = createStyles((theme) => ({
     },
   },
 
+  //TODO: fix hover state for publish button
+  publishButton: {
+    "&:hover": {
+      backgroundColor: theme.colors.night[2],
+    },
+  }
 
 }));
 
@@ -261,6 +267,9 @@ function NavbarSearch(props: NavbarSearchProps) {
               fullWidth
               leftIcon={<IconDatabase size="1rem" />}
               onClick={props.onSave}
+              className={classes.publishButton}
+              // TODO: figure out how to style this button with variables 
+              style={{ "background-color": "#293B35", color: "#fef1dd"}}
             >
               Publish
             </Button>
