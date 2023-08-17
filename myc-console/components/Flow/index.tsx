@@ -75,7 +75,7 @@ import { ClientContextType } from "../@types/client";
 const useStyles = createStyles((theme) => ({
   navbar: {
     paddingTop: 100,
-    background: theme.colors.forest[0]
+    background: theme.colors.night[1], 
   },
 
   section: {
@@ -118,17 +118,14 @@ const useStyles = createStyles((theme) => ({
     padding: `${rem(8)} ${theme.spacing.xs}`,
     borderRadius: theme.radius.sm,
     fontWeight: 500,
-    color:
-      theme.colorScheme === "dark"
-        ? theme.colors.dark[0]
-        : theme.colors.gray[7],
+  
+
 
     "&:hover": {
       backgroundColor:
         theme.colorScheme === "dark"
           ? theme.colors.dark[6]
           : theme.colors.gray[0],
-      color: theme.colorScheme === "dark" ? theme.white : theme.black,
     },
   },
 
@@ -140,10 +137,6 @@ const useStyles = createStyles((theme) => ({
 
   mainLinkIcon: {
     marginRight: theme.spacing.sm,
-    color:
-      theme.colorScheme === "dark"
-        ? theme.colors.dark[2]
-        : theme.colors.gray[6],
   },
 
   mainLinkBadge: {
@@ -163,6 +156,7 @@ const useStyles = createStyles((theme) => ({
     paddingLeft: `calc(${theme.spacing.md} + ${rem(2)})`,
     paddingRight: theme.spacing.md,
     marginBottom: rem(5),
+    color: theme.colors.moss[1],
   },
 
   collectionLink: {
@@ -171,10 +165,7 @@ const useStyles = createStyles((theme) => ({
     textDecoration: "none",
     borderRadius: theme.radius.sm,
     fontSize: theme.fontSizes.xs,
-    color:
-      theme.colorScheme === "dark"
-        ? theme.colors.dark[0]
-        : theme.colors.gray[7],
+   
     lineHeight: 1,
     fontWeight: 500,
     cursor: "grab",
@@ -184,7 +175,7 @@ const useStyles = createStyles((theme) => ({
         theme.colorScheme === "dark"
           ? theme.colors.dark[6]
           : theme.colors.gray[0],
-      color: theme.colorScheme === "dark" ? theme.white : theme.black,
+     
     },
   },
 }));
@@ -270,8 +261,8 @@ function NavbarSearch(props: NavbarSearchProps) {
       />
       <Navbar.Section className={classes.section}>
         <Group className={classes.collectionsHeader} position="apart">
-          <Text size="xs" weight={500} color="dimmed">
-            Available Nodes
+          <Text size="xs" weight={500} > 
+            Data Sources
           </Text>
         </Group>
         <div className={classes.collections}>{collectionLinks}</div>

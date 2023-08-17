@@ -20,6 +20,7 @@ export function MycMantineProvider({ children }: { children: React.ReactNode }) 
           body: {
             ...theme.fn.fontStyles(),
             backgroundColor: theme.colors.night[0],
+            color: theme.colors.stem[0],
           },
         }),
         "colors": {
