@@ -8,13 +8,13 @@
 5. Install `cargo-watch` tool: `cargo install cargo-watch`
 
 ### How to run services:
-To run in dev mode you need to launch server, client and ui.  
+To run in dev mode you need to launch server, client and ui (`myc-console`).  
 Each folder contains makefile, to run in dev mode - execute `make dev`.
-1. Navigate to mycelial/server, run `make dev`
-1. Navigate to mycelial/client, run `make dev`
-1. Navigate to mycelial/myc-console, run `make dev`
+1. Navigate to `mycelial/server`, run `make dev`
+1. Navigate to `mycelial/client`, run `make dev`
+1. Navigate to `mycelial/myc-console`, run `make dev`
 1. Go to `localhost:8080` in your browser
-  1. You may need to execute `npm run build` in mycelial/myc-console and restart the server, client, and myc-console if port :8080 isn't forwarding to your server
+  1. You may need to execute `npm run build` in `mycelial/myc-console` and restart the server, client, and ui if port :8080 isn't forwarding to your server
 Both server and client are using `cargo-watch` tool, which could be installed via `cargo install cargo-watch`.
 
 
