@@ -77,7 +77,6 @@ const useStyles = createStyles((theme) => ({
     paddingTop: 100,
     background: theme.colors.night[1], 
   },
-
   section: {
     marginLeft: `calc(${theme.spacing.md} * -1)`,
     marginRight: `calc(${theme.spacing.md} * -1)`,
@@ -119,14 +118,6 @@ const useStyles = createStyles((theme) => ({
     borderRadius: theme.radius.sm,
     fontWeight: 500,
   
-
-
-    "&:hover": {
-      backgroundColor:
-        theme.colorScheme === "dark"
-          ? theme.colors.dark[6]
-          : theme.colors.gray[0],
-    },
   },
 
   mainLinkInner: {
@@ -171,13 +162,11 @@ const useStyles = createStyles((theme) => ({
     cursor: "grab",
 
     "&:hover": {
-      backgroundColor:
-        theme.colorScheme === "dark"
-          ? theme.colors.dark[6]
-          : theme.colors.gray[0],
-     
+      backgroundColor: theme.colors.night[2],
     },
   },
+
+
 }));
 
 const collections = [
@@ -269,8 +258,6 @@ function NavbarSearch(props: NavbarSearchProps) {
         <div>
           <Box style={{ padding: "1rem" }}>
             <Button
-              variant="light"
-              color="aqua"
               fullWidth
               leftIcon={<IconDatabase size="1rem" />}
               onClick={props.onSave}
@@ -286,7 +273,7 @@ function NavbarSearch(props: NavbarSearchProps) {
             Available Clients
           </Text>
         </Group>
-        <div style={{ color: "red" }} className={classes.collections}>
+        <div className={classes.collections}>
           {(clients || []).map((client) => (
             <div className={classes.collectionLink} key={client.id}>
               {client.id}
@@ -543,7 +530,6 @@ function Flow() {
                 fitView
                 snapToGrid={true}
               >
-                <MiniMap style={minimapStyle} zoomable pannable />
                 <Controls />
                 {/* <Background color="#c8cbcc"  /> */}
               </ReactFlow>
