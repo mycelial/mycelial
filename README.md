@@ -1,7 +1,7 @@
 # mycelial
 
 ## Local dev setup
-1. Setup rust: use provided script at https://rustup.rs/ (Follow [these instructions](https://stackoverflow.com/questions/67656028/rustup-gives-command-not-found-error-with-zsh-even-after-installing-with-brew) if it doesn't work initially.
+1. Setup rust: use provided script at https://rustup.rs/ (Follow [these instructions](https://stackoverflow.com/questions/67656028/rustup-gives-command-not-found-error-with-zsh-even-after-installing-with-brew) if it doesn't work initially.)
 2. Update rust: `rustup update`
 3. Install brew (assuming mac os): use provided script at https://brew.sh/
 4. Install node: run `brew install node`
