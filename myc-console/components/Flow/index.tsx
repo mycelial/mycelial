@@ -74,7 +74,8 @@ import { ClientContextType } from "../@types/client";
 
 const useStyles = createStyles((theme) => ({
   navbar: {
-    paddingTop: 0,
+    paddingTop: 100,
+    background: theme.colors.forest[0]
   },
 
   section: {
@@ -294,7 +295,7 @@ function NavbarSearch(props: NavbarSearchProps) {
             Available Clients
           </Text>
         </Group>
-        <div className={classes.collections}>
+        <div style={{ color: "red" }} className={classes.collections}>
           {(clients || []).map((client) => (
             <div className={classes.collectionLink} key={client.id}>
               {client.id}
@@ -553,7 +554,7 @@ function Flow() {
               >
                 <MiniMap style={minimapStyle} zoomable pannable />
                 <Controls />
-                <Background color="#c8cbcc" gap={16} />
+                {/* <Background color="#c8cbcc"  /> */}
               </ReactFlow>
             </div>
           </Grid.Col>
