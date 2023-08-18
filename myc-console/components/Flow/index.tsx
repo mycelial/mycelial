@@ -78,6 +78,7 @@ const useStyles = createStyles((theme) => ({
   navbar: {
     paddingTop: 100,
     background: theme.colors.night[1], 
+    borderRight: `${theme.colors.night[2]} 1px solid`,
   },
   section: {
     marginLeft: `calc(${theme.spacing.md} * -1)`,
@@ -85,25 +86,11 @@ const useStyles = createStyles((theme) => ({
     marginBottom: theme.spacing.md,
 
     "&:not(:last-of-type)": {
-      borderBottom: `${rem(1)} solid ${
-        theme.colorScheme === "dark"
-          ? theme.colors.dark[4]
-          : theme.colors.gray[3]
-      }`,
+      borderBottom: `${rem(1)} solid ${theme.colors.night[2]}`,
     },
   },
 
-  searchCode: {
-    fontWeight: 700,
-    fontSize: rem(10),
-    backgroundColor:
-      theme.colorScheme === "dark"
-        ? theme.colors.dark[7]
-        : theme.colors.gray[0],
-    border: `${rem(1)} solid ${
-      theme.colorScheme === "dark" ? theme.colors.dark[7] : theme.colors.gray[2]
-    }`,
-  },
+
 
   mainLinks: {
     paddingLeft: `calc(${theme.spacing.md} - ${theme.spacing.xs})`,
@@ -162,16 +149,21 @@ const useStyles = createStyles((theme) => ({
     lineHeight: 1,
     fontWeight: 500,
     cursor: "grab",
-
     "&:hover": {
-      backgroundColor: theme.colors.night[2],
+      borderColor: theme.colors.stem[0],
+      borderWidth: 1,
+      backgroundColor: theme.colors.forest[0],
     },
+
   },
 
   //TODO: fix hover state for publish button
-  publishButton: {
+  buttonHoverStyle: {
     "&:hover": {
-      backgroundColor: theme.colors.night[2],
+      borderColor: theme.colors.stem[0],
+      borderWidth: 1,
+      backgroundColor: theme.colors.forest[0],
+
     },
   }
 
@@ -246,6 +238,7 @@ function NavbarSearch(props: NavbarSearchProps) {
       height="100vh"
       width={{ sm: 200 }}
       p="md"
+      
       className={classes.navbar}
     >
       <Image
@@ -269,9 +262,9 @@ function NavbarSearch(props: NavbarSearchProps) {
               fullWidth
               leftIcon={<IconDatabase size="1rem" />}
               onClick={props.onSave}
-              className={classes.publishButton}
-              // TODO: figure out how to style this button with variables 
-              style={{ "background-color": "#293B35", color: "#fef1dd"}}
+              className={classes.buttonHoverStyle}
+              bg="forest.0"
+              c="stem.0"
             >
               Publish
             </Button>
@@ -280,7 +273,7 @@ function NavbarSearch(props: NavbarSearchProps) {
       </Navbar.Section>
       <Navbar.Section className={classes.section}>
         <Group className={classes.collectionsHeader} position="apart">
-          <Text size="xs" weight={500} color="dimmed">
+          <Text size="xs" weight={500}>
             Available Clients
           </Text>
         </Group>
@@ -540,9 +533,9 @@ function Flow() {
                 onDragOver={onDragOver}
                 fitView
                 snapToGrid={true}
+                
               >
                 <Controls />
-                {/* <Background color="#c8cbcc"  /> */}
               </ReactFlow>
             </div>
           </Grid.Col>

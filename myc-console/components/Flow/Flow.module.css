@@ -5,13 +5,17 @@
   height: 100vh;
 }
 
+
 .customNode {
-  border: 1px solid #555;
+  border: 1px solid #314958;
   padding: 10px;
   border-radius: 3px;
-  background-color: whitesmoke;
+  background-color: #52776B;
 }
 
 .selected {
-  border: 1px solid rgb(34, 139, 230);
+  border: 1px solid #456376;
 }
+
+
+
