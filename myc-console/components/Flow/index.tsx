@@ -9,7 +9,7 @@ import {
   useEffect,
   createContext,
 } from "react";
-import Image from "next/image";
+
 import ReactFlow, {
   MarkerType,
   Node,
@@ -45,7 +45,6 @@ import { Grid, Container, Anchor, Group } from "@/components/layout";
 
 import { UserButton } from "@/components/UserButton";
 
-import { Button, Box } from "@/components/core";
 
 import {
   createStyles,
@@ -59,6 +58,9 @@ import {
   ActionIcon,
   Tooltip,
   rem,
+  Button, 
+  Box,
+  Image
 } from "@/components/core";
 
 import {
@@ -247,12 +249,12 @@ function NavbarSearch(props: NavbarSearchProps) {
       className={classes.navbar}
     >
       <Image
-        className="p-1 mb-2"
+        mb={16}
         src="/mycelial.svg"
         alt="Mycelial Logo"
-        width={217}
-        height={47}
-        priority
+        maw={240}
+        mx="auto"
+
       />
       <Navbar.Section className={classes.section}>
         <Group className={classes.collectionsHeader} position="apart">
