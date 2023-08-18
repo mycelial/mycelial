@@ -12,11 +12,28 @@ import { XMarkIcon } from "@heroicons/react/20/solid";
 
 import { Select, MultiSelect, TextArea, TextInput } from "@/components/inputs";
 
-import styles from "@/components/Flow/Flow.module.css";
+import {
+  createStyles,
+  rem,
+} from "@/components/core";
+
 import { ClientContext } from "./context/clientContext";
 import { ClientContextType } from "./@types/client";
 
+
+const useStyles = createStyles((theme) => ({
+  customNode: {
+    background: theme.colors.toadstool[1], 
+  }
+}));
+
+// if (selected) {
+//   classNames = classNames + `${styles.selected}`;
+// }
+
+
 const SqliteSourceNode: FC<NodeProps> = memo(({ id, data, selected }) => {
+  const { classes } = useStyles();
   const instance = useReactFlow();
   const { clients } = useContext(ClientContext) as ClientContextType;
 
@@ -49,10 +66,7 @@ const SqliteSourceNode: FC<NodeProps> = memo(({ id, data, selected }) => {
     handleChange("client", initialValues.client);
   }, []);
 
-  let classNames = `${styles.customNode} `;
-  if (selected) {
-    classNames = classNames + `${styles.selected}`;
-  }
+
 
   const removeNode = useCallback((id: string) => {
     const node = instance.getNode(id);
@@ -66,9 +80,9 @@ const SqliteSourceNode: FC<NodeProps> = memo(({ id, data, selected }) => {
   }, []);
 
   return (
-    <div className={classNames}>
-      <div className=" grid grid-cols-1 gap-x-6 gap-y-2">
-        <h2 className="text-slate-400 font-normal">SQLite Source</h2>
+    <div className={classes.customNode}>
+      <div className="">
+        <h2 className="">SQLite Source</h2>
         <button
           onClick={() => {
             if (confirm("Are you sure you want to delete this node?")) {
@@ -115,6 +129,7 @@ const SqliteSourceNode: FC<NodeProps> = memo(({ id, data, selected }) => {
 
 const SqliteDestinationNode: FC<NodeProps> = memo(({ id, data, selected }) => {
   const instance = useReactFlow();
+  const { classes } = useStyles();
   const { clients } = useContext(ClientContext) as ClientContextType;
 
   let initialValues = useMemo(() => {
@@ -153,15 +168,15 @@ const SqliteDestinationNode: FC<NodeProps> = memo(({ id, data, selected }) => {
     handleChange("client", initialValues.client);
   }, []);
 
-  let classNames = `${styles.customNode} `;
+  let classNames = classes.customNode;
   if (selected) {
-    classNames = classNames + `${styles.selected}`;
+    classNames = classNames + `${classes.selected}`;
   }
 
   return (
     <div className={classNames}>
-      <div className=" grid grid-cols-1 gap-x-6 gap-y-2">
-        <h2 className="text-slate-400 font-normal">SQLite Destination</h2>
+      <div className="">
+        <h2 className="">SQLite Destination</h2>
         <button
           onClick={() => {
             if (confirm("Are you sure you want to delete this node?")) {
@@ -169,10 +184,10 @@ const SqliteDestinationNode: FC<NodeProps> = memo(({ id, data, selected }) => {
             }
           }}
           type="button"
-          className="absolute right-1 top-1 rounded bg-red-200 text-white shadow-sm hover:bg-red-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-800"
+          className=""
           title="delete"
         >
-          <XMarkIcon className="h-5 w-5" aria-hidden="true" />
+          <XMarkIcon className="" aria-hidden="true" />
         </button>
         <TextInput
           name="sqliteDatabasePath"
@@ -199,7 +214,7 @@ const SqliteDestinationNode: FC<NodeProps> = memo(({ id, data, selected }) => {
 
 const MycelialNetworkNode: FC<NodeProps> = memo(({ id, data, selected }) => {
   const instance = useReactFlow();
-
+  const { classes } = useStyles();
   let initialValues = useMemo(() => {
     return {
       endpoint: data.endpoint
@@ -240,16 +255,16 @@ const MycelialNetworkNode: FC<NodeProps> = memo(({ id, data, selected }) => {
     handleChange("topic", initialValues.topic);
   }, []);
 
-  let classNames = `${styles.customNode} `;
-  if (selected) {
-    classNames = classNames + `${styles.selected}`;
-  }
+  
+  // if (selected) {
+  //   classNames = classNames + `${classes.selected}`;
+  // }
   return (
-    <div className={classNames}>
-      <div className=" grid grid-cols-1 gap-x-6 gap-y-2">
+    <div className={classes.customNode}>
+      <div className="">
         <Handle type="target" position={Position.Left} id={id} />
         <Handle type="source" position={Position.Right} id={id} />
-        <h2 className="text-slate-400 font-normal">Mycelial Network</h2>
+        <h2 className="">Mycelial Network</h2>
 
         <button
           onClick={() => {
@@ -258,10 +273,10 @@ const MycelialNetworkNode: FC<NodeProps> = memo(({ id, data, selected }) => {
             }
           }}
           type="button"
-          className="absolute right-1 top-1 rounded bg-red-200 text-white shadow-sm hover:bg-red-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-800"
+          className=""
           title="delete"
         >
-          <XMarkIcon className="h-5 w-5" aria-hidden="true" />
+          <XMarkIcon className="" aria-hidden="true" />
         </button>
         <TextInput
           name="endpoint"
@@ -294,7 +309,7 @@ const MycelialNetworkNode: FC<NodeProps> = memo(({ id, data, selected }) => {
 const SnowflakeDestinationNode: FC<NodeProps> = memo(
   ({ id, data, selected }) => {
     const instance = useReactFlow();
-
+    const { classes } = useStyles();
     let initialValues = useMemo(() => {
       return {
         username: data.username ? data.username : "SVCMYCELIAL",
@@ -336,10 +351,9 @@ const SnowflakeDestinationNode: FC<NodeProps> = memo(
       handleChange("table", initialValues.table);
     }, []);
 
-    let classNames = `${styles.customNode} `;
-    if (selected) {
-      classNames = classNames + `${styles.selected}`;
-    }
+    // if (selected) {
+    //   classNames = classNames + `${styles.selected}`;
+    // }
 
     const removeNode = useCallback((id: string) => {
       let node = instance.getNode(id);
@@ -351,9 +365,9 @@ const SnowflakeDestinationNode: FC<NodeProps> = memo(
     }, []);
 
     return (
-      <div className={classNames}>
-        <div className=" grid grid-cols-1 gap-x-6 gap-y-2">
-          <h2 className="text-slate-400 font-normal">Snowflake Destination</h2>
+      <div className={classes.customNode}>
+        <div className="">
+          <h2 className="">Snowflake Destination</h2>
           <button
             onClick={() => {
               if (confirm("Are you sure you want to delete this node?")) {
@@ -361,10 +375,10 @@ const SnowflakeDestinationNode: FC<NodeProps> = memo(
               }
             }}
             type="button"
-            className="absolute right-1 top-1 rounded bg-red-200 text-white shadow-sm hover:bg-red-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-800"
+            className=""
             title="delete"
           >
-            <XMarkIcon className="h-5 w-5" aria-hidden="true" />
+            <XMarkIcon className="" aria-hidden="true" />
           </button>
           <TextInput
             name="username"
@@ -447,7 +461,7 @@ const SnowflakeDestinationNode: FC<NodeProps> = memo(
 
 const SnowflakeSourceNode: FC<NodeProps> = memo(({ id, data, selected }) => {
   const instance = useReactFlow();
-
+  const { classes } = useStyles();
   let initialValues = useMemo(() => {
     return {
       username: data.username ? data.username : "SVCMYCELIAL",
@@ -489,10 +503,6 @@ const SnowflakeSourceNode: FC<NodeProps> = memo(({ id, data, selected }) => {
     handleChange("query", initialValues.query);
   }, []);
 
-  let classNames = `${styles.customNode} `;
-  if (selected) {
-    classNames = classNames + `${styles.selected}`;
-  }
   const removeNode = useCallback((id: string) => {
     let node = instance.getNode(id);
     if (node === undefined) {
@@ -503,9 +513,9 @@ const SnowflakeSourceNode: FC<NodeProps> = memo(({ id, data, selected }) => {
   }, []);
 
   return (
-    <div className={classNames}>
-      <div className=" grid grid-cols-1 gap-x-6 gap-y-2">
-        <h2 className="text-slate-400 font-normal">Snowflake Source</h2>
+    <div className={classes.customNode}>
+      <div className="">
+        <h2 className="">Snowflake Source</h2>
         <button
           onClick={() => {
             if (confirm("Are you sure you want to delete this node?")) {
@@ -513,10 +523,10 @@ const SnowflakeSourceNode: FC<NodeProps> = memo(({ id, data, selected }) => {
             }
           }}
           type="button"
-          className="absolute right-1 top-1 rounded bg-red-200 text-white shadow-sm hover:bg-red-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-800"
+          className=""
           title="delete"
         >
-          <XMarkIcon className="h-5 w-5" aria-hidden="true" />
+          <XMarkIcon className="" aria-hidden="true" />
         </button>
         <TextInput
           name="nodrag"
@@ -595,7 +605,7 @@ const SnowflakeSourceNode: FC<NodeProps> = memo(({ id, data, selected }) => {
 const KafkaSourceNode: FC<NodeProps> = memo(({ id, data, selected }) => {
   const instance = useReactFlow();
   const { clients } = useContext(ClientContext) as ClientContextType;
-
+  const { classes } = useStyles();
   let initialValues = useMemo(() => {
     return {
       brokers: data.brokers ? data.brokers : "localhost:9092",
@@ -636,14 +646,11 @@ const KafkaSourceNode: FC<NodeProps> = memo(({ id, data, selected }) => {
     handleChange("client", initialValues.client);
   }, []);
 
-  let classNames = `${styles.customNode} `;
-  if (selected) {
-    classNames = classNames + `${styles.selected}`;
-  }
+  
   return (
-    <div className={classNames}>
-      <div className=" grid grid-cols-1 gap-x-6 gap-y-2">
-        <h2 className="text-slate-400 font-normal">Kafka Source</h2>
+    <div className={classes.customNode}>
+      <div className="">
+        <h2 className="">Kafka Source</h2>
         <button
           onClick={() => {
             if (confirm("Are you sure you want to delete this node?")) {
@@ -651,10 +658,10 @@ const KafkaSourceNode: FC<NodeProps> = memo(({ id, data, selected }) => {
             }
           }}
           type="button"
-          className="absolute right-1 top-1 rounded bg-red-200 text-white shadow-sm hover:bg-red-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-800"
+          className=""
           title="delete"
         >
-          <XMarkIcon className="h-5 w-5" aria-hidden="true" />
+          <XMarkIcon className="" aria-hidden="true" />
         </button>
         <TextInput
           name="brokers"
