@@ -78,7 +78,7 @@ const useStyles = createStyles((theme) => ({
   navbar: {
     paddingTop: 100,
     background: theme.colors.night[1], 
-    borderRight: `${theme.colors.night[2]} 1px solid`,
+    borderRight: `${theme.colors.night[2]} ${rem(1)} solid`,
   },
   section: {
     marginLeft: `calc(${theme.spacing.md} * -1)`,
@@ -89,8 +89,6 @@ const useStyles = createStyles((theme) => ({
       borderBottom: `${rem(1)} solid ${theme.colors.night[2]}`,
     },
   },
-
-
 
   mainLinks: {
     paddingLeft: `calc(${theme.spacing.md} - ${theme.spacing.xs})`,
@@ -157,7 +155,6 @@ const useStyles = createStyles((theme) => ({
 
   },
 
-  //TODO: fix hover state for publish button
   buttonHoverStyle: {
     "&:hover": {
       borderColor: theme.colors.stem[0],
@@ -165,7 +162,7 @@ const useStyles = createStyles((theme) => ({
       backgroundColor: theme.colors.forest[0],
 
     },
-  }
+  },
 
 }));
 
@@ -509,6 +506,8 @@ function Flow() {
       return;
     }
   }, [reactFlowInstance]);
+
+
 
   return (
     <ReactFlowProvider>
