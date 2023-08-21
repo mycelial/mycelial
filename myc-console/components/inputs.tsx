@@ -26,7 +26,18 @@ const useStyles = createStyles((theme) => ({
     borderColor: "transparent",
     borderRadius: rem(2), 
     marginTop: rem(2),
+  },
+  input: {
+    backgroundColor: theme.colors.stem[1],
+    color: theme.colors.night[1],
+  },
+  label: {
+    color: theme.colors.stem[0]
+  },
+  root: {
+    padding: rem(5),
   }
+  
 }));
 
 const getRandomString = () => {
@@ -125,10 +136,6 @@ interface SelectProps {
   options: string[];
 }
 
-// TODO: rip and replace to use Mantine method for indicating Active state
-function classNames(...classes: (string | boolean)[]) {
-  return classes.filter(Boolean).join(" ");
-}
 
 export const Select: React.FC<SelectProps> = (props) => {
   const id = React.useRef<string>("");
@@ -145,23 +152,18 @@ export const Select: React.FC<SelectProps> = (props) => {
     console.log(selected)
   }, [selected]);
 
-  const StyledNativeSelect = styled(NativeSelect)`
-       padding: 1em;
-       & 	.mantine-InputWrapper-label {
-        color: #FEF1DD;
-        padding: 0;
-       } 
-       & .mantine-NativeSelect-input {
-        background-color: #FEF1DD;
-        color: #192831;
-        border-color: transparent;
-        padding: 0;
-        width: 'max-content';
-       } 
-  `
+
 
   return (
-    <StyledNativeSelect 
+    // <StyledNativeSelect 
+    <NativeSelect
+     classNames={
+      {
+        input: classes.input,
+        label: classes.label,
+        root: classes.root,
+      }
+     }
      // TODO: Implement no drag when this selector is open.
      label={props.label}
      data={props.options}

@@ -47,7 +47,7 @@ const useStyles = createStyles((theme) => ({
   },
 }));
 
-  
+
 
 const SqliteSourceNode: FC<NodeProps> = memo(({ id, data, selected }) => {
   const { classes } = useStyles();
@@ -98,19 +98,28 @@ const SqliteSourceNode: FC<NodeProps> = memo(({ id, data, selected }) => {
 
   return (
     <div className={classes.customNode}>
-      <div className="">
-        <h2 className="">SQLite Source</h2>
-        <button
-          onClick={() => {
-            if (confirm("Are you sure you want to delete this node?")) {
-              removeNode(id);
-            }
-          }}
-          type="button"
-          title="delete"
-        >
-          <XMarkIcon className="h-5 w-5" aria-hidden="true" />
-        </button>
+      <Flex
+        gap="md"
+        justify="center"
+        align="left"
+        direction="column"
+        wrap="nowrap"
+      >
+        <Flex className={classes.nodeTitle} justify="space-between" direction="row">
+          <h2 className="">SQLite Source</h2>
+          <button
+            onClick={() => {
+              if (confirm("Are you sure you want to delete this node?")) {
+                removeNode(id);
+              }
+            }}
+            type="button"
+            className={classes.deleteNodeButton}
+            title="delete"
+          >
+            X
+          </button>
+        </Flex>
         <TextInput
           name="sqliteDatabasePath"
           label="Sqlite Database Path"
@@ -138,7 +147,7 @@ const SqliteSourceNode: FC<NodeProps> = memo(({ id, data, selected }) => {
           }}
         />
         <Handle type="source" position={Position.Right} id={id} />
-      </div>
+      </Flex>
     </div>
   );
 });
@@ -213,7 +222,7 @@ const SqliteDestinationNode: FC<NodeProps> = memo(({ id, data, selected }) => {
         </Flex>
 
         <TextInput
-          
+
           name="sqliteDatabasePath"
           label="Sqlite Database Path"
           placeholder={initialValues.databasePath}
@@ -285,23 +294,32 @@ const MycelialNetworkNode: FC<NodeProps> = memo(({ id, data, selected }) => {
   // }
   return (
     <div className={classes.customNode}>
-      <div className="">
-        <Handle type="target" position={Position.Left} id={id} />
-        <Handle type="source" position={Position.Right} id={id} />
-        <h2 className="">Mycelial Network</h2>
+      <Handle type="target" position={Position.Left} id={id} />
+      <Handle type="source" position={Position.Right} id={id} />
+      <Flex
+        gap="md"
+        justify="center"
+        align="left"
+        direction="column"
+        wrap="nowrap"
+      >
+        <Flex className={classes.nodeTitle} justify="space-between" direction="row">
 
-        <button
-          onClick={() => {
-            if (confirm("Are you sure you want to delete this node?")) {
-              removeNode(id);
-            }
-          }}
-          type="button"
-          className=""
-          title="delete"
-        >
-          <XMarkIcon className="" aria-hidden="true" />
-        </button>
+          <h2 className="">Mycelial Network</h2>
+
+          <button
+            onClick={() => {
+              if (confirm("Are you sure you want to delete this node?")) {
+                removeNode(id);
+              }
+            }}
+            type="button"
+            className={classes.deleteNodeButton}
+            title="delete"
+          >
+            X
+          </button>
+        </Flex>
         <TextInput
           name="endpoint"
           label="Endpoint"
@@ -325,7 +343,9 @@ const MycelialNetworkNode: FC<NodeProps> = memo(({ id, data, selected }) => {
           defaultValue={initialValues.topic}
           onChange={(event) => handleChange("topic", event.currentTarget.value)}
         />
-      </div>
+        {/* TODO: fix */}
+        <br />
+      </Flex>
     </div>
   );
 });
@@ -399,11 +419,10 @@ const SnowflakeDestinationNode: FC<NodeProps> = memo(
               }
             }}
             type="button"
-            
+
             title="delete"
           >
-            {/* <XMarkIcon className="" aria-hidden="true" /> */}
-            X 
+            X
           </button>
           <TextInput
             name="username"
@@ -551,7 +570,7 @@ const SnowflakeSourceNode: FC<NodeProps> = memo(({ id, data, selected }) => {
           className=""
           title="delete"
         >
-          <XMarkIcon className="" aria-hidden="true" />
+          X
         </button>
         <TextInput
           name="nodrag"
@@ -686,7 +705,7 @@ const KafkaSourceNode: FC<NodeProps> = memo(({ id, data, selected }) => {
           className=""
           title="delete"
         >
-          <XMarkIcon className="" aria-hidden="true" />
+          X
         </button>
         <TextInput
           name="brokers"
