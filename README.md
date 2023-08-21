@@ -1,4 +1,4 @@
-# mycelial
+# Mycelial
 
 ## Local dev setup
 1. Setup rust: use provided script at https://rustup.rs/ (Follow [these instructions](https://stackoverflow.com/questions/67656028/rustup-gives-command-not-found-error-with-zsh-even-after-installing-with-brew) if it doesn't work initially.)
