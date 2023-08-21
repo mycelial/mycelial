@@ -14,5 +14,6 @@ export {
   rem,
   Button,
   Box,
-  Image
+  Image,
+  Flex
 } from '@mantine/core';

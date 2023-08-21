@@ -25,7 +25,7 @@ import ReactFlow, {
   ReactFlowProvider,
   ReactFlowInstance,
 } from "reactflow";
-import CustomNode from "./CustomNode";
+// import CustomNode from "./CustomNode";
 
 import { IconDatabase } from "@tabler/icons-react";
 
@@ -164,6 +164,12 @@ const useStyles = createStyles((theme) => ({
     },
   },
 
+  flow: {
+    flexGrow: 1,
+    fontSize: rem(12),
+    width: '100%',
+    height: '100vh',
+  }
 }));
 
 const collections = [
@@ -180,7 +186,6 @@ const initialNodes: Node[] = [];
 const initialEdges: Edge[] = [];
 
 const nodeTypes = {
-  custom: CustomNode,
   sqliteSource: SqliteSourceNode,
   sqliteDestination: SqliteDestinationNode,
   mycelialNetwork: MycelialNetworkNode,
@@ -302,6 +307,7 @@ async function getStartingUI(token: string) {
 
 function Flow() {
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
+  const { classes } = useStyles();
 
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
@@ -517,7 +523,10 @@ function Flow() {
             <NavbarSearch onSave={handleSave} />
           </Grid.Col>
           <Grid.Col span="auto">
-            <div className={styles.flow} ref={reactFlowWrapper}>
+            <div 
+            ref={reactFlowWrapper} 
+            className={classes.flow}
+            >
               <ReactFlow
                 nodes={nodes}
                 onNodesChange={onNodesChange}
