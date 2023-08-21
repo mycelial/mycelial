@@ -27,6 +27,7 @@
     "@types/react": "18.2.14",
     "@types/react-dom": "18.2.6",
     "autoprefixer": "10.4.14",
+    "dagre": "^0.8.5",
     "eslint": "8.43.0",
     "eslint-config-next": "13.4.7",
     "headlessui": "^0.0.0",
@@ -38,5 +39,8 @@
     "reactflow": "^11.7.4",
     "tailwindcss": "3.3.2",
     "typescript": "5.1.5"
+  },
+  "devDependencies": {
+    "@types/dagre": "^0.7.49"
   }
 }
