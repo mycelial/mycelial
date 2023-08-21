@@ -410,20 +410,29 @@ const SnowflakeDestinationNode: FC<NodeProps> = memo(
 
     return (
       <div className={classes.customNode}>
-        <div className="">
-          <h2 className="">Snowflake Destination</h2>
-          <button
-            onClick={() => {
-              if (confirm("Are you sure you want to delete this node?")) {
-                removeNode(id);
-              }
-            }}
-            type="button"
+        <Flex
+          gap="md"
+          justify="center"
+          align="left"
+          direction="column"
+          wrap="nowrap"
+        >
+          <Flex className={classes.nodeTitle} justify="space-between" direction="row">
 
-            title="delete"
-          >
-            X
-          </button>
+            <h2 className="">Snowflake Destination</h2>
+            <button
+              onClick={() => {
+                if (confirm("Are you sure you want to delete this node?")) {
+                  removeNode(id);
+                }
+              }}
+              type="button"
+              className={classes.deleteNodeButton}
+              title="delete"
+            >
+              X
+            </button>
+          </Flex>
           <TextInput
             name="username"
             label="Username"
@@ -497,7 +506,8 @@ const SnowflakeDestinationNode: FC<NodeProps> = memo(
             }
           />
           <Handle type="target" position={Position.Left} id={id} />
-        </div>
+        <br />
+        </Flex>
       </div>
     );
   }
@@ -558,7 +568,15 @@ const SnowflakeSourceNode: FC<NodeProps> = memo(({ id, data, selected }) => {
 
   return (
     <div className={classes.customNode}>
-      <div className="">
+                <Flex
+          gap="md"
+          justify="center"
+          align="left"
+          direction="column"
+          wrap="nowrap"
+        >
+          <Flex className={classes.nodeTitle} justify="space-between" direction="row">
+
         <h2 className="">Snowflake Source</h2>
         <button
           onClick={() => {
@@ -567,11 +585,12 @@ const SnowflakeSourceNode: FC<NodeProps> = memo(({ id, data, selected }) => {
             }
           }}
           type="button"
-          className=""
+          className={classes.deleteNodeButton}
           title="delete"
         >
           X
         </button>
+        </Flex>
         <TextInput
           name="nodrag"
           label="Username"
@@ -641,7 +660,8 @@ const SnowflakeSourceNode: FC<NodeProps> = memo(({ id, data, selected }) => {
           onChange={(event) => handleChange("query", event.currentTarget.value)}
         />
         <Handle type="source" position={Position.Right} id={id} />
-      </div>
+        <br />
+      </Flex>
     </div>
   );
 });

@@ -55,7 +55,7 @@ import {
   ActionIcon,
   Tooltip,
   rem,
-  Button, 
+  Button,
   Box,
   Image
 } from "@/components/core";
@@ -74,7 +74,7 @@ import { ClientContextType } from "../@types/client";
 const useStyles = createStyles((theme) => ({
   navbar: {
     paddingTop: 100,
-    background: theme.colors.night[1], 
+    background: theme.colors.night[1],
     borderRight: `${theme.colors.night[2]} ${rem(1)} solid`,
   },
   section: {
@@ -101,7 +101,7 @@ const useStyles = createStyles((theme) => ({
     padding: `${rem(8)} ${theme.spacing.xs}`,
     borderRadius: theme.radius.sm,
     fontWeight: 500,
-  
+
   },
 
   mainLinkInner: {
@@ -140,7 +140,7 @@ const useStyles = createStyles((theme) => ({
     textDecoration: "none",
     borderRadius: theme.radius.sm,
     fontSize: theme.fontSizes.xs,
-   
+
     lineHeight: 1,
     fontWeight: 500,
     cursor: "grab",
@@ -160,13 +160,12 @@ const useStyles = createStyles((theme) => ({
 
     },
   },
-
   flow: {
     flexGrow: 1,
     fontSize: rem(12),
     width: '100%',
     height: '100vh',
-  }
+  },
 }));
 
 const collections = [
@@ -237,7 +236,6 @@ function NavbarSearch(props: NavbarSearchProps) {
       height="100vh"
       width={{ sm: 200 }}
       p="md"
-      
       className={classes.navbar}
     >
       <Image
@@ -250,8 +248,8 @@ function NavbarSearch(props: NavbarSearchProps) {
       />
       <Navbar.Section className={classes.section}>
         <Group className={classes.collectionsHeader} position="apart">
-          <Text size="xs" weight={500} > 
-            Data Sources
+          <Text size="xs" weight={500} >
+            Available Nodes
           </Text>
         </Group>
         <div className={classes.collections}>{collectionLinks}</div>
@@ -299,7 +297,7 @@ async function getStartingUI(token: string) {
     });
     const result = await response.json();
     return result;
-  } catch (error) {}
+  } catch (error) { }
 }
 
 function Flow() {
@@ -510,8 +508,6 @@ function Flow() {
     }
   }, [reactFlowInstance]);
 
-
-
   return (
     <ReactFlowProvider>
       <ClientProvider>
@@ -520,9 +516,9 @@ function Flow() {
             <NavbarSearch onSave={handleSave} />
           </Grid.Col>
           <Grid.Col span="auto">
-            <div 
-            ref={reactFlowWrapper} 
-            className={classes.flow}
+            <div
+              ref={reactFlowWrapper}
+              className={classes.flow}
             >
               <ReactFlow
                 nodes={nodes}
@@ -538,7 +534,6 @@ function Flow() {
                 onDragOver={onDragOver}
                 fitView
                 snapToGrid={true}
-                
               >
                 <Controls />
               </ReactFlow>
