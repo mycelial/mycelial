@@ -33,7 +33,7 @@ import {
   SqliteSourceNode,
   SqliteDestinationNode,
   MycelialNetworkNode,
-  KafkaSourceNode,
+  // KafkaSourceNode,
   SnowflakeSourceNode,
   SnowflakeDestinationNode,
 } from "@/components/nodes";
@@ -173,7 +173,7 @@ const collections = [
   { label: "Sqlite Source", nodeType: "sqliteSource" },
   { label: "Sqlite Destination", nodeType: "sqliteDestination" },
   { label: "Mycelial Network", nodeType: "mycelialNetwork" },
-  { label: "Kafka Source", nodeType: "kafkaSource" },
+  // { label: "Kafka Source", nodeType: "kafkaSource" },
   { label: "Snowflake Source", nodeType: "snowflakeSource" },
   { label: "Snowflake Destination", nodeType: "snowflakeDestination" },
 ];
@@ -186,7 +186,7 @@ const nodeTypes = {
   sqliteSource: SqliteSourceNode,
   sqliteDestination: SqliteDestinationNode,
   mycelialNetwork: MycelialNetworkNode,
-  kafkaSource: KafkaSourceNode,
+  // kafkaSource: KafkaSourceNode,
   snowflakeSource: SnowflakeSourceNode,
   snowflakeDestination: SnowflakeDestinationNode,
 };
