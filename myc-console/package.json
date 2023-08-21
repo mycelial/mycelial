@@ -13,6 +13,7 @@
     "@carbon/styles": "^1.33.1",
     "@emotion/react": "^11.11.1",
     "@emotion/server": "^11.11.0",
+    "@emotion/styled": "^11.11.0",
     "@headlessui/react": "^1.7.15",
     "@heroicons/react": "^2.0.18",
     "@mantine/core": "^6.0.16",
