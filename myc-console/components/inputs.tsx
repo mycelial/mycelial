@@ -13,6 +13,10 @@ import {
 } from "@/components/core";
 
 const useStyles = createStyles((theme) => ({
+  customFlexRow: {
+    paddingLeft: '1em', 
+    paddingRight: '1em', 
+  },
   customInputLabel: {
     cursor: "inherit",
   },
@@ -21,10 +25,8 @@ const useStyles = createStyles((theme) => ({
     color: theme.colors.stem[0],
     borderColor: "transparent",
     borderRadius: rem(2), 
-  },
-  "mantine-NativeSelect-label": {
-    color: theme.colors.stem[0], 
-  } 
+    marginTop: rem(2),
+  }
 }));
 
 const getRandomString = () => {
@@ -45,6 +47,7 @@ interface TextInputProps {
   onChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
 }
 
+// TODO: replace with mantine component
 export const TextInput: React.FC<TextInputProps> = (props) => {
   const id = React.useRef<string>("");
   const { classes } = useStyles();
@@ -53,7 +56,7 @@ export const TextInput: React.FC<TextInputProps> = (props) => {
   }, [props.name]);
 
   return (
-    <div>
+    <div className={classes.customFlexRow}>
       <label
         className={classes.customInputLabel}
         htmlFor={id.current}
@@ -95,7 +98,6 @@ export const TextArea: React.FC<TextAreaProps> = (props) => {
       <label
         style={{ cursor: "inherit" }}
         htmlFor={id.current}
-        className="block text-sm font-medium leading-6 text-gray-900"
       >
         {props.label}
       </label>
@@ -104,7 +106,6 @@ export const TextArea: React.FC<TextAreaProps> = (props) => {
           rows={4}
           name={props.name}
           id={id.current}
-          className="nodrag block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
           defaultValue={props.defaultValue || ""}
           placeholder={props.placeholder || ""}
           onChange={props.onChange}
@@ -145,13 +146,17 @@ export const Select: React.FC<SelectProps> = (props) => {
   }, [selected]);
 
   const StyledNativeSelect = styled(NativeSelect)`
+       padding: 1em;
        & 	.mantine-InputWrapper-label {
         color: #FEF1DD;
+        padding: 0;
        } 
        & .mantine-NativeSelect-input {
         background-color: #FEF1DD;
         color: #192831;
         border-color: transparent;
+        padding: 0;
+        width: 'max-content';
        } 
   `
 

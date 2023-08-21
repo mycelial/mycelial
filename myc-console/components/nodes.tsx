@@ -8,7 +8,6 @@ import {
   useReactFlow,
   getConnectedEdges,
 } from "reactflow";
-import { XMarkIcon } from "@heroicons/react/20/solid";
 
 import { Select, MultiSelect, TextArea, TextInput } from "@/components/inputs";
 import { Grid } from "@/components/layout";
@@ -192,7 +191,7 @@ const SqliteDestinationNode: FC<NodeProps> = memo(({ id, data, selected }) => {
       <Flex
         gap="md"
         justify="center"
-        align="center"
+        align="left"
         direction="column"
         wrap="nowrap"
       >
@@ -209,7 +208,6 @@ const SqliteDestinationNode: FC<NodeProps> = memo(({ id, data, selected }) => {
             className={classes.deleteNodeButton}
             title="delete"
           >
-            {/* <XMarkIcon  aria-hidden="true" /> */}
             X
           </button>
         </Flex>
