@@ -29,9 +29,6 @@ import ReactFlow, {
 
 import { IconDatabase } from "@tabler/icons-react";
 
-import styles from "./Flow.module.css";
-// import DatabaseNode from './DatabaseNode';
-
 import {
   SqliteSourceNode,
   SqliteDestinationNode,

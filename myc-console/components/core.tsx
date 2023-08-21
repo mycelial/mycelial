@@ -15,5 +15,6 @@ export {
   Button,
   Box,
   Image,
-  Flex
+  Flex,
+  NativeSelect,
 } from '@mantine/core';

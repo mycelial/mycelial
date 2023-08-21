@@ -26,11 +26,8 @@ import { ClientContextType } from "./@types/client";
 const useStyles = createStyles((theme) => ({
   customNode: {
     background: theme.colors.night[1],
-    borderRadius: rem(3),
-    paddingLeft: rem(5),
-    paddingRight: rem(5),
-    paddingBottom: rem(5),
-    paddingTop: rem(3)
+    borderRadius: rem(5),
+
   },
   deleteNodeButton: {
     width: "auto",
@@ -41,9 +38,17 @@ const useStyles = createStyles((theme) => ({
     border: `1px solid ${theme.colors.toadstool[2]}`,
     borderRadius: rem(10),
     color: theme.colors.toadstool[2],
-  }
+  },
   // TODO: Implement border highlight when node is selected 
+  nodeTitle: {
+    background: theme.colors.forest[1],
+    padding: rem(5),
+    borderTopLeftRadius: rem(5),
+    borderTopRightRadius: rem(5),
+  },
 }));
+
+  
 
 const SqliteSourceNode: FC<NodeProps> = memo(({ id, data, selected }) => {
   const { classes } = useStyles();
@@ -191,8 +196,8 @@ const SqliteDestinationNode: FC<NodeProps> = memo(({ id, data, selected }) => {
         direction="column"
         wrap="nowrap"
       >
-        <Flex justify="space-between" direction="row">
-          SQLite Destination
+        <Flex className={classes.nodeTitle} justify="space-between" direction="row">
+          <h2>SQLite Destination</h2>
 
           <button
             onClick={() => {
@@ -208,7 +213,9 @@ const SqliteDestinationNode: FC<NodeProps> = memo(({ id, data, selected }) => {
             X
           </button>
         </Flex>
+
         <TextInput
+          
           name="sqliteDatabasePath"
           label="Sqlite Database Path"
           placeholder={initialValues.databasePath}
