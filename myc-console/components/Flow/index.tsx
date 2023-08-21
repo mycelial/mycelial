@@ -5,10 +5,12 @@ import {
   useContext,
   useState,
   useRef,
-  DOMElement,
   useEffect,
-  createContext,
 } from "react";
+
+import dagre from "dagre";
+import ELK from 'elkjs/lib/elk.bundled.js';
+
 import Image from "next/image";
 import ReactFlow, {
   MarkerType,
@@ -24,8 +26,12 @@ import ReactFlow, {
   Background,
   ReactFlowProvider,
   ReactFlowInstance,
+  EdgeChange,
+  EdgeRemoveChange,
+  Panel,
 } from "reactflow";
 import CustomNode from "./CustomNode";
+
 
 import { IconDatabase } from "@tabler/icons-react";
 
@@ -41,34 +47,18 @@ import {
   SnowflakeDestinationNode,
 } from "@/components/nodes";
 
-import { Grid, Container, Anchor, Group } from "@/components/layout";
-
-import { UserButton } from "@/components/UserButton";
+import { Grid, Group } from "@/components/layout";
 
 import { Button, Box } from "@/components/core";
 
 import {
   createStyles,
   Navbar,
-  TextInput,
-  Code,
-  UnstyledButton,
-  Badge,
   Text,
   // Group,
-  ActionIcon,
-  Tooltip,
   rem,
 } from "@/components/core";
 
-import {
-  IconBulb,
-  IconUser,
-  IconCheckbox,
-  IconSearch,
-  IconPlus,
-  IconSelector,
-} from "@tabler/icons-react";
 import ClientProvider, { ClientContext } from "../context/clientContext";
 import { ClientContextType } from "../@types/client";
 
@@ -89,18 +79,6 @@ const useStyles = createStyles((theme) => ({
           : theme.colors.gray[3]
       }`,
     },
-  },
-
-  searchCode: {
-    fontWeight: 700,
-    fontSize: rem(10),
-    backgroundColor:
-      theme.colorScheme === "dark"
-        ? theme.colors.dark[7]
-        : theme.colors.gray[0],
-    border: `${rem(1)} solid ${
-      theme.colorScheme === "dark" ? theme.colors.dark[7] : theme.colors.gray[2]
-    }`,
   },
 
   mainLinks: {
@@ -232,6 +210,7 @@ type NavbarSearchProps = {
 };
 
 function NavbarSearch(props: NavbarSearchProps) {
+  console.log("NavbarSearch");
   const { classes } = useStyles();
   const ctx = (useContext(ClientContext) as ClientContextType) || {};
   const { clients } = ctx;
@@ -307,6 +286,7 @@ function NavbarSearch(props: NavbarSearchProps) {
 }
 
 async function getStartingUI(token: string) {
+  console.log("getStartingUI");
   try {
     const response = await fetch("/api/ui-metadata", {
       method: "GET",
@@ -320,11 +300,71 @@ async function getStartingUI(token: string) {
   } catch (error) {}
 }
 
+async function getConfigs(token: string) {
+  try {
+    const response = await fetch("/pipe/configs", {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Authorization": "Bearer " + btoa(token),
+      },
+    });
+    const result = await response.json();
+    return result;
+  } catch (error) {}
+}
+
+const dagreGraph = new dagre.graphlib.Graph();
+dagreGraph.setDefaultEdgeLabel(() => ({}));
+
+const nodeWidth = 200;
+const nodeHeight = 200;
+
+const getLayoutedElements = (nodes: any[], edges: any[], direction = 'TB') => {
+  const isHorizontal = direction === 'LR';
+  dagreGraph.setGraph({ rankdir: direction });
+
+  nodes.forEach((node) => {
+    dagreGraph.setNode(node.id, { width: nodeWidth, height: nodeHeight });
+  });
+
+  edges.forEach((edge) => {
+    dagreGraph.setEdge(edge.source, edge.target);
+  });
+
+  dagre.layout(dagreGraph);
+
+  nodes.forEach((node) => {
+    const nodeWithPosition = dagreGraph.node(node.id);
+    node.targetPosition = isHorizontal ? 'left' : 'top';
+    node.sourcePosition = isHorizontal ? 'right' : 'bottom';
+
+    // We are shifting the dagre node position (anchor=center center) to the top left
+    // so it matches the React Flow node anchor point (top left).
+    node.position = {
+      x: nodeWithPosition.x - nodeWidth / 2,
+      y: nodeWithPosition.y - nodeHeight / 2,
+    };
+
+    return node;
+  });
+
+  return { nodes, edges };
+};
+
+const { nodes: layoutedNodes, edges: layoutedEdges } = getLayoutedElements(
+  initialNodes,
+  initialEdges
+);
+
 function Flow() {
+  console.log("Flow");
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
 
-  const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
-  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
+  const [nodes, setNodes, onNodesChange] = useNodesState(layoutedNodes);
+  const [edges, setEdges, onEdgesChange] = useEdgesState(layoutedEdges);
+  const [edgesToBeDeleted, setEdgesToBeDeleted] = useState<number[]>([]);
+
   const onConnect = useCallback(
     (params: Connection | Edge) => setEdges((eds) => addEdge(params, eds)),
     [setEdges]
@@ -332,24 +372,125 @@ function Flow() {
 
   const { token } = (useContext(ClientContext) as ClientContextType) || {};
 
+  const loadConfig = useCallback(async () => {
+    let configs = await getConfigs(token);
+    console.log(configs);
+
+  const nodeTypes = (name: string) => {
+    let nt = new Map<string, string>([
+      ["sqlite_source", "sqliteSource"],
+      ["sqlite_destination", "sqliteDestination"],
+      ["mycelial_net_source", "mycelialNetwork"],
+      ["mycelial_net_destination", "mycelialNetwork"],
+      ["kafka_source", "kafkaSource"],
+      ["snowflake_source", "snowflakeSource"],
+      ["snowflake_destination", "snowflakeDestination"],
+    ]);
+    return nt.get(name);
+  };
+
+    let nodeMap = new Map<string, Node>();
+
+      for (const config of configs.configs) {
+        let source = null;
+        for (const element of config.pipe.section) {
+          let { name, ...data } = element;
+          const id = getId();
+          let node = {
+            id: "temp",
+            type: nodeTypes(element.name),
+            position: {
+              x: 0,
+              y: 0,
+            },
+            data: data,
+          };
+
+          let actualNode = {
+            ...node,
+            id,
+          }
+
+          const key = JSON.stringify(node);
+
+          if (nodeMap.has(key)) {
+            let existingNode = nodeMap.get(key);
+            if (existingNode === undefined) {
+              continue;
+            }
+            actualNode = {
+              ...node,
+              id: existingNode.id,
+            }
+          }
+
+          nodeMap.set(key, actualNode);
+          console.log(nodeMap);
+          setNodes((nds) => nds.concat(actualNode));
+
+          if (source !== null) {
+            let edge = {
+              id: getId(),
+              source: source.id,
+              target: actualNode.id,
+              animated: false,
+              type: "bezier",
+              markerEnd: {
+                type: MarkerType.ArrowClosed,
+              },
+              data: {
+                id: config.id,
+              },
+            };
+            setEdges((eds) => eds.concat(edge));
+          }
+
+          source = actualNode;
+        }
+      }
+
+  }, [setEdges, setNodes, token]);
+
+
   const setInitialElements = useCallback(async () => {
+    console.log("setInitialElements");
     let ui_metadata = await getStartingUI(token);
+    console.log(ui_metadata);
 
-    ui_metadata?.ui_metadata.nodes.forEach((node: any) => {
-      setNodes((nds) => nds.concat(node));
-    });
+    await loadConfig();
 
-    ui_metadata?.ui_metadata.edges.forEach((edge: any) => {
-      setEdges((eds) => eds.concat(edge));
-    });
+    // ui_metadata?.ui_metadata.nodes.forEach((node: any) => {
+    //   setNodes((nds) => nds.concat(node));
+    // });
+
+    // ui_metadata?.ui_metadata.edges.forEach((edge: any) => {
+    //   setEdges((eds) => eds.concat(edge));
+    // });
+
   }, [setEdges, setNodes, token]);
 
   useEffect(() => {
     setInitialElements();
   }, [setInitialElements]);
 
+
+
   const [reactFlowInstance, setReactFlowInstance] =
     useState<ReactFlowInstance | null>(null);
+
+  const onEdgeChange = useCallback(
+    (eds: EdgeChange[]) => {
+      for (const eid in eds) {
+        const ed = eds[eid];
+        if (ed.type === "remove") {
+          let edgeChange = ed as EdgeRemoveChange;
+          let storedEdgeId = reactFlowInstance?.getEdge(edgeChange.id)?.data?.id;
+          setEdgesToBeDeleted((eds) => eds.concat(storedEdgeId));
+        }
+      }
+      onEdgesChange(eds);
+    }
+  , [reactFlowInstance, onEdgesChange])
 
   const getDetailsForNode = useCallback((node: Node | undefined, kind: String) => {
     if (node?.type === "sqliteSource") {
@@ -427,6 +568,7 @@ function Flow() {
   }, []);
 
   const handleSave = useCallback(async () => {
+    let new_configs = [];
     let configs = [];
 
     if (reactFlowInstance === null) {
@@ -435,10 +577,7 @@ function Flow() {
 
     const rf = reactFlowInstance;
 
-    let configId = 0;
-
     for (const edge of edges) {
-      ++configId;
 
       const section = [];
 
@@ -451,7 +590,11 @@ function Flow() {
       section.push(sourceNodeInfo);
       section.push(targetNodeInfo);
 
-      configs.push({ id: configId, pipe: section });
+      if (edge.data?.id ) {
+        configs.push({ id: edge.data?.id, pipe: section });
+      } else {
+        new_configs.push({ id: 0, pipe: section });
+      }
     }
 
     const payload = {
@@ -461,7 +604,7 @@ function Flow() {
 
     try {
       const response = await fetch("/pipe/configs", {
-        method: "POST", // or 'PUT'
+        method: "PUT",
         headers: {
           "Content-Type": "application/json",
           "X-Authorization": "Bearer " + btoa(token),
@@ -474,7 +617,47 @@ function Flow() {
     } catch (error) {
       console.error("Error:", error);
     }
-  }, [edges, reactFlowInstance, token, getDetailsForNode]);
+
+    const new_payload = {
+      configs: new_configs,
+    };
+
+    try {
+      const response = await fetch("/pipe/configs", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Authorization": "Bearer " + btoa(token),
+        },
+        body: JSON.stringify(new_payload),
+      });
+
+      const result = await response.json();
+      // todo - if we're returning the ID here, we should update the edge data
+      console.log("Success:", result);
+    } catch (error) {
+      console.error("Error:", error);
+    }
+
+    for (const key in edgesToBeDeleted) {
+      try {
+        const response = await fetch(`/pipe/configs/${edgesToBeDeleted[key]}`, {
+          method: "DELETE",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Authorization": "Bearer " + btoa(token),
+          },
+        });
+
+      const result = await response.json();
+      console.log("Success:", result);
+    } catch (error) {
+      console.error("Error:", error);
+    }
+
+    }
+
+  }, [edges, reactFlowInstance, token, getDetailsForNode, edgesToBeDeleted]);
 
   const onDragOver = useCallback((event: any) => {
     event.preventDefault();
@@ -527,6 +710,20 @@ function Flow() {
     }
   }, [reactFlowInstance]);
 
+  const onLayout = useCallback(
+    (direction: string | undefined) => {
+      const { nodes: layoutedNodes, edges: layoutedEdges } = getLayoutedElements(
+        nodes,
+        edges,
+        direction
+      );
+
+      setNodes([...layoutedNodes]);
+      setEdges([...layoutedEdges]);
+    },
+    [nodes, edges]
+  );
+
   return (
     <ReactFlowProvider>
       <ClientProvider>
@@ -540,7 +737,7 @@ function Flow() {
                 nodes={nodes}
                 onNodesChange={onNodesChange}
                 edges={edges}
-                onEdgesChange={onEdgesChange}
+                onEdgesChange={onEdgeChange}
                 onConnect={onConnect}
                 nodeTypes={nodeTypes}
                 defaultEdgeOptions={defaultEdgeOptions}
@@ -548,12 +745,15 @@ function Flow() {
                 onInit={setReactFlowInstance}
                 onDrop={onDrop}
                 onDragOver={onDragOver}
-                fitView
                 snapToGrid={true}
               >
                 <MiniMap style={minimapStyle} zoomable pannable />
                 <Controls />
                 <Background color="#c8cbcc" gap={16} />
+                <Panel position="top-right">
+                  <button onClick={() => onLayout('TB')}>vertical layout</button>
+                  <button onClick={() => onLayout('LR')}>horizontal layout</button>
+                </Panel>
               </ReactFlow>
             </div>
           </Grid.Col>

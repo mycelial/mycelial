@@ -9,7 +9,7 @@ use axum::{
     http::{self, header, Method, Request, StatusCode, Uri},
     middleware::{self, Next},
     response::{IntoResponse, Response},
-    routing::{get, get_service, post},
+    routing::{get, get_service, post, },
     Json, Router, Server, TypedHeader,
 };
 use base64::engine::{general_purpose::STANDARD as BASE64, Engine};
@@ -19,7 +19,7 @@ use futures::StreamExt;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use sqlx::{sqlite::SqliteConnectOptions, ConnectOptions, Row, SqliteConnection};
-use std::{collections::HashMap, net::SocketAddr, path::Path};
+use std::{net::SocketAddr, path::Path};
 use std::{str::FromStr, sync::Arc};
 use tokio::sync::Mutex;
 use tower_http::services::ServeDir;
@@ -50,9 +50,11 @@ async fn ingestion(
     axum::extract::Path(topic): axum::extract::Path<String>,
     headers: axum::http::header::HeaderMap,
     mut body: BodyStream,
-) -> Result<impl IntoResponse, error::Error>  {
+) -> Result<impl IntoResponse, error::Error> {
     let origin = match headers.get("x-message-origin") {
-        Some(origin) => origin.to_str().map_err(|_| "bad x-message-origin header value")?,
+        Some(origin) => origin
+            .to_str()
+            .map_err(|_| "bad x-message-origin header value")?,
         None => Err(StatusCode::BAD_REQUEST)?,
     };
 
@@ -77,8 +79,20 @@ async fn get_record(
     axum::extract::Path((topic, offset)): axum::extract::Path<(String, i64)>,
 ) -> Result<impl IntoResponse, error::Error> {
     let response = match app.database.get_record(&topic, offset).await? {
-        Some((id, origin, data)) => ([("x-message-id", id.to_string()), ("x-message-origin", origin)], data),
-        None => ([("x-message-id", offset.to_string()), ("x-message-origin", String::new())], vec![]),
+        Some((id, origin, data)) => (
+            [
+                ("x-message-id", id.to_string()),
+                ("x-message-origin", origin),
+            ],
+            data,
+        ),
+        None => (
+            [
+                ("x-message-id", offset.to_string()),
+                ("x-message-origin", String::new()),
+            ],
+            vec![],
+        ),
     };
     Ok(response)
 }
@@ -114,11 +128,34 @@ async fn get_pipe_configs(State(app): State<Arc<App>>) -> Result<impl IntoRespon
     Ok(app.get_configs().await.map(Json)?)
 }
 
+async fn get_pipe_config(
+    State(app): State<Arc<App>>,
+    axum::extract::Path(id): axum::extract::Path<u32>,
+) -> Result<impl IntoResponse, error::Error> {
+    Ok(app.get_config(&id).await.map(Json)?)
+}
+
 async fn post_pipe_config(
     State(app): State<Arc<App>>,
     Json(configs): Json<Configs>,
 ) -> Result<impl IntoResponse, error::Error> {
-    app.set_configs(configs).await
+    let ids = app.set_configs(configs).await;
+    // ughhhhhhhhhhhhhhhh
+    Ok(())
+}
+
+async fn put_pipe_configs(
+    State(app): State<Arc<App>>,
+    Json(configs): Json<Configs>,
+) -> Result<impl IntoResponse, error::Error> {
+    Ok(app.update_configs(configs).await.map(Json)?)
+}
+
+async fn delete_pipe_config(
+    State(app): State<Arc<App>>,
+    axum::extract::Path(id): axum::extract::Path<u32>,
+) -> Result<impl IntoResponse, error::Error> {
+    app.delete_config(&id).await
 }
 
 async fn get_clients(State(app): State<Arc<App>>) -> Result<impl IntoResponse, error::Error> {
@@ -295,15 +332,37 @@ impl Database {
 
     async fn insert_config(
         &self,
-        id: &u32,
         config: &serde_json::Value,
-    ) -> Result<(), error::Error> {
+    ) -> Result<i64, error::Error> {
         let mut connection = self.connection.lock().await;
         // FIXME: unwrap
         let config: String = serde_json::to_string(config)?;
-        let _ = sqlx::query("INSERT INTO configs (id, raw_config) VALUES (?, ?)")
-            .bind(id)
+        let id = sqlx::query("INSERT INTO pipes (raw_config) VALUES (?)")
             .bind(config)
+            .execute(&mut *connection)
+            .await?.last_insert_rowid();
+        Ok(id)
+    }
+    
+    async fn update_config(
+        &self,
+        id: &u32,
+        config: &serde_json::Value,
+    ) -> Result<(), error::Error> {
+        let mut connection = self.connection.lock().await; 
+        let config: String = serde_json::to_string(config)?;
+        let _ = sqlx::query("update pipes set raw_config = ? WHERE id = ?")
+            .bind(config)
+            .bind(id)
+            .execute(&mut *connection)
+            .await?;
+        Ok(())
+    }
+
+    async fn delete_config(&self, id: &u32) -> Result<(), error::Error> {
+        let mut connection = self.connection.lock().await;
+        let _ = sqlx::query("DELETE FROM pipes WHERE id = ?")
+            .bind(id)
             .execute(&mut *connection)
             .await?;
         Ok(())
@@ -352,7 +411,11 @@ impl Database {
         Ok(())
     }
 
-    async fn get_record(&self, topic: &str, offset: i64) -> Result<Option<(i64, String, Vec<u8>)>, error::Error> {
+    async fn get_record(
+        &self,
+        topic: &str,
+        offset: i64,
+    ) -> Result<Option<(i64, String, Vec<u8>)>, error::Error> {
         let mut connection = self.connection.lock().await;
         let row = sqlx::query(
             "SELECT id, origin, data FROM records WHERE topic = ? AND id > ? ORDER BY id ASC LIMIT 1",
@@ -396,11 +459,25 @@ impl Database {
         Ok(clients)
     }
 
+    async fn get_config(&self, _id: &u32) -> Result<PipeConfig, error::Error> {
+        todo!()
+        // let mut connection = self.connection.lock().await;
+        // let row = sqlx::query("SELECT raw_config FROM pipes WHERE id = ?")
+        //     .bind(id)
+        //     .fetch_one(&mut *connection)
+        //     .await?;
+        // let raw: String = row.get("raw_config");
+        // .map(|raw_config| PipeConfig {
+        //     id: *id,
+        //     pipe: serde_json::json!({ "section": raw_config }),
+        // })
+    }
+
     async fn get_configs(&self) -> Result<Configs, error::Error> {
         let mut connection = self.connection.lock().await;
         // FIXME: sqlx allows query_as<Struct>
         let rows =
-            sqlx::query("SELECT id, raw_config FROM configs GROUP BY id HAVING MAX(created_at)")
+            sqlx::query("SELECT id, raw_config from pipes")
                 .fetch_all(&mut *connection)
                 .await?;
 
@@ -432,18 +509,42 @@ pub struct App {
 }
 
 impl App {
+    async fn delete_config(&self, id: &u32) -> Result<(), error::Error> {
+        self.database.delete_config(id).await?;
+        Ok(())
+
+
+    }
+
     /// Set pipe configs
-    async fn set_configs(&self, new_configs: Configs) -> Result<(), error::Error> {
+    async fn set_configs(&self, new_configs: Configs) -> Result<Vec<u32>, error::Error> {
+        let mut inserted_ids = Vec::new();
+
         for config in new_configs.configs {
-            self.database
-                .insert_config(&config.id, &config.pipe)
-                .await?
+            let id = self.database
+                .insert_config(&config.pipe)
+                .await?;
+            inserted_ids.push(id as u32);
         }
 
         self.database
             .insert_ui_metadata(&new_configs.ui_metadata)
             .await?;
+        Ok(inserted_ids)
+    }
+
+    async fn update_configs(&self, configs: Configs) -> Result<(), error::Error> {
+        for config in configs.configs {
+            self.database
+                .update_config(&config.id, &config.pipe)
+                .await?
+        }
+
         Ok(())
+    }
+
+    async fn get_config(&self, id: &u32) -> Result<PipeConfig, error::Error> {
+        self.database.get_config(id).await
     }
 
     /// Return pipe configs
@@ -494,8 +595,9 @@ async fn main() -> anyhow::Result<()> {
             Router::new()
                 .route(
                     "/pipe/configs",
-                    get(get_pipe_configs).post(post_pipe_config),
+                    get(get_pipe_configs).post(post_pipe_config).put(put_pipe_configs),
                 )
+                .route("/pipe/configs/:id", get(get_pipe_config).delete(delete_pipe_config))
                 .route("/api/clients", get(get_clients))
                 .route("/api/ui-metadata", get(get_ui_metadata))
                 .layer(middleware::from_fn_with_state(state.clone(), client_auth)),
