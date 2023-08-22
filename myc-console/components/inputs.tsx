@@ -149,7 +149,6 @@ export const Select: React.FC<SelectProps> = (props) => {
   const [selected, setSelected] = useState(props.defaultValue);
   useEffect(() => {
     props.onChange(selected || "");
-    console.log(selected)
   }, [selected]);
 
 
@@ -167,7 +166,6 @@ export const Select: React.FC<SelectProps> = (props) => {
      label={props.label}
      data={props.options}
      value={selected}
-     onChange={(event) => setSelected(event.currentTarget.value)}
    />
   )
 };

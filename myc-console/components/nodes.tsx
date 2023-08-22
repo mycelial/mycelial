@@ -15,7 +15,8 @@ import { Grid } from "@/components/layout";
 import {
   createStyles,
   rem,
-  Flex
+  Flex,
+  NativeSelect
 } from "@/components/core";
 
 import { ClientContext } from "./context/clientContext";
@@ -23,6 +24,16 @@ import { ClientContextType } from "./@types/client";
 
 
 const useStyles = createStyles((theme) => ({
+  input: {
+    backgroundColor: theme.colors.stem[1],
+    color: theme.colors.night[1],
+  },
+  label: {
+    color: theme.colors.stem[0]
+  },
+  root: {
+    padding: rem(5),
+  },
   customNode: {
     background: theme.colors.night[1],
     borderRadius: rem(5),
@@ -70,6 +81,7 @@ const SqliteSourceNode: FC<NodeProps> = memo(({ id, data, selected }) => {
             ...node.data,
             [name]: value,
           };
+          console.log(node.data)
         }
 
         return node;
@@ -136,14 +148,20 @@ const SqliteSourceNode: FC<NodeProps> = memo(({ id, data, selected }) => {
             handleChange("tables", event.currentTarget.value)
           }
         />
-        <Select
-          name="client"
+        <NativeSelect
+          classNames={
+            {
+              input: classes.input,
+              label: classes.label,
+              root: classes.root,
+            }
+          }
+          // TODO: Implement no drag when this selector is open.
           label="Client"
-          placeholder="Pick one"
+          data={(clients || []).map((c) => c.id)}
           defaultValue={initialValues.client}
-          options={(clients || []).map((c) => c.id)}
-          onChange={(value) => {
-            handleChange("client", value || "");
+          onChange={(event) => {
+            handleChange("client", event.currentTarget.value || "");
           }}
         />
         <Handle type="source" position={Position.Right} id={id} />
@@ -506,7 +524,7 @@ const SnowflakeDestinationNode: FC<NodeProps> = memo(
             }
           />
           <Handle type="target" position={Position.Left} id={id} />
-        <br />
+          <br />
         </Flex>
       </div>
     );
@@ -568,28 +586,28 @@ const SnowflakeSourceNode: FC<NodeProps> = memo(({ id, data, selected }) => {
 
   return (
     <div className={classes.customNode}>
-                <Flex
-          gap="md"
-          justify="center"
-          align="left"
-          direction="column"
-          wrap="nowrap"
-        >
-          <Flex className={classes.nodeTitle} justify="space-between" direction="row">
+      <Flex
+        gap="md"
+        justify="center"
+        align="left"
+        direction="column"
+        wrap="nowrap"
+      >
+        <Flex className={classes.nodeTitle} justify="space-between" direction="row">
 
-        <h2 className="">Snowflake Source</h2>
-        <button
-          onClick={() => {
-            if (confirm("Are you sure you want to delete this node?")) {
-              removeNode(id);
-            }
-          }}
-          type="button"
-          className={classes.deleteNodeButton}
-          title="delete"
-        >
-          X
-        </button>
+          <h2 className="">Snowflake Source</h2>
+          <button
+            onClick={() => {
+              if (confirm("Are you sure you want to delete this node?")) {
+                removeNode(id);
+              }
+            }}
+            type="button"
+            className={classes.deleteNodeButton}
+            title="delete"
+          >
+            X
+          </button>
         </Flex>
         <TextInput
           name="nodrag"
