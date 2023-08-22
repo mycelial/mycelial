@@ -532,7 +532,6 @@ function Flow() {
                 onInit={setReactFlowInstance}
                 onDrop={onDrop}
                 onDragOver={onDragOver}
-                fitView
                 snapToGrid={true}
               >
                 <Controls />
