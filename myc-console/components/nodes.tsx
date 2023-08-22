@@ -3,20 +3,16 @@ import {
   Handle,
   Position,
   NodeProps,
-  NodeResizer,
-  useNodeId,
   useReactFlow,
   getConnectedEdges,
 } from "reactflow";
 
-import { Select, MultiSelect, TextArea, TextInput } from "@/components/inputs";
-import { Grid } from "@/components/layout";
+import { Select, TextInput } from "@/components/inputs";
 
 import {
   createStyles,
   rem,
   Flex,
-  NativeSelect
 } from "@/components/core";
 
 import { ClientContext } from "./context/clientContext";
@@ -148,20 +144,14 @@ const SqliteSourceNode: FC<NodeProps> = memo(({ id, data, selected }) => {
             handleChange("tables", event.currentTarget.value)
           }
         />
-        <NativeSelect
-          classNames={
-            {
-              input: classes.input,
-              label: classes.label,
-              root: classes.root,
-            }
-          }
-          // TODO: Implement no drag when this selector is open.
+        <Select
+          name="client"
           label="Client"
-          data={(clients || []).map((c) => c.id)}
+          placeholder="Pick one"
           defaultValue={initialValues.client}
-          onChange={(event) => {
-            handleChange("client", event.currentTarget.value || "");
+          options={(clients || []).map((c) => c.id)}
+          onChange={(value) => {
+            handleChange("client", value || "");
           }}
         />
         <Handle type="source" position={Position.Right} id={id} />

@@ -1,10 +1,7 @@
 "use client";
 
-import React, { Fragment, useEffect, useState } from "react";
-import styled from '@emotion/styled';
-import { Listbox, Transition } from "@headlessui/react";
-import { CheckIcon, ChevronUpDownIcon } from "@heroicons/react/20/solid";
-export { MultiSelect, NativeSelect } from "@mantine/core";
+import React, { useEffect, useState } from "react";
+export { MultiSelect } from "@mantine/core";
 import {
   createStyles,
   rem,
@@ -166,6 +163,7 @@ export const Select: React.FC<SelectProps> = (props) => {
      label={props.label}
      data={props.options}
      value={selected}
+     onChange={(event) => setSelected(event.currentTarget.value)}
    />
   )
 };
