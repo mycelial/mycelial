@@ -9,7 +9,6 @@ import {
 } from "react";
 
 import dagre from "dagre";
-import ELK from 'elkjs/lib/elk.bundled.js';
 
 import Image from "next/image";
 import ReactFlow, {
@@ -285,21 +284,6 @@ function NavbarSearch(props: NavbarSearchProps) {
   );
 }
 
-async function getStartingUI(token: string) {
-  console.log("getStartingUI");
-  try {
-    const response = await fetch("/api/ui-metadata", {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Authorization": "Bearer " + btoa(token),
-      },
-    });
-    const result = await response.json();
-    return result;
-  } catch (error) {}
-}
-
 async function getConfigs(token: string) {
   try {
     const response = await fetch("/pipe/configs", {
@@ -317,15 +301,13 @@ async function getConfigs(token: string) {
 const dagreGraph = new dagre.graphlib.Graph();
 dagreGraph.setDefaultEdgeLabel(() => ({}));
 
-const nodeWidth = 200;
-const nodeHeight = 200;
-
 const getLayoutedElements = (nodes: any[], edges: any[], direction = 'TB') => {
   const isHorizontal = direction === 'LR';
   dagreGraph.setGraph({ rankdir: direction });
 
   nodes.forEach((node) => {
-    dagreGraph.setNode(node.id, { width: nodeWidth, height: nodeHeight });
+    console.log(node);
+    dagreGraph.setNode(node.id, { width: node.width, height: node.height });
   });
 
   edges.forEach((edge) => {
@@ -342,8 +324,8 @@ const getLayoutedElements = (nodes: any[], edges: any[], direction = 'TB') => {
     // We are shifting the dagre node position (anchor=center center) to the top left
     // so it matches the React Flow node anchor point (top left).
     node.position = {
-      x: nodeWithPosition.x - nodeWidth / 2,
-      y: nodeWithPosition.y - nodeHeight / 2,
+      x: nodeWithPosition.x - node.width / 2,
+      y: nodeWithPosition.y - node.height / 2,
     };
 
     return node;
@@ -364,6 +346,7 @@ function Flow() {
   const [nodes, setNodes, onNodesChange] = useNodesState(layoutedNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(layoutedEdges);
   const [edgesToBeDeleted, setEdgesToBeDeleted] = useState<number[]>([]);
+  const [initialDataLoaded, setInitialDataLoaded] = useState(false);
 
   const onConnect = useCallback(
     (params: Connection | Edge) => setEdges((eds) => addEdge(params, eds)),
@@ -376,18 +359,18 @@ function Flow() {
     let configs = await getConfigs(token);
     console.log(configs);
 
-  const nodeTypes = (name: string) => {
-    let nt = new Map<string, string>([
-      ["sqlite_source", "sqliteSource"],
-      ["sqlite_destination", "sqliteDestination"],
-      ["mycelial_net_source", "mycelialNetwork"],
-      ["mycelial_net_destination", "mycelialNetwork"],
-      ["kafka_source", "kafkaSource"],
-      ["snowflake_source", "snowflakeSource"],
-      ["snowflake_destination", "snowflakeDestination"],
-    ]);
-    return nt.get(name);
-  };
+    const nodeTypes = (name: string) => {
+      let nt = new Map<string, string>([
+        ["sqlite_source", "sqliteSource"],
+        ["sqlite_destination", "sqliteDestination"],
+        ["mycelial_net_source", "mycelialNetwork"],
+        ["mycelial_net_destination", "mycelialNetwork"],
+        ["kafka_source", "kafkaSource"],
+        ["snowflake_source", "snowflakeSource"],
+        ["snowflake_destination", "snowflakeDestination"],
+      ]);
+      return nt.get(name);
+    };
 
     let nodeMap = new Map<string, Node>();
 
@@ -451,23 +434,33 @@ function Flow() {
 
   }, [setEdges, setNodes, token]);
 
+  const onLayout = useCallback(
+    (direction: string | undefined) => {
+      const { nodes: layoutedNodes, edges: layoutedEdges } = getLayoutedElements(
+        nodes,
+        edges,
+        direction
+      );
+
+      setNodes([...layoutedNodes]);
+      setEdges([...layoutedEdges]);
+    },
+    [nodes, edges]
+  );
 
   const setInitialElements = useCallback(async () => {
     console.log("setInitialElements");
-    let ui_metadata = await getStartingUI(token);
-    console.log(ui_metadata);
 
     await loadConfig();
 
-    // ui_metadata?.ui_metadata.nodes.forEach((node: any) => {
-    //   setNodes((nds) => nds.concat(node));
-    // });
-
-    // ui_metadata?.ui_metadata.edges.forEach((edge: any) => {
-    //   setEdges((eds) => eds.concat(edge));
-    // });
+    await new Promise((r) => setTimeout(r, 100));
+    setInitialDataLoaded(true);
 
   }, [setEdges, setNodes, token]);
+
+  useEffect(() => {
+    onLayout("LR");
+  }, [initialDataLoaded])
 
   useEffect(() => {
     setInitialElements();
@@ -578,6 +571,7 @@ function Flow() {
     const rf = reactFlowInstance;
 
     for (const edge of edges) {
+      console.log(edge);
 
       const section = [];
 
@@ -593,50 +587,63 @@ function Flow() {
       if (edge.data?.id ) {
         configs.push({ id: edge.data?.id, pipe: section });
       } else {
-        new_configs.push({ id: 0, pipe: section });
+        new_configs.push({ id: 0, pipe: section, ui_id: edge.id });
       }
     }
 
     const payload = {
       configs: configs,
-      ui_metadata: rf.toObject(),
     };
 
-    try {
-      const response = await fetch("/pipe/configs", {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          "X-Authorization": "Bearer " + btoa(token),
-        },
-        body: JSON.stringify(payload),
-      });
+    if (configs.length > 0) {
+      try {
+        const response = await fetch("/pipe/configs", {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Authorization": "Bearer " + btoa(token),
+          },
+          body: JSON.stringify(payload),
+        });
 
-      const result = await response.json();
-      console.log("Success:", result);
-    } catch (error) {
-      console.error("Error:", error);
+        const result = await response.json();
+        console.log("Success:", result);
+      } catch (error) {
+        console.error("Error:", error);
+      }
     }
 
-    const new_payload = {
-      configs: new_configs,
-    };
+    for (const config of new_configs) {
+      const new_payload = {
+        configs: [config],
+      }
+      try {
+        // todo: execute the fetches in parallel
+        const response = await fetch("/pipe/configs", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Authorization": "Bearer " + btoa(token),
+          },
+          body: JSON.stringify(new_payload),
+        });
 
-    try {
-      const response = await fetch("/pipe/configs", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-Authorization": "Bearer " + btoa(token),
-        },
-        body: JSON.stringify(new_payload),
-      });
+        const result = await response.json();
+        console.log(result);
 
-      const result = await response.json();
-      // todo - if we're returning the ID here, we should update the edge data
-      console.log("Success:", result);
-    } catch (error) {
-      console.error("Error:", error);
+        rf.setEdges((eds) => {return eds.map((ed) => {
+          return {
+            data: {
+              id: result[0].id,
+            },
+            ...ed,
+          }
+        })});
+
+        console.log("Success:", result);
+      } catch (error) {
+        console.error("Error:", error);
+      }
     }
 
     for (const key in edgesToBeDeleted) {
@@ -703,26 +710,6 @@ function Flow() {
   const minimapStyle = {
     height: 120,
   };
-
-  useEffect(() => {
-    if (reactFlowInstance === null) {
-      return;
-    }
-  }, [reactFlowInstance]);
-
-  const onLayout = useCallback(
-    (direction: string | undefined) => {
-      const { nodes: layoutedNodes, edges: layoutedEdges } = getLayoutedElements(
-        nodes,
-        edges,
-        direction
-      );
-
-      setNodes([...layoutedNodes]);
-      setEdges([...layoutedEdges]);
-    },
-    [nodes, edges]
-  );
 
   return (
     <ReactFlowProvider>
