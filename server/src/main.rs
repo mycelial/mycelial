@@ -422,18 +422,18 @@ impl Database {
         Ok(clients)
     }
 
-    async fn get_config(&self, _id: &u32) -> Result<PipeConfig, error::Error> {
-        todo!()
-        // let mut connection = self.connection.lock().await;
-        // let row = sqlx::query("SELECT raw_config FROM pipes WHERE id = ?")
-        //     .bind(id)
-        //     .fetch_one(&mut *connection)
-        //     .await?;
-        // let raw: String = row.get("raw_config");
-        // .map(|raw_config| PipeConfig {
-        //     id: *id,
-        //     pipe: serde_json::json!({ "section": raw_config }),
-        // })
+    async fn get_config(&self, id: &u32) -> Result<PipeConfig, error::Error> {
+        let mut connection = self.connection.lock().await;
+        let row = sqlx::query("SELECT id, raw_config from pipes WHERE id = ?")
+            .bind(id)
+            .fetch_one(&mut *connection)
+            .await?;
+        let id: u32 = row.get("id");
+        let raw_config: String = row.get("raw_config");
+        Ok(PipeConfig {
+            id,
+            pipe: serde_json::json!({ "section": raw_config }),
+        })
     }
 
     async fn get_configs(&self) -> Result<Configs, error::Error> {
@@ -545,13 +545,13 @@ async fn main() -> anyhow::Result<()> {
         .merge(
             Router::new()
                 .route(
-                    "/pipe/configs",
+                    "api/pipe/configs",
                     get(get_pipe_configs)
                         .post(post_pipe_config)
                         .put(put_pipe_configs),
                 )
                 .route(
-                    "/pipe/configs/:id",
+                    "api/pipe/configs/:id",
                     get(get_pipe_config).delete(delete_pipe_config),
                 )
                 .route("/api/clients", get(get_clients))
