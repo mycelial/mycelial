@@ -54,7 +54,6 @@ import {
   createStyles,
   Navbar,
   Text,
-  // Group,
   rem,
 } from "@/components/core";
 
@@ -286,7 +285,7 @@ function NavbarSearch(props: NavbarSearchProps) {
 
 async function getConfigs(token: string) {
   try {
-    const response = await fetch("/pipe/configs", {
+    const response = await fetch("/api/pipe/configs", {
       method: "GET",
       headers: {
         "Content-Type": "application/json",
@@ -597,7 +596,7 @@ function Flow() {
 
     if (configs.length > 0) {
       try {
-        const response = await fetch("/pipe/configs", {
+        const response = await fetch("/api/pipe/configs", {
           method: "PUT",
           headers: {
             "Content-Type": "application/json",
@@ -619,7 +618,7 @@ function Flow() {
       }
       try {
         // todo: execute the fetches in parallel
-        const response = await fetch("/pipe/configs", {
+        const response = await fetch("/api/pipe/configs", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -648,7 +647,7 @@ function Flow() {
 
     for (const key in edgesToBeDeleted) {
       try {
-        const response = await fetch(`/pipe/configs/${edgesToBeDeleted[key]}`, {
+        const response = await fetch(`/api/pipe/configs/${edgesToBeDeleted[key]}`, {
           method: "DELETE",
           headers: {
             "Content-Type": "application/json",
