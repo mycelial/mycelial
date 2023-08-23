@@ -545,13 +545,13 @@ async fn main() -> anyhow::Result<()> {
         .merge(
             Router::new()
                 .route(
-                    "api/pipe/configs",
+                    "/api/pipe/configs",
                     get(get_pipe_configs)
                         .post(post_pipe_config)
                         .put(put_pipe_configs),
                 )
                 .route(
-                    "api/pipe/configs/:id",
+                    "/api/pipe/configs/:id",
                     get(get_pipe_config).delete(delete_pipe_config),
                 )
                 .route("/api/clients", get(get_clients))

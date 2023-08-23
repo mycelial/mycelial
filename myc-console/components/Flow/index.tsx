@@ -208,7 +208,6 @@ type NavbarSearchProps = {
 };
 
 function NavbarSearch(props: NavbarSearchProps) {
-  console.log("NavbarSearch");
   const { classes } = useStyles();
   const ctx = (useContext(ClientContext) as ClientContextType) || {};
   const { clients } = ctx;
@@ -256,6 +255,7 @@ function NavbarSearch(props: NavbarSearchProps) {
             <Button
               variant="light"
               color="aqua"
+              className="drop-shadow-md bg-green-200"
               fullWidth
               leftIcon={<IconDatabase size="1rem" />}
               onClick={props.onSave}
@@ -305,7 +305,6 @@ const getLayoutedElements = (nodes: any[], edges: any[], direction = 'TB') => {
   dagreGraph.setGraph({ rankdir: direction });
 
   nodes.forEach((node) => {
-    console.log(node);
     dagreGraph.setNode(node.id, { width: node.width, height: node.height });
   });
 
@@ -339,7 +338,6 @@ const { nodes: layoutedNodes, edges: layoutedEdges } = getLayoutedElements(
 );
 
 function Flow() {
-  console.log("Flow");
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
 
   const [nodes, setNodes, onNodesChange] = useNodesState(layoutedNodes);
@@ -356,7 +354,6 @@ function Flow() {
 
   const loadConfig = useCallback(async () => {
     let configs = await getConfigs(token);
-    console.log(configs);
 
     const nodeTypes = (name: string) => {
       let nt = new Map<string, string>([
@@ -407,7 +404,6 @@ function Flow() {
           }
 
           nodeMap.set(key, actualNode);
-          console.log(nodeMap);
           setNodes((nds) => nds.concat(actualNode));
 
           if (source !== null) {
@@ -448,7 +444,6 @@ function Flow() {
   );
 
   const setInitialElements = useCallback(async () => {
-    console.log("setInitialElements");
 
     await loadConfig();
 
@@ -570,7 +565,6 @@ function Flow() {
     const rf = reactFlowInstance;
 
     for (const edge of edges) {
-      console.log(edge);
 
       const section = [];
 
@@ -605,8 +599,7 @@ function Flow() {
           body: JSON.stringify(payload),
         });
 
-        const result = await response.json();
-        console.log("Success:", result);
+        await response.json();
       } catch (error) {
         console.error("Error:", error);
       }
@@ -628,7 +621,6 @@ function Flow() {
         });
 
         const result = await response.json();
-        console.log(result);
 
         rf.setEdges((eds) => {return eds.map((ed) => {
           return {
@@ -639,7 +631,6 @@ function Flow() {
           }
         })});
 
-        console.log("Success:", result);
       } catch (error) {
         console.error("Error:", error);
       }
@@ -655,8 +646,7 @@ function Flow() {
           },
         });
 
-      const result = await response.json();
-      console.log("Success:", result);
+      await response.json();
     } catch (error) {
       console.error("Error:", error);
     }
@@ -736,9 +726,8 @@ function Flow() {
                 <MiniMap style={minimapStyle} zoomable pannable />
                 <Controls />
                 <Background color="#c8cbcc" gap={16} />
-                <Panel position="top-right">
-                  <button onClick={() => onLayout('TB')}>vertical layout</button>
-                  <button onClick={() => onLayout('LR')}>horizontal layout</button>
+                <Panel position="bottom-right">
+                  <button className="text-blue-300 bg-green-200 rounded p-2 drop-shadow-md" onClick={() => onLayout('LR')}>auto-layout</button>
                 </Panel>
               </ReactFlow>
             </div>
