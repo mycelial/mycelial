@@ -9,7 +9,7 @@ use axum::{
     http::{self, header, Method, Request, StatusCode, Uri},
     middleware::{self, Next},
     response::{IntoResponse, Response},
-    routing::{get, get_service, post, },
+    routing::{get, get_service, post},
     Json, Router, Server, TypedHeader,
 };
 use base64::engine::{general_purpose::STANDARD as BASE64, Engine};
@@ -98,14 +98,8 @@ async fn get_record(
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-struct UIConfig {
-    ui_metadata: Option<serde_json::Value>,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
 struct Configs {
     configs: Vec<PipeConfig>,
-    ui_metadata: Option<serde_json::Value>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -139,9 +133,17 @@ async fn post_pipe_config(
     State(app): State<Arc<App>>,
     Json(configs): Json<Configs>,
 ) -> Result<impl IntoResponse, error::Error> {
-    let ids = app.set_configs(configs).await;
-    // ughhhhhhhhhhhhhhhh
-    Ok(())
+    let ids = app.set_configs(&configs).await?;
+    Ok(Json(
+        ids.iter()
+            .zip(configs.configs)
+            .map(|(id, conf)| PipeConfig {
+                id: *id,
+                pipe: conf.pipe,
+            })
+            .collect::<Vec<PipeConfig>>(),
+    )
+    .into_response())
 }
 
 async fn put_pipe_configs(
@@ -238,10 +240,6 @@ struct ProvisionClientRequest {
     id: String,
 }
 
-async fn get_ui_metadata(State(app): State<Arc<App>>) -> Result<impl IntoResponse, error::Error> {
-    Ok(app.get_ui_metadata().await.map(Json)?)
-}
-
 async fn provision_client(
     State(state): State<Arc<App>>,
     Json(payload): Json<ProvisionClientRequest>,
@@ -330,26 +328,24 @@ impl Database {
         Ok(())
     }
 
-    async fn insert_config(
-        &self,
-        config: &serde_json::Value,
-    ) -> Result<i64, error::Error> {
+    async fn insert_config(&self, config: &serde_json::Value) -> Result<i64, error::Error> {
         let mut connection = self.connection.lock().await;
         // FIXME: unwrap
         let config: String = serde_json::to_string(config)?;
         let id = sqlx::query("INSERT INTO pipes (raw_config) VALUES (?)")
             .bind(config)
             .execute(&mut *connection)
-            .await?.last_insert_rowid();
+            .await?
+            .last_insert_rowid();
         Ok(id)
     }
-    
+
     async fn update_config(
         &self,
         id: &u32,
         config: &serde_json::Value,
     ) -> Result<(), error::Error> {
-        let mut connection = self.connection.lock().await; 
+        let mut connection = self.connection.lock().await;
         let config: String = serde_json::to_string(config)?;
         let _ = sqlx::query("update pipes set raw_config = ? WHERE id = ?")
             .bind(config)
@@ -363,25 +359,6 @@ impl Database {
         let mut connection = self.connection.lock().await;
         let _ = sqlx::query("DELETE FROM pipes WHERE id = ?")
             .bind(id)
-            .execute(&mut *connection)
-            .await?;
-        Ok(())
-    }
-
-    async fn insert_ui_metadata(
-        &self,
-        ui_metadata: &Option<serde_json::Value>,
-    ) -> Result<(), error::Error> {
-        let ui_metadata = match ui_metadata {
-            Some(ui_metadata) => ui_metadata,
-            None => return Ok(()),
-        };
-        let mut connection = self.connection.lock().await;
-
-        // FIXME: unwrap
-        let config: String = serde_json::to_string(ui_metadata).unwrap();
-        let _ = sqlx::query("INSERT INTO ui_metadata (raw_config) VALUES (?)")
-            .bind(config)
             .execute(&mut *connection)
             .await?;
         Ok(())
@@ -427,20 +404,6 @@ impl Database {
         Ok(row.map(|row| (row.get("id"), row.get("origin"), row.get("data"))))
     }
 
-    async fn get_ui_metadata(&self) -> Result<UIConfig, error::Error> {
-        let mut connection = self.connection.lock().await;
-        let row =
-            sqlx::query("SELECT raw_config FROM ui_metadata ORDER BY created_at DESC LIMIT 1")
-                .fetch_one(&mut *connection)
-                .await?;
-        // FIXME: get() will panic if column not presented
-        let raw: String = row.get("raw_config");
-        let ui_metadata: serde_json::Value = serde_json::from_str(raw.as_str()).unwrap();
-        Ok(UIConfig {
-            ui_metadata: Some(ui_metadata),
-        })
-    }
-
     async fn get_clients(&self) -> Result<Clients, error::Error> {
         let mut connection = self.connection.lock().await;
         let rows = sqlx::query("SELECT id FROM clients")
@@ -476,10 +439,9 @@ impl Database {
     async fn get_configs(&self) -> Result<Configs, error::Error> {
         let mut connection = self.connection.lock().await;
         // FIXME: sqlx allows query_as<Struct>
-        let rows =
-            sqlx::query("SELECT id, raw_config from pipes")
-                .fetch_all(&mut *connection)
-                .await?;
+        let rows = sqlx::query("SELECT id, raw_config from pipes")
+            .fetch_all(&mut *connection)
+            .await?;
 
         let configs: Configs = Configs {
             configs: rows
@@ -496,7 +458,6 @@ impl Database {
                     }
                 })
                 .collect(),
-            ui_metadata: None,
         };
         Ok(configs)
     }
@@ -512,24 +473,17 @@ impl App {
     async fn delete_config(&self, id: &u32) -> Result<(), error::Error> {
         self.database.delete_config(id).await?;
         Ok(())
-
-
     }
 
     /// Set pipe configs
-    async fn set_configs(&self, new_configs: Configs) -> Result<Vec<u32>, error::Error> {
+    async fn set_configs(&self, new_configs: &Configs) -> Result<Vec<u32>, error::Error> {
         let mut inserted_ids = Vec::new();
 
-        for config in new_configs.configs {
-            let id = self.database
-                .insert_config(&config.pipe)
-                .await?;
+        for config in new_configs.configs.iter() {
+            let id = self.database.insert_config(&config.pipe).await?;
             inserted_ids.push(id as u32);
         }
 
-        self.database
-            .insert_ui_metadata(&new_configs.ui_metadata)
-            .await?;
         Ok(inserted_ids)
     }
 
@@ -552,9 +506,6 @@ impl App {
         self.database.get_configs().await
     }
 
-    async fn get_ui_metadata(&self) -> Result<UIConfig, error::Error> {
-        self.database.get_ui_metadata().await
-    }
 }
 
 impl App {
@@ -595,11 +546,15 @@ async fn main() -> anyhow::Result<()> {
             Router::new()
                 .route(
                     "/pipe/configs",
-                    get(get_pipe_configs).post(post_pipe_config).put(put_pipe_configs),
+                    get(get_pipe_configs)
+                        .post(post_pipe_config)
+                        .put(put_pipe_configs),
                 )
-                .route("/pipe/configs/:id", get(get_pipe_config).delete(delete_pipe_config))
+                .route(
+                    "/pipe/configs/:id",
+                    get(get_pipe_config).delete(delete_pipe_config),
+                )
                 .route("/api/clients", get(get_clients))
-                .route("/api/ui-metadata", get(get_ui_metadata))
                 .layer(middleware::from_fn_with_state(state.clone(), client_auth)),
         )
         .with_state(state.clone());
