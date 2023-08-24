@@ -255,7 +255,7 @@ function NavbarSearch(props: NavbarSearchProps) {
             <Button
               variant="light"
               color="aqua"
-              className="drop-shadow-md bg-green-200"
+              className="drop-shadow-md bg-blue-50"
               fullWidth
               leftIcon={<IconDatabase size="1rem" />}
               onClick={props.onSave}
@@ -412,7 +412,7 @@ function Flow() {
               source: source.id,
               target: actualNode.id,
               animated: false,
-              type: "bezier",
+              type: "smoothstep",
               markerEnd: {
                 type: MarkerType.ArrowClosed,
               },
@@ -726,9 +726,9 @@ function Flow() {
                 <MiniMap style={minimapStyle} zoomable pannable />
                 <Controls />
                 <Background color="#c8cbcc" gap={16} />
-                <Panel position="bottom-right">
-                  <button className="text-blue-300 bg-green-200 rounded p-2 drop-shadow-md" onClick={() => onLayout('LR')}>auto-layout</button>
-                </Panel>
+                {/* <Panel position="bottom-right">
+                  <button className="text-blue-300 bg-blue-50 rounded p-2 drop-shadow-md hover:bg-blue-100" onClick={() => onLayout('LR')}>auto-layout</button>
+                </Panel> */}
               </ReactFlow>
             </div>
           </Grid.Col>
