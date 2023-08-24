@@ -153,6 +153,15 @@ async fn put_pipe_configs(
     Ok(app.update_configs(configs).await.map(Json)?)
 }
 
+async fn put_pipe_config(
+    State(app): State<Arc<App>>,
+    axum::extract::Path(id): axum::extract::Path<u32>,
+    Json(mut config): Json<PipeConfig>,
+) -> Result<impl IntoResponse, error::Error> {
+    config.id = id;
+    Ok(app.update_config(config).await.map(Json)?)
+}
+
 async fn delete_pipe_config(
     State(app): State<Arc<App>>,
     axum::extract::Path(id): axum::extract::Path<u32>,
@@ -493,8 +502,14 @@ impl App {
                 .update_config(&config.id, &config.pipe)
                 .await?
         }
-
         Ok(())
+    }
+
+    async fn update_config(&self, config: PipeConfig) -> Result<PipeConfig, error::Error> {
+        self.database
+            .update_config(&config.id, &config.pipe)
+            .await?;
+        Ok(config)
     }
 
     async fn get_config(&self, id: &u32) -> Result<PipeConfig, error::Error> {
@@ -505,7 +520,6 @@ impl App {
     async fn get_configs(&self) -> Result<Configs, error::Error> {
         self.database.get_configs().await
     }
-
 }
 
 impl App {
@@ -552,7 +566,9 @@ async fn main() -> anyhow::Result<()> {
                 )
                 .route(
                     "/api/pipe/configs/:id",
-                    get(get_pipe_config).delete(delete_pipe_config),
+                    get(get_pipe_config)
+                        .delete(delete_pipe_config)
+                        .put(put_pipe_config),
                 )
                 .route("/api/clients", get(get_clients))
                 .layer(middleware::from_fn_with_state(state.clone(), client_auth)),
