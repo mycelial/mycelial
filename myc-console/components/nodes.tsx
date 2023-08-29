@@ -123,7 +123,6 @@ const SqliteDestinationNode: FC<NodeProps> = memo(({ id, data, selected }) => {
     return {
       databasePath: data.path ? data.path : "/tmp/test_dst.sqlite",
       client: data.client ? data.client : "-",
-      topic: data.topic ? data.topic : "...",
     };
   }, []);
 
@@ -154,7 +153,6 @@ const SqliteDestinationNode: FC<NodeProps> = memo(({ id, data, selected }) => {
   useEffect(() => {
     handleChange("path", initialValues.databasePath);
     handleChange("client", initialValues.client);
-    handleChange("topic", initialValues.topic);
   }, []);
 
   let classNames = `${styles.customNode} `;
@@ -184,13 +182,6 @@ const SqliteDestinationNode: FC<NodeProps> = memo(({ id, data, selected }) => {
           placeholder={initialValues.databasePath}
           defaultValue={initialValues.databasePath}
           onChange={(event) => handleChange("path", event.currentTarget.value)}
-        />
-        <TextInput
-          name="topic"
-          label="Topic/Table"
-          placeholder={initialValues.topic}
-          defaultValue={initialValues.topic}
-          onChange={(event) => handleChange("topic", event.currentTarget.value)}
         />
         <Select
           name="client"

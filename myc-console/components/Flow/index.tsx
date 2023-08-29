@@ -349,7 +349,7 @@ function Flow() {
       for (const element of config.pipe.section) {
         let { name, ...data } = element;
         const id = getId();
-        let node = {
+        let node: Node = {
           id: "temp",
           type: nodeTypes(element.name),
           position: {
@@ -391,7 +391,7 @@ function Flow() {
               type: MarkerType.ArrowClosed,
             },
             data: {
-              id: config.id,
+              ids: [config.id],
             },
           };
           setEdges((eds) => eds.concat(edge));
@@ -431,20 +431,58 @@ function Flow() {
   const [reactFlowInstance, setReactFlowInstance] =
     useState<ReactFlowInstance | null>(null);
 
+  const removeMycelialNetworkNodes = useCallback(() => {
+    setNodes((nds) => {
+      nds.forEach((nd: Node) => {
+        if (nd.type === "mycelialNetwork") {
+          reactFlowInstance?.getEdges().forEach((ed) => {
+            if (ed.source === nd.id) {
+              reactFlowInstance?.getEdges().forEach((ed2) => {
+                if (ed2.target === nd.id) {
+                  // create a new edge between the source and target connected to the mycelial network
+                  // node so that the flow is the same once the mycelial network node is removed
+                  setEdges((eds) => {
+                    return eds.concat({
+                      id: getId(),
+                      source: ed2.source,
+                      target: ed.target,
+                      animated: false,
+                      type: "smoothstep",
+                      markerEnd: {
+                        type: MarkerType.ArrowClosed,
+                      },
+                      data: {
+                        ids: [ed2.data.id, ed.data.id],
+                        myc_network_info: nd.data,
+                      },
+                    });
+                  });
+                }
+              });
+            }
+          });
+        }
+      });
+      return nds.filter((nd) => {
+        return nd.type !== "mycelialNetwork";
+      });
+    });
+  }, [setNodes, reactFlowInstance, setEdges]);
+
   const onEdgeChange = useCallback(
     (eds: EdgeChange[]) => {
       for (const eid in eds) {
-        const ed = eds[eid];
-        if (ed.type === "remove") {
-          let edgeChange = ed as EdgeRemoveChange;
-          let storedEdgeId = reactFlowInstance?.getEdge(edgeChange.id)?.data
-            ?.id;
-          setEdgesToBeDeleted((eds) => eds.concat(storedEdgeId));
+        const change = eds[eid];
+        if (change.type === "remove") {
+          let edgeChange = change as EdgeRemoveChange;
+          let storedEdgeIds = reactFlowInstance?.getEdge(edgeChange.id)?.data
+            ?.ids;
+          setEdgesToBeDeleted((eds) => eds.concat(storedEdgeIds));
         }
       }
       onEdgesChange(eds);
     },
-    [reactFlowInstance, onEdgesChange]
+    [reactFlowInstance, onEdgesChange, setEdgesToBeDeleted, edgesToBeDeleted]
   );
 
   const getDetailsForNode = useCallback(
@@ -558,34 +596,45 @@ function Flow() {
         section.push(sourceNodeInfo);
         section.push(targetNodeInfo);
 
-        if (edge.data?.id) {
-          configs.push({ id: edge.data?.id, pipe: section });
+        if (edge.data?.ids?.length > 0) {
+          for (const id of edge.data.ids) {
+            configs.push({ id: id, pipe: section });
+            setEdgesToBeDeleted((eds) => eds.filter((ed) => ed !== id));
+          }
         } else {
           new_configs.push({ id: 0, pipe: section, ui_id: edge.id });
         }
       } else {
-        // inject a mycelial network node
-        console.log("injecting");
+        let topicName = getRandomString();
+
+        if (edge.data?.myc_network_info?.topic !== undefined) {
+          topicName = edge.data.myc_network_info.topic;
+        }
 
         const baseURL = window.location.origin;
         const mycNetTargetNodeInfo = {
           name: "mycelial_net_destination",
           endpoint: `${baseURL}/ingestion`,
           token: token,
-          topic: targetNode?.data.topic,
+          topic: topicName,
         };
 
         const mycNetSourceNodeInfo = {
           name: "mycelial_net_source",
           endpoint: `${baseURL}/ingestion`,
           token: token,
-          topic: targetNode?.data.topic,
+          topic: topicName,
         };
 
         section.push(sourceNodeInfo);
         section.push(mycNetTargetNodeInfo);
-        if (edge.data?.id) {
-          configs.push({ id: edge.data?.id, pipe: section });
+        if (edge.data?.ids?.length > 0) {
+          configs.push({ id: edge.data.ids[0], pipe: section });
+          setEdgesToBeDeleted((eds) => {
+            return eds.filter((ed) => {
+              return ed !== edge.data.ids[0];
+            });
+          });
         } else {
           new_configs.push({ id: 0, pipe: section, ui_id: edge.id });
         }
@@ -593,8 +642,13 @@ function Flow() {
         section = [];
         section.push(mycNetSourceNodeInfo);
         section.push(targetNodeInfo);
-        if (edge.data?.id) {
-          configs.push({ id: edge.data?.id, pipe: section });
+        if (edge.data?.ids?.length > 1) {
+          configs.push({ id: edge.data.ids[1], pipe: section });
+          setEdgesToBeDeleted((eds) => {
+            return eds.filter((ed) => {
+              return ed !== edge.data.ids[1];
+            });
+          });
         } else {
           new_configs.push({ id: 0, pipe: section, ui_id: edge.id });
         }
@@ -672,7 +726,15 @@ function Flow() {
         console.error("Error:", error);
       }
     }
-  }, [edges, reactFlowInstance, token, getDetailsForNode, edgesToBeDeleted]);
+    setEdgesToBeDeleted([]);
+  }, [
+    edges,
+    reactFlowInstance,
+    token,
+    getDetailsForNode,
+    edgesToBeDeleted,
+    setEdgesToBeDeleted,
+  ]);
 
   const onDragOver = useCallback((event: any) => {
     event.preventDefault();
@@ -742,12 +804,18 @@ function Flow() {
                 onDragOver={onDragOver}
                 snapToGrid={true}
               >
-                <MiniMap style={minimapStyle} zoomable pannable />
                 <Controls />
                 <Background color="#c8cbcc" gap={16} />
-                {/* <Panel position="bottom-right">
-                  <button className="text-blue-300 bg-blue-50 rounded p-2 drop-shadow-md hover:bg-blue-100" onClick={() => onLayout('LR')}>auto-layout</button>
-                </Panel> */}
+
+                <Panel position="top-right">
+                  {/* <button className="text-blue-300 bg-blue-50 rounded p-2 drop-shadow-md hover:bg-blue-100" onClick={() => onLayout('LR')}>auto-layout</button> */}
+                  <button
+                    className="text-blue-300 bg-blue-50 rounded p-2 drop-shadow-md hover:bg-blue-100"
+                    onClick={removeMycelialNetworkNodes}
+                  >
+                    remove mycelial network nodes
+                  </button>
+                </Panel>
               </ReactFlow>
             </div>
           </Grid.Col>
