@@ -421,10 +421,6 @@ function Flow() {
   }, [setEdges, setNodes, token]);
 
   useEffect(() => {
-    onLayout("LR");
-  }, [initialDataLoaded]);
-
-  useEffect(() => {
     setInitialElements();
   }, [setInitialElements]);
 
@@ -432,9 +428,11 @@ function Flow() {
     useState<ReactFlowInstance | null>(null);
 
   const removeMycelialNetworkNodes = useCallback(() => {
+    // let nodesToDelete: Node[] = [];
     setNodes((nds) => {
       nds.forEach((nd: Node) => {
         if (nd.type === "mycelialNetwork") {
+          // nodesToDelete.push(nd);
           reactFlowInstance?.getEdges().forEach((ed) => {
             if (ed.source === nd.id) {
               reactFlowInstance?.getEdges().forEach((ed2) => {
@@ -442,7 +440,9 @@ function Flow() {
                   // create a new edge between the source and target connected to the mycelial network
                   // node so that the flow is the same once the mycelial network node is removed
                   setEdges((eds) => {
-                    return eds.concat({
+                    return eds.filter((e) => {
+                      return e.id !== ed.id && e.id !== ed2.id;
+                    }).concat({
                       id: getId(),
                       source: ed2.source,
                       target: ed.target,
@@ -452,7 +452,7 @@ function Flow() {
                         type: MarkerType.ArrowClosed,
                       },
                       data: {
-                        ids: [ed2.data.id, ed.data.id],
+                        ids: [ed2.data.ids[0], ed.data.ids[0]],
                         myc_network_info: nd.data,
                       },
                     });
@@ -467,7 +467,14 @@ function Flow() {
         return nd.type !== "mycelialNetwork";
       });
     });
+    // reactFlowInstance?.deleteElements({nodes: nodesToDelete});
   }, [setNodes, reactFlowInstance, setEdges]);
+
+  useEffect(() => {
+    onLayout("LR");
+    removeMycelialNetworkNodes();
+  }, [initialDataLoaded]);
+
 
   const onEdgeChange = useCallback(
     (eds: EdgeChange[]) => {
@@ -475,8 +482,7 @@ function Flow() {
         const change = eds[eid];
         if (change.type === "remove") {
           let edgeChange = change as EdgeRemoveChange;
-          let storedEdgeIds = reactFlowInstance?.getEdge(edgeChange.id)?.data
-            ?.ids;
+          let storedEdgeIds = reactFlowInstance?.getEdge(edgeChange.id)?.data?.ids;
           setEdgesToBeDeleted((eds) => eds.concat(storedEdgeIds));
         }
       }
@@ -571,6 +577,8 @@ function Flow() {
       return;
     }
 
+    let toDelete = edgesToBeDeleted;
+
     const rf = reactFlowInstance;
 
     for (const edge of edges) {
@@ -599,7 +607,8 @@ function Flow() {
         if (edge.data?.ids?.length > 0) {
           for (const id of edge.data.ids) {
             configs.push({ id: id, pipe: section });
-            setEdgesToBeDeleted((eds) => eds.filter((ed) => ed !== id));
+            toDelete = toDelete.filter((ed) => ed !== id);
+            // setEdgesToBeDeleted((eds) => eds.filter((ed) => ed !== id));
           }
         } else {
           new_configs.push({ id: 0, pipe: section, ui_id: edge.id });
@@ -630,11 +639,7 @@ function Flow() {
         section.push(mycNetTargetNodeInfo);
         if (edge.data?.ids?.length > 0) {
           configs.push({ id: edge.data.ids[0], pipe: section });
-          setEdgesToBeDeleted((eds) => {
-            return eds.filter((ed) => {
-              return ed !== edge.data.ids[0];
-            });
-          });
+          toDelete = toDelete.filter((ed) => ed !== edge.data.ids[0]);
         } else {
           new_configs.push({ id: 0, pipe: section, ui_id: edge.id });
         }
@@ -644,11 +649,7 @@ function Flow() {
         section.push(targetNodeInfo);
         if (edge.data?.ids?.length > 1) {
           configs.push({ id: edge.data.ids[1], pipe: section });
-          setEdgesToBeDeleted((eds) => {
-            return eds.filter((ed) => {
-              return ed !== edge.data.ids[1];
-            });
-          });
+          toDelete = toDelete.filter((ed) => ed !== edge.data.ids[1]);
         } else {
           new_configs.push({ id: 0, pipe: section, ui_id: edge.id });
         }
@@ -708,7 +709,7 @@ function Flow() {
       }
     }
 
-    for (const key in edgesToBeDeleted) {
+    for (const key in toDelete) {
       try {
         const response = await fetch(
           `/api/pipe/configs/${edgesToBeDeleted[key]}`,
@@ -809,12 +810,7 @@ function Flow() {
 
                 <Panel position="top-right">
                   {/* <button className="text-blue-300 bg-blue-50 rounded p-2 drop-shadow-md hover:bg-blue-100" onClick={() => onLayout('LR')}>auto-layout</button> */}
-                  <button
-                    className="text-blue-300 bg-blue-50 rounded p-2 drop-shadow-md hover:bg-blue-100"
-                    onClick={removeMycelialNetworkNodes}
-                  >
-                    remove mycelial network nodes
-                  </button>
+                  {/* <button className="text-blue-300 bg-blue-50 rounded p-2 drop-shadow-md hover:bg-blue-100" onClick={() => removeMycelialNetworkNodes()}>remove myc net nodes</button> */}
                 </Panel>
               </ReactFlow>
             </div>
