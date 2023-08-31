@@ -1,6 +1,7 @@
 [workspace]
 members = [
     "server",
-    "client"
+    "client",
+    "myc-config"
 ]
 resolver = "2"

@@ -1,0 +1,41 @@
+# sample node config
+[node]
+# human-readable name
+display_name = "Test Client"
+# unique identifier, would be generated on each start if not set
+unique_id = "dev_client"
+storage_path = "dev_client.sqlite"
+
+[server]
+endpoint = "http://localhost:8080/"
+token = "token"
+
+# define all sources owned by the client node
+[[sources]]
+type = "sqlite"
+display_name = "Movie Database"
+path = "/tmp/test.sqlite"
+
+[[sources]]
+type = "kafka"
+display_name = "Production Kafka"
+brokers = "localhost:3001"
+
+[[sources]]
+type = "snowflake"
+display_name = "Data Science Warehouse"
+username = "SVCMYCELIAL"
+password = "123456"
+role = "MYCELIAL"
+account_identifier = "A_B"
+warehouse = "WAREHOUSE"
+database = "TEST"
+
+[[sources]]
+type = "postgres"
+display_name = "App DB"
+host = "localhost"
+port = 9876
+user = "admin"
+password = "pwd"
+database = "public"
