@@ -5,8 +5,7 @@
 use std::{time::Duration, collections::HashSet};
 
 use exp2::dynamic_pipe::{config::{Config, Value}, section, scheduler::SchedulerHandle};
-use serde::Deserialize;
-use serde_json::json;
+use serde::{Deserialize, Serialize};
 use tokio::task::JoinHandle;
 use base64::engine::{general_purpose::STANDARD as BASE64, Engine};
 use myc_config::Config as ClientConfig;
@@ -78,6 +77,16 @@ struct PipeConfig {
     pipe: serde_json::Value,
 }
 
+#[derive(Serialize)]
+struct ClientConfigRequest<'a> {
+    client_config: &'a ClientConfig
+}
+
+#[derive(Serialize)]
+struct TokenRequest<'a> {
+    client_id: &'a str
+}
+
 
 fn is_for_client(config: &Config, name: &str) -> bool {
     config.get_sections().iter().any(|section | {
@@ -108,7 +117,7 @@ impl Client {
         let _x: ClientInfo = client
             .post(url)
             .header("Authorization", self.basic_auth())
-            .json(&json!({ "client_config": &self.config }))
+            .json(&ClientConfigRequest { client_config: &self.config })
             .send()
             .await?.json().await?;
 
@@ -116,7 +125,7 @@ impl Client {
         let token: ClientInfo = client
             .post(url)
             .header("Authorization", self.basic_auth())
-            .json(&json!({ "client_id": &self.config.node.unique_id }))
+            .json(&TokenRequest { client_id: &self.config.node.unique_id })
             .send()
             .await?
             .json()
