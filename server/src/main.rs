@@ -24,6 +24,9 @@ use std::{str::FromStr, sync::Arc};
 use tokio::sync::Mutex;
 use tower_http::services::ServeDir;
 use uuid::Uuid;
+use myc_config::Source;
+use myc_config::Config as ClientConfig;
+
 mod error;
 
 #[derive(Parser)]
@@ -247,18 +250,22 @@ async fn log_middleware<B>(
 
 #[derive(Deserialize, Serialize)]
 struct ProvisionClientRequest {
-    id: String,
+    client_config: ClientConfig,
 }
 
 async fn provision_client(
     State(state): State<Arc<App>>,
     Json(payload): Json<ProvisionClientRequest>,
 ) -> Result<impl IntoResponse, error::Error> {
-    let client_id = payload.id;
+    let client_id = payload.client_config.node.unique_id;
 
     state
         .database
-        .insert_client(&client_id)
+        .insert_client(
+            &client_id,
+            &payload.client_config.node.display_name,
+            &payload.client_config.sources
+        )
         .await
         .map(|_| Json(json!({ "id": client_id })))
 }
@@ -317,10 +324,14 @@ impl Database {
         })
     }
 
-    async fn insert_client(&self, client_id: &str) -> Result<(), error::Error> {
+    async fn insert_client(&self, client_id: &str, display_name: &str, sources: &[Source]) -> Result<(), error::Error> {
+        let sources = serde_json::to_string(sources)?;
+
         let mut connection = self.connection.lock().await;
-        let _ = sqlx::query("INSERT INTO clients (id) VALUES (?) ON CONFLICT (id) DO NOTHING")
+        let _ = sqlx::query("INSERT OR REPLACE INTO clients (id, display_name, sources) VALUES (?, ?, ?)")
             .bind(client_id)
+            .bind(display_name)
+            .bind(sources)
             .execute(&mut *connection)
             .await?;
         Ok(())

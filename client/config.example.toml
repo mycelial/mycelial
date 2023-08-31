@@ -2,7 +2,6 @@
 [node]
 # human-readable name
 display_name = "Test Client"
-# unique identifier, would be generated on each start if not set
 unique_id = "dev_client"
 storage_path = "dev_client.sqlite"
 

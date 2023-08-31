@@ -9,6 +9,7 @@ use serde::Deserialize;
 use serde_json::json;
 use tokio::task::JoinHandle;
 use base64::engine::{general_purpose::STANDARD as BASE64, Engine};
+use myc_config::Config as ClientConfig;
 
 #[derive(Debug, Deserialize)]
 struct ClientInfo {
@@ -32,14 +33,7 @@ impl TryInto<Config> for PipeConfig {
 /// Http Client
 #[derive(Debug)]
 struct Client {
-    /// client name 
-    name: String, 
-
-    /// Mycelial server endpoint
-    endpoint: String,
-
-    /// Basic Auth token
-    token: String,
+    config: ClientConfig,
 
     /// Client token
     client_token: String,
@@ -96,35 +90,33 @@ fn is_for_client(config: &Config, name: &str) -> bool {
 
 impl Client {
     fn new(
-        name: impl Into<String>,
-        endpoint: impl Into<String>,
-        token: impl Into<String>,
+        config: ClientConfig,
         scheduler_handle: SchedulerHandle
     ) -> Self {
+        let client_token = config.server.token.clone();
+
         Self {
-            name: name.into(),
-            endpoint: endpoint.into(),
-            token: token.into(),
-            client_token: "".into(),
+            config,
+            client_token,
             scheduler_handle
         }
     }
 
     async fn register(&mut self) -> Result<(), section::Error> {
         let client = reqwest::Client::new();
-        let url = format!("{}/api/client", self.endpoint.as_str());
+        let url = format!("{}/api/client", self.config.server.endpoint.as_str());
         let _x: ClientInfo = client
             .post(url)
             .header("Authorization", self.basic_auth())
-            .json(&json!({ "id": &self.name }))
+            .json(&json!({ "client_config": &self.config }))
             .send()
             .await?.json().await?;
 
-        let url = format!("{}/api/tokens", self.endpoint.as_str());
+        let url = format!("{}/api/tokens", self.config.server.endpoint.as_str());
         let token: ClientInfo = client
             .post(url)
             .header("Authorization", self.basic_auth())
-            .json(&json!({ "client_id": &self.name }))
+            .json(&json!({ "client_id": &self.config.node.unique_id }))
             .send()
             .await?
             .json()
@@ -136,7 +128,7 @@ impl Client {
 
     async fn get_configs(&self) -> Result<Vec<PipeConfig>, section::Error> {
         let client = reqwest::Client::new();
-        let url = format!("{}/api/pipe/configs", self.endpoint.as_str());
+        let url = format!("{}/api/pipe/configs", self.config.server.endpoint.as_str());
         let configs: PipeConfigs = client
             .get(url)
             .header("Authorization", self.basic_auth())
@@ -149,7 +141,7 @@ impl Client {
     }
 
     fn basic_auth(&self) -> String {
-        format!("Basic {}", BASE64.encode(format!("{}:", self.token)))
+        format!("Basic {}", BASE64.encode(format!("{}:", self.config.server.token)))
     }
 
     fn client_auth(&self) -> String {
@@ -190,8 +182,7 @@ impl Client {
                         continue
                     }
                 };
-                if is_for_client(&config, &self.name) {
-                    log::info!("scheduling pipe: {:#?}", &config);
+                if is_for_client(&config, &self.config.node.unique_id) {
                     if let Err(e) = self.scheduler_handle.add_pipe(id, config).await {
                         log::error!("failed to schedule pipe: {:?}", e);
                     }
@@ -210,10 +201,8 @@ impl Client {
 }
 
 pub fn new(
-    name: impl Into<String>,
-    endpoint: impl Into<String>,
-    token: impl Into<String>,
+    config: ClientConfig,
     scheduler_handle: SchedulerHandle
 ) -> JoinHandle<Result<(), section::Error>> {
-    Client::new(name, endpoint, token, scheduler_handle).spawn()
+    Client::new(config, scheduler_handle).spawn()
 }

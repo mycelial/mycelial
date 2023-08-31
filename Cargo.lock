@@ -3264,6 +3264,7 @@ dependencies = [
  "clap",
  "futures",
  "log",
+ "myc_config",
  "pretty_env_logger",
  "serde",
  "serde_json",

@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 /// Top level configuration object
 // todo: should this be only on the client?
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct Config {
     pub node: Node,
     pub server: Server,
@@ -10,22 +10,22 @@ pub struct Config {
 }
 
 /// Client-side server config
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct Server {
     pub endpoint: String,
     pub token: String,
 }
 
 /// Generic node config
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct Node {
     pub display_name: String,
-    pub unqiue_id: Option<String>,
+    pub unique_id: String,
     pub storage_path: String,
 }
 
 /// Internally-tagged type of a source needs to match the variant name
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 #[serde(tag = "type", rename_all = "lowercase")]
 pub enum Source {
     Sqlite(SqliteConfig),
@@ -35,20 +35,20 @@ pub enum Source {
 }
 
 // Shared between all source definitions
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct CommonAttrs {
     // pub r#type: String,
     pub display_name: String,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct SqliteConfig {
     #[serde(flatten)]
     pub common_attrs: CommonAttrs,
     pub path: String,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct KafkaConfig {
     #[serde(flatten)]
     pub common_attrs: CommonAttrs,
@@ -56,7 +56,7 @@ pub struct KafkaConfig {
     pub brokers: String,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct PostgresConfig {
     #[serde(flatten)]
     pub common_attrs: CommonAttrs,
@@ -67,7 +67,7 @@ pub struct PostgresConfig {
     pub database: String,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct SnowflakeConfig {
     #[serde(flatten)]
     pub common_attrs: CommonAttrs,
