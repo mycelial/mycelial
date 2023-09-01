@@ -177,7 +177,12 @@ impl Client {
                 }
             };
 
+<<<<<<< HEAD
             log::debug!("pipe configs: {:#?}", pipe_configs);
+=======
+            // println!("pipe configs: {:?}", pipe_configs);
+
+>>>>>>> 046c1cd (Add mycelite)
             let mut ids: HashSet<u64> = HashSet::from_iter(
                 self.scheduler_handle.list_ids().await?.into_iter()
             );
