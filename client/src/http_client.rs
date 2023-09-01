@@ -4,30 +4,10 @@
 
 use std::{time::Duration, collections::HashSet};
 
-use exp2::dynamic_pipe::{config::{Config, Value}, section, scheduler::SchedulerHandle};
-use serde::{Deserialize, Serialize};
+use exp2::dynamic_pipe::{config::{Config as DynamicPipeConfig, Value}, section, scheduler::SchedulerHandle};
 use tokio::task::JoinHandle;
 use base64::engine::{general_purpose::STANDARD as BASE64, Engine};
-use myc_config::Config as ClientConfig;
-
-#[derive(Debug, Deserialize)]
-struct ClientInfo {
-    id: String,
-}
-
-#[derive(Debug, Deserialize)]
-struct PipeConfigs {
-    configs: Vec<PipeConfig>,
-}
-
-impl TryInto<Config> for PipeConfig {
-    type Error = section::Error;
-
-    fn try_into(self) -> Result<Config, Self::Error> {
-        let value: Value = self.pipe.try_into()?;
-        Config::try_from(value)
-    }
-}
+use common::{ClientConfig, IssueTokenRequest, IssueTokenResponse, PipeConfig, PipeConfigs, ProvisionClientRequest, ProvisionClientResponse};
 
 /// Http Client
 #[derive(Debug)]
@@ -41,54 +21,7 @@ struct Client {
     scheduler_handle: SchedulerHandle,
 }
 
-/// PipeConfig
-#[derive(Debug, Deserialize)]
-struct PipeConfig {
-    /// Scheduler needs to maintain pipe processes:
-    /// - start new pipes
-    /// - restart pipes on configuration update
-    /// - stop pipes, when pipe was removed from configuration list
-    ///
-    /// To do that - each pipe config needs to be uniquely identified, so here is u64 integer to
-    /// help with that.
-    id: u64,
-
-    /// # Example of config
-    /// ```json
-    /// {"configs": [
-    ///     {
-    ///         "id":1,
-    ///         "pipe": {
-    ///         "section": [
-    ///             {
-    ///                 "name": "sqlite",
-    ///                 "path": "/tmp/test.sqlite",
-    ///                 "query": "select * from test"
-    ///             },
-    ///             {
-    ///                 "endpoint": "http://localhost:8080/ingestion",
-    ///                 "name": "mycelial_net",
-    ///                 "token": "mycelial_net_token"
-    ///             }
-    ///         ]
-    ///     }
-    /// }]}
-    /// ```
-    pipe: serde_json::Value,
-}
-
-#[derive(Serialize)]
-struct ClientConfigRequest<'a> {
-    client_config: &'a ClientConfig
-}
-
-#[derive(Serialize)]
-struct TokenRequest<'a> {
-    client_id: &'a str
-}
-
-
-fn is_for_client(config: &Config, name: &str) -> bool {
+fn is_for_client(config: &DynamicPipeConfig, name: &str) -> bool {
     config.get_sections().iter().any(|section | {
         match section.get("client") {
             Some(Value::String(client)) if client == name => true,
@@ -114,18 +47,18 @@ impl Client {
     async fn register(&mut self) -> Result<(), section::Error> {
         let client = reqwest::Client::new();
         let url = format!("{}/api/client", self.config.server.endpoint.as_str());
-        let _x: ClientInfo = client
+        let _x: ProvisionClientResponse = client
             .post(url)
             .header("Authorization", self.basic_auth())
-            .json(&ClientConfigRequest { client_config: &self.config })
+            .json(&ProvisionClientRequest { client_config: self.config.clone() })
             .send()
             .await?.json().await?;
 
         let url = format!("{}/api/tokens", self.config.server.endpoint.as_str());
-        let token: ClientInfo = client
+        let token: IssueTokenResponse = client
             .post(url)
             .header("Authorization", self.basic_auth())
-            .json(&TokenRequest { client_id: &self.config.node.unique_id })
+            .json(&IssueTokenRequest { client_id: self.config.node.unique_id.clone() })
             .send()
             .await?
             .json()
@@ -184,7 +117,7 @@ impl Client {
             );
             for pipe_config in pipe_configs.into_iter() {
                 let id = pipe_config.id;
-                let config: Config = match pipe_config.try_into() {
+                let config: DynamicPipeConfig = match pipe_config.try_into() {
                     Ok(c) => c,
                     Err(e) => {
                         log::error!("bad pipe config: {:?}", e);

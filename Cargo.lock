@@ -654,9 +654,9 @@ dependencies = [
  "anyhow",
  "base64 0.21.3",
  "clap",
+ "common",
  "exp2",
  "log",
- "myc_config",
  "pretty_env_logger",
  "reqwest",
  "serde",
@@ -682,6 +682,15 @@ dependencies = [
  "strum",
  "strum_macros",
  "unicode-width",
+]
+
+[[package]]
+name = "common"
+version = "0.1.0"
+dependencies = [
+ "exp2",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -2136,13 +2145,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "myc_config"
-version = "0.1.0"
-dependencies = [
- "serde",
-]
-
-[[package]]
 name = "native-tls"
 version = "0.2.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3262,9 +3264,9 @@ dependencies = [
  "base64 0.21.3",
  "chrono",
  "clap",
+ "common",
  "futures",
  "log",
- "myc_config",
  "pretty_env_logger",
  "serde",
  "serde_json",

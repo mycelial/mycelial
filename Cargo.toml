@@ -2,6 +2,6 @@
 members = [
     "server",
     "client",
-    "myc-config"
+    "common"
 ]
 resolver = "2"

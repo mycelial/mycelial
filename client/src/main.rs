@@ -12,7 +12,7 @@ use std::{io, result};
 use std::io::Read;
 use clap::Parser;
 use exp2::dynamic_pipe::section;
-use myc_config::Config;
+use common::ClientConfig;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -57,7 +57,7 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
-fn read_config(path: &str) -> Result<Config> {
+fn read_config(path: &str) -> Result<ClientConfig> {
     let mut config = String::default();
     let mut config_file = File::open(path)?;
     config_file.read_to_string(&mut config)?;

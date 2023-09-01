@@ -6,7 +6,7 @@ unique_id = "dev_client"
 storage_path = "dev_client.sqlite"
 
 [server]
-endpoint = "http://localhost:8080/"
+endpoint = "http://localhost:8080"
 token = "token"
 
 # define all sources owned by the client node

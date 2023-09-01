@@ -24,8 +24,7 @@ use std::{str::FromStr, sync::Arc};
 use tokio::sync::Mutex;
 use tower_http::services::ServeDir;
 use uuid::Uuid;
-use myc_config::Source;
-use myc_config::Config as ClientConfig;
+use common::{IssueTokenRequest, IssueTokenResponse, PipeConfig, PipeConfigs, ProvisionClientRequest, ProvisionClientResponse, Source};
 
 mod error;
 
@@ -79,7 +78,7 @@ async fn ingestion(
 
 async fn get_record(
     State(app): State<Arc<App>>,
-    axum::extract::Path((topic, offset)): axum::extract::Path<(String, i64)>,
+    axum::extract::Path((topic, offset)): axum::extract::Path<(String, u64)>,
 ) -> Result<impl IntoResponse, error::Error> {
     let response = match app.database.get_record(&topic, offset).await? {
         Some((id, origin, data)) => (
@@ -101,11 +100,6 @@ async fn get_record(
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-struct Configs {
-    configs: Vec<PipeConfig>,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
 struct Clients {
     clients: Vec<Client>,
 }
@@ -115,26 +109,20 @@ struct Client {
     id: String,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
-struct PipeConfig {
-    id: u32,
-    pipe: serde_json::Value,
-}
-
 async fn get_pipe_configs(State(app): State<Arc<App>>) -> Result<impl IntoResponse, error::Error> {
     Ok(app.get_configs().await.map(Json)?)
 }
 
 async fn get_pipe_config(
     State(app): State<Arc<App>>,
-    axum::extract::Path(id): axum::extract::Path<u32>,
+    axum::extract::Path(id): axum::extract::Path<u64>,
 ) -> Result<impl IntoResponse, error::Error> {
-    Ok(app.get_config(&id).await.map(Json)?)
+    Ok(app.get_config(id).await.map(Json)?)
 }
 
 async fn post_pipe_config(
     State(app): State<Arc<App>>,
-    Json(configs): Json<Configs>,
+    Json(configs): Json<PipeConfigs>,
 ) -> Result<impl IntoResponse, error::Error> {
     log::trace!("Configs in: {:?}", &configs);
     let ids = app.set_configs(&configs).await?;
@@ -152,14 +140,14 @@ async fn post_pipe_config(
 
 async fn put_pipe_configs(
     State(app): State<Arc<App>>,
-    Json(configs): Json<Configs>,
+    Json(configs): Json<PipeConfigs>,
 ) -> Result<impl IntoResponse, error::Error> {
     Ok(app.update_configs(configs).await.map(Json)?)
 }
 
 async fn put_pipe_config(
     State(app): State<Arc<App>>,
-    axum::extract::Path(id): axum::extract::Path<u32>,
+    axum::extract::Path(id): axum::extract::Path<u64>,
     Json(mut config): Json<PipeConfig>,
 ) -> Result<impl IntoResponse, error::Error> {
     config.id = id;
@@ -168,9 +156,9 @@ async fn put_pipe_config(
 
 async fn delete_pipe_config(
     State(app): State<Arc<App>>,
-    axum::extract::Path(id): axum::extract::Path<u32>,
+    axum::extract::Path(id): axum::extract::Path<u64>,
 ) -> Result<impl IntoResponse, error::Error> {
-    app.delete_config(&id).await
+    app.delete_config(id).await
 }
 
 async fn get_clients(State(app): State<Arc<App>>) -> Result<impl IntoResponse, error::Error> {
@@ -248,11 +236,6 @@ async fn log_middleware<B>(
     response
 }
 
-#[derive(Deserialize, Serialize)]
-struct ProvisionClientRequest {
-    client_config: ClientConfig,
-}
-
 async fn provision_client(
     State(state): State<Arc<App>>,
     Json(payload): Json<ProvisionClientRequest>,
@@ -267,18 +250,7 @@ async fn provision_client(
             &payload.client_config.sources
         )
         .await
-        .map(|_| Json(json!({ "id": client_id })))
-}
-
-#[derive(Deserialize)]
-struct IssueTokenRequest {
-    client_id: String,
-}
-
-#[derive(Serialize)]
-struct IssueTokenResponse {
-    id: String,
-    client_id: String,
+        .map(|_| Json(ProvisionClientResponse { id: client_id.clone() }))
 }
 
 async fn issue_token(
@@ -349,7 +321,7 @@ impl Database {
         Ok(())
     }
 
-    async fn insert_config(&self, config: &serde_json::Value) -> Result<i64, error::Error> {
+    async fn insert_config(&self, config: &serde_json::Value) -> Result<u64, error::Error> {
         let mut connection = self.connection.lock().await;
         // FIXME: unwrap
         let config: String = serde_json::to_string(config)?;
@@ -358,16 +330,17 @@ impl Database {
             .execute(&mut *connection)
             .await?
             .last_insert_rowid();
-        Ok(id)
+        Ok(id.try_into().unwrap())
     }
 
     async fn update_config(
         &self,
-        id: &u32,
+        id: u64,
         config: &serde_json::Value,
     ) -> Result<(), error::Error> {
         let mut connection = self.connection.lock().await;
         let config: String = serde_json::to_string(config)?;
+        let id: i64 = id.try_into().unwrap();
         let _ = sqlx::query("update pipes set raw_config = ? WHERE id = ?")
             .bind(config)
             .bind(id)
@@ -376,10 +349,11 @@ impl Database {
         Ok(())
     }
 
-    async fn delete_config(&self, id: &u32) -> Result<(), error::Error> {
+    async fn delete_config(&self, id: u64) -> Result<(), error::Error> {
         let mut connection = self.connection.lock().await;
+        let id: i64 = id.try_into().unwrap();
         let _ = sqlx::query("DELETE FROM pipes WHERE id = ?")
-            .bind(id)
+            .bind(id) // fixme
             .execute(&mut *connection)
             .await?;
         Ok(())
@@ -412,9 +386,10 @@ impl Database {
     async fn get_record(
         &self,
         topic: &str,
-        offset: i64,
-    ) -> Result<Option<(i64, String, Vec<u8>)>, error::Error> {
+        offset: u64,
+    ) -> Result<Option<(u64, String, Vec<u8>)>, error::Error> {
         let mut connection = self.connection.lock().await;
+        let offset: i64 = offset.try_into().unwrap();
         let row = sqlx::query(
             "SELECT id, origin, data FROM records WHERE topic = ? AND id > ? ORDER BY id ASC LIMIT 1",
         )
@@ -422,7 +397,7 @@ impl Database {
             .bind(offset)
             .fetch_optional(&mut *connection)
             .await?;
-        Ok(row.map(|row| (row.get("id"), row.get("origin"), row.get("data"))))
+        Ok(row.map(|row| (row.get::<i64, &str>("id").try_into().unwrap(), row.get("origin"), row.get("data"))))
     }
 
     async fn get_clients(&self) -> Result<Clients, error::Error> {
@@ -443,13 +418,15 @@ impl Database {
         Ok(clients)
     }
 
-    async fn get_config(&self, id: &u32) -> Result<PipeConfig, error::Error> {
+    async fn get_config(&self, id: u64) -> Result<PipeConfig, error::Error> {
         let mut connection = self.connection.lock().await;
+        let id: i64 = id.try_into().unwrap();
         let row = sqlx::query("SELECT id, raw_config from pipes WHERE id = ?")
             .bind(id)
             .fetch_one(&mut *connection)
             .await?;
-        let id: u32 = row.get("id");
+        let id: i64 = row.get("id");
+        let id: u64 = id.try_into().unwrap();
         let raw_config: String = row.get("raw_config");
         Ok(PipeConfig {
             id,
@@ -457,19 +434,20 @@ impl Database {
         })
     }
 
-    async fn get_configs(&self) -> Result<Configs, error::Error> {
+    async fn get_configs(&self) -> Result<PipeConfigs, error::Error> {
         let mut connection = self.connection.lock().await;
         // FIXME: sqlx allows query_as<Struct>
         let rows = sqlx::query("SELECT id, raw_config from pipes")
             .fetch_all(&mut *connection)
             .await?;
 
-        let configs: Configs = Configs {
+        let configs: PipeConfigs = PipeConfigs {
             configs: rows
                 .into_iter()
                 .map(|row| {
                     // FIXME: get() will panic if column not presented
-                    let id: u32 = row.get("id");
+                    let id: i64 = row.get("id");
+                    let id: u64 = id.try_into().unwrap();
                     let raw_config: String = row.get("raw_config");
                     let pipe: serde_json::Value =
                         serde_json::from_str(raw_config.as_str()).unwrap();
@@ -491,27 +469,28 @@ pub struct App {
 }
 
 impl App {
-    async fn delete_config(&self, id: &u32) -> Result<(), error::Error> {
+    async fn delete_config(&self, id: u64) -> Result<(), error::Error> {
         self.database.delete_config(id).await?;
         Ok(())
     }
 
     /// Set pipe configs
-    async fn set_configs(&self, new_configs: &Configs) -> Result<Vec<u32>, error::Error> {
+    async fn set_configs(&self, new_configs: &PipeConfigs) -> Result<Vec<u64>, error::Error> {
         let mut inserted_ids = Vec::new();
 
         for config in new_configs.configs.iter() {
             let id = self.database.insert_config(&config.pipe).await?;
-            inserted_ids.push(id as u32);
+            // fixme: unsafe conversion
+            inserted_ids.push(id);
         }
 
         Ok(inserted_ids)
     }
 
-    async fn update_configs(&self, configs: Configs) -> Result<(), error::Error> {
+    async fn update_configs(&self, configs: PipeConfigs) -> Result<(), error::Error> {
         for config in configs.configs {
             self.database
-                .update_config(&config.id, &config.pipe)
+                .update_config(config.id, &config.pipe)
                 .await?
         }
         Ok(())
@@ -519,17 +498,17 @@ impl App {
 
     async fn update_config(&self, config: PipeConfig) -> Result<PipeConfig, error::Error> {
         self.database
-            .update_config(&config.id, &config.pipe)
+            .update_config(config.id, &config.pipe)
             .await?;
         Ok(config)
     }
 
-    async fn get_config(&self, id: &u32) -> Result<PipeConfig, error::Error> {
+    async fn get_config(&self, id: u64) -> Result<PipeConfig, error::Error> {
         self.database.get_config(id).await
     }
 
     /// Return pipe configs
-    async fn get_configs(&self) -> Result<Configs, error::Error> {
+    async fn get_configs(&self) -> Result<PipeConfigs, error::Error> {
         self.database.get_configs().await
     }
 }
