@@ -513,6 +513,7 @@ function Flow() {
           database: node.data.database,
           schema: node.data.schema,
           query: node.data.query,
+          client: node.data.client,
         };
       }
 

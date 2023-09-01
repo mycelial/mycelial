@@ -12,7 +12,7 @@ clean:
 
 .PHONY: dev
 dev:
-	cargo-watch -q -c \
+	RUST_LOG=DEBUG cargo-watch -q -c \
 		-i mycelial.db \
 		-s 'cargo run -- --token=token'
 

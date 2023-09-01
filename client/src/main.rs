@@ -35,6 +35,8 @@ struct Cli {
 
 #[tokio::main]
 async fn main() -> Result<(), section::Error> {
+    pretty_env_logger::init();
+
     let cli = Cli::try_parse()?;
     let storage_handle = storage::new(cli.storage_path).await?;
     let runtime_handle = runtime::new(storage_handle);

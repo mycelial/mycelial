@@ -163,7 +163,7 @@ impl Client {
 
     async fn enter_loop(&mut self) -> Result<(), section::Error> {
         while let Err(e) = self.register().await {
-            println!("failed to register client: {:?}", e);
+            log::error!("failed to register client: {:?}", e);
             tokio::time::sleep(Duration::from_secs(3)).await;
         }
         loop {
@@ -171,14 +171,13 @@ impl Client {
             let pipe_configs = match self.get_configs().await {
                 Ok(pipe_configs) => pipe_configs,
                 Err(e) => {
-                    println!("failed to contact server: {:?}", e);
+                    log::error!("failed to contact server: {:?}", e);
                     tokio::time::sleep(Duration::from_secs(5)).await;
                     continue
                 }
             };
 
-            //println!("pipe configs: {:#?}", pipe_configs);
-
+            log::debug!("pipe configs: {:#?}", pipe_configs);
             let mut ids: HashSet<u64> = HashSet::from_iter(
                 self.scheduler_handle.list_ids().await?.into_iter()
             );
@@ -187,13 +186,14 @@ impl Client {
                 let config: Config = match pipe_config.try_into() {
                     Ok(c) => c,
                     Err(e) => {
-                        println!("bad pipe config: {:?}", e);
+                        log::error!("bad pipe config: {:?}", e);
                         continue
                     }
                 };
                 if is_for_client(&config, &self.name) {
+                    log::info!("scheduling pipe: {:#?}", &config);
                     if let Err(e) = self.scheduler_handle.add_pipe(id, config).await {
-                        println!("failed to schedule pipe: {:?}", e);
+                        log::error!("failed to schedule pipe: {:?}", e);
                     }
                     ids.remove(&id);
                 }

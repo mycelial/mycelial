@@ -133,6 +133,7 @@ async fn post_pipe_config(
     State(app): State<Arc<App>>,
     Json(configs): Json<Configs>,
 ) -> Result<impl IntoResponse, error::Error> {
+    log::trace!("Configs in: {:?}", &configs);
     let ids = app.set_configs(&configs).await?;
     Ok(Json(
         ids.iter()
@@ -211,7 +212,7 @@ async fn client_auth<B>(
 }
 
 // log response middleware
-async fn log<B>(
+async fn log_middleware<B>(
     method: Method,
     uri: Uri,
     maybe_auth: Option<TypedHeader<Authorization<Basic>>>,
@@ -240,7 +241,7 @@ async fn log<B>(
         "path": uri.path(),
         "error": error.map(|e| format!("{:?}", e)),
     });
-    println!("{}", log);
+    log::info!("{}", log);
     response
 }
 
@@ -546,6 +547,8 @@ impl App {
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
+    pretty_env_logger::init();
+
     let cli = CLI::try_parse()?;
     let app = App::new(cli.database_path, cli.token).await?;
     let state = Arc::new(app);
@@ -581,7 +584,7 @@ async fn main() -> anyhow::Result<()> {
         .merge(api)
         .merge(assets)
         .layer(middleware::from_fn_with_state(state.clone(), basic_auth))
-        .layer(middleware::from_fn(log));
+        .layer(middleware::from_fn(log_middleware));
 
     let addr: SocketAddr = cli.listen_addr.as_str().parse()?;
     Server::bind(&addr)

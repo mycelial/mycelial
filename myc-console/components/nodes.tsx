@@ -449,6 +449,7 @@ const SnowflakeDestinationNode: FC<NodeProps> = memo(
 
 const SnowflakeSourceNode: FC<NodeProps> = memo(({ id, data, selected }) => {
   const instance = useReactFlow();
+  const { clients } = useContext(ClientContext) as ClientContextType;
 
   let initialValues = useMemo(() => {
     return {
@@ -462,6 +463,7 @@ const SnowflakeSourceNode: FC<NodeProps> = memo(({ id, data, selected }) => {
       database: data.database ? data.database : "MYCELIAL",
       schema: data.schema ? data.schema : "GITHUB",
       query: data.query ? data.query : "SELECT * FROM COMMIT",
+      client: data.client ? data.client : "-",
     };
   }, []);
 
@@ -489,6 +491,7 @@ const SnowflakeSourceNode: FC<NodeProps> = memo(({ id, data, selected }) => {
     handleChange("database", initialValues.database);
     handleChange("schema", initialValues.schema);
     handleChange("query", initialValues.query);
+    handleChange("client", initialValues.client);
   }, []);
 
   let classNames = `${styles.customNode} `;
@@ -587,6 +590,14 @@ const SnowflakeSourceNode: FC<NodeProps> = memo(({ id, data, selected }) => {
           placeholder={initialValues.query}
           defaultValue={initialValues.query}
           onChange={(event) => handleChange("query", event.currentTarget.value)}
+        />
+        <Select
+            name="client"
+            label="Client"
+            placeholder="Pick one"
+            defaultValue={initialValues.client}
+            options={(clients || []).map((c) => c.id)}
+            onChange={(value) => handleChange("client", value || "")}
         />
         <Handle type="source" position={Position.Right} id={id} />
       </div>
