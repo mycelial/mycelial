@@ -107,6 +107,8 @@ struct Clients {
 #[derive(Serialize, Deserialize, Debug)]
 struct Client {
     id: String,
+    display_name: String,
+    sources: Vec<Source>,
 }
 
 async fn get_pipe_configs(State(app): State<Arc<App>>) -> Result<impl IntoResponse, error::Error> {
@@ -402,20 +404,18 @@ impl Database {
 
     async fn get_clients(&self) -> Result<Clients, error::Error> {
         let mut connection = self.connection.lock().await;
-        let rows = sqlx::query("SELECT id FROM clients")
+        let rows = sqlx::query("SELECT id, display_name, sources FROM clients")
             .fetch_all(&mut *connection)
             .await?;
 
-        let clients = Clients {
-            clients: rows
-                .into_iter()
-                .map(|row| {
-                    let id = row.get("id");
-                    Client { id }
-                })
-                .collect(),
-        };
-        Ok(clients)
+        let mut clients: Vec<Client> = Vec::new();
+        for row in rows.iter() {
+            let id = row.get("id");
+            let display_name = row.get("display_name");
+            let sources = serde_json::from_str(row.get("sources"))?;
+            clients.push(Client { id, display_name, sources });
+        }
+        Ok(Clients { clients })
     }
 
     async fn get_config(&self, id: u64) -> Result<PipeConfig, error::Error> {
