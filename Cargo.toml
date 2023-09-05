@@ -2,6 +2,9 @@
 members = [
     "server",
     "client",
-    "common"
+    "common",
+    "pipe/runtime",
+    "pipe/section",
+    "pipe/section/section_impls/*"
 ]
 resolver = "2"
