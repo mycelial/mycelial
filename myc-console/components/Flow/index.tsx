@@ -33,6 +33,8 @@ import styles from "./Flow.module.css";
 import {
   SqliteSourceNode,
   SqliteDestinationNode,
+  MyceliteSourceNode,
+  MyceliteDestinationNode,
   MycelialNetworkNode,
   KafkaSourceNode,
   SnowflakeSourceNode,
@@ -155,6 +157,8 @@ const useStyles = createStyles((theme) => ({
 const collections = [
   { label: "Sqlite Source", nodeType: "sqliteSource" },
   { label: "Sqlite Destination", nodeType: "sqliteDestination" },
+  { label: "Mycelite Source", nodeType: "myceliteSource" },
+  { label: "Mycelite Destination", nodeType: "myceliteDestination" },
   { label: "Mycelial Network", nodeType: "mycelialNetwork" },
   { label: "Kafka Source", nodeType: "kafkaSource" },
   { label: "Snowflake Source", nodeType: "snowflakeSource" },
@@ -169,6 +173,8 @@ const nodeTypes = {
   custom: CustomNode,
   sqliteSource: SqliteSourceNode,
   sqliteDestination: SqliteDestinationNode,
+  myceliteSource: MyceliteSourceNode,
+  myceliteDestination: MyceliteDestinationNode,
   mycelialNetwork: MycelialNetworkNode,
   kafkaSource: KafkaSourceNode,
   snowflakeSource: SnowflakeSourceNode,
@@ -333,6 +339,8 @@ function Flow() {
       let nt = new Map<string, string>([
         ["sqlite_source", "sqliteSource"],
         ["sqlite_destination", "sqliteDestination"],
+        ["mycelite_source", "myceliteSource"],
+        ["mycelite_destination", "myceliteDestination"],
         ["mycelial_net_source", "mycelialNetwork"],
         ["mycelial_net_destination", "mycelialNetwork"],
         ["kafka_source", "kafkaSource"],
@@ -527,6 +535,23 @@ function Flow() {
         };
       }
 
+      if (node?.type === "myceliteSource") {
+          return {
+              name: "mycelite_source",
+              client: node.data.client,
+              journal_path: node.data.journalPath,
+          }
+      }
+
+      if (node?.type === "myceliteDestination") {
+          return {
+              name: "mycelite_destination",
+              client: node.data.client,
+              journal_path: node.data.journalPath,
+              database_path: node.data.databasePath,
+          }
+      }
+
       if (node?.type === "sqliteDestination") {
         return {
           name: "sqlite_destination",
@@ -600,7 +625,9 @@ function Flow() {
         sourceNodeInfo.name === "snowflake_source" ||
         targetNodeInfo.name === "snowflake_destination" ||
         sourceNodeInfo.name === "mycelial_net_source" ||
-        targetNodeInfo.name === "mycelial_net_destination"
+        targetNodeInfo.name === "mycelial_net_destination" ||
+        sourceNodeInfo.name === "mycelite_source" ||
+        targetNodeInfo.name === "mycelite_destination"
       ) {
         section.push(sourceNodeInfo);
         section.push(targetNodeInfo);

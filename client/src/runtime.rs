@@ -5,7 +5,7 @@
 use exp2::dynamic_pipe::{
     registry::{Constructor, Registry},
     scheduler::{Scheduler, SchedulerHandle},
-    section_impls::{mycelial_net, sqlite, kafka, snowflake},
+    section_impls::{mycelial_net, sqlite, kafka, snowflake, mycelite},
 };
 
 use crate::storage::SqliteStorageHandle;
@@ -20,6 +20,8 @@ fn setup_registry() -> Registry {
         ("kafka_source", kafka::source::constructor),
         ("snowflake_source", snowflake::source::constructor),
         ("snowflake_destination", snowflake::destination::constructor),
+        ("mycelite_source", mycelite::source::constructor),
+        ("mycelite_destination", mycelite::destination::constructor),
     ];
     arr.iter()
         .fold(Registry::new(), |mut acc, &(section_name, constructor)| {
