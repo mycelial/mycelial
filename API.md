@@ -78,34 +78,6 @@ To initiate SQLite replication, make a `POST` configuration api call to
 #### Payloads
 
 <details>
-  <summary>Mycelite Source and Destination</summary>
-
-  ```js
-{
-  "configs": [
-    {
-      "id": 0,
-      "pipe": [
-        {
-          "name": "mycelite_source",
-          "client": "<client name>",
-          "journal_path": "<path and name of mycelite journal>"
-        },
-        {
-          "name": "mycelite_destination",
-          "client": "<client name>",
-          "journal_path": "<path and name of journal>",
-          "database_path": "<path and name of database>"
-        }
-      ]
-    }
-  ]
-}
-  ```
-
-</details>
-
-<details>
   <summary>SQLite Source</summary>
 
 ```js
@@ -244,7 +216,7 @@ To initiate SQLite replication, make a `POST` configuration api call to
 </details>
 
 <details>
-  <summary><code>DELETE</code> <code><b>/api/pipe/configs/<config id></b></config></code> <code>Delete a config</code></summary>
+  <summary><code>DELETE</code> <code><b>/api/pipe/configs/{id}</b></config></code> <code>Delete a config</code></summary>
 
 ### Parameters
 
