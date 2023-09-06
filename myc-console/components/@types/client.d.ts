@@ -2,9 +2,11 @@ export interface IClient {
     id: string;
     display_name: string;
     sources: Array<ISource>;
+    destinations: Array<IDestination>;
 }
 
 type ISource = ISqlite | IKafka | IPostgres | ISnowflake;
+type IDestination = ISqlite | ISnowflake;
 
 type ISqlite = {
     type: string;

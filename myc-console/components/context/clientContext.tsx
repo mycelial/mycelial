@@ -30,7 +30,21 @@ async function registerClient() {
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ id: "ui" }),
+      body: JSON.stringify({
+        client_config: {
+          node: {
+            unique_id: "ui",
+            display_name: "UI",
+            storage_path: ""
+          },
+          server: {
+            endpoint: "localhost",
+            token: ""
+          },
+          sources: [],
+          destinations: []
+        }
+      }),
     });
     const result = await response.json();
     return result;
@@ -73,12 +87,14 @@ const ClientProvider: React.FC<React.PropsWithChildren> = ({ children }) => {
     {
       id: "post 1",
       display_name: "Post Dev",
-      sources: []
+      sources: [],
+      destinations: []
     },
     {
       id: "post 2",
       display_name: "Post Prod",
-      sources: []
+      sources: [],
+      destinations: [],
     },
   ]);
 
