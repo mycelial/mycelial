@@ -24,7 +24,7 @@ use std::{str::FromStr, sync::Arc};
 use tokio::sync::Mutex;
 use tower_http::services::ServeDir;
 use uuid::Uuid;
-use common::{IssueTokenRequest, IssueTokenResponse, PipeConfig, PipeConfigs, ProvisionClientRequest, ProvisionClientResponse, Source};
+use common::{Destination, IssueTokenRequest, IssueTokenResponse, PipeConfig, PipeConfigs, ProvisionClientRequest, ProvisionClientResponse, Source};
 
 mod error;
 
@@ -108,7 +108,10 @@ struct Clients {
 struct Client {
     id: String,
     display_name: String,
+    #[serde(default)]
     sources: Vec<Source>,
+    #[serde(default)]
+    destinations: Vec<Destination>,
 }
 
 async fn get_pipe_configs(State(app): State<Arc<App>>) -> Result<impl IntoResponse, error::Error> {
@@ -249,7 +252,8 @@ async fn provision_client(
         .insert_client(
             &client_id,
             &payload.client_config.node.display_name,
-            &payload.client_config.sources
+            &payload.client_config.sources,
+            &payload.client_config.destinations,
         )
         .await
         .map(|_| Json(ProvisionClientResponse { id: client_id.clone() }))
@@ -298,14 +302,22 @@ impl Database {
         })
     }
 
-    async fn insert_client(&self, client_id: &str, display_name: &str, sources: &[Source]) -> Result<(), error::Error> {
+    async fn insert_client(
+        &self,
+        client_id: &str,
+        display_name: &str,
+        sources: &[Source],
+        destinations: &[Destination]
+    ) -> Result<(), error::Error> {
         let sources = serde_json::to_string(sources)?;
+        let destinations = serde_json::to_string(destinations)?;
 
         let mut connection = self.connection.lock().await;
-        let _ = sqlx::query("INSERT OR REPLACE INTO clients (id, display_name, sources) VALUES (?, ?, ?)")
+        let _ = sqlx::query("INSERT OR REPLACE INTO clients (id, display_name, sources, destinations) VALUES (?, ?, ?, ?)")
             .bind(client_id)
             .bind(display_name)
             .bind(sources)
+            .bind(destinations)
             .execute(&mut *connection)
             .await?;
         Ok(())
@@ -405,7 +417,7 @@ impl Database {
     async fn get_clients(&self) -> Result<Clients, error::Error> {
         let mut connection = self.connection.lock().await;
         // todo: should we return ui as client?
-        let rows = sqlx::query("SELECT id, display_name, sources FROM clients WHERE sources IS NOT NULL")
+        let rows = sqlx::query("SELECT id, display_name, sources, destinations FROM clients")
             .fetch_all(&mut *connection)
             .await?;
 
@@ -413,8 +425,11 @@ impl Database {
         for row in rows.iter() {
             let id = row.get("id");
             let display_name = row.get("display_name");
-            let sources = serde_json::from_str(row.get("sources"))?;
-            clients.push(Client { id, display_name, sources });
+            let sources: Option<String> = row.get("sources");
+            let sources = serde_json::from_str(&sources.unwrap_or("[]".to_string()))?;
+            let destinations: Option<String> = row.get("destinations");
+            let destinations = serde_json::from_str(&destinations.unwrap_or("[]".to_string()))?;
+            clients.push(Client { id, display_name, sources, destinations });
         }
         Ok(Clients { clients })
     }

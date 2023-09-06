@@ -6,10 +6,11 @@ use exp2::dynamic_pipe::config::Value as DynamicPipeValue;
 // todo: should this be only on the client?
 // todo: disallow clone
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct ClientConfig {
+pub struct  ClientConfig {
     pub node: Node,
     pub server: Server,
     pub sources: Vec<Source>,
+    pub destinations: Vec<Destination>,
 }
 
 /// Client-side server config
@@ -34,6 +35,14 @@ pub enum Source {
     Sqlite(SqliteConfig),
     Kafka(KafkaConfig),
     Postgres(PostgresConfig),
+    Snowflake(SnowflakeConfig),
+}
+
+/// Internally-tagged type of a source needs to match the variant name
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(tag = "type", rename_all = "lowercase")]
+pub enum Destination {
+    Sqlite(SqliteConfig),
     Snowflake(SnowflakeConfig),
 }
 

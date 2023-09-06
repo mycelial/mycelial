@@ -38,3 +38,18 @@ port = 9876
 user = "admin"
 password = "pwd"
 database = "public"
+
+[[destinations]]
+type = "sqlite"
+display_name = "Sqlite State"
+path = "/tmp/test_dest.sqlite"
+
+[[destinations]]
+type = "snowflake"
+display_name = "Data Science Warehouse"
+username = "SVCMYCELIAL"
+password = "123456"
+role = "MYCELIAL"
+account_identifier = "A_B"
+warehouse = "WAREHOUSE"
+database = "TEST"
