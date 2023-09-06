@@ -36,6 +36,7 @@ pub enum Source {
     Kafka(KafkaConfig),
     Postgres(PostgresConfig),
     Snowflake(SnowflakeConfig),
+    Mycelite(MyceliteSourceConfig),
 }
 
 /// Internally-tagged type of a source needs to match the variant name
@@ -44,6 +45,7 @@ pub enum Source {
 pub enum Destination {
     Sqlite(SqliteConfig),
     Snowflake(SnowflakeConfig),
+    Mycelite(MyceliteDestinationConfig),
 }
 
 // Shared between all source definitions
@@ -89,6 +91,23 @@ pub struct SnowflakeConfig {
     pub account_identifier: String,
     pub warehouse: String,
     pub database: String,
+}
+
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct MyceliteSourceConfig {
+    #[serde(flatten)]
+    pub common_attrs: CommonAttrs,
+    pub journal_path: String,
+    // database path
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct MyceliteDestinationConfig {
+    #[serde(flatten)]
+    pub common_attrs: CommonAttrs,
+    pub journal_path: String,
+    pub database_path: String
 }
 
 // requests and responses

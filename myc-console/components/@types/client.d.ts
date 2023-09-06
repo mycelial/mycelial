@@ -5,8 +5,8 @@ export interface IClient {
     destinations: Array<IDestination>;
 }
 
-type ISource = ISqlite | IKafka | IPostgres | ISnowflake;
-type IDestination = ISqlite | ISnowflake;
+type ISource = ISqlite | IKafka | IPostgres | ISnowflake | IMyceliteSource;
+type IDestination = ISqlite | ISnowflake | IMyceliteDestination;
 
 type ISqlite = {
     type: string;
@@ -39,7 +39,20 @@ type ISnowflake = {
     account_identifier: string;
     warehouse: string;
     database: string;
-};
+}
+
+type IMyceliteSource = {
+    type: string;
+    display_name: string;
+    journal_path: string;
+}
+
+type IMyceliteDestination = {
+    type: string;
+    display_name: string;
+    journal_path: string;
+    database_path: string;
+}
 
 export type ClientContextType = {
     clients: Array<IClient>;
