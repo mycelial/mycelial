@@ -191,21 +191,21 @@ async fn basic_auth<B>(
     Err(response)
 }
 
-async fn client_auth<B>(
-    State(_app): State<Arc<App>>,
-    req: Request<B>,
-    next: Next<B>,
-) -> Result<Response, StatusCode> {
-    let auth_header = req
-        .headers()
-        .get("X-Authorization")
-        .and_then(|header| header.to_str().ok());
+// async fn client_auth<B>(
+//     State(_app): State<Arc<App>>,
+//     req: Request<B>,
+//     next: Next<B>,
+// ) -> Result<Response, StatusCode> {
+//     let auth_header = req
+//         .headers()
+//         .get("X-Authorization")
+//         .and_then(|header| header.to_str().ok());
 
-    match auth_header {
-        Some(_auth_header) => Ok(next.run(req).await),
-        _ => Err(StatusCode::UNAUTHORIZED),
-    }
-}
+//     match auth_header {
+//         Some(_auth_header) => Ok(next.run(req).await),
+//         _ => Err(StatusCode::UNAUTHORIZED),
+//     }
+// }
 
 // log response middleware
 async fn log_middleware<B>(
@@ -580,7 +580,7 @@ async fn main() -> anyhow::Result<()> {
                         .put(put_pipe_config),
                 )
                 .route("/api/clients", get(get_clients))
-                .layer(middleware::from_fn_with_state(state.clone(), client_auth)),
+                // .layer(middleware::from_fn_with_state(state.clone(), client_auth)),
         )
         .with_state(state.clone());
 
