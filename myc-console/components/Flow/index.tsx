@@ -154,31 +154,20 @@ const useStyles = createStyles((theme) => ({
   },
 }));
 
-const collections = [
-  { label: "Sqlite Source", nodeType: "sqliteSource" },
-  { label: "Sqlite Destination", nodeType: "sqliteDestination" },
-  { label: "Mycelite Source", nodeType: "myceliteSource" },
-  { label: "Mycelite Destination", nodeType: "myceliteDestination" },
-  { label: "Mycelial Network", nodeType: "mycelialNetwork" },
-  { label: "Kafka Source", nodeType: "kafkaSource" },
-  { label: "Snowflake Source", nodeType: "snowflakeSource" },
-  { label: "Snowflake Destination", nodeType: "snowflakeDestination" },
-];
-
 const initialNodes: Node[] = [];
 
 const initialEdges: Edge[] = [];
 
 const nodeTypes = {
   custom: CustomNode,
-  sqliteSource: SqliteSourceNode,
-  sqliteDestination: SqliteDestinationNode,
-  myceliteSource: MyceliteSourceNode,
-  myceliteDestination: MyceliteDestinationNode,
-  mycelialNetwork: MycelialNetworkNode,
-  kafkaSource: KafkaSourceNode,
-  snowflakeSource: SnowflakeSourceNode,
-  snowflakeDestination: SnowflakeDestinationNode,
+  sqlite_source: SqliteSourceNode,
+  sqlite_destination: SqliteDestinationNode,
+  mycelite_source: MyceliteSourceNode,
+  mycelite_destination: MyceliteDestinationNode,
+  mycelial_network: MycelialNetworkNode,
+  kafka_source: KafkaSourceNode,
+  snowflake_source: SnowflakeSourceNode,
+  snowflake_destination: SnowflakeDestinationNode,
 };
 
 const defaultEdgeOptions = {
@@ -203,8 +192,7 @@ type NavbarSearchProps = {
 
 function NavbarSearch(props: NavbarSearchProps) {
   const { classes } = useStyles();
-  const ctx = (useContext(ClientContext) as ClientContextType) || {};
-  const { clients } = ctx;
+  const { clients } = (useContext(ClientContext) as ClientContextType) || {};
 
   const onDragStart = (event: any, client: IClient, source: ISource | null, destination: IDestination | null) => {
     // fixme: better way to pass state through than the stringified json?
@@ -216,7 +204,7 @@ function NavbarSearch(props: NavbarSearchProps) {
     event.dataTransfer.effectAllowed = "move";
   };
 
-  const sourcesLinks = ctx.clients.flatMap((client) => (
+  const sourcesLinks = clients.flatMap((client) => (
       client.sources.map((source, idx) => {
         const label = `Source: ${client.display_name} - ${source.display_name}`;
 
@@ -231,7 +219,7 @@ function NavbarSearch(props: NavbarSearchProps) {
       })
   ));
 
-  const destinationsLinks = ctx.clients.flatMap((client) => (
+  const destinationsLinks = clients.flatMap((client) => (
       client.destinations.map((dest, idx) => {
         const label = `Destination: ${client.display_name} - ${dest.display_name}`;
 
@@ -360,21 +348,6 @@ function Flow() {
   const loadConfig = useCallback(async () => {
     let configs = await getConfigs(token);
 
-    const nodeTypes = (name: string) => {
-      let nt = new Map<string, string>([
-        ["sqlite_source", "sqliteSource"],
-        ["sqlite_destination", "sqliteDestination"],
-        ["mycelite_source", "myceliteSource"],
-        ["mycelite_destination", "myceliteDestination"],
-        ["mycelial_net_source", "mycelialNetwork"],
-        ["mycelial_net_destination", "mycelialNetwork"],
-        ["kafka_source", "kafkaSource"],
-        ["snowflake_source", "snowflakeSource"],
-        ["snowflake_destination", "snowflakeDestination"],
-      ]);
-      return nt.get(name);
-    };
-
     let nodeMap = new Map<string, Node>();
 
     for (const config of configs.configs) {
@@ -384,7 +357,7 @@ function Flow() {
         const id = getId();
         let node: Node = {
           id: "temp",
-          type: nodeTypes(element.name),
+          type: element.name,
           position: {
             x: 0,
             y: 0,
@@ -464,7 +437,7 @@ function Flow() {
     // let nodesToDelete: Node[] = [];
     setNodes((nds) => {
       nds.forEach((nd: Node) => {
-        if (nd.type === "mycelialNetwork") {
+        if (nd.type === "mycelial_network") {
           // nodesToDelete.push(nd);
           reactFlowInstance?.getEdges().forEach((ed) => {
             if (ed.source === nd.id) {
@@ -497,7 +470,7 @@ function Flow() {
         }
       });
       return nds.filter((nd) => {
-        return nd.type !== "mycelialNetwork";
+        return nd.type !== "mycelial_network";
       });
     });
     // reactFlowInstance?.deleteElements({nodes: nodesToDelete});
@@ -526,95 +499,21 @@ function Flow() {
 
   const getDetailsForNode = useCallback(
     (node: Node | undefined, kind: String) => {
-      if (node?.type === "sqliteSource") {
-        return {
-          name: "sqlite_source",
-          client: node.data.client,
-          path: node.data.path,
-          tables: node.data.tables,
-        };
-      }
-
-      if (node?.type === "snowflakeSource") {
-        return {
-          name: "snowflake_source",
-          username: node.data.username,
-          password: node.data.password,
-          role: node.data.role,
-          account_identifier: node.data.account_identifier,
-          warehouse: node.data.warehouse,
-          database: node.data.database,
-          schema: node.data.schema,
-          query: node.data.query,
-          client: node.data.client,
-        };
-      }
-
-      if (node?.type === "kafkaSource") {
-        return {
-          name: "kafka_source",
-          client: node.data.client,
-          brokers: node.data.brokers,
-          group_id: node.data.group_id,
-          topics: node.data.topics,
-        };
-      }
-
-      if (node?.type === "myceliteSource") {
-          return {
-              name: "mycelite_source",
-              client: node.data.client,
-              journal_path: node.data.journalPath,
-          }
-      }
-
-      if (node?.type === "myceliteDestination") {
-          return {
-              name: "mycelite_destination",
-              client: node.data.client,
-              journal_path: node.data.journalPath,
-              database_path: node.data.databasePath,
-          }
-      }
-
-      if (node?.type === "sqliteDestination") {
-        return {
-          name: "sqlite_destination",
-          path: node.data.path,
-          client: node.data.client,
-        };
-      }
-
-      if (node?.type === "mycelialNetwork" && kind === "source") {
+      if (node?.type === "mycelial_network" && kind === "source") {
         return {
           name: "mycelial_net_source",
-          endpoint: node.data.endpoint,
-          token: node.data.token,
-          topic: node.data.topic,
+          ...node.data,
         };
-      }
-
-      if (node?.type === "mycelialNetwork" && kind === "destination") {
+      } else if (node?.type === "mycelial_network" && kind === "destination") {
         return {
           name: "mycelial_net_destination",
-          endpoint: node.data.endpoint,
-          token: node.data.token,
-          topic: node.data.topic,
+          ...node.data,
         };
-      }
-
-      if (node?.type === "snowflakeDestination") {
+      } else if (node?.type) {
         return {
-          name: "snowflake_destination",
-          username: node.data.username,
-          password: node.data.password,
-          role: node.data.role,
-          account_identifier: node.data.account_identifier,
-          warehouse: node.data.warehouse,
-          database: node.data.database,
-          schema: node.data.schema,
-          table: node.data.table,
-        };
+          name: node.type,
+          ...node.data,
+        }
       }
     },
     []
@@ -822,7 +721,7 @@ function Flow() {
 
       let newNode: Node;
       if (source) {
-        const type = `${source.type}Source`;
+        const type = `${source.type}_source`;
         newNode = {
           id: getId(),
           type,
@@ -830,7 +729,7 @@ function Flow() {
           data: { label: `${type} node`, client: client.id, ...source },
         };
       } else if (destination) {
-        const type = `${destination.type}Destination`;
+        const type = `${destination.type}_destination`;
         newNode = {
           id: getId(),
           type,

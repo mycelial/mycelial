@@ -39,10 +39,21 @@ user = "admin"
 password = "pwd"
 database = "public"
 
+[[sources]]
+type = "mycelite"
+display_name = "Mycelial Movie"
+journal_path = "/tmp/something.sqlite.mycelial"
+
 [[destinations]]
 type = "sqlite"
 display_name = "Sqlite State"
 path = "/tmp/test_dest.sqlite"
+
+[[destinations]]
+type = "mycelite"
+display_name = "Mycelial Movie"
+journal_path = "/tmp/something.sqlite.mycelial"
+database_path = "/tmp/hydrated_db.sqlite"
 
 [[destinations]]
 type = "snowflake"

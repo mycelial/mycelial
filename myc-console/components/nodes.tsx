@@ -22,7 +22,7 @@ const SqliteSourceNode: FC<NodeProps> = memo(({ id, data, selected }) => {
 
   let initialValues = useMemo(() => {
     return {
-      databasePath: data.path ? data.path : "/tmp/test.sqlite",
+      database_path: data.path ? data.path : "/tmp/test.sqlite",
       tables: data.tables ? data.tables : "*",
       client: data.client ? data.client : "-",
     };
@@ -44,7 +44,7 @@ const SqliteSourceNode: FC<NodeProps> = memo(({ id, data, selected }) => {
   }, []);
 
   useEffect(() => {
-    handleChange("path", initialValues.databasePath);
+    handleChange("path", initialValues.database_path);
     handleChange("tables", initialValues.tables);
     handleChange("client", initialValues.client);
   }, []);
@@ -82,10 +82,10 @@ const SqliteSourceNode: FC<NodeProps> = memo(({ id, data, selected }) => {
           <XMarkIcon className="h-5 w-5" aria-hidden="true" />
         </button>
             <TextInput
-              name="sqliteDatabasePath"
+              name="sqlitedatabase_path"
               label="Sqlite Database Path"
-              placeholder={initialValues.databasePath}
-              defaultValue={initialValues.databasePath}
+              placeholder={initialValues.database_path}
+              defaultValue={initialValues.database_path}
               onChange={(event) =>
                 handleChange("path", event.currentTarget.value)
               }
@@ -121,7 +121,7 @@ const SqliteDestinationNode: FC<NodeProps> = memo(({ id, data, selected }) => {
 
   let initialValues = useMemo(() => {
     return {
-      databasePath: data.path ? data.path : "/tmp/test_dst.sqlite",
+      database_path: data.path ? data.path : "/tmp/test_dst.sqlite",
       client: data.client ? data.client : "-",
     };
   }, []);
@@ -151,7 +151,7 @@ const SqliteDestinationNode: FC<NodeProps> = memo(({ id, data, selected }) => {
   }, []);
 
   useEffect(() => {
-    handleChange("path", initialValues.databasePath);
+    handleChange("path", initialValues.database_path);
     handleChange("client", initialValues.client);
   }, []);
 
@@ -177,10 +177,10 @@ const SqliteDestinationNode: FC<NodeProps> = memo(({ id, data, selected }) => {
           <XMarkIcon className="h-5 w-5" aria-hidden="true" />
         </button>
         <TextInput
-          name="sqliteDatabasePath"
+          name="sqlitedatabase_path"
           label="Sqlite Database Path"
-          placeholder={initialValues.databasePath}
-          defaultValue={initialValues.databasePath}
+          placeholder={initialValues.database_path}
+          defaultValue={initialValues.database_path}
           onChange={(event) => handleChange("path", event.currentTarget.value)}
         />
         <Select
@@ -205,7 +205,7 @@ const MyceliteSourceNode: FC<NodeProps> = memo(({ id, data, selected }) => {
 
   let initialValues = useMemo(() => {
     return {
-      journalPath: data.journalPath ? data.journalPath : "/tmp/journal",
+      journal_path: data.journal_path ? data.journal_path : "/tmp/journal",
       client: data.client ? data.client : "-",
     };
   }, []);
@@ -226,7 +226,7 @@ const MyceliteSourceNode: FC<NodeProps> = memo(({ id, data, selected }) => {
   }, []);
 
   useEffect(() => {
-    handleChange("journalPath", initialValues.journalPath);
+    handleChange("journal_path", initialValues.journal_path);
     handleChange("client", initialValues.client);
   }, []);
 
@@ -263,12 +263,12 @@ const MyceliteSourceNode: FC<NodeProps> = memo(({ id, data, selected }) => {
           <XMarkIcon className="h-5 w-5" aria-hidden="true" />
         </button>
             <TextInput
-              name="journalPath"
+              name="journal_path"
               label="Mycelite Journal Path"
-              placeholder={initialValues.journalPath}
-              defaultValue={initialValues.journalPath}
+              placeholder={initialValues.journal_path}
+              defaultValue={initialValues.journal_path}
               onChange={(event) =>
-                handleChange("journalPath", event.currentTarget.value)
+                handleChange("journal_path", event.currentTarget.value)
               }
             />
             <Select
@@ -293,8 +293,8 @@ const MyceliteDestinationNode: FC<NodeProps> = memo(({ id, data, selected }) => 
 
   let initialValues = useMemo(() => {
     return {
-      journalPath: data.journalPath ? data.journalPath: "/tmp/mycelite_journal_dst",
-      databasePath: data.databasePath ? data.databasePath: "",
+      journal_path: data.journal_path ? data.journal_path: "/tmp/mycelite_journal_dst",
+      database_path: data.database_path ? data.database_path: "",
       client: data.client ? data.client : "-",
     };
   }, []);
@@ -324,8 +324,8 @@ const MyceliteDestinationNode: FC<NodeProps> = memo(({ id, data, selected }) => 
   }, []);
 
   useEffect(() => {
-    handleChange("databasePath", initialValues.databasePath);
-    handleChange("journalPath", initialValues.journalPath);
+    handleChange("database_path", initialValues.database_path);
+    handleChange("journal_path", initialValues.journal_path);
     handleChange("client", initialValues.client);
   }, []);
 
@@ -351,18 +351,18 @@ const MyceliteDestinationNode: FC<NodeProps> = memo(({ id, data, selected }) => 
           <XMarkIcon className="h-5 w-5" aria-hidden="true" />
         </button>
         <TextInput
-          name="myceliteJournalPath"
+          name="mycelitejournal_path"
           label="Mycelite Journal Path"
-          placeholder={initialValues.journalPath}
-          defaultValue={initialValues.journalPath}
-          onChange={(event) => handleChange("journalPath", event.currentTarget.value)}
+          placeholder={initialValues.journal_path}
+          defaultValue={initialValues.journal_path}
+          onChange={(event) => handleChange("journal_path", event.currentTarget.value)}
         />
         <TextInput
-          name="myceliteDatabasePath"
+          name="mycelitedatabase_path"
           label="Mycelite Database Path"
-          placeholder={initialValues.databasePath}
-          defaultValue={initialValues.databasePath}
-          onChange={(event) => handleChange("databasePath", event.currentTarget.value)}
+          placeholder={initialValues.database_path}
+          defaultValue={initialValues.database_path}
+          onChange={(event) => handleChange("database_path", event.currentTarget.value)}
         />
         <Select
           name="client"
