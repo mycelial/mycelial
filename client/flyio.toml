@@ -20,7 +20,4 @@ primary_region = "iad"
   dockerfile = "Dockerfile"
 
 [env]
-  ENDPOINT = "https://pipe-server.fly.dev"
-  ENDPOINT_TOKEN = "TOKEN"
-  CLIENT_NAME="flying pipe"
-  STORAGE_PATH="/app/flying_pipe.sqlite"
+  CONFIG_PATH = "/app/client/config.flyio.toml"

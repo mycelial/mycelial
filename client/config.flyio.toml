@@ -1,0 +1,41 @@
+# sample node config
+[node]
+# human-readable name
+display_name = "Flying Pipe"
+unique_id = "staging_client"
+storage_path = "/tmp/staging_client.sqlite"
+
+[server]
+endpoint = "https://pipe-server.fly.dev"
+token = "TOKEN"
+
+# define all sources owned by the client node
+[[sources]]
+type = "sqlite"
+display_name = "Test Sqlite"
+path = "/tmp/sqlite.db"
+
+[[sources]]
+type = "snowflake"
+display_name = "Staging Snowflake"
+username = "SVCMYCELIAL"
+password = "<password in 1P>"
+role = "MYCELIAL"
+account_identifier = "UW17194-STEAMLITPR"
+warehouse = "COMPUTE_WH"
+database = "TEST"
+
+[[destinations]]
+type = "sqlite"
+display_name = "Another Sqlite"
+path = "/tmp/anoter.sqlite"
+
+[[destinations]]
+type = "snowflake"
+display_name = "Staging Snowflake"
+username = "SVCMYCELIAL"
+password = "<password in 1P>"
+role = "MYCELIAL"
+account_identifier = "UW17194-STEAMLITPR"
+warehouse = "COMPUTE_WH"
+database = "TEST"

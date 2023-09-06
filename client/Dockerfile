@@ -3,6 +3,7 @@ FROM rust:alpine AS build_client
 
 WORKDIR /app
 COPY client/ /app
+COPY common/ /app
 COPY Cargo.lock /app/
 COPY client/build/docker_cargo_config.toml /app/.cargo/config.toml
 
@@ -15,6 +16,7 @@ FROM alpine:3.18
 RUN apk add --no-cache libgcc sqlite
 
 COPY --from=build_client /app/target/release/client /app/client
+COPY --from=build_client /app/client/config.flyio.toml /app/client
 
 RUN echo "SELECT * FROM test" | sqlite3 /tmp/sqlite.db \
 		-cmd 'CREATE TABLE test (key INT PRIMARY KEY, text TEXT, bin BLOB)' \
