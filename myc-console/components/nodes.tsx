@@ -892,6 +892,153 @@ const KafkaSourceNode: FC<NodeProps> = memo(({ id, data, selected }) => {
   );
 });
 
+
+const PostgresSourceNode: FC<NodeProps> = memo(({ id, data, selected }) => {
+  const instance = useReactFlow();
+  const { clients } = useContext(ClientContext) as ClientContextType;
+
+  let initialValues = useMemo(() => {
+    return {
+      host: data.host ? data.host : "localhost",
+      port: data.port ? data.port : 9465,
+      user: data.user ? data.user : "MYCELIAL",
+      password: data.password ? data.password : "password",
+      database: data.warehouse ? data.warehouse : "PUBLIC",
+      publication_names: data.database ? data.database : "publication_1",
+      slot_name: data.schema ? data.schema : "slot_1",
+      client: data.client ? data.client : "-",
+    };
+  }, []);
+
+  const handleChange = useCallback((name: string, value: string) => {
+    instance.setNodes((nodes) =>
+        nodes.map((node) => {
+          if (node.id === id) {
+            node.data = {
+              ...node.data,
+              [name]: value,
+            };
+          }
+
+          return node;
+        })
+    );
+  }, []);
+
+  useEffect(() => {
+    handleChange("host", initialValues.host);
+    handleChange("port", initialValues.port);
+    handleChange("user", initialValues.user);
+    handleChange("password", initialValues.password);
+    handleChange("database", initialValues.database);
+    handleChange("publication_names", initialValues.publication_names);
+    handleChange("slot_name", initialValues.slot_name);
+  }, []);
+
+  let classNames = `${styles.customNode} `;
+  if (selected) {
+    classNames = classNames + `${styles.selected}`;
+  }
+  const removeNode = useCallback((id: string) => {
+    let node = instance.getNode(id);
+    if (node === undefined) {
+      return;
+    }
+    let edges = getConnectedEdges([node], []);
+    instance.deleteElements({ edges, nodes: [node] });
+  }, []);
+
+  return (
+      <div className={classNames}>
+        <div className=" grid grid-cols-1 gap-x-6 gap-y-2">
+          <h2 className="text-slate-400 font-normal">PostgreSQL CDC Source</h2>
+          <button
+              onClick={() => {
+                if (confirm("Are you sure you want to delete this node?")) {
+                  removeNode(id);
+                }
+              }}
+              type="button"
+              className="absolute right-1 top-1 rounded bg-red-200 text-white shadow-sm hover:bg-red-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-800"
+              title="delete"
+          >
+            <XMarkIcon className="h-5 w-5" aria-hidden="true" />
+          </button>
+          <TextInput
+              name="hostname"
+              label="Hostname"
+              placeholder={initialValues.host}
+              defaultValue={initialValues.host}
+              onChange={(event) =>
+                  handleChange("host", event.currentTarget.value)
+              }
+          />
+          <TextInput
+              name="port"
+              label="Port"
+              placeholder={initialValues.port}
+              defaultValue={initialValues.port}
+              onChange={(event) =>
+                  handleChange("port", event.currentTarget.value)
+              }
+          />
+          <TextInput
+              name="user"
+              label="User"
+              placeholder={initialValues.user}
+              defaultValue={initialValues.user}
+              onChange={(event) => handleChange("user", event.currentTarget.value)}
+          />
+          <TextInput
+              name="password"
+              label="Password"
+              placeholder={initialValues.password}
+              defaultValue={initialValues.password}
+              onChange={(event) =>
+                  handleChange("password", event.currentTarget.value)
+              }
+          />
+          <TextInput
+              name="database"
+              label="Database"
+              placeholder={initialValues.database}
+              defaultValue={initialValues.database}
+              onChange={(event) =>
+                  handleChange("database", event.currentTarget.value)
+              }
+          />
+          <TextInput
+              name="publication_names"
+              label="Publication Names"
+              placeholder={initialValues.publication_names}
+              defaultValue={initialValues.publication_names}
+              onChange={(event) =>
+                  handleChange("publication_names", event.currentTarget.value)
+              }
+          />
+          <TextInput
+              name="slot_name"
+              label="Slot Name"
+              placeholder={initialValues.slot_name}
+              defaultValue={initialValues.slot_name}
+              onChange={(event) =>
+                  handleChange("slot_name", event.currentTarget.value)
+              }
+          />
+          <Select
+              name="client"
+              label="Client"
+              placeholder="Pick one"
+              defaultValue={initialValues.client}
+              options={(clients || []).map((c) => c.id)}
+              onChange={(value) => handleChange("client", value || "")}
+          />
+          <Handle type="source" position={Position.Right} id={id} />
+        </div>
+      </div>
+  );
+});
+
 export {
   SqliteSourceNode,
   SqliteDestinationNode,
@@ -901,4 +1048,5 @@ export {
   KafkaSourceNode,
   SnowflakeSourceNode,
   SnowflakeDestinationNode,
+  PostgresSourceNode,
 };

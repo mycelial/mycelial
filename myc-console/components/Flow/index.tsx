@@ -38,7 +38,7 @@ import {
   MycelialNetworkNode,
   KafkaSourceNode,
   SnowflakeSourceNode,
-  SnowflakeDestinationNode,
+  SnowflakeDestinationNode, PostgresSourceNode,
 } from "@/components/nodes";
 
 import { Grid, Group } from "@/components/layout";
@@ -168,6 +168,7 @@ const nodeTypes = {
   kafka_source: KafkaSourceNode,
   snowflake_source: SnowflakeSourceNode,
   snowflake_destination: SnowflakeDestinationNode,
+  postgres_source: PostgresSourceNode,
 };
 
 const defaultEdgeOptions = {

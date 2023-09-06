@@ -7,6 +7,7 @@ use exp2::dynamic_pipe::{
     scheduler::{Scheduler, SchedulerHandle},
     section_impls::{mycelial_net, sqlite, kafka, snowflake, mycelite},
 };
+use exp2::dynamic_pipe::section_impls::postgres;
 
 use crate::storage::SqliteStorageHandle;
 
@@ -22,6 +23,7 @@ fn setup_registry() -> Registry {
         ("snowflake_destination", snowflake::destination::constructor),
         ("mycelite_source", mycelite::source::constructor),
         ("mycelite_destination", mycelite::destination::constructor),
+        ("postgres_source", postgres::source::constructor)
     ];
     arr.iter()
         .fold(Registry::new(), |mut acc, &(section_name, constructor)| {
