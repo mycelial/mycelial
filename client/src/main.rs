@@ -4,42 +4,63 @@
 //!     - server dumbly returns all existing pipes
 //! - schedules and runs pipes
 mod http_client;
-mod runtime; mod storage;
+mod runtime;
+mod storage;
 
+use std::fs::File;
+use std::{io, result};
+use std::io::Read;
 use clap::Parser;
 use exp2::dynamic_pipe::section;
+use common::ClientConfig;
+
+#[derive(thiserror::Error, Debug)]
+pub enum Error {
+    #[error(transparent)]
+    Section(#[from] section::Error),
+
+    #[error(transparent)]
+    Io(#[from] io::Error),
+
+    #[error(transparent)]
+    Toml(#[from] toml::de::Error),
+
+    #[error(transparent)]
+    Clap(#[from] clap::Error),
+
+    #[error(transparent)]
+    TokioTask(#[from] tokio::task::JoinError)
+}
+
+pub type Result<T> = result::Result<T, Error>;
 
 #[derive(Parser)]
 struct Cli {
-    /// Server endpoint
-    #[clap(
-        short,
-        long,
-        env = "ENDPOINT",
-        default_value = "http://localhost:8080/"
-    )]
-    endpoint: String,
-
-    /// Server authorization token
-    #[clap(short, long, env = "ENDPOINT_TOKEN")]
-    token: String,
-
-    /// Client name
-    #[clap(short, long, env = "CLIENT_NAME", default_value = "test client")]
-    name: String,
-
-    /// Storage path (SQLite)
-    #[clap(short, long, env = "STORAGE_PATH")]
-    storage_path: String
+    /// Path to the TOML config file
+    #[clap(short, long, env = "CONFIG_PATH")]
+    config: String,
 }
 
 #[tokio::main]
-async fn main() -> Result<(), section::Error> {
+async fn main() -> Result<()> {
     pretty_env_logger::init();
-
     let cli = Cli::try_parse()?;
-    let storage_handle = storage::new(cli.storage_path).await?;
+    let config = read_config(&cli.config)?;
+
+    let storage_handle = storage::new(config.node.storage_path.clone()).await?;
     let runtime_handle = runtime::new(storage_handle);
-    let client_handle = http_client::new(cli.name, cli.endpoint, cli.token, runtime_handle);
-    client_handle.await?
+    let client_handle = http_client::new(
+        config,
+        runtime_handle);
+    client_handle.await??;
+
+    Ok(())
+}
+
+fn read_config(path: &str) -> Result<ClientConfig> {
+    let mut config = String::default();
+    let mut config_file = File::open(path)?;
+    config_file.read_to_string(&mut config)?;
+
+    Ok(toml::from_str(&config)?)
 }

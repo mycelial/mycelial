@@ -4,42 +4,15 @@
 
 use std::{time::Duration, collections::HashSet};
 
-use exp2::dynamic_pipe::{config::{Config, Value}, section, scheduler::SchedulerHandle};
-use serde::Deserialize;
-use serde_json::json;
+use exp2::dynamic_pipe::{config::{Config as DynamicPipeConfig, Value}, section, scheduler::SchedulerHandle};
 use tokio::task::JoinHandle;
 use base64::engine::{general_purpose::STANDARD as BASE64, Engine};
-
-#[derive(Debug, Deserialize)]
-struct ClientInfo {
-    id: String,
-}
-
-#[derive(Debug, Deserialize)]
-struct PipeConfigs {
-    configs: Vec<PipeConfig>,
-}
-
-impl TryInto<Config> for PipeConfig {
-    type Error = section::Error;
-
-    fn try_into(self) -> Result<Config, Self::Error> {
-        let value: Value = self.pipe.try_into()?;
-        Config::try_from(value)
-    }
-}
+use common::{ClientConfig, IssueTokenRequest, IssueTokenResponse, PipeConfig, PipeConfigs, ProvisionClientRequest, ProvisionClientResponse};
 
 /// Http Client
 #[derive(Debug)]
 struct Client {
-    /// client name 
-    name: String, 
-
-    /// Mycelial server endpoint
-    endpoint: String,
-
-    /// Basic Auth token
-    token: String,
+    config: ClientConfig,
 
     /// Client token
     client_token: String,
@@ -48,44 +21,7 @@ struct Client {
     scheduler_handle: SchedulerHandle,
 }
 
-/// PipeConfig
-#[derive(Debug, Deserialize)]
-struct PipeConfig {
-    /// Scheduler needs to maintain pipe processes:
-    /// - start new pipes
-    /// - restart pipes on configuration update
-    /// - stop pipes, when pipe was removed from configuration list
-    ///
-    /// To do that - each pipe config needs to be uniquely identified, so here is u64 integer to
-    /// help with that.
-    id: u64,
-
-    /// # Example of config
-    /// ```json
-    /// {"configs": [
-    ///     {
-    ///         "id":1,
-    ///         "pipe": {
-    ///         "section": [
-    ///             {
-    ///                 "name": "sqlite",
-    ///                 "path": "/tmp/test.sqlite",
-    ///                 "query": "select * from test"
-    ///             },
-    ///             {
-    ///                 "endpoint": "http://localhost:8080/ingestion",
-    ///                 "name": "mycelial_net",
-    ///                 "token": "mycelial_net_token"
-    ///             }
-    ///         ]
-    ///     }
-    /// }]}
-    /// ```
-    pipe: serde_json::Value,
-}
-
-
-fn is_for_client(config: &Config, name: &str) -> bool {
+fn is_for_client(config: &DynamicPipeConfig, name: &str) -> bool {
     config.get_sections().iter().any(|section | {
         match section.get("client") {
             Some(Value::String(client)) if client == name => true,
@@ -96,35 +32,33 @@ fn is_for_client(config: &Config, name: &str) -> bool {
 
 impl Client {
     fn new(
-        name: impl Into<String>,
-        endpoint: impl Into<String>,
-        token: impl Into<String>,
+        config: ClientConfig,
         scheduler_handle: SchedulerHandle
     ) -> Self {
+        let client_token = config.server.token.clone();
+
         Self {
-            name: name.into(),
-            endpoint: endpoint.into(),
-            token: token.into(),
-            client_token: "".into(),
+            config,
+            client_token,
             scheduler_handle
         }
     }
 
     async fn register(&mut self) -> Result<(), section::Error> {
         let client = reqwest::Client::new();
-        let url = format!("{}/api/client", self.endpoint.as_str());
-        let _x: ClientInfo = client
+        let url = format!("{}/api/client", self.config.server.endpoint.as_str());
+        let _x: ProvisionClientResponse = client
             .post(url)
             .header("Authorization", self.basic_auth())
-            .json(&json!({ "id": &self.name }))
+            .json(&ProvisionClientRequest { client_config: self.config.clone() })
             .send()
             .await?.json().await?;
 
-        let url = format!("{}/api/tokens", self.endpoint.as_str());
-        let token: ClientInfo = client
+        let url = format!("{}/api/tokens", self.config.server.endpoint.as_str());
+        let token: IssueTokenResponse = client
             .post(url)
             .header("Authorization", self.basic_auth())
-            .json(&json!({ "client_id": &self.name }))
+            .json(&IssueTokenRequest { client_id: self.config.node.unique_id.clone() })
             .send()
             .await?
             .json()
@@ -136,7 +70,7 @@ impl Client {
 
     async fn get_configs(&self) -> Result<Vec<PipeConfig>, section::Error> {
         let client = reqwest::Client::new();
-        let url = format!("{}/api/pipe/configs", self.endpoint.as_str());
+        let url = format!("{}/api/pipe/configs", self.config.server.endpoint.as_str());
         let configs: PipeConfigs = client
             .get(url)
             .header("Authorization", self.basic_auth())
@@ -149,7 +83,7 @@ impl Client {
     }
 
     fn basic_auth(&self) -> String {
-        format!("Basic {}", BASE64.encode(format!("{}:", self.token)))
+        format!("Basic {}", BASE64.encode(format!("{}:", self.config.server.token)))
     }
 
     fn client_auth(&self) -> String {
@@ -183,15 +117,14 @@ impl Client {
             );
             for pipe_config in pipe_configs.into_iter() {
                 let id = pipe_config.id;
-                let config: Config = match pipe_config.try_into() {
+                let config: DynamicPipeConfig = match pipe_config.try_into() {
                     Ok(c) => c,
                     Err(e) => {
                         log::error!("bad pipe config: {:?}", e);
                         continue
                     }
                 };
-                if is_for_client(&config, &self.name) {
-                    log::info!("scheduling pipe: {:#?}", &config);
+                if is_for_client(&config, &self.config.node.unique_id) {
                     if let Err(e) = self.scheduler_handle.add_pipe(id, config).await {
                         log::error!("failed to schedule pipe: {:?}", e);
                     }
@@ -210,10 +143,8 @@ impl Client {
 }
 
 pub fn new(
-    name: impl Into<String>,
-    endpoint: impl Into<String>,
-    token: impl Into<String>,
+    config: ClientConfig,
     scheduler_handle: SchedulerHandle
 ) -> JoinHandle<Result<(), section::Error>> {
-    Client::new(name, endpoint, token, scheduler_handle).spawn()
+    Client::new(config, scheduler_handle).spawn()
 }

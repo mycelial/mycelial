@@ -48,7 +48,7 @@ import { Button, Box } from "@/components/core";
 import { createStyles, Navbar, Text, rem } from "@/components/core";
 
 import ClientProvider, { ClientContext } from "../context/clientContext";
-import { ClientContextType } from "../@types/client";
+import {ClientContextType, IClient, IDestination, ISource} from "../@types/client";
 
 const useStyles = createStyles((theme) => ({
   navbar: {
@@ -206,20 +206,44 @@ function NavbarSearch(props: NavbarSearchProps) {
   const ctx = (useContext(ClientContext) as ClientContextType) || {};
   const { clients } = ctx;
 
-  const onDragStart = (event: any, nodeType: string) => {
-    event.dataTransfer.setData("application/reactflow", nodeType);
+  const onDragStart = (event: any, client: IClient, source: ISource | null, destination: IDestination | null) => {
+    // fixme: better way to pass state through than the stringified json?
+    event.dataTransfer.setData("application/json", JSON.stringify({
+      client: client,
+      source: source,
+      destination: destination,
+    }));
     event.dataTransfer.effectAllowed = "move";
   };
 
-  const collectionLinks = collections.map((collection) => (
-    <div
-      className={classes.collectionLink}
-      key={collection.label}
-      onDragStart={(event) => onDragStart(event, collection.nodeType)}
-      draggable
-    >
-      {collection.label}
-    </div>
+  const sourcesLinks = ctx.clients.flatMap((client) => (
+      client.sources.map((source, idx) => {
+        const label = `Source: ${client.display_name} - ${source.display_name}`;
+
+        return <div
+            className={classes.collectionLink}
+            key={label}
+            onDragStart={(event) => onDragStart(event, client, source, null)}
+            draggable
+        >
+          {label}
+        </div>;
+      })
+  ));
+
+  const destinationsLinks = ctx.clients.flatMap((client) => (
+      client.destinations.map((dest, idx) => {
+        const label = `Destination: ${client.display_name} - ${dest.display_name}`;
+
+        return <div
+            className={classes.collectionLink}
+            key={label}
+            onDragStart={(event) => onDragStart(event, client, null, dest)}
+            draggable
+        >
+          {label}
+        </div>;
+      })
   ));
 
   return (
@@ -243,7 +267,8 @@ function NavbarSearch(props: NavbarSearchProps) {
             Available Nodes
           </Text>
         </Group>
-        <div className={classes.collections}>{collectionLinks}</div>
+        <div className={classes.collections}>{sourcesLinks}</div>
+        <div className={classes.collections}>{destinationsLinks}</div>
         <div>
           <Box style={{ padding: "1rem" }}>
             <Button
@@ -783,10 +808,10 @@ function Flow() {
       event.preventDefault();
 
       const reactFlowBounds = reactFlowWrapper.current.getBoundingClientRect();
-      const type = event.dataTransfer.getData("application/reactflow");
+      const {client: client, source: source, destination: destination} = JSON.parse(event.dataTransfer.getData("application/json"));
 
       // check if the dropped element is valid
-      if (typeof type === "undefined" || !type) {
+      if (typeof client === "undefined" || !client) {
         return;
       }
 
@@ -794,12 +819,28 @@ function Flow() {
         x: event.clientX - reactFlowBounds.left,
         y: event.clientY - reactFlowBounds.top,
       });
-      const newNode = {
-        id: getId(),
-        type,
-        position,
-        data: { label: `${type} node` },
-      };
+
+      let newNode: Node;
+      if (source) {
+        const type = `${source.type}Source`;
+        newNode = {
+          id: getId(),
+          type,
+          position,
+          data: { label: `${type} node`, client: client.id, ...source },
+        };
+      } else if (destination) {
+        const type = `${destination.type}Destination`;
+        newNode = {
+          id: getId(),
+          type,
+          position,
+          data: { label: `${type} node`, client: client.id, ...destination },
+        };
+      } else {
+        console.error("either source or destination should be set on the drag element")
+        return;
+      }
 
       setNodes((nds) => nds.concat(newNode));
     },

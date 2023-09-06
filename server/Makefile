@@ -5,6 +5,9 @@ export ASSETS_DIR ?= $(shell echo `dirname $(PWD)`/myc-console/out/)
 .PHONY: all
 all:
 
+mycelial.db:
+	sqlite3 mycelial.db "VACUUM;"
+	sqlx migrate run --database-url sqlite://mycelial.db
 
 .PHONY: clean
 clean:

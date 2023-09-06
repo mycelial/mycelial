@@ -21,6 +21,7 @@ sqlx = { version = "0.7", features = ["sqlite", "runtime-tokio"]}
 tower-http = { version = "0.4.1", features = ["fs"] }
 log = "0.4"
 pretty_env_logger = "0.5"
+common = { path = "../common" }
 
 [dependencies.uuid]
 version = "1.4.0"

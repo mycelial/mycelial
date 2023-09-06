@@ -22,7 +22,7 @@ dev:
 	RUST_LOG=DEBUG cargo-watch -c -q \
 		-i dev_client.sqlite \
 		-i dev_client.sqlite-journal \
-		-s 'cargo run -r -- --endpoint="http://localhost:8080" --token=token --name="dev_client" --storage-path="dev_client.sqlite"'
+		-s 'cargo run -r -- --config=config.example.toml'
 
 .PHONY: vendor
 vendor:
