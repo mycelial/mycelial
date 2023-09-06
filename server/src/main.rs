@@ -404,7 +404,8 @@ impl Database {
 
     async fn get_clients(&self) -> Result<Clients, error::Error> {
         let mut connection = self.connection.lock().await;
-        let rows = sqlx::query("SELECT id, display_name, sources FROM clients")
+        // todo: should we return ui as client?
+        let rows = sqlx::query("SELECT id, display_name, sources FROM clients WHERE sources IS NOT NULL")
             .fetch_all(&mut *connection)
             .await?;
 

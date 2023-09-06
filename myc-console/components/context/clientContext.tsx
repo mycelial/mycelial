@@ -72,9 +72,13 @@ const ClientProvider: React.FC<React.PropsWithChildren> = ({ children }) => {
   const [clients, setClients] = React.useState<IClient[]>([
     {
       id: "post 1",
+      display_name: "Post Dev",
+      sources: []
     },
     {
       id: "post 2",
+      display_name: "Post Prod",
+      sources: []
     },
   ]);
 

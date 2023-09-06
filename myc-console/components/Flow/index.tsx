@@ -46,7 +46,7 @@ import { Button, Box } from "@/components/core";
 import { createStyles, Navbar, Text, rem } from "@/components/core";
 
 import ClientProvider, { ClientContext } from "../context/clientContext";
-import { ClientContextType } from "../@types/client";
+import {ClientContextType, IClient, ISource} from "../@types/client";
 
 const useStyles = createStyles((theme) => ({
   navbar: {
@@ -200,20 +200,28 @@ function NavbarSearch(props: NavbarSearchProps) {
   const ctx = (useContext(ClientContext) as ClientContextType) || {};
   const { clients } = ctx;
 
-  const onDragStart = (event: any, nodeType: string) => {
-    event.dataTransfer.setData("application/reactflow", nodeType);
+  const onDragStart = (event: any, client: IClient, source: ISource) => {
+    // fixme: better way to pass state through than the stringified json?
+    event.dataTransfer.setData("application/json", JSON.stringify({
+      client: client,
+      source: source
+    }));
     event.dataTransfer.effectAllowed = "move";
   };
 
-  const collectionLinks = collections.map((collection) => (
-    <div
-      className={classes.collectionLink}
-      key={collection.label}
-      onDragStart={(event) => onDragStart(event, collection.nodeType)}
-      draggable
-    >
-      {collection.label}
-    </div>
+  const sourcesLinks = ctx.clients.flatMap((client) => (
+      client.sources.map((source, idx) => {
+        const label = `${client.display_name} - ${source.display_name}`;
+
+        return <div
+            className={classes.collectionLink}
+            key={label}
+            onDragStart={(event) => onDragStart(event, client, source)}
+            draggable
+        >
+          {label}
+        </div>;
+      })
   ));
 
   return (
@@ -237,7 +245,7 @@ function NavbarSearch(props: NavbarSearchProps) {
             Available Nodes
           </Text>
         </Group>
-        <div className={classes.collections}>{collectionLinks}</div>
+        <div className={classes.collections}>{sourcesLinks}</div>
         <div>
           <Box style={{ padding: "1rem" }}>
             <Button
@@ -756,10 +764,11 @@ function Flow() {
       event.preventDefault();
 
       const reactFlowBounds = reactFlowWrapper.current.getBoundingClientRect();
-      const type = event.dataTransfer.getData("application/reactflow");
+      const {client: client, source: source} = JSON.parse(event.dataTransfer.getData("application/json"));
+      const type = `${source.type}Source`;
 
       // check if the dropped element is valid
-      if (typeof type === "undefined" || !type) {
+      if (typeof client === "undefined" || !client) {
         return;
       }
 
@@ -771,7 +780,7 @@ function Flow() {
         id: getId(),
         type,
         position,
-        data: { label: `${type} node` },
+        data: { label: `${type} node`, client: client.id, ...source },
       };
 
       setNodes((nds) => nds.concat(newNode));
