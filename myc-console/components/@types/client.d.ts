@@ -5,8 +5,16 @@ export interface IClient {
     destinations: Array<IDestination>;
 }
 
-type ISource = ISqlite | IKafka | IPostgres | ISnowflake | IMyceliteSource;
-type IDestination = ISqlite | ISnowflake | IMyceliteDestination;
+type ISource = ISqlite | IKafka | IPostgres | ISnowflake | IMyceliteSource | IMycelialNetwork;
+type IDestination = ISqlite | ISnowflake | IMyceliteDestination | IMycelialNetwork;
+
+type IMycelialNetwork = {
+    type: string;
+    display_name: string;
+    endpoint: string;
+    token: string;
+    topic: string;
+}
 
 type ISqlite = {
     type: string;
