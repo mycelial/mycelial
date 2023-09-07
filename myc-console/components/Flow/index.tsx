@@ -507,67 +507,17 @@ function Flow() {
         continue;
       }
 
-      // FIXME: This logic feels brittle
-      if (
-        sourceNodeInfo.name === "snowflake_source" ||
-        targetNodeInfo.name === "snowflake_destination" ||
-        sourceNodeInfo.name === "mycelial_net_source" ||
-        targetNodeInfo.name === "mycelial_net_destination" ||
-        sourceNodeInfo.name === "mycelite_source" ||
-        targetNodeInfo.name === "mycelite_destination"
-      ) {
-        section.push(sourceNodeInfo);
-        section.push(targetNodeInfo);
+      section.push(sourceNodeInfo);
+      section.push(targetNodeInfo);
 
-        if (edge.data?.ids?.length > 0) {
-          for (const id of edge.data.ids) {
-            configs.push({ id: id, pipe: section });
-            toDelete = toDelete.filter((ed) => ed !== id);
-            // setEdgesToBeDeleted((eds) => eds.filter((ed) => ed !== id));
-          }
-        } else {
-          new_configs.push({ id: 0, pipe: section, ui_id: edge.id });
+      if (edge.data?.ids?.length > 0) {
+        for (const id of edge.data.ids) {
+          configs.push({ id: id, pipe: section });
+          toDelete = toDelete.filter((ed) => ed !== id);
+          // setEdgesToBeDeleted((eds) => eds.filter((ed) => ed !== id));
         }
       } else {
-        let topicName = getRandomString();
-
-        if (edge.data?.myc_network_info?.topic !== undefined) {
-          topicName = edge.data.myc_network_info.topic;
-        }
-
-        const baseURL = window.location.origin;
-        const mycNetTargetNodeInfo = {
-          name: "mycelial_net_destination",
-          endpoint: `${baseURL}/ingestion`,
-          token: token,
-          topic: topicName,
-        };
-
-        const mycNetSourceNodeInfo = {
-          name: "mycelial_net_source",
-          endpoint: `${baseURL}/ingestion`,
-          token: token,
-          topic: topicName,
-        };
-
-        section.push(sourceNodeInfo);
-        section.push(mycNetTargetNodeInfo);
-        if (edge.data?.ids?.length > 0) {
-          configs.push({ id: edge.data.ids[0], pipe: section });
-          toDelete = toDelete.filter((ed) => ed !== edge.data.ids[0]);
-        } else {
-          new_configs.push({ id: 0, pipe: section, ui_id: edge.id });
-        }
-
-        section = [];
-        section.push(mycNetSourceNodeInfo);
-        section.push(targetNodeInfo);
-        if (edge.data?.ids?.length > 1) {
-          configs.push({ id: edge.data.ids[1], pipe: section });
-          toDelete = toDelete.filter((ed) => ed !== edge.data.ids[1]);
-        } else {
-          new_configs.push({ id: 0, pipe: section, ui_id: edge.id });
-        }
+        new_configs.push({ id: 0, pipe: section, ui_id: edge.id });
       }
     }
 
