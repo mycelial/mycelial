@@ -440,52 +440,8 @@ function Flow() {
   const [reactFlowInstance, setReactFlowInstance] =
     useState<ReactFlowInstance | null>(null);
 
-  const removeMycelialNetworkNodes = useCallback(() => {
-    // let nodesToDelete: Node[] = [];
-    setNodes((nds) => {
-      nds.forEach((nd: Node) => {
-        if (nd.type === "mycelial_network") {
-          // nodesToDelete.push(nd);
-          reactFlowInstance?.getEdges().forEach((ed) => {
-            if (ed.source === nd.id) {
-              reactFlowInstance?.getEdges().forEach((ed2) => {
-                if (ed2.target === nd.id) {
-                  // create a new edge between the source and target connected to the mycelial network
-                  // node so that the flow is the same once the mycelial network node is removed
-                  setEdges((eds) => {
-                    return eds.filter((e) => {
-                      return e.id !== ed.id && e.id !== ed2.id;
-                    }).concat({
-                      id: getId(),
-                      source: ed2.source,
-                      target: ed.target,
-                      animated: false,
-                      type: "smoothstep",
-                      markerEnd: {
-                        type: MarkerType.ArrowClosed,
-                      },
-                      data: {
-                        ids: [ed2.data.ids[0], ed.data.ids[0]],
-                        myc_network_info: nd.data,
-                      },
-                    });
-                  });
-                }
-              });
-            }
-          });
-        }
-      });
-      return nds.filter((nd) => {
-        return nd.type !== "mycelial_network";
-      });
-    });
-    // reactFlowInstance?.deleteElements({nodes: nodesToDelete});
-  }, [setNodes, reactFlowInstance, setEdges]);
-
   useEffect(() => {
     onLayout("LR");
-    removeMycelialNetworkNodes();
   }, [initialDataLoaded]);
 
 
