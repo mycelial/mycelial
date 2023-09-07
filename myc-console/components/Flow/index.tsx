@@ -195,7 +195,7 @@ function NavbarSearch(props: NavbarSearchProps) {
   const { classes } = useStyles();
   const { clients } = (useContext(ClientContext) as ClientContextType) || {};
 
-  const onDragStart = (event: any, client: IClient, source: ISource | null, destination: IDestination | null) => {
+  const onDragStart = (event: any, client: IClient | null, source: ISource | null, destination: IDestination | null) => {
     // fixme: better way to pass state through than the stringified json?
     event.dataTransfer.setData("application/json", JSON.stringify({
       client: client,
@@ -235,6 +235,27 @@ function NavbarSearch(props: NavbarSearchProps) {
       })
   ));
 
+  // todo: is there a data-driven way to do this?
+  const transportLinks = () => {
+    let source = {
+      type: "mycelial_network",
+      display_name: "Mycelial Network",
+      endpoint: "http://localhost:8080/ingestion",
+      token: "token",
+      topic: getRandomString(),
+    };
+
+    return [
+      <div key="mycelial_network"
+          className={classes.collectionLink}
+            onDragStart={(event) => onDragStart(event, null, source, source)}
+            draggable
+      >
+        Mycelial Network
+      </div>
+    ];
+  };
+
   return (
     <Navbar
       height="100vh"
@@ -257,6 +278,7 @@ function NavbarSearch(props: NavbarSearchProps) {
           </Text>
         </Group>
         <div className={classes.collections}>{sourcesLinks}</div>
+        <div className={classes.collections}>{transportLinks()}</div>
         <div className={classes.collections}>{destinationsLinks}</div>
         <div>
           <Box style={{ padding: "1rem" }}>
@@ -623,7 +645,7 @@ function Flow() {
       const {client: client, source: source, destination: destination} = JSON.parse(event.dataTransfer.getData("application/json"));
 
       // check if the dropped element is valid
-      if (typeof client === "undefined" || !client) {
+      if ((typeof client === "undefined" || !client) && (!source || !destination)) {
         return;
       }
 
@@ -633,7 +655,15 @@ function Flow() {
       });
 
       let newNode: Node;
-      if (source) {
+      if (source && destination) {
+        const type = `${source.type}`;
+        newNode = {
+          id: getId(),
+          type,
+          position,
+          data: { label: `${type} node`, ...source },
+        };
+      } else if (source) {
         const type = `${source.type}_source`;
         newNode = {
           id: getId(),
