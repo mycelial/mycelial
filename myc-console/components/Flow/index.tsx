@@ -356,9 +356,15 @@ function Flow() {
       for (const element of config.pipe.section) {
         let { name, ...data } = element;
         const id = getId();
+
+        let nodeType = element.name;
+        if (nodeType === "mycelial_net_source" || nodeType === "mycelial_net_destination") {
+          nodeType = "mycelial_network";
+        }
+
         let node: Node = {
           id: "temp",
-          type: element.name,
+          type: nodeType,
           position: {
             x: 0,
             y: 0,
