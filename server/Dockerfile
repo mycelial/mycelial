@@ -7,7 +7,7 @@ COPY common/ /app/common/
 COPY Cargo.lock /app/server/
 COPY server/build/docker_cargo_config.toml /app/server/.cargo/config.toml
 
-RUN apk add musl-dev openssl-dev bash && \
+RUN apk add musl-dev openssl-dev bash build-base && \
     RUSTFLAGS=-Ctarget-feature=-crt-static cargo build --release
 
 
