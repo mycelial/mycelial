@@ -1,64 +1,5 @@
 # Mycelial API
 
-## SQLite to SQLite replication with Mycelite
-
-You will need to clone the [Mycelial](https://github.com/mycelial/mycelial) repo
-to all clients and servers.
-
-### Setup Mycelite
-
-Mycelite allows you to replicate a SQLite database. To setup replication do the 
-following:
-
-1. [Download](https://mycelial.com/docs/get-started/quick-start/#download-the-extension) the Mycelite extension to the computer with the source database.
-2. [Load](https://mycelial.com/docs/get-started/quick-start/#load-the-extension) the extension
-3. [Open](https://mycelial.com/docs/get-started/quick-start/#open-a-new-database-as-a-writer) your database
-
-After you've loaded the extension, Mycelite will create a journal file, next to your SQLite database file.
-
-### Setup Mycelial Client
-
-The source and destination computers need a Mycelial client installed.
-
-#### Compiling Mycelial Client
-
-1. Setup Rust: use provided script at [rustup.rs](https://rustup.rs)
-2. Update Rust: `rustup update`
-3. Navigate to `mycelial/client`
-4. run `make dev` to start the client
-
-#### Setup Mycelial Config
-
-1. Navigate to `mycelial/server`
-2. Start the server with `make dev`
-
-To initiate SQLite replication, make a `POST` configuration api call to
-`/api/pipe/configs` with the following payload
-
-```js
-{
-  "configs": [
-    {
-      "id": 0,
-      "pipe": [
-        {
-          "name": "mycelite_source",
-          "client": "<client name>",
-          "journal_path": "<path and filename of source journal>"
-        },
-        {
-          "name": "mycelite_destination",
-          "client": "<client name>",
-          "journal_path": "<path and file name of destination journal>",
-          "database_path": "<path and file name of destination database>"
-        }
-      ]
-    }
-  ]
-}
-```
-
-
 ## CONFIGURATION 
 
 <details>
@@ -88,14 +29,14 @@ To initiate SQLite replication, make a `POST` configuration api call to
       "pipe": [
         {
           "name": "sqlite_source",
-          "client": "<client_name>",
-          "path": "<path_to_sqlite>",
-          "tables": "<tables>"
+          "client": "{client_name}",
+          "path": "{path_to_sqlite}",
+          "tables": "{tables}"
         },
         {
           "name": "mycelial_net_destination",
-          "endpoint": "http://<server>:8080/ingestion",
-          "topic": "<unique_topic_id>"
+          "endpoint": "http://{server}:8080/ingestion",
+          "topic": "{unique_topic_id}"
         }
       ]
     }
@@ -116,13 +57,13 @@ To initiate SQLite replication, make a `POST` configuration api call to
       "pipe": [
         {
           "name": "mycelial_net_source",
-          "endpoint": "http://<server>:8080/ingestion",
-          "topic": "<matching_topic_id>"
+          "endpoint": "http://{server}:8080/ingestion",
+          "topic": "{matching_topic_id}"
         },
         {
           "name": "sqlite_destination",
-          "path": "<path_to_sqlite>",
-          "client": "<client_name>"
+          "path": "{path_to_sqlite}",
+          "client": "{client_name}"
         }
       ]
     }
@@ -143,14 +84,14 @@ To initiate SQLite replication, make a `POST` configuration api call to
       "pipe": [
         {
           "name": "mycelite_source",
-          "client": "<client name>",
-          "journal_path": "<path to mycelite journal>"
+          "client": "{client name}",
+          "journal_path": "{path to mycelite journal}"
         },
         {
           "name": "mycelite_destination",
-          "client": "<client name>",
-          "journal_path": "<path to mycelite journal>",
-          "database_path": "<path to sqlite database>"
+          "client": "{client name}",
+          "journal_path": "{path to mycelite journal}",
+          "database_path": "{path to sqlite database}"
         }
       ]
     }
@@ -171,26 +112,26 @@ To initiate SQLite replication, make a `POST` configuration api call to
       "pipe": [
         {
           "name": "snowflake_source",
-          "username": "<snowflake account name>",
-          "password": "<snowflake account password",
-          "role": "<snowflake role>",
-          "account_identifier": "<snowflake account identifier>",
-          "warehouse": "<warehouse name>",
-          "database": "<database name>",
-          "schema": "<database schema>",
-          "query": "<sql query>",
-          "client": "<client name>"
+          "username": "{snowflake account name}",
+          "password": "{snowflake account password",
+          "role": "{snowflake role}",
+          "account_identifier": "{snowflake account identifier}",
+          "warehouse": "{warehouse name}",
+          "database": "{database name}",
+          "schema": "{database schema}",
+          "query": "{sql query}",
+          "client": "{client name}"
         },
         {
           "name": "snowflake_destination",
-          "username": "<snowflake account name>",
-          "password": "<snowflake account password>",
-          "role": "<snowflake role>",
-          "account_identifier": "<snowflake account identifier>",
-          "warehouse": "<warehouse name>",
-          "database": "<database name>",
-          "schema": "<database schema>",
-          "table": "<destination table name>"
+          "username": "{snowflake account name}",
+          "password": "{snowflake account password}",
+          "role": "{snowflake role}",
+          "account_identifier": "{snowflake account identifier}",
+          "warehouse": "{warehouse name}",
+          "database": "{database name}",
+          "schema": "{database schema}",
+          "table": "{destination table name}"
         }
       ]
     }
@@ -210,7 +151,7 @@ To initiate SQLite replication, make a `POST` configuration api call to
 ### Example cURL
 
 > ```bash
->  curl -X POST 'http://<server>:8080/api/pipe/configs' -H 'Authorization: Basic <base 64 token:>' --data @post.json'
+>  curl -X POST 'http://{server}:8080/api/pipe/configs' -H 'Authorization: Basic {base 64 token:}' --data @post.json'
 > ```
 
 </details>
@@ -231,7 +172,7 @@ To initiate SQLite replication, make a `POST` configuration api call to
 ##### Example cURL
 
 > ```bash
->  curl 'http://localhost:8080/api/pipe/configs/<id>' -X 'DELETE' -H 'Authorization: Basic <base 64 token:>' \
+>  curl 'http://localhost:8080/api/pipe/configs/{id}' -X 'DELETE' -H 'Authorization: Basic {base 64 token:}' \
 > ```
 
 </details>
@@ -252,7 +193,7 @@ To initiate SQLite replication, make a `POST` configuration api call to
 ##### Example cURL
 
 > ```bash
->  curl 'http://<server>:8080/api/pipe/configs' -H 'Authorization: Basic <base 64 token:>'
+>  curl 'http://{server}:8080/api/pipe/configs' -H 'Authorization: Basic {base 64 token:}'
 > ```
 
 </details>
@@ -285,15 +226,44 @@ To initiate SQLite replication, make a `POST` configuration api call to
 
 > ```js
 > {
->   "clients": [
->     {
->       "id": "client 1"
->     },
->     {
->       "id": "client 2"
->     }
->  ]
-> }
+>     "clients": [
+>         {
+>             "id": "dev_client",
+>             "display_name": "Client 1",
+>             "sources": [
+>                 {
+>                     "type": "sqlite",
+>                     "display_name": "Source 1",
+>                     "path": "/tmp/test.sqlite"
+>                 },
+>                 {
+>                     "type": "mycelite",
+>                     "display_name": "Mycelite SRC",
+>                     "journal_path": "/Users/knowthen/junk/source.db-mycelial"
+>                 }
+>             ],
+>             "destinations": [
+>                 {
+>                     "type": "mycelite",
+>                     "display_name": "Mycelite DEST",
+>                     "journal_path": "/Users/knowthen/junk/dest/destination.db-mycelial",
+>                     "database_path": "/Users/knowthen/junk/dest/destination.db"
+>                 },
+>                 {
+>                     "type": "sqlite",
+>                     "display_name": "Dest 1",
+>                     "path": "/tmp/test_dest.sqlite"
+>                 }
+>             ]
+>         },
+>         {
+>             "id": "ui",
+>             "display_name": "UI",
+>             "sources": [],
+>             "destinations": []
+>         }
+>     ]
+}
 > ```
 
 </details>
@@ -301,7 +271,7 @@ To initiate SQLite replication, make a `POST` configuration api call to
 ### Example cURL
 
 > ```bash
->  curl 'http://<server>:8080/api/clients' -H 'Authorization: Basic <base 64 token:>'
+>  curl 'http://{server}:8080/api/clients' -H 'Authorization: Basic {base 64 token:}'
 > ```
 
 </details>
