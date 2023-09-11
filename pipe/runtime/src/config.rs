@@ -59,7 +59,7 @@ impl Value {
     pub fn as_bool(&self) -> Option<bool> {
         match self {
             Self::Bool(b) => Some(*b),
-            _ => None
+            _ => None,
         }
     }
 }

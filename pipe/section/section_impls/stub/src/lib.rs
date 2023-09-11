@@ -27,9 +27,10 @@ impl<T, E> Stub<T, E> {
 }
 
 impl<T, E, Input, Output, CommandChannel> Section<Input, Output, CommandChannel> for Stub<T, E>
-    where Input: Send + 'static,
-          Output: Send + 'static,
-          CommandChannel: Send + 'static,
+where
+    Input: Send + 'static,
+    Output: Send + 'static,
+    CommandChannel: Send + 'static,
 {
     type Error = E;
     type Future = Pin<Box<dyn Future<Output = Result<(), Self::Error>> + Send + 'static>>;

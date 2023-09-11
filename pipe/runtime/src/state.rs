@@ -9,7 +9,7 @@ pub struct State(serde_json::Map<String, serde_json::Value>);
 
 impl State {
     pub fn new() -> Self {
-        Self( Default::default() )
+        Self(Default::default())
     }
 
     pub fn upsert(&mut self, key: impl Into<String>, value: impl Into<serde_json::Value>) {
@@ -31,7 +31,7 @@ impl State {
     pub fn deserialize(state: &str) -> Result<Self, SectionError> {
         match serde_json::from_str(state)? {
             serde_json::Value::Object(map) => Ok(Self(map)),
-            _ => Err("invalid state")?
+            _ => Err("invalid state")?,
         }
     }
 

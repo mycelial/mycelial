@@ -1,16 +1,15 @@
 //! storage backend for client
 
-
-use std::{str::FromStr, pin::Pin};
-use std::future::Future;
 use exp2::call;
 use exp2::dynamic_pipe::{
     scheduler::Storage,
     section::{self, State},
 };
-use sqlx::{sqlite::SqliteConnectOptions, ConnectOptions, SqliteConnection, Row};
+use sqlx::{sqlite::SqliteConnectOptions, ConnectOptions, Row, SqliteConnection};
+use std::future::Future;
+use std::{pin::Pin, str::FromStr};
 use tokio::sync::{
-    mpsc::{channel, Sender, Receiver},
+    mpsc::{channel, Receiver, Sender},
     oneshot::{channel as oneshot_channel, Sender as OneshotSender},
 };
 
@@ -40,7 +39,13 @@ impl SqliteStorage {
     async fn enter_loop(&mut self, rx: &mut Receiver<Message>) -> Result<(), section::Error> {
         while let Some(msg) = rx.recv().await {
             match msg {
-                Message::StoreState { id, section_id, section_name, state, reply_to } => {
+                Message::StoreState {
+                    id,
+                    section_id,
+                    section_name,
+                    state,
+                    reply_to,
+                } => {
                     let result = sqlx::query(
                         "INSERT INTO state VALUES(?, ?, ?, ?) ON CONFLICT (id, section_id, section_name) DO UPDATE SET state = excluded.state"
                     )
@@ -53,8 +58,13 @@ impl SqliteStorage {
                         .map(|_| ())
                         .map_err(|e| e.into());
                     reply_to.send(result).ok();
-                },
-                Message::RetrieveState { id, section_id, section_name, reply_to } => {
+                }
+                Message::RetrieveState {
+                    id,
+                    section_id,
+                    section_name,
+                    reply_to,
+                } => {
                     let result = sqlx::query(
                         "SELECT state FROM state WHERE id = ? and section_id = ? and section_name = ?"
                     )
@@ -66,9 +76,9 @@ impl SqliteStorage {
                         .map(|row| row.map(|val| State::deserialize(&val.get::<String, _>("state")).unwrap() ))
                         .map_err(|e| e.into());
                     reply_to.send(result).ok();
-                },
+                }
             }
-        };
+        }
         Ok(())
     }
 }
@@ -86,13 +96,13 @@ pub enum Message {
         id: u64,
         section_id: u64,
         section_name: String,
-        reply_to: OneshotSender<Result<Option<State>, section::Error>>
-    }
+        reply_to: OneshotSender<Result<Option<State>, section::Error>>,
+    },
 }
 
 #[derive(Clone)]
 pub struct SqliteStorageHandle {
-    tx: Sender<Message>
+    tx: Sender<Message>,
 }
 
 impl SqliteStorageHandle {
@@ -107,24 +117,41 @@ impl Storage for SqliteStorageHandle {
         id: u64,
         section_id: u64,
         section_name: String,
-        state: State
-    ) -> Pin<Box<dyn Future<Output=Result<(), section::Error>> + Send + 'static>> {
+        state: State,
+    ) -> Pin<Box<dyn Future<Output = Result<(), section::Error>> + Send + 'static>> {
         let this = self.clone();
-        Box::pin(async move { call!(this, Message::StoreState{ id, section_id, section_name, state }) })
+        Box::pin(async move {
+            call!(
+                this,
+                Message::StoreState {
+                    id,
+                    section_id,
+                    section_name,
+                    state
+                }
+            )
+        })
     }
 
     fn retrieve_state(
-        &self, 
+        &self,
         id: u64,
         section_id: u64,
-        section_name: String
-    ) -> Pin<Box<dyn Future<Output=Result<Option<State>, section::Error>> + Send + 'static>> {
+        section_name: String,
+    ) -> Pin<Box<dyn Future<Output = Result<Option<State>, section::Error>> + Send + 'static>> {
         let this = self.clone();
-        Box::pin(async move { call!(this, Message::RetrieveState{ id, section_id, section_name }) })
+        Box::pin(async move {
+            call!(
+                this,
+                Message::RetrieveState {
+                    id,
+                    section_id,
+                    section_name
+                }
+            )
+        })
     }
-
 }
-
 
 pub async fn new(storage_path: String) -> Result<SqliteStorageHandle, section::Error> {
     Ok(SqliteStorage::new(storage_path).await?.spawn())

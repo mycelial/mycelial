@@ -1,12 +1,12 @@
-use serde::{Deserialize, Serialize};
 use exp2::dynamic_pipe::config::Config as DynamicPipeConfig;
 use exp2::dynamic_pipe::config::Value as DynamicPipeValue;
+use serde::{Deserialize, Serialize};
 
 /// Top level configuration object
 // todo: should this be only on the client?
 // todo: disallow clone
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct  ClientConfig {
+pub struct ClientConfig {
     pub node: Node,
     pub server: Server,
     pub sources: Vec<Source>,
@@ -93,7 +93,6 @@ pub struct SnowflakeConfig {
     pub database: String,
 }
 
-
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct MyceliteSourceConfig {
     #[serde(flatten)]
@@ -107,7 +106,7 @@ pub struct MyceliteDestinationConfig {
     #[serde(flatten)]
     pub common_attrs: CommonAttrs,
     pub journal_path: String,
-    pub database_path: String
+    pub database_path: String,
 }
 
 // requests and responses

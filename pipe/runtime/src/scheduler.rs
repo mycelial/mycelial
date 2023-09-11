@@ -1,12 +1,7 @@
 //! Pipe scheduler
 
 use crate::state::State;
-use crate::{
-    types::SectionError,
-    config::Config,
-    registry::Registry,
-    pipe::Pipe,
-};
+use crate::{config::Config, pipe::Pipe, registry::Registry, types::SectionError};
 use std::future::{Future, IntoFuture};
 use std::pin::Pin;
 use std::{collections::HashMap, time::Duration};
@@ -24,15 +19,15 @@ pub trait Storage {
         id: u64,
         section_id: u64,
         section_name: String,
-        state: State
-    ) -> Pin<Box<dyn Future<Output=Result<(), SectionError>> + Send + 'static>>;
+        state: State,
+    ) -> Pin<Box<dyn Future<Output = Result<(), SectionError>> + Send + 'static>>;
 
     fn retrieve_state(
         &self,
         id: u64,
         section_id: u64,
         section_name: String,
-    ) -> Pin<Box<dyn Future<Output=Result<Option<State>, SectionError>> + Send + 'static>>;
+    ) -> Pin<Box<dyn Future<Output = Result<Option<State>, SectionError>> + Send + 'static>>;
 }
 
 pub struct Scheduler<Storage> {
@@ -244,11 +239,7 @@ impl SchedulerHandle {
     /// If pipe id already exists - scheduler will check configuration:
     /// * if configuration is equal - nothing will happen
     /// * if configuration differs - pipe with old config will be replaced with new pipe
-    pub async fn add_pipe(
-        &self,
-        id: u64,
-        config: Config,
-    ) -> Result<ScheduleResult, SectionError> {
+    pub async fn add_pipe(&self, id: u64, config: Config) -> Result<ScheduleResult, SectionError> {
         call!(self, Message::AddPipe { id, config })
     }
 

@@ -7,12 +7,12 @@ mod http_client;
 mod runtime;
 mod storage;
 
-use std::fs::File;
-use std::{io, result};
-use std::io::Read;
 use clap::Parser;
-use exp2::dynamic_pipe::section;
 use common::ClientConfig;
+use exp2::dynamic_pipe::section;
+use std::fs::File;
+use std::io::Read;
+use std::{io, result};
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -29,7 +29,7 @@ pub enum Error {
     Clap(#[from] clap::Error),
 
     #[error(transparent)]
-    TokioTask(#[from] tokio::task::JoinError)
+    TokioTask(#[from] tokio::task::JoinError),
 }
 
 pub type Result<T> = result::Result<T, Error>;
@@ -49,9 +49,7 @@ async fn main() -> Result<()> {
 
     let storage_handle = storage::new(config.node.storage_path.clone()).await?;
     let runtime_handle = runtime::new(storage_handle);
-    let client_handle = http_client::new(
-        config,
-        runtime_handle);
+    let client_handle = http_client::new(config, runtime_handle);
     client_handle.await??;
 
     Ok(())

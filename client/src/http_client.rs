@@ -2,12 +2,19 @@
 //!
 //! Poll mycelial server configuration endpoint
 
-use std::{time::Duration, collections::HashSet};
+use std::{collections::HashSet, time::Duration};
 
-use exp2::dynamic_pipe::{config::{Config as DynamicPipeConfig, Value}, section, scheduler::SchedulerHandle};
-use tokio::task::JoinHandle;
 use base64::engine::{general_purpose::STANDARD as BASE64, Engine};
-use common::{ClientConfig, IssueTokenRequest, IssueTokenResponse, PipeConfig, PipeConfigs, ProvisionClientRequest, ProvisionClientResponse};
+use common::{
+    ClientConfig, IssueTokenRequest, IssueTokenResponse, PipeConfig, PipeConfigs,
+    ProvisionClientRequest, ProvisionClientResponse,
+};
+use exp2::dynamic_pipe::{
+    config::{Config as DynamicPipeConfig, Value},
+    scheduler::SchedulerHandle,
+    section,
+};
+use tokio::task::JoinHandle;
 
 /// Http Client
 #[derive(Debug)]
@@ -22,25 +29,23 @@ struct Client {
 }
 
 fn is_for_client(config: &DynamicPipeConfig, name: &str) -> bool {
-    config.get_sections().iter().any(|section | {
-        match section.get("client") {
+    config
+        .get_sections()
+        .iter()
+        .any(|section| match section.get("client") {
             Some(Value::String(client)) if client == name => true,
-            _ => false
-        }
-    })
+            _ => false,
+        })
 }
 
 impl Client {
-    fn new(
-        config: ClientConfig,
-        scheduler_handle: SchedulerHandle
-    ) -> Self {
+    fn new(config: ClientConfig, scheduler_handle: SchedulerHandle) -> Self {
         let client_token = config.server.token.clone();
 
         Self {
             config,
             client_token,
-            scheduler_handle
+            scheduler_handle,
         }
     }
 
@@ -50,15 +55,21 @@ impl Client {
         let _x: ProvisionClientResponse = client
             .post(url)
             .header("Authorization", self.basic_auth())
-            .json(&ProvisionClientRequest { client_config: self.config.clone() })
+            .json(&ProvisionClientRequest {
+                client_config: self.config.clone(),
+            })
             .send()
-            .await?.json().await?;
+            .await?
+            .json()
+            .await?;
 
         let url = format!("{}/api/tokens", self.config.server.endpoint.as_str());
         let token: IssueTokenResponse = client
             .post(url)
             .header("Authorization", self.basic_auth())
-            .json(&IssueTokenRequest { client_id: self.config.node.unique_id.clone() })
+            .json(&IssueTokenRequest {
+                client_id: self.config.node.unique_id.clone(),
+            })
             .send()
             .await?
             .json()
@@ -83,7 +94,10 @@ impl Client {
     }
 
     fn basic_auth(&self) -> String {
-        format!("Basic {}", BASE64.encode(format!("{}:", self.config.server.token)))
+        format!(
+            "Basic {}",
+            BASE64.encode(format!("{}:", self.config.server.token))
+        )
     }
 
     fn client_auth(&self) -> String {
@@ -101,27 +115,25 @@ impl Client {
             tokio::time::sleep(Duration::from_secs(3)).await;
         }
         loop {
-            
             let pipe_configs = match self.get_configs().await {
                 Ok(pipe_configs) => pipe_configs,
                 Err(e) => {
                     log::error!("failed to contact server: {:?}", e);
                     tokio::time::sleep(Duration::from_secs(5)).await;
-                    continue
+                    continue;
                 }
             };
 
             log::debug!("pipe configs: {:#?}", pipe_configs);
-            let mut ids: HashSet<u64> = HashSet::from_iter(
-                self.scheduler_handle.list_ids().await?.into_iter()
-            );
+            let mut ids: HashSet<u64> =
+                HashSet::from_iter(self.scheduler_handle.list_ids().await?.into_iter());
             for pipe_config in pipe_configs.into_iter() {
                 let id = pipe_config.id;
                 let config: DynamicPipeConfig = match pipe_config.try_into() {
                     Ok(c) => c,
                     Err(e) => {
                         log::error!("bad pipe config: {:?}", e);
-                        continue
+                        continue;
                     }
                 };
                 if is_for_client(&config, &self.config.node.unique_id) {
@@ -131,20 +143,18 @@ impl Client {
                     ids.remove(&id);
                 }
             }
-            for id in ids.into_iter(){
+            for id in ids.into_iter() {
                 self.scheduler_handle.remove_pipe(id).await.unwrap()
-            };
+            }
 
             tokio::time::sleep(Duration::from_secs(5)).await
         }
     }
-
-    
 }
 
 pub fn new(
     config: ClientConfig,
-    scheduler_handle: SchedulerHandle
+    scheduler_handle: SchedulerHandle,
 ) -> JoinHandle<Result<(), section::Error>> {
     Client::new(config, scheduler_handle).spawn()
 }

@@ -1,13 +1,13 @@
 //! Pipe
 
 use futures::{Sink, SinkExt, Stream};
-use tokio::task::JoinHandle;
 use std::future::IntoFuture;
+use tokio::task::JoinHandle;
 
-use crate::command_channel::{Command, RootChannel};
 use crate::channel::channel;
+use crate::command_channel::{Command, RootChannel};
+use crate::types::{DynSection, DynSink, DynStream, SectionError, SectionFuture};
 use section::Section;
-use crate::types::{SectionError, SectionFuture, DynStream, DynSink, DynSection};
 
 use super::config::Config;
 use super::message::Message;
@@ -40,7 +40,12 @@ impl<T: std::fmt::Debug> std::fmt::Debug for Pipe<T> {
 
 impl<T> Pipe<T> {
     pub fn new(id: u64, config: Config, sections: Vec<Box<dyn DynSection>>, storage: T) -> Self {
-        Self { id, storage, config, sections: Some(sections) }
+        Self {
+            id,
+            storage,
+            config,
+            sections: Some(sections),
+        }
     }
 }
 
@@ -49,14 +54,20 @@ impl<T: Storage + Send + 'static> IntoFuture for Pipe<T> {
     type IntoFuture = SectionFuture;
 
     fn into_future(self) -> Self::IntoFuture {
-        Box::new(self).start(Stub::<_, SectionError>::new(), Stub::<_, SectionError>::new(), ())
+        Box::new(self).start(
+            Stub::<_, SectionError>::new(),
+            Stub::<_, SectionError>::new(),
+            (),
+        )
     }
 }
 
 impl<T: Storage + Send + 'static> TryFrom<(u64, Config, &'_ Registry, T)> for Pipe<T> {
     type Error = SectionError;
 
-    fn try_from((id, config, registry, storage): (u64, Config, &Registry, T)) -> Result<Self, Self::Error> {
+    fn try_from(
+        (id, config, registry, storage): (u64, Config, &Registry, T),
+    ) -> Result<Self, Self::Error> {
         let sections = config
             .get_sections()
             .iter()
@@ -90,64 +101,66 @@ where
         let input: DynStream = Box::pin(input);
         let output: DynSink = Box::pin(output);
         let mut root_channel = RootChannel::new();
-        let (_, _, _, handles) = self
-            .sections
-            .take()
-            .unwrap()
-            .into_iter()
-            .enumerate()
-            .fold(
-                (None, Some(input), Some(output), vec![]), |(prev, mut pipe_input, mut pipe_output, mut acc), (pos, section)| {
-                    let input: DynStream = match prev {
-                        None => pipe_input.take().unwrap(),
-                        Some(rx) => rx,
-                    };
-                    let (next_input, output): (DynStream, DynSink) =
-                        if pos == len - 1 {
-                            // last element
-                            let next_input = Box::pin(Stub::<_, SectionError>::new());
-                            let output = pipe_output.take().unwrap();
-                            (next_input, output)
-                        } else {
-                            let (tx, rx) = channel::<Message>(1);
-                            let tx = tx.sink_map_err(|_| -> SectionError { "send error".into() });
-                            (Box::pin(rx), Box::pin(tx))
-                        };
-                    let (section_tx, section_channel) = root_channel.section_channel(pos as u64);
-                    let handle = tokio::spawn(section.dyn_start(input, output, section_channel));
-                    acc.push((section_tx, HandleWrap::new(handle)));
-                    (Some(next_input), pipe_input, pipe_output, acc)
-                },
-            );
+        let (_, _, _, handles) = self.sections.take().unwrap().into_iter().enumerate().fold(
+            (None, Some(input), Some(output), vec![]),
+            |(prev, mut pipe_input, mut pipe_output, mut acc), (pos, section)| {
+                let input: DynStream = match prev {
+                    None => pipe_input.take().unwrap(),
+                    Some(rx) => rx,
+                };
+                let (next_input, output): (DynStream, DynSink) = if pos == len - 1 {
+                    // last element
+                    let next_input = Box::pin(Stub::<_, SectionError>::new());
+                    let output = pipe_output.take().unwrap();
+                    (next_input, output)
+                } else {
+                    let (tx, rx) = channel::<Message>(1);
+                    let tx = tx.sink_map_err(|_| -> SectionError { "send error".into() });
+                    (Box::pin(rx), Box::pin(tx))
+                };
+                let (section_tx, section_channel) = root_channel.section_channel(pos as u64);
+                let handle = tokio::spawn(section.dyn_start(input, output, section_channel));
+                acc.push((section_tx, HandleWrap::new(handle)));
+                (Some(next_input), pipe_input, pipe_output, acc)
+            },
+        );
 
         let future = async move {
             let mut handles = handles;
             while let Some(msg) = root_channel.rx.recv().await {
                 match msg {
-                    Command::StoreState{id, state} => {
+                    Command::StoreState { id, state } => {
                         // FIXME: unwrap
                         let name = self.config.get_sections()[id as usize].get("name").unwrap();
-                        let future = self.storage.store_state(self.id, id, name.as_str().unwrap().to_string(), state);
+                        let future = self.storage.store_state(
+                            self.id,
+                            id,
+                            name.as_str().unwrap().to_string(),
+                            state,
+                        );
                         future.await?;
-                    },
-                    Command::RetrieveState{id, reply_to} => {
+                    }
+                    Command::RetrieveState { id, reply_to } => {
                         // FIXME: unwrap
                         let name = self.config.get_sections()[id as usize].get("name").unwrap();
-                        let future = self.storage.retrieve_state(self.id, id, name.as_str().unwrap().to_string());
+                        let future = self.storage.retrieve_state(
+                            self.id,
+                            id,
+                            name.as_str().unwrap().to_string(),
+                        );
                         reply_to.send(future.await?).ok();
-                    },
-                    Command::Log{ .. } => {
-                    },
+                    }
+                    Command::Log { .. } => {}
                     Command::Stopped { id } => {
                         // FIXME: add timeout
                         handles[id as usize].1.handle.take().unwrap().await??;
                     }
                     Command::Stop => {
                         // pipe ignores stop from sections
-                    },
+                    }
                     Command::Ack(_) => {
                         // pipe can't ack messages
-                    },
+                    }
                 }
             }
             Ok(())
@@ -159,19 +172,23 @@ where
 // Wrapper around tokio handle
 //
 // Implements custom Drop to abort spawned tasks
-struct HandleWrap{
-    handle: Option<JoinHandle<Result<(), SectionError>>>
+struct HandleWrap {
+    handle: Option<JoinHandle<Result<(), SectionError>>>,
 }
 
 impl HandleWrap {
     fn new(handle: JoinHandle<Result<(), SectionError>>) -> Self {
-        Self { handle: Some(handle) }
+        Self {
+            handle: Some(handle),
+        }
     }
 }
 
 impl Drop for HandleWrap {
     fn drop(&mut self) {
-        if let Some(handle) = self.handle.take() { handle.abort() }
+        if let Some(handle) = self.handle.take() {
+            handle.abort()
+        }
     }
 }
 

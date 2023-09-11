@@ -2,26 +2,17 @@
 
 use std::any::Any;
 
-use futures::{Stream, Sink};
+use futures::{Sink, Stream};
 use tokio::sync::mpsc::{
-    Sender,
-    Receiver,
-    channel,
-    UnboundedReceiver,
-    UnboundedSender,
+    channel, unbounded_channel, Receiver, Sender, UnboundedReceiver, UnboundedSender,
     WeakUnboundedSender,
-    unbounded_channel,
 };
-use tokio::sync::oneshot::{
-    channel as oneshot_channel,
-    Sender as OneshotSender,
-};
+use tokio::sync::oneshot::{channel as oneshot_channel, Sender as OneshotSender};
 use tokio_stream::wrappers::{ReceiverStream, UnboundedReceiverStream};
 use tokio_util::sync::PollSender;
 
 use super::state::State;
 use super::types::SectionError;
-
 
 #[derive(Debug)]
 pub enum Command {
@@ -29,19 +20,29 @@ pub enum Command {
     Ack(Box<dyn Any + Send + Sync + 'static>),
 
     // Store state
-    StoreState{id: u64, state: State},
+    StoreState {
+        id: u64,
+        state: State,
+    },
 
     // Retrieve state
-    RetrieveState{id: u64, reply_to: OneshotSender<Option<State>>},
+    RetrieveState {
+        id: u64,
+        reply_to: OneshotSender<Option<State>>,
+    },
 
     // Signal for section to stop
     Stop,
 
     // Signal from section to pipe
-    Stopped{id: u64},
+    Stopped {
+        id: u64,
+    },
 
     // Logging
-    Log{id: u64},
+    Log {
+        id: u64,
+    },
 }
 
 /// Pipe root channel
@@ -58,17 +59,19 @@ impl RootChannel {
 
     // create new channel for section
     pub fn section_channel(&self, section_id: u64) -> (UnboundedSender<Command>, SectionChannel) {
-        let pipe_tx = self.tx.clone();     
+        let pipe_tx = self.tx.clone();
         let (section_tx, section_rx) = unbounded_channel::<Command>();
         let weak_section_tx = section_tx.clone().downgrade();
-        (section_tx, SectionChannel::new(section_id, pipe_tx, section_rx, weak_section_tx))
+        (
+            section_tx,
+            SectionChannel::new(section_id, pipe_tx, section_rx, weak_section_tx),
+        )
     }
 
-    pub fn split(Self{tx, rx}: Self) -> (impl Sink<Command>, impl Stream<Item=Command>) {
+    pub fn split(Self { tx, rx }: Self) -> (impl Sink<Command>, impl Stream<Item = Command>) {
         (PollSender::new(tx), ReceiverStream::new(rx))
     }
 }
-
 
 pub struct SectionChannel {
     pub section_id: u64,
@@ -83,29 +86,40 @@ pub struct SectionChannel {
 impl SectionChannel {
     pub fn new(
         section_id: u64,
-        tx: Sender<Command>, 
+        tx: Sender<Command>,
         rx: UnboundedReceiver<Command>,
-        self_weak_tx: WeakUnboundedSender<Command>
+        self_weak_tx: WeakUnboundedSender<Command>,
     ) -> Self {
-        Self { 
-            section_id, 
+        Self {
+            section_id,
             tx,
             rx: Some(UnboundedReceiverStream::new(rx)),
-            self_weak_tx: WeakSenderWrapper::new(self_weak_tx)
+            self_weak_tx: WeakSenderWrapper::new(self_weak_tx),
         }
     }
 
     pub async fn store_state(&self, state: State) -> Result<(), SectionError> {
-        Ok(self.tx.send(Command::StoreState{id: self.section_id, state}).await?)
+        Ok(self
+            .tx
+            .send(Command::StoreState {
+                id: self.section_id,
+                state,
+            })
+            .await?)
     }
 
     pub async fn retrieve_state(&self) -> Result<Option<State>, SectionError> {
         let (tx, rx) = oneshot_channel::<Option<State>>();
-        self.tx.send(Command::RetrieveState{id: self.section_id, reply_to: tx}).await?;
+        self.tx
+            .send(Command::RetrieveState {
+                id: self.section_id,
+                reply_to: tx,
+            })
+            .await?;
         Ok(rx.await?)
     }
 
-    pub fn split(mut self) -> (Self, impl Stream<Item=Command>) {
+    pub fn split(mut self) -> (Self, impl Stream<Item = Command>) {
         let stream = self.rx.take().unwrap();
         (self, stream)
     }
@@ -113,13 +127,15 @@ impl SectionChannel {
 
 impl Drop for SectionChannel {
     fn drop(&mut self) {
-        let _ = self.tx.try_send(Command::Stopped{id: self.section_id});
+        let _ = self.tx.try_send(Command::Stopped {
+            id: self.section_id,
+        });
     }
 }
 
 #[derive(Clone)]
 pub struct WeakSenderWrapper {
-    tx: WeakUnboundedSender<Command>
+    tx: WeakUnboundedSender<Command>,
 }
 
 impl WeakSenderWrapper {

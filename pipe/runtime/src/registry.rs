@@ -3,12 +3,11 @@
 //! Registry is a mapping between section name and section constuctor.
 //! Registry is used mainly by pipe scheduler to build pipelines out of text configs.
 
-use std::collections::HashMap;
 use crate::{
     config::Map,
     types::{DynSection, SectionError},
 };
-
+use std::collections::HashMap;
 
 pub type Constructor = fn(&Map) -> Result<Box<dyn DynSection>, SectionError>;
 

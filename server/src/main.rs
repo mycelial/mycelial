@@ -15,6 +15,10 @@ use axum::{
 use base64::engine::{general_purpose::STANDARD as BASE64, Engine};
 use chrono::Utc;
 use clap::Parser;
+use common::{
+    Destination, IssueTokenRequest, IssueTokenResponse, PipeConfig, PipeConfigs,
+    ProvisionClientRequest, ProvisionClientResponse, Source,
+};
 use futures::StreamExt;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -24,7 +28,6 @@ use std::{str::FromStr, sync::Arc};
 use tokio::sync::Mutex;
 use tower_http::services::ServeDir;
 use uuid::Uuid;
-use common::{Destination, IssueTokenRequest, IssueTokenResponse, PipeConfig, PipeConfigs, ProvisionClientRequest, ProvisionClientResponse, Source};
 
 mod error;
 
@@ -256,7 +259,11 @@ async fn provision_client(
             &payload.client_config.destinations,
         )
         .await
-        .map(|_| Json(ProvisionClientResponse { id: client_id.clone() }))
+        .map(|_| {
+            Json(ProvisionClientResponse {
+                id: client_id.clone(),
+            })
+        })
 }
 
 async fn issue_token(
@@ -307,7 +314,7 @@ impl Database {
         client_id: &str,
         display_name: &str,
         sources: &[Source],
-        destinations: &[Destination]
+        destinations: &[Destination],
     ) -> Result<(), error::Error> {
         let sources = serde_json::to_string(sources)?;
         let destinations = serde_json::to_string(destinations)?;
@@ -347,11 +354,7 @@ impl Database {
         Ok(id.try_into().unwrap())
     }
 
-    async fn update_config(
-        &self,
-        id: u64,
-        config: &serde_json::Value,
-    ) -> Result<(), error::Error> {
+    async fn update_config(&self, id: u64, config: &serde_json::Value) -> Result<(), error::Error> {
         let mut connection = self.connection.lock().await;
         let config: String = serde_json::to_string(config)?;
         let id: i64 = id.try_into().unwrap();
@@ -411,7 +414,13 @@ impl Database {
             .bind(offset)
             .fetch_optional(&mut *connection)
             .await?;
-        Ok(row.map(|row| (row.get::<i64, &str>("id").try_into().unwrap(), row.get("origin"), row.get("data"))))
+        Ok(row.map(|row| {
+            (
+                row.get::<i64, &str>("id").try_into().unwrap(),
+                row.get("origin"),
+                row.get("data"),
+            )
+        }))
     }
 
     async fn get_clients(&self) -> Result<Clients, error::Error> {
@@ -429,7 +438,12 @@ impl Database {
             let sources = serde_json::from_str(&sources.unwrap_or("[]".to_string()))?;
             let destinations: Option<String> = row.get("destinations");
             let destinations = serde_json::from_str(&destinations.unwrap_or("[]".to_string()))?;
-            clients.push(Client { id, display_name, sources, destinations });
+            clients.push(Client {
+                id,
+                display_name,
+                sources,
+                destinations,
+            });
         }
         Ok(Clients { clients })
     }
@@ -505,17 +519,13 @@ impl App {
 
     async fn update_configs(&self, configs: PipeConfigs) -> Result<(), error::Error> {
         for config in configs.configs {
-            self.database
-                .update_config(config.id, &config.pipe)
-                .await?
+            self.database.update_config(config.id, &config.pipe).await?
         }
         Ok(())
     }
 
     async fn update_config(&self, config: PipeConfig) -> Result<PipeConfig, error::Error> {
-        self.database
-            .update_config(config.id, &config.pipe)
-            .await?;
+        self.database.update_config(config.id, &config.pipe).await?;
         Ok(config)
     }
 
@@ -579,8 +589,7 @@ async fn main() -> anyhow::Result<()> {
                         .delete(delete_pipe_config)
                         .put(put_pipe_config),
                 )
-                .route("/api/clients", get(get_clients))
-                // .layer(middleware::from_fn_with_state(state.clone(), client_auth)),
+                .route("/api/clients", get(get_clients)), // .layer(middleware::from_fn_with_state(state.clone(), client_auth)),
         )
         .with_state(state.clone());
 

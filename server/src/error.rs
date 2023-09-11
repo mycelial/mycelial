@@ -32,7 +32,7 @@ pub enum Error {
     SerdeJsonError(serde_json::Error),
 
     // &'static str error
-    Str(&'static str) 
+    Str(&'static str),
 }
 
 impl std::fmt::Display for Error {
