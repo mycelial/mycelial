@@ -1,9 +1,8 @@
-import { memo, FC } from 'react';
-import { Handle, Position, NodeProps, NodeResizer } from 'reactflow';
+import { memo, FC } from "react";
+import { Handle, Position, NodeProps, NodeResizer } from "reactflow";
 // import * as Select from '@radix-ui/react-select';
 
-import { Select } from '@/components/inputs';
-
+import { Select } from "@/components/inputs";
 
 const DatabaseNode: FC<NodeProps> = ({ id, data }) => {
   return (
@@ -12,11 +11,11 @@ const DatabaseNode: FC<NodeProps> = ({ id, data }) => {
         name="database"
         label="Database"
         placeholder="Pick one"
-        options={['Sqlite', 'PostgreSQL', 'Snowflake']}
+        options={["Sqlite", "PostgreSQL", "Snowflake"]}
         onChange={() => {}}
       />
     </div>
   );
-}
+};
 
 export default memo(DatabaseNode);

@@ -8,12 +8,13 @@ import {
   ColorSchemeProvider,
 } from "@mantine/core";
 
-export function MycMantineProvider({ children }: { children: React.ReactNode }) {
+export function MycMantineProvider({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
-    <MantineProvider
-      withGlobalStyles
-      withNormalizeCSS
-    >
+    <MantineProvider withGlobalStyles withNormalizeCSS>
       {children}
     </MantineProvider>
   );

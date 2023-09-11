@@ -1,4 +1,4 @@
-'use client';
+"use client";
 
 import {
   UnstyledButton,
@@ -7,18 +7,21 @@ import {
   Avatar,
   Text,
   createStyles,
-} from '@mantine/core';
-import { IconChevronRight } from '@tabler/icons-react';
+} from "@mantine/core";
+import { IconChevronRight } from "@tabler/icons-react";
 
 const useStyles = createStyles((theme) => ({
   user: {
-    display: 'block',
-    width: '100%',
+    display: "block",
+    width: "100%",
     padding: theme.spacing.md,
-    color: theme.colorScheme === 'dark' ? theme.colors.dark[0] : theme.black,
+    color: theme.colorScheme === "dark" ? theme.colors.dark[0] : theme.black,
 
-    '&:hover': {
-      backgroundColor: theme.colorScheme === 'dark' ? theme.colors.dark[8] : theme.colors.gray[0],
+    "&:hover": {
+      backgroundColor:
+        theme.colorScheme === "dark"
+          ? theme.colors.dark[8]
+          : theme.colors.gray[0],
     },
   },
 }));
@@ -30,7 +33,13 @@ interface UserButtonProps extends UnstyledButtonProps {
   icon?: React.ReactNode;
 }
 
-export function UserButton({ image, name, email, icon, ...others }: UserButtonProps) {
+export function UserButton({
+  image,
+  name,
+  email,
+  icon,
+  ...others
+}: UserButtonProps) {
   const { classes } = useStyles();
 
   return (

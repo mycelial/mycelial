@@ -1,10 +1,10 @@
-import { memo, FC, CSSProperties } from 'react';
-import { Handle, Position, NodeProps, NodeResizer } from 'reactflow';
+import { memo, FC, CSSProperties } from "react";
+import { Handle, Position, NodeProps, NodeResizer } from "reactflow";
 
 const sourceHandleStyleA: CSSProperties = { left: 50 };
 const sourceHandleStyleB: CSSProperties = {
   right: 50,
-  left: 'auto',
+  left: "auto",
 };
 
 const CustomNode: FC<NodeProps> = ({ data, xPos, yPos }) => {
@@ -17,7 +17,7 @@ const CustomNode: FC<NodeProps> = ({ data, xPos, yPos }) => {
           Label: <strong>{data.label}</strong>
         </div>
         <div>
-          Position:{' '}
+          Position:{" "}
           <strong>
             {xPos.toFixed(2)},{yPos.toFixed(2)}
           </strong>

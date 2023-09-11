@@ -39,7 +39,7 @@ const SqliteSourceNode: FC<NodeProps> = memo(({ id, data, selected }) => {
         }
 
         return node;
-      })
+      }),
     );
   }, []);
 
@@ -81,34 +81,32 @@ const SqliteSourceNode: FC<NodeProps> = memo(({ id, data, selected }) => {
         >
           <XMarkIcon className="h-5 w-5" aria-hidden="true" />
         </button>
-            <TextInput
-              name="sqlitedatabase_path"
-              label="Sqlite Database Path"
-              placeholder={initialValues.database_path}
-              defaultValue={initialValues.database_path}
-              onChange={(event) =>
-                handleChange("path", event.currentTarget.value)
-              }
-            />
-            <TextInput
-              name="sqliteQuery"
-              label="Tables"
-              placeholder={initialValues.tables}
-              defaultValue={initialValues.tables}
-              onChange={(event) =>
-                handleChange("tables", event.currentTarget.value)
-              }
-            />
-            <Select
-              name="client"
-              label="Client"
-              placeholder="Pick one"
-              defaultValue={initialValues.client}
-              options={(clients || []).map((c) => c.id)}
-              onChange={(value) => {
-                handleChange("client", value || "");
-              }}
-            />
+        <TextInput
+          name="sqlitedatabase_path"
+          label="Sqlite Database Path"
+          placeholder={initialValues.database_path}
+          defaultValue={initialValues.database_path}
+          onChange={(event) => handleChange("path", event.currentTarget.value)}
+        />
+        <TextInput
+          name="sqliteQuery"
+          label="Tables"
+          placeholder={initialValues.tables}
+          defaultValue={initialValues.tables}
+          onChange={(event) =>
+            handleChange("tables", event.currentTarget.value)
+          }
+        />
+        <Select
+          name="client"
+          label="Client"
+          placeholder="Pick one"
+          defaultValue={initialValues.client}
+          options={(clients || []).map((c) => c.id)}
+          onChange={(value) => {
+            handleChange("client", value || "");
+          }}
+        />
         <Handle type="source" position={Position.Right} id={id} />
       </div>
     </div>
@@ -137,7 +135,7 @@ const SqliteDestinationNode: FC<NodeProps> = memo(({ id, data, selected }) => {
         }
 
         return node;
-      })
+      }),
     );
   }, []);
 
@@ -221,7 +219,7 @@ const MyceliteSourceNode: FC<NodeProps> = memo(({ id, data, selected }) => {
         }
 
         return node;
-      })
+      }),
     );
   }, []);
 
@@ -262,107 +260,14 @@ const MyceliteSourceNode: FC<NodeProps> = memo(({ id, data, selected }) => {
         >
           <XMarkIcon className="h-5 w-5" aria-hidden="true" />
         </button>
-            <TextInput
-              name="journal_path"
-              label="Mycelite Journal Path"
-              placeholder={initialValues.journal_path}
-              defaultValue={initialValues.journal_path}
-              onChange={(event) =>
-                handleChange("journal_path", event.currentTarget.value)
-              }
-            />
-            <Select
-              name="client"
-              label="Client"
-              placeholder="Pick one"
-              defaultValue={initialValues.client}
-              options={(clients || []).map((c) => c.id)}
-              onChange={(value) => {
-                handleChange("client", value || "");
-              }}
-            />
-        <Handle type="source" position={Position.Right} id={id} />
-      </div>
-    </div>
-  );
-});
-
-const MyceliteDestinationNode: FC<NodeProps> = memo(({ id, data, selected }) => {
-  const instance = useReactFlow();
-  const { clients } = useContext(ClientContext) as ClientContextType;
-
-  let initialValues = useMemo(() => {
-    return {
-      journal_path: data.journal_path ? data.journal_path: "/tmp/mycelite_journal_dst",
-      database_path: data.database_path ? data.database_path: "",
-      client: data.client ? data.client : "-",
-    };
-  }, []);
-
-  const handleChange = useCallback((name: string, value: string) => {
-    instance.setNodes((nodes) =>
-      nodes.map((node) => {
-        if (node.id === id) {
-          node.data = {
-            ...node.data,
-            [name]: value,
-          };
-        }
-
-        return node;
-      })
-    );
-  }, []);
-
-  const removeNode = useCallback((id: string) => {
-    let node = instance.getNode(id);
-    if (node === undefined) {
-      return;
-    }
-    let edges = getConnectedEdges([node], []);
-    instance.deleteElements({ edges, nodes: [node] });
-  }, []);
-
-  useEffect(() => {
-    handleChange("database_path", initialValues.database_path);
-    handleChange("journal_path", initialValues.journal_path);
-    handleChange("client", initialValues.client);
-  }, []);
-
-  let classNames = `${styles.customNode} `;
-  if (selected) {
-    classNames = classNames + `${styles.selected}`;
-  }
-
-  return (
-    <div className={classNames}>
-      <div className=" grid grid-cols-1 gap-x-6 gap-y-2">
-        <h2 className="text-slate-400 font-normal">Mycelite Journal Destination</h2>
-        <button
-          onClick={() => {
-            if (confirm("Are you sure you want to delete this node?")) {
-              removeNode(id);
-            }
-          }}
-          type="button"
-          className="absolute right-1 top-1 rounded bg-red-200 text-white shadow-sm hover:bg-red-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-800"
-          title="delete"
-        >
-          <XMarkIcon className="h-5 w-5" aria-hidden="true" />
-        </button>
         <TextInput
-          name="mycelitejournal_path"
+          name="journal_path"
           label="Mycelite Journal Path"
           placeholder={initialValues.journal_path}
           defaultValue={initialValues.journal_path}
-          onChange={(event) => handleChange("journal_path", event.currentTarget.value)}
-        />
-        <TextInput
-          name="mycelitedatabase_path"
-          label="Mycelite Database Path"
-          placeholder={initialValues.database_path}
-          defaultValue={initialValues.database_path}
-          onChange={(event) => handleChange("database_path", event.currentTarget.value)}
+          onChange={(event) =>
+            handleChange("journal_path", event.currentTarget.value)
+          }
         />
         <Select
           name="client"
@@ -374,12 +279,114 @@ const MyceliteDestinationNode: FC<NodeProps> = memo(({ id, data, selected }) => 
             handleChange("client", value || "");
           }}
         />
-        <Handle type="target" position={Position.Left} id={id} />
+        <Handle type="source" position={Position.Right} id={id} />
       </div>
     </div>
   );
 });
 
+const MyceliteDestinationNode: FC<NodeProps> = memo(
+  ({ id, data, selected }) => {
+    const instance = useReactFlow();
+    const { clients } = useContext(ClientContext) as ClientContextType;
+
+    let initialValues = useMemo(() => {
+      return {
+        journal_path: data.journal_path
+          ? data.journal_path
+          : "/tmp/mycelite_journal_dst",
+        database_path: data.database_path ? data.database_path : "",
+        client: data.client ? data.client : "-",
+      };
+    }, []);
+
+    const handleChange = useCallback((name: string, value: string) => {
+      instance.setNodes((nodes) =>
+        nodes.map((node) => {
+          if (node.id === id) {
+            node.data = {
+              ...node.data,
+              [name]: value,
+            };
+          }
+
+          return node;
+        }),
+      );
+    }, []);
+
+    const removeNode = useCallback((id: string) => {
+      let node = instance.getNode(id);
+      if (node === undefined) {
+        return;
+      }
+      let edges = getConnectedEdges([node], []);
+      instance.deleteElements({ edges, nodes: [node] });
+    }, []);
+
+    useEffect(() => {
+      handleChange("database_path", initialValues.database_path);
+      handleChange("journal_path", initialValues.journal_path);
+      handleChange("client", initialValues.client);
+    }, []);
+
+    let classNames = `${styles.customNode} `;
+    if (selected) {
+      classNames = classNames + `${styles.selected}`;
+    }
+
+    return (
+      <div className={classNames}>
+        <div className=" grid grid-cols-1 gap-x-6 gap-y-2">
+          <h2 className="text-slate-400 font-normal">
+            Mycelite Journal Destination
+          </h2>
+          <button
+            onClick={() => {
+              if (confirm("Are you sure you want to delete this node?")) {
+                removeNode(id);
+              }
+            }}
+            type="button"
+            className="absolute right-1 top-1 rounded bg-red-200 text-white shadow-sm hover:bg-red-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-800"
+            title="delete"
+          >
+            <XMarkIcon className="h-5 w-5" aria-hidden="true" />
+          </button>
+          <TextInput
+            name="mycelitejournal_path"
+            label="Mycelite Journal Path"
+            placeholder={initialValues.journal_path}
+            defaultValue={initialValues.journal_path}
+            onChange={(event) =>
+              handleChange("journal_path", event.currentTarget.value)
+            }
+          />
+          <TextInput
+            name="mycelitedatabase_path"
+            label="Mycelite Database Path"
+            placeholder={initialValues.database_path}
+            defaultValue={initialValues.database_path}
+            onChange={(event) =>
+              handleChange("database_path", event.currentTarget.value)
+            }
+          />
+          <Select
+            name="client"
+            label="Client"
+            placeholder="Pick one"
+            defaultValue={initialValues.client}
+            options={(clients || []).map((c) => c.id)}
+            onChange={(value) => {
+              handleChange("client", value || "");
+            }}
+          />
+          <Handle type="target" position={Position.Left} id={id} />
+        </div>
+      </div>
+    );
+  },
+);
 
 const MycelialNetworkNode: FC<NodeProps> = memo(({ id, data, selected }) => {
   const instance = useReactFlow();
@@ -414,7 +421,7 @@ const MycelialNetworkNode: FC<NodeProps> = memo(({ id, data, selected }) => {
         }
 
         return node;
-      })
+      }),
     );
   }, []);
 
@@ -505,7 +512,7 @@ const SnowflakeDestinationNode: FC<NodeProps> = memo(
           }
 
           return node;
-        })
+        }),
       );
     }, []);
 
@@ -626,7 +633,7 @@ const SnowflakeDestinationNode: FC<NodeProps> = memo(
         </div>
       </div>
     );
-  }
+  },
 );
 
 const SnowflakeSourceNode: FC<NodeProps> = memo(({ id, data, selected }) => {
@@ -660,7 +667,7 @@ const SnowflakeSourceNode: FC<NodeProps> = memo(({ id, data, selected }) => {
         }
 
         return node;
-      })
+      }),
     );
   }, []);
 
@@ -774,12 +781,12 @@ const SnowflakeSourceNode: FC<NodeProps> = memo(({ id, data, selected }) => {
           onChange={(event) => handleChange("query", event.currentTarget.value)}
         />
         <Select
-            name="client"
-            label="Client"
-            placeholder="Pick one"
-            defaultValue={initialValues.client}
-            options={(clients || []).map((c) => c.id)}
-            onChange={(value) => handleChange("client", value || "")}
+          name="client"
+          label="Client"
+          placeholder="Pick one"
+          defaultValue={initialValues.client}
+          options={(clients || []).map((c) => c.id)}
+          onChange={(value) => handleChange("client", value || "")}
         />
         <Handle type="source" position={Position.Right} id={id} />
       </div>
@@ -811,7 +818,7 @@ const KafkaSourceNode: FC<NodeProps> = memo(({ id, data, selected }) => {
         }
 
         return node;
-      })
+      }),
     );
   }, []);
 
@@ -892,7 +899,6 @@ const KafkaSourceNode: FC<NodeProps> = memo(({ id, data, selected }) => {
   );
 });
 
-
 const PostgresSourceNode: FC<NodeProps> = memo(({ id, data, selected }) => {
   const instance = useReactFlow();
   const { clients } = useContext(ClientContext) as ClientContextType;
@@ -912,16 +918,16 @@ const PostgresSourceNode: FC<NodeProps> = memo(({ id, data, selected }) => {
 
   const handleChange = useCallback((name: string, value: string) => {
     instance.setNodes((nodes) =>
-        nodes.map((node) => {
-          if (node.id === id) {
-            node.data = {
-              ...node.data,
-              [name]: value,
-            };
-          }
+      nodes.map((node) => {
+        if (node.id === id) {
+          node.data = {
+            ...node.data,
+            [name]: value,
+          };
+        }
 
-          return node;
-        })
+        return node;
+      }),
     );
   }, []);
 
@@ -949,93 +955,89 @@ const PostgresSourceNode: FC<NodeProps> = memo(({ id, data, selected }) => {
   }, []);
 
   return (
-      <div className={classNames}>
-        <div className=" grid grid-cols-1 gap-x-6 gap-y-2">
-          <h2 className="text-slate-400 font-normal">PostgreSQL CDC Source</h2>
-          <button
-              onClick={() => {
-                if (confirm("Are you sure you want to delete this node?")) {
-                  removeNode(id);
-                }
-              }}
-              type="button"
-              className="absolute right-1 top-1 rounded bg-red-200 text-white shadow-sm hover:bg-red-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-800"
-              title="delete"
-          >
-            <XMarkIcon className="h-5 w-5" aria-hidden="true" />
-          </button>
-          <TextInput
-              name="hostname"
-              label="Hostname"
-              placeholder={initialValues.host}
-              defaultValue={initialValues.host}
-              onChange={(event) =>
-                  handleChange("host", event.currentTarget.value)
-              }
-          />
-          <TextInput
-              name="port"
-              label="Port"
-              placeholder={initialValues.port}
-              defaultValue={initialValues.port}
-              onChange={(event) =>
-                  handleChange("port", event.currentTarget.value)
-              }
-          />
-          <TextInput
-              name="user"
-              label="User"
-              placeholder={initialValues.user}
-              defaultValue={initialValues.user}
-              onChange={(event) => handleChange("user", event.currentTarget.value)}
-          />
-          <TextInput
-              name="password"
-              label="Password"
-              placeholder={initialValues.password}
-              defaultValue={initialValues.password}
-              onChange={(event) =>
-                  handleChange("password", event.currentTarget.value)
-              }
-          />
-          <TextInput
-              name="database"
-              label="Database"
-              placeholder={initialValues.database}
-              defaultValue={initialValues.database}
-              onChange={(event) =>
-                  handleChange("database", event.currentTarget.value)
-              }
-          />
-          <TextInput
-              name="publication_names"
-              label="Publication Names"
-              placeholder={initialValues.publication_names}
-              defaultValue={initialValues.publication_names}
-              onChange={(event) =>
-                  handleChange("publication_names", event.currentTarget.value)
-              }
-          />
-          <TextInput
-              name="slot_name"
-              label="Slot Name"
-              placeholder={initialValues.slot_name}
-              defaultValue={initialValues.slot_name}
-              onChange={(event) =>
-                  handleChange("slot_name", event.currentTarget.value)
-              }
-          />
-          <Select
-              name="client"
-              label="Client"
-              placeholder="Pick one"
-              defaultValue={initialValues.client}
-              options={(clients || []).map((c) => c.id)}
-              onChange={(value) => handleChange("client", value || "")}
-          />
-          <Handle type="source" position={Position.Right} id={id} />
-        </div>
+    <div className={classNames}>
+      <div className=" grid grid-cols-1 gap-x-6 gap-y-2">
+        <h2 className="text-slate-400 font-normal">PostgreSQL CDC Source</h2>
+        <button
+          onClick={() => {
+            if (confirm("Are you sure you want to delete this node?")) {
+              removeNode(id);
+            }
+          }}
+          type="button"
+          className="absolute right-1 top-1 rounded bg-red-200 text-white shadow-sm hover:bg-red-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-800"
+          title="delete"
+        >
+          <XMarkIcon className="h-5 w-5" aria-hidden="true" />
+        </button>
+        <TextInput
+          name="hostname"
+          label="Hostname"
+          placeholder={initialValues.host}
+          defaultValue={initialValues.host}
+          onChange={(event) => handleChange("host", event.currentTarget.value)}
+        />
+        <TextInput
+          name="port"
+          label="Port"
+          placeholder={initialValues.port}
+          defaultValue={initialValues.port}
+          onChange={(event) => handleChange("port", event.currentTarget.value)}
+        />
+        <TextInput
+          name="user"
+          label="User"
+          placeholder={initialValues.user}
+          defaultValue={initialValues.user}
+          onChange={(event) => handleChange("user", event.currentTarget.value)}
+        />
+        <TextInput
+          name="password"
+          label="Password"
+          placeholder={initialValues.password}
+          defaultValue={initialValues.password}
+          onChange={(event) =>
+            handleChange("password", event.currentTarget.value)
+          }
+        />
+        <TextInput
+          name="database"
+          label="Database"
+          placeholder={initialValues.database}
+          defaultValue={initialValues.database}
+          onChange={(event) =>
+            handleChange("database", event.currentTarget.value)
+          }
+        />
+        <TextInput
+          name="publication_names"
+          label="Publication Names"
+          placeholder={initialValues.publication_names}
+          defaultValue={initialValues.publication_names}
+          onChange={(event) =>
+            handleChange("publication_names", event.currentTarget.value)
+          }
+        />
+        <TextInput
+          name="slot_name"
+          label="Slot Name"
+          placeholder={initialValues.slot_name}
+          defaultValue={initialValues.slot_name}
+          onChange={(event) =>
+            handleChange("slot_name", event.currentTarget.value)
+          }
+        />
+        <Select
+          name="client"
+          label="Client"
+          placeholder="Pick one"
+          defaultValue={initialValues.client}
+          options={(clients || []).map((c) => c.id)}
+          onChange={(value) => handleChange("client", value || "")}
+        />
+        <Handle type="source" position={Position.Right} id={id} />
       </div>
+    </div>
   );
 });
 

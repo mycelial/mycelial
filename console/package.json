@@ -41,6 +41,7 @@
     "typescript": "5.1.5"
   },
   "devDependencies": {
-    "@types/dagre": "^0.7.49"
+    "@types/dagre": "^0.7.49",
+    "prettier": "3.0.3"
   }
 }

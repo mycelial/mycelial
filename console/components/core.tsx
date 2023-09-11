@@ -14,4 +14,4 @@ export {
   rem,
   Button,
   Box,
-} from '@mantine/core';
+} from "@mantine/core";

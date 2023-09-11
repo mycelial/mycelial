@@ -4,7 +4,7 @@ import * as React from "react";
 import { ClientContextType, IClient } from "../@types/client";
 
 export const ClientContext = React.createContext<ClientContextType | null>(
-  null
+  null,
 );
 
 async function getClients(token: string) {
@@ -35,15 +35,15 @@ async function registerClient() {
           node: {
             unique_id: "ui",
             display_name: "UI",
-            storage_path: ""
+            storage_path: "",
           },
           server: {
             endpoint: "localhost",
-            token: ""
+            token: "",
           },
           sources: [],
-          destinations: []
-        }
+          destinations: [],
+        },
       }),
     });
     const result = await response.json();
@@ -88,7 +88,7 @@ const ClientProvider: React.FC<React.PropsWithChildren> = ({ children }) => {
       id: "post 1",
       display_name: "Post Dev",
       sources: [],
-      destinations: []
+      destinations: [],
     },
     {
       id: "post 2",

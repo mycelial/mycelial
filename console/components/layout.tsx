@@ -1,3 +1,3 @@
 "use client";
 
-export { Grid, Container, Group, Anchor } from '@mantine/core';
+export { Grid, Container, Group, Anchor } from "@mantine/core";

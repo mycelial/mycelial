@@ -38,7 +38,8 @@ import {
   MycelialNetworkNode,
   KafkaSourceNode,
   SnowflakeSourceNode,
-  SnowflakeDestinationNode, PostgresSourceNode,
+  SnowflakeDestinationNode,
+  PostgresSourceNode,
 } from "@/components/nodes";
 
 import { Grid, Group } from "@/components/layout";
@@ -48,7 +49,12 @@ import { Button, Box } from "@/components/core";
 import { createStyles, Navbar, Text, rem } from "@/components/core";
 
 import ClientProvider, { ClientContext } from "../context/clientContext";
-import {ClientContextType, IClient, IDestination, ISource} from "../@types/client";
+import {
+  ClientContextType,
+  IClient,
+  IDestination,
+  ISource,
+} from "../@types/client";
 
 const useStyles = createStyles((theme) => ({
   navbar: {
@@ -182,7 +188,7 @@ const defaultEdgeOptions = {
 const getRandomString = () => {
   return String(Date.now().toString(32) + Math.random().toString(16)).replace(
     /\./g,
-    ""
+    "",
   );
 };
 const getId = () => `dndnode_${getRandomString()}`;
@@ -195,45 +201,57 @@ function NavbarSearch(props: NavbarSearchProps) {
   const { classes } = useStyles();
   const { clients } = (useContext(ClientContext) as ClientContextType) || {};
 
-  const onDragStart = (event: any, client: IClient | null, source: ISource | null, destination: IDestination | null) => {
+  const onDragStart = (
+    event: any,
+    client: IClient | null,
+    source: ISource | null,
+    destination: IDestination | null,
+  ) => {
     // fixme: better way to pass state through than the stringified json?
-    event.dataTransfer.setData("application/json", JSON.stringify({
-      client: client,
-      source: source,
-      destination: destination,
-    }));
+    event.dataTransfer.setData(
+      "application/json",
+      JSON.stringify({
+        client: client,
+        source: source,
+        destination: destination,
+      }),
+    );
     event.dataTransfer.effectAllowed = "move";
   };
 
-  const sourcesLinks = clients.flatMap((client) => (
-      client.sources.map((source, idx) => {
-        const label = `Source: ${client.display_name} - ${source.display_name}`;
+  const sourcesLinks = clients.flatMap((client) =>
+    client.sources.map((source, idx) => {
+      const label = `Source: ${client.display_name} - ${source.display_name}`;
 
-        return <div
-            className={classes.collectionLink}
-            key={label}
-            onDragStart={(event) => onDragStart(event, client, source, null)}
-            draggable
+      return (
+        <div
+          className={classes.collectionLink}
+          key={label}
+          onDragStart={(event) => onDragStart(event, client, source, null)}
+          draggable
         >
           {label}
-        </div>;
-      })
-  ));
+        </div>
+      );
+    }),
+  );
 
-  const destinationsLinks = clients.flatMap((client) => (
-      client.destinations.map((dest, idx) => {
-        const label = `Destination: ${client.display_name} - ${dest.display_name}`;
+  const destinationsLinks = clients.flatMap((client) =>
+    client.destinations.map((dest, idx) => {
+      const label = `Destination: ${client.display_name} - ${dest.display_name}`;
 
-        return <div
-            className={classes.collectionLink}
-            key={label}
-            onDragStart={(event) => onDragStart(event, client, null, dest)}
-            draggable
+      return (
+        <div
+          className={classes.collectionLink}
+          key={label}
+          onDragStart={(event) => onDragStart(event, client, null, dest)}
+          draggable
         >
           {label}
-        </div>;
-      })
-  ));
+        </div>
+      );
+    }),
+  );
 
   // todo: is there a data-driven way to do this?
   const transportLinks = () => {
@@ -246,13 +264,14 @@ function NavbarSearch(props: NavbarSearchProps) {
     };
 
     return [
-      <div key="mycelial_network"
-          className={classes.collectionLink}
-            onDragStart={(event) => onDragStart(event, null, source, source)}
-            draggable
+      <div
+        key="mycelial_network"
+        className={classes.collectionLink}
+        onDragStart={(event) => onDragStart(event, null, source, source)}
+        draggable
       >
         Mycelial Network
-      </div>
+      </div>,
     ];
   };
 
@@ -350,7 +369,7 @@ const getLayoutedElements = (nodes: any[], edges: any[], direction = "TB") => {
 
 const { nodes: layoutedNodes, edges: layoutedEdges } = getLayoutedElements(
   initialNodes,
-  initialEdges
+  initialEdges,
 );
 
 function Flow() {
@@ -363,7 +382,7 @@ function Flow() {
 
   const onConnect = useCallback(
     (params: Connection | Edge) => setEdges((eds) => addEdge(params, eds)),
-    [setEdges]
+    [setEdges],
   );
 
   const { token } = (useContext(ClientContext) as ClientContextType) || {};
@@ -380,7 +399,10 @@ function Flow() {
         const id = getId();
 
         let nodeType = element.name;
-        if (nodeType === "mycelial_net_source" || nodeType === "mycelial_net_destination") {
+        if (
+          nodeType === "mycelial_net_source" ||
+          nodeType === "mycelial_net_destination"
+        ) {
           nodeType = "mycelial_network";
         }
 
@@ -445,7 +467,7 @@ function Flow() {
       setNodes([...layoutedNodes]);
       setEdges([...layoutedEdges]);
     },
-    [nodes, edges]
+    [nodes, edges],
   );
 
   const setInitialElements = useCallback(async () => {
@@ -466,20 +488,20 @@ function Flow() {
     onLayout("LR");
   }, [initialDataLoaded]);
 
-
   const onEdgeChange = useCallback(
     (eds: EdgeChange[]) => {
       for (const eid in eds) {
         const change = eds[eid];
         if (change.type === "remove") {
           let edgeChange = change as EdgeRemoveChange;
-          let storedEdgeIds = reactFlowInstance?.getEdge(edgeChange.id)?.data?.ids;
+          let storedEdgeIds = reactFlowInstance?.getEdge(edgeChange.id)?.data
+            ?.ids;
           setEdgesToBeDeleted((eds) => eds.concat(storedEdgeIds));
         }
       }
       onEdgesChange(eds);
     },
-    [reactFlowInstance, onEdgesChange, setEdgesToBeDeleted, edgesToBeDeleted]
+    [reactFlowInstance, onEdgesChange, setEdgesToBeDeleted, edgesToBeDeleted],
   );
 
   const getDetailsForNode = useCallback(
@@ -498,10 +520,10 @@ function Flow() {
         return {
           name: node.type,
           ...node.data,
-        }
+        };
       }
     },
-    []
+    [],
   );
 
   const handleSave = useCallback(async () => {
@@ -606,7 +628,7 @@ function Flow() {
               "Content-Type": "application/json",
               "X-Authorization": "Bearer " + btoa(token),
             },
-          }
+          },
         );
 
         await response.json();
@@ -642,10 +664,17 @@ function Flow() {
       event.preventDefault();
 
       const reactFlowBounds = reactFlowWrapper.current.getBoundingClientRect();
-      const {client: client, source: source, destination: destination} = JSON.parse(event.dataTransfer.getData("application/json"));
+      const {
+        client: client,
+        source: source,
+        destination: destination,
+      } = JSON.parse(event.dataTransfer.getData("application/json"));
 
       // check if the dropped element is valid
-      if ((typeof client === "undefined" || !client) && (!source || !destination)) {
+      if (
+        (typeof client === "undefined" || !client) &&
+        (!source || !destination)
+      ) {
         return;
       }
 
@@ -680,13 +709,15 @@ function Flow() {
           data: { label: `${type} node`, client: client.id, ...destination },
         };
       } else {
-        console.error("either source or destination should be set on the drag element")
+        console.error(
+          "either source or destination should be set on the drag element",
+        );
         return;
       }
 
       setNodes((nds) => nds.concat(newNode));
     },
-    [reactFlowInstance, setNodes]
+    [reactFlowInstance, setNodes],
   );
 
   const minimapStyle = {
