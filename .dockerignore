@@ -1,5 +1,5 @@
 target/
 server/mycelial.db
-myc-console/node_modules/
-myc-console/.next/
-myc-console/out/
+console/node_modules/
+console/.next/
+console/out/

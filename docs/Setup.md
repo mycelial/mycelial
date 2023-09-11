@@ -25,7 +25,7 @@ The source and destination computers need a Mycelial client installed.
 
 ## Mycelial Webserver
 
-1. Navigate to `mycelial/myc-console`
+1. Navigate to `mycelial/console`
 2. Build the frontend with `make build`
 
 At this point you should be able to open the web [interface](http://localhost:8080)

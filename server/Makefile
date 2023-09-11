@@ -1,6 +1,6 @@
 SHELL := bash
 TAG ?= pipe_server
-export ASSETS_DIR ?= $(shell echo `dirname $(PWD)`/myc-console/out/)
+export ASSETS_DIR ?= $(shell echo `dirname $(PWD)`/console/out/)
 
 .PHONY: all
 all:

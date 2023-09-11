@@ -25,7 +25,7 @@ jobs:
           command: check
 
   lints:
-    name: Lints
+    name: Rust Lints
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -47,6 +47,22 @@ jobs:
         with:
           command: clippy
           args: -- -D warnings
+
+  console-build:
+    name: Console Build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: console
+    steps:
+      - uses: actions/checkout@v3
+      - name: Use Node.js 20
+        uses: actions/setup-node@v3
+        with:
+          node-version: 20.x
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run build
 
   macos-test:
     name: macos

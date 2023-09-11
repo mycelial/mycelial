@@ -14,7 +14,7 @@ RUN apk add musl-dev openssl-dev bash build-base && \
 # frontend assets
 FROM node:lts-alpine3.18 as build_frontend_assets
 WORKDIR /app
-COPY myc-console/ /app/
+COPY console/ /app/
 RUN npm i && npm run build
 
 
