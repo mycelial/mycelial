@@ -4,6 +4,7 @@ FROM rust:alpine AS build_client
 WORKDIR /app/client
 COPY client/ /app/client/
 COPY common /app/common/
+COPY pipe /app/pipe/
 COPY Cargo.lock /app/client/
 COPY client/build/docker_cargo_config.toml /app/client/.cargo/config.toml
 
