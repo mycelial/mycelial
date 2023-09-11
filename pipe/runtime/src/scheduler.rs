@@ -30,6 +30,7 @@ pub trait Storage {
     ) -> Pin<Box<dyn Future<Output = Result<Option<State>, SectionError>> + Send + 'static>>;
 }
 
+#[allow(dead_code)] // fixme
 pub struct Scheduler<Storage> {
     registry: Registry,
     storage: Storage,
@@ -37,6 +38,7 @@ pub struct Scheduler<Storage> {
     pipes: HashMap<u64, OneshotSender<()>>,
 }
 
+#[allow(dead_code)] // fixme
 #[derive(Debug)]
 pub enum Message {
     /// Add new pipe to schedule
@@ -66,6 +68,7 @@ pub enum Message {
     },
 }
 
+#[allow(dead_code)] // fixme
 #[derive(Debug)]
 pub enum ScheduleResult {
     /// New pipe was scheduler
@@ -78,6 +81,7 @@ pub enum ScheduleResult {
     Noop,
 }
 
+#[allow(dead_code)] // fixme
 impl<T: Storage + Clone + Send + 'static> Scheduler<T> {
     pub fn new(registry: Registry, storage: T) -> Self {
         Self {
@@ -172,6 +176,7 @@ impl<T: Storage + Clone + Send + 'static> Scheduler<T> {
 /// spawn pipe
 ///
 /// if future exited before rx channel - notify scheduler that pipe did die
+#[allow(dead_code)] // fixme
 fn spawn(
     id: u64,
     scheduler_tx: WeakSender<Message>,
@@ -197,6 +202,7 @@ fn spawn(
     tx
 }
 
+#[allow(dead_code)] // fixme
 #[derive(Debug, Clone)]
 pub struct SchedulerHandle {
     tx: Sender<Message>,
@@ -233,6 +239,7 @@ macro_rules! call {
     }
 }
 
+#[allow(dead_code)] // fixme
 impl SchedulerHandle {
     /// Schedule new pipe
     ///

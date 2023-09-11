@@ -4,12 +4,12 @@ use super::types::SectionError;
 
 /// FIXME: is there a way to avoid dependency on serde_json?
 /// erased-serde can be used for dyn Serialize/Deserialize types
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct State(serde_json::Map<String, serde_json::Value>);
 
 impl State {
     pub fn new() -> Self {
-        Self(Default::default())
+        Self::default()
     }
 
     pub fn upsert(&mut self, key: impl Into<String>, value: impl Into<serde_json::Value>) {

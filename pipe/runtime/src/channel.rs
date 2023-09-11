@@ -14,6 +14,7 @@ use tokio::sync::mpsc::{
 use tokio_stream::wrappers::{ReceiverStream, UnboundedReceiverStream};
 use tokio_util::sync::PollSender;
 
+#[allow(dead_code)] // fixme
 pub fn channel<T>(buf_size: usize) -> (PollSender<T>, ReceiverStream<T>)
 where
     T: Send + 'static,
@@ -22,6 +23,7 @@ where
     (PollSender::new(tx), ReceiverStream::new(rx))
 }
 
+#[allow(dead_code)] // fixme
 pub fn unbounded_channel<T>() -> (PollUnboundedSender<T>, UnboundedReceiverStream<T>)
 where
     T: Send + 'static,
@@ -38,6 +40,7 @@ pub struct PollUnboundedSender<T> {
 }
 
 impl<T> PollUnboundedSender<T> {
+    #[allow(dead_code)] // fixme
     pub fn new(inner: UnboundedSender<T>) -> Self {
         Self { inner }
     }

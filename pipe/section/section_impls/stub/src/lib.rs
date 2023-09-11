@@ -40,7 +40,8 @@ where
             let _input = input;
             let _output = output;
             let _command = command;
-            Ok(pending::<()>().await)
+            pending::<()>().await;
+            Ok(())
         })
     }
 }

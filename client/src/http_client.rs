@@ -29,13 +29,9 @@ struct Client {
 }
 
 fn is_for_client(config: &DynamicPipeConfig, name: &str) -> bool {
-    config
-        .get_sections()
-        .iter()
-        .any(|section| match section.get("client") {
-            Some(Value::String(client)) if client == name => true,
-            _ => false,
-        })
+    config.get_sections().iter().any(
+        |section| matches!(section.get("client"), Some(Value::String(client)) if client == name),
+    )
 }
 
 impl Client {

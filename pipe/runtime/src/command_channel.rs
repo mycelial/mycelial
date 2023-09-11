@@ -68,6 +68,7 @@ impl RootChannel {
         )
     }
 
+    #[allow(dead_code)] // fixme
     pub fn split(Self { tx, rx }: Self) -> (impl Sink<Command>, impl Stream<Item = Command>) {
         (PollSender::new(tx), ReceiverStream::new(rx))
     }

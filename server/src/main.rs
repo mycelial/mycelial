@@ -32,7 +32,7 @@ use uuid::Uuid;
 mod error;
 
 #[derive(Parser)]
-struct CLI {
+struct Cli {
     #[clap(short, long, env = "LISTEN_ADDR", default_value = "0.0.0.0:8080")]
     listen_addr: String,
 
@@ -68,13 +68,11 @@ async fn ingestion(
         buf.append(&mut chunk.unwrap().to_vec());
     }
     let reader = StreamReader::try_new(buf.as_slice(), None).unwrap();
-    for record_batch in reader {
-        if let Ok(record_batch) = record_batch {
-            app.database
-                .store_record(&topic, origin, &record_batch)
-                .await
-                .unwrap()
-        }
+    for record_batch in reader.flatten() {
+        app.database
+            .store_record(&topic, origin, &record_batch)
+            .await
+            .unwrap()
     }
     Ok(Json("ok"))
 }
@@ -118,14 +116,14 @@ struct Client {
 }
 
 async fn get_pipe_configs(State(app): State<Arc<App>>) -> Result<impl IntoResponse, error::Error> {
-    Ok(app.get_configs().await.map(Json)?)
+    app.get_configs().await.map(Json)
 }
 
 async fn get_pipe_config(
     State(app): State<Arc<App>>,
     axum::extract::Path(id): axum::extract::Path<u64>,
 ) -> Result<impl IntoResponse, error::Error> {
-    Ok(app.get_config(id).await.map(Json)?)
+    app.get_config(id).await.map(Json)
 }
 
 async fn post_pipe_config(
@@ -150,7 +148,7 @@ async fn put_pipe_configs(
     State(app): State<Arc<App>>,
     Json(configs): Json<PipeConfigs>,
 ) -> Result<impl IntoResponse, error::Error> {
-    Ok(app.update_configs(configs).await.map(Json)?)
+    app.update_configs(configs).await.map(Json)
 }
 
 async fn put_pipe_config(
@@ -159,7 +157,7 @@ async fn put_pipe_config(
     Json(mut config): Json<PipeConfig>,
 ) -> Result<impl IntoResponse, error::Error> {
     config.id = id;
-    Ok(app.update_config(config).await.map(Json)?)
+    app.update_config(config).await.map(Json)
 }
 
 async fn delete_pipe_config(
@@ -170,7 +168,7 @@ async fn delete_pipe_config(
 }
 
 async fn get_clients(State(app): State<Arc<App>>) -> Result<impl IntoResponse, error::Error> {
-    Ok(app.database.get_clients().await.map(Json)?)
+    app.database.get_clients().await.map(Json)
 }
 
 async fn basic_auth<B>(
@@ -388,7 +386,7 @@ impl Database {
         stream_writer.write(record_batch).unwrap();
         stream_writer.finish().unwrap();
 
-        let bytes: Vec<u8> = stream_writer.into_inner().unwrap().into();
+        let bytes: Vec<u8> = stream_writer.into_inner().unwrap();
 
         let mut connection = self.connection.lock().await;
         sqlx::query("INSERT INTO records (topic, origin, data) VALUES (?, ?, ?)")
@@ -565,7 +563,7 @@ impl App {
 async fn main() -> anyhow::Result<()> {
     pretty_env_logger::init();
 
-    let cli = CLI::try_parse()?;
+    let cli = Cli::try_parse()?;
     let app = App::new(cli.database_path, cli.token).await?;
     let state = Arc::new(app);
 
