@@ -1339,7 +1339,7 @@ version = "0.1.0"
 source = "git+https://github.com/mycelial/pipexperiments?rev=90b90911afbfe21d842819bb4cb7659b5f2778e5#90b90911afbfe21d842819bb4cb7659b5f2778e5"
 dependencies = [
  "arrow 42.0.0",
- "base64 0.21.2",
+ "base64 0.21.3",
  "bytes",
  "fallible-iterator 0.3.0",
  "futures",
@@ -2695,7 +2695,7 @@ dependencies = [
  "arrow-ipc 42.0.0",
  "arrow-schema 42.0.0",
  "arrow-select 42.0.0",
- "base64 0.21.2",
+ "base64 0.21.3",
  "brotli",
  "bytes",
  "chrono",
@@ -3245,7 +3245,7 @@ dependencies = [
  "tokio",
  "tokio-stream",
  "tokio-util",
- "toml 0.7.5",
+ "toml 0.7.6",
 ]
 
 [[package]]

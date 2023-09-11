@@ -1,0 +1,126 @@
+name: CI
+
+on:
+  push:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+
+  check:
+    name: Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+
+      - name: Run cargo check
+        uses: actions-rs/cargo@v1
+        with:
+          command: check
+
+  lints:
+    name: Lints
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+          components: rustfmt, clippy
+
+      - name: cargo fmt
+        uses: actions-rs/cargo@v1
+        with:
+          command: fmt
+          args: --all -- --check
+
+      - name: cargo clippy
+        uses: actions-rs/cargo@v1
+        with:
+          command: clippy
+          args: -- -D warnings
+
+  macos-test:
+    name: macos
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+      - name: Run cargo test
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+
+  linux:
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - x86_64-unknown-linux-gnu
+          - i686-unknown-linux-gnu
+          - arm-unknown-linux-gnueabihf
+    name: ${{ matrix.target }}
+    runs-on: ubuntu-latest
+    env:
+      CARGO_TARGET_ARM_UNKNOWN_LINUX_GNUEABIHF_LINKER: arm-linux-gnueabihf-gcc
+      CARGO_TARGET_ARM_UNKNOWN_LINUX_GNUEABIHF_AR: arm-linux-gnueabihf-ar
+      CARGO_TARGET_ARM_UNKNOWN_LINUX_GNUEABIHF_RUNNER: qemu-arm -L /usr/arm-linux-gnueabihf
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+
+      - name: Install packages
+        run: |
+          case "${{ matrix.target }}" in
+          "x86_64-unknown-linux-gnu")
+            packages=""
+            ;;
+          "i686-unknown-linux-gnu")
+            packages="gcc-multilib g++-multilib"
+            ;;
+          "arm-unknown-linux-gnueabihf")
+            packages="gcc-arm-linux-gnueabihf g++-arm-linux-gnueabihf qemu-user"
+            ;;
+          esac
+
+          sudo apt-get update
+          sudo apt-get install -y $packages
+      - run: |
+          echo "RUST_TEST_THREADS=1" >> $GITHUB_ENV
+          echo BINDGEN_EXTRA_CLANG_ARGS="--sysroot /usr/arm-linux-gnueabihf" >> $GITHUB_ENV
+        if: matrix.target == 'arm-unknown-linux-gnueabihf'
+      - name: Run cargo test
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+
+  windows-test:
+    name: windows
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+      - name: Run cargo test
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
