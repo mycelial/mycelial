@@ -1,15 +1,23 @@
 # sample node config
+
+# MYCELIAL NODE
+# "Node" refers to the container, VM, or bare metal machine where this
+# Mycelial Client is installed.
 [node]
-# human-readable name
-display_name = "Test Client"
-unique_id = "dev_client"
-storage_path = "dev_client.sqlite"
+display_name = "Dev Client" # Human-readable Name for this Mycelial Client
+unique_id = "dev_client" # Unique ID for this Mycelial Client
+storage_path = "client_state.sqlite" # Path and name of SQLite database to store this Mycelial Client's state
 
+# MYCELIAL SERVER
+# Replace with the endpoint and token for your Mycelial Server
 [server]
-endpoint = "http://localhost:8080"
-token = "token"
+endpoint = "http://localhost:8080" # Default Mycelial Server endpoint
+token = "token" # Default token for Mycelial Server and Clietns
 
-# define all sources owned by the client node
+
+# SOURCES
+# Define all data sources (data stores and directory paths)
+# accessible by the Node that should be exposed as SOURCES to Mycelial Server
 [[sources]]
 type = "sqlite"
 display_name = "Movie Database"
@@ -44,6 +52,9 @@ type = "mycelite"
 display_name = "Mycelial Movie"
 journal_path = "/tmp/something.sqlite.mycelial"
 
+# DESTINATIONS
+# Define all data DESTINATIONS (data stores and directory paths)
+# accessible by the Node that should be exposed as DESTINATIONS to the Mycelial Server
 [[destinations]]
 type = "sqlite"
 display_name = "Sqlite State"
