@@ -3377,6 +3377,7 @@ dependencies = [
 name = "section"
 version = "0.1.0"
 dependencies = [
+ "async-trait",
  "futures",
 ]
 
