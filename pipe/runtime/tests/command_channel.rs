@@ -41,11 +41,11 @@ async fn test_command_channel() -> Result<(), Box<dyn std::error::Error>> {
 
         // log message
         let log_res = section_chan.log("hello").await;
-        assert!(matches!(log_res, Ok(_)));
+        assert!(log_res.is_ok());
 
         // receive stop signal
         let cmd = section_chan.recv().await;
-        assert!(matches!(cmd, Ok(_)));
+        assert!(cmd.is_ok());
         let cmd = cmd.unwrap();
         match cmd {
             Command::Stop => Result::<_, Box<dyn std::error::Error + Send + Sync + 'static>>::Ok(()),
@@ -58,14 +58,14 @@ async fn test_command_channel() -> Result<(), Box<dyn std::error::Error>> {
     assert!(matches!(state_request, Ok(Ok(_))));
     let state_request = state_request.unwrap().unwrap();
     let reply_result = state_request.reply_retrieve_state(None).await;
-    assert!(matches!(reply_result, Ok(_)));
+    assert!(reply_result.is_ok());
 
     // receive state store request and respond with ()
     let store_state_request = timeout(TIMEOUT, root_chan.recv()).await;
     assert!(matches!(store_state_request, Ok(Ok(_))));
     let store_state_request = store_state_request.unwrap().unwrap();
     let reply_result = store_state_request.reply_store_state().await;
-    assert!(matches!(reply_result, Ok(_)));
+    assert!(reply_result.is_ok());
 
     // receive request to log message
     let log_request = timeout(TIMEOUT, root_chan.recv()).await;

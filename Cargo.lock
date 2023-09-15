@@ -3715,6 +3715,23 @@ dependencies = [
 [[package]]
 name = "sqlite"
 version = "0.1.0"
+<<<<<<< HEAD
+=======
+dependencies = [
+ "fallible-iterator 0.3.0",
+ "futures",
+ "notify",
+ "runtime",
+ "section",
+ "sqlite3-parser",
+ "sqlx",
+ "stub",
+ "tempfile",
+ "thiserror",
+ "tokio",
+ "tokio-stream",
+]
+>>>>>>> fcc111c (Sqlite source on the way)
 
 [[package]]
 name = "sqlite3-parser"

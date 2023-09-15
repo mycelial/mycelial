@@ -136,11 +136,11 @@ impl SectionState {
 }
 
 impl StateTrait for SectionState {
-    fn get<T>(&self, key: &str) -> Option<T> {
+    fn get<T>(&self, _key: &str) -> Option<T> {
         None
     }
 
-    fn set<T>(&mut self, key: &str, value: T) {
+    fn set<T>(&mut self, _key: &str, _value: T) {
     }
 
     fn new() -> Self {
