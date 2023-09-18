@@ -3,12 +3,12 @@
 use std::future::Future;
 use std::pin::Pin;
 
-pub type FnAck = Pin<Box<dyn Future<Output=()> + Send + 'static>>;
+pub type Ack = Pin<Box<dyn Future<Output=()> + Send + 'static>>;
 
 pub struct Message<Payload> {
     pub origin: String,
     pub payload: Payload,
-    ack: Option<FnAck>,
+    ack: Option<Ack>,
 }
 
 impl<P: std::fmt::Debug> std::fmt::Debug for Message<P> {
@@ -21,7 +21,7 @@ impl<P: std::fmt::Debug> std::fmt::Debug for Message<P> {
 }
 
 impl<P> Message<P> {
-    pub fn new(origin: impl Into<String>, payload: impl Into<P>, ack: Option<FnAck>) -> Self {
+    pub fn new(origin: impl Into<String>, payload: impl Into<P>, ack: Option<Ack>) -> Self {
         Self{
             origin: origin.into(),
             payload: payload.into(),

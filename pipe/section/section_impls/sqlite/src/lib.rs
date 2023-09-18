@@ -2,11 +2,12 @@ use std::{sync::Arc, fmt::Display};
 use section::Message as _Message;
 
 pub mod source;
-//pub mod destination;
+pub mod destination;
 
+type StdError = Box<dyn std::error::Error + Send + Sync + 'static>;
 pub type Message = _Message<SqlitePayload>;
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct SqlitePayload {
     /// column names
     pub columns: Arc<[String]>,
@@ -24,7 +25,7 @@ pub struct SqlitePayload {
 
 // FIXME: numeric?
 // redo whole value enum?
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Value {
     Int(i64),
     Text(String),
@@ -33,7 +34,7 @@ pub enum Value {
     Null,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum ColumnType {
     Int,
     Text,

@@ -21,10 +21,10 @@ pub trait RootChannel {
 }
 
 #[async_trait]
-pub trait SectionChannel {
-    type Error;
+pub trait SectionChannel: Send + Sync {
+    type Error: std::error::Error + Send + Sync + 'static;
     type State: State;
-    type WeakRef: WeakSectionChannel;
+    type WeakChannel: WeakSectionChannel;
     type Request;
 
     // ask runtime to retrieve previosly stored state
@@ -40,7 +40,7 @@ pub trait SectionChannel {
     async fn recv(&mut self) -> Result<Command, Self::Error>;
 
     // instantiate weak channel
-    fn weak_chan(&self) -> Self::WeakRef;
+    fn weak_chan(&self) -> Self::WeakChannel;
 }
 
 #[async_trait]

@@ -17,6 +17,7 @@ tokio-stream = "0.1"
 thiserror = "1"
 
 [dev-dependencies]
-runtime = { path = "../../../runtime" }
 tempfile = "3.8"
 stub = { path = "../stub/" }
+section = { path = "../../", features=["dummy"] }
+tokio-util = "0.7"

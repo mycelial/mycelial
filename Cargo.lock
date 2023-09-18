@@ -2355,6 +2355,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "mycelite"
+version = "0.1.0"
+dependencies = [
+ "arrow 42.0.0",
+ "futures",
+ "journal",
+ "notify",
+ "section",
+ "tokio",
+ "tokio-stream",
+]
+
+[[package]]
 name = "native-tls"
 version = "0.2.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3721,7 +3734,6 @@ dependencies = [
  "fallible-iterator 0.3.0",
  "futures",
  "notify",
- "runtime",
  "section",
  "sqlite3-parser",
  "sqlx",
@@ -3730,6 +3742,7 @@ dependencies = [
  "thiserror",
  "tokio",
  "tokio-stream",
+ "tokio-util",
 ]
 >>>>>>> fcc111c (Sqlite source on the way)
 

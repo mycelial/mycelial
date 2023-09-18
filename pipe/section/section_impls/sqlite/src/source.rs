@@ -17,7 +17,7 @@
 //! 2. Column names and types are derived at start, if table was changed during runtime - section will error out.
 
 use crate::{
-    ColumnType, Value, escape_table_name, Message, SqlitePayload
+    ColumnType, Value, escape_table_name, Message, SqlitePayload, StdError
 };
 use section::{Section, SectionChannel, Command, State, WeakSectionChannel};
 use fallible_iterator::FallibleIterator;
@@ -48,7 +48,6 @@ pub struct Sqlite {
     tables: Vec<String>,
 }
 
-type StdError = Box<dyn std::error::Error + Send + Sync + 'static>;
 
 impl TryFrom<(ColumnType, usize, &SqliteRow)> for Value {
     // FIXME: specific error instead of Box<dyn Error>
@@ -109,7 +108,7 @@ impl Sqlite {
     where
         Input: Stream + Send,
         Output: Sink<Message, Error=StdError> + Send,
-        SectionChan: SectionChannel<Error=StdError> + Send + Sync,
+        SectionChan: SectionChannel + Send + Sync,
     {
         let mut connection = SqliteConnectOptions::from_str(self.path.as_str())?
             .create_if_missing(false)
@@ -134,17 +133,17 @@ impl Sqlite {
         let rx = ReceiverStream::new(rx);
         let mut rx = pin!(rx.fuse());
         loop {
-            futures::select_biased!{
+            futures::select_biased! {
                 cmd = section_channel.recv().fuse() => {
                     match cmd? {
                         Command::Ack(any) => {
-                            match any.downcast::<Message>() {
-                                Ok(batch) => {
-                                 // state.set(batch.name.to_string(), batch.offset);
-                                 // command.store_state(state.clone()).await?;
+                            match any.downcast::<AckMessage>() {
+                                Ok(ack) => {
+                                    state.set(&ack.table, ack.offset);
+                                    section_channel.store_state(state.clone()).await?;
                                 },
                                 Err(_) => 
-                                    break Err("Failed to downcast incoming Ack message to Message".into()),
+                                    Err("Failed to downcast incoming Ack message to Message")?,
                             };
                         },
                         Command::Stop => {
@@ -173,12 +172,14 @@ impl Sqlite {
 
                         let sqlite_payload = self.build_sqlite_payload(table, rows)?;
                         let weak_chan = section_channel.weak_chan();
+                        let ack_message = Box::new(AckMessage {
+                            table: Arc::clone(&table.name),
+                            offset: table.offset,
+                        });
                         let message = Message::new(table.name.to_string(), sqlite_payload, Some(Box::pin(async move {
-                            weak_chan.ack(Box::new(())).await;
+                            weak_chan.ack(ack_message).await;
                         })));
-                        if let Err(e) = output.send(message).await.map_err(|_| "failed to send data to sink") {
-                            return Err(e.into())
-                        }
+                        output.send(message).await.map_err(|_| "failed to send data to sink")?;
                     }
                     // if empty count is less than table count - we didn't reach ends of table on
                     // whole dataset
@@ -260,43 +261,32 @@ impl Sqlite {
         Ok(tables)
     }
 
-    // #[derive(Debug)]
-    // pub struct SqlitePayload {
-    //     /// column names
-    //     pub columns: Arc<[String]>,
-    // 
-    //     /// column types
-    //     pub column_types: Arc<[ColumnType]>,
-    // 
-    //     /// values
-    //     pub values: Vec<Vec<Value>>,
-    // 
-    //     /// offset
-    //     pub offset: i64
-    // }
-
-
     fn build_sqlite_payload(
         &self,
         table: &Table,
         rows: Vec<SqliteRow>,
     ) -> Result<SqlitePayload, StdError> {
-        unimplemented!()
-      //let mut values: Vec<Vec<Value>> = vec![];
-      //for row in rows.iter() {
-      //    if values.len() != row.columns().len() {
-      //        values = row
-      //            .columns()
-      //            .iter()
-      //            .map(|_| Vec::with_capacity(rows.len()))
-      //            .collect();
-      //    }
-      //    for (index, &column) in table.column_types.iter().enumerate() {
-      //        let value = Value::try_from((column, index, row))?;
-      //        values[index].push(value);
-      //    }
-      //};
-      //Ok(values)
+        let mut values: Vec<Vec<Value>> = vec![];
+        for row in rows.iter() {
+            if values.len() != row.columns().len() {
+                values = row
+                    .columns()
+                    .iter()
+                    .map(|_| Vec::with_capacity(rows.len()))
+                    .collect();
+            }
+            for (index, &column) in table.column_types.iter().enumerate() {
+                let value = Value::try_from((column, index, row))?;
+                values[index].push(value);
+            }
+        };
+        let batch = SqlitePayload {
+            columns: Arc::clone(&table.columns),
+            column_types: Arc::clone(&table.column_types),
+            values,
+            offset: table.offset
+        };
+        Ok(batch)
     }
 
     /// Watch sqlite database file and sqlite WAL (if present) for changes
@@ -323,16 +313,21 @@ impl Sqlite {
     }
 }
 
-impl<Input, Output, Cmd> Section<Input, Output, Cmd> for Sqlite
+struct AckMessage {
+    table: Arc<str>,
+    offset: i64,
+}
+
+impl<Input, Output, SectionChan> Section<Input, Output, SectionChan> for Sqlite
 where
     Input: Stream + Send + 'static,
     Output: Sink<Message, Error=StdError> + Send + 'static, 
-    Cmd: SectionChannel<Error=StdError> + Send + Sync + 'static,
+    SectionChan: SectionChannel + Send + Sync + 'static,
 {
     type Error = StdError;
     type Future = Pin<Box<dyn Future<Output = Result<(), Self::Error>> + Send + 'static>>;
 
-    fn start(self, input: Input, output: Output, command: Cmd) -> Self::Future {
+    fn start(self, input: Input, output: Output, command: SectionChan) -> Self::Future {
         Box::pin(async move { self.enter_loop(input, output, command).await })
     }
 }
