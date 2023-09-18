@@ -37,17 +37,16 @@ There are two main components in Mycelial: clients and a server.
 
 The client is installed and executed on source and destination computers. These
 clients will register with the server component, and they will receive
-configuration information from the server.
+data pipeline specifications from the server.
 
-The server offers you a way to setup data pipelines, which move your data from
-one location to another via the installed clients. You can setup these data
-pipelines via a drag-and-drop web interface, or you can add these pipelines via
-api calls.
+The server offers you a way to setup data pipelines specifications, which move
+your data from one location to another via the installed clients. You can setup
+these data pipelines via a drag-and-drop web interface, or you can add these
+pipelines via api calls.
 
 Once you've installed Mycelial (clients and server) you can easily begin moving
 your data from source systems to destination systems of your choosing. Currently
-Mycelial has adapters for: SQLite, Kafka, and Snowflake but many other adapters 
-are being built.
+Mycelial has adapters for SQLite but many other adapters are being built.
 
 ## How do I get started?
 
@@ -57,6 +56,16 @@ Follow our [Setup Instructions](/docs/Setup.md) to install clients and servers.
 
 Follow our [getting started](/docs/Getting_Started.md) guides which walk you
 through how to set up data pipelines.
+
+## API
+
+API [documentation](/docs/API.md)
+
+## Community
+
+- [Discord](https://discord.gg/mycelial)
+- [@mycelial](https://twitter.com/mycelial)
+- [Newsletter](https://mycelial.com/#newsletter)
 
 ## License
 
