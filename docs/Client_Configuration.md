@@ -49,10 +49,9 @@ token = "my security token"
 ### Source Sections
 
 You can have zero or more `sources` sections, which define which data sources
-are available to the client. Currently there is only one production-ready data
+are available to the client. Currently, there is only one production-ready data
 source which is `mycelite`. Mycelite allows you to synchronize one SQLite 
-database to another. Note: many other data sources are currently being worked
-on.
+database to another. Note: many other data sources are currently in the works.
 
 #### Mycelite data source
 
@@ -71,8 +70,8 @@ SQLite extension.
 ```toml
 [[sources]]
 type = "mycelite"
-display_name = "Mycelial Movie"
-journal_path = "/tmp/something.sqlite.mycelial"
+display_name = "Objects Detected"
+journal_path = "/tmp/objects_source.sqlite.mycelial"
 ```
 </details>
 
@@ -100,8 +99,8 @@ and filename of the destination database.
 ```toml
 [[destinations]]
 type = "mycelite"
-display_name = "Mycelial Movie"
-journal_path = "/tmp/something.sqlite.mycelial"
+display_name = "Objects Detected"
+journal_path = "/tmp/objects_dest.sqlite.mycelial"
 database_path = "/tmp/hydrated_db.sqlite"
 ```
 </details>

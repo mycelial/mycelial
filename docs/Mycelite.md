@@ -2,7 +2,7 @@
 
 [Mycelite](https://github.com/mycelial/mycelite) is an open-source SQLite
 extension that allows you to replicate a SQLite database from a source to a
-destination.  Mycelite used in conjunction with Mycelial allows you to fully 
+destination.  Used in conjunction with Mycelial, Mycelite allows you to fully 
 replicate a SQLite database from a read/write source to a read-only destination.
 
 ## Mycelite extension setup
@@ -72,7 +72,7 @@ tar.exe -xvzf x86_64-pc-windows-msvc.zip
 
 After you've downloaded and unzipped the extension, you'll need to load the
 extension and open your SQLite database. When the extension is loaded and the
-SQLite database is opened, it will create a Myceliate journal file which is a
+SQLite database is opened, it will create a Mycelite journal file, which is a
 sibling file to the SQLite database file. Make a **note** of the journal
 `filename` as it will need to be referenced when setting up your pipeline
 specification in Mycelial.
@@ -148,7 +148,7 @@ db = sqlite3.connect("writer.db")
 
 ### Configure the Mycelial client
 
-Follow the [Setup](Setup.md) guides instructions for the setting up the Mycelial
+Follow the [Setup](Setup.md) guide instructions for setting up the Mycelial
 client. Reference the [Client Config](client_config.md) document when
 configuring the client.
 
@@ -167,10 +167,10 @@ near real-time to the destination SQLite database.
 
 ### Create a SQLite to SQLite data pipeline specification via the API
 
-If you prefer to setup your data pipelines with an [API](API.md) call, do the
-following.
+If you prefer to set up your data pipelines with an [API](API.md) call, do the
+following:
 
-Create the pipeline by making a `POST` specification api call to
+Create the pipeline by making a `POST` specification API call to
 `/api/pipe/configs` with the following payload:
 
 ```json

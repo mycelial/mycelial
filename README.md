@@ -2,29 +2,27 @@
 
 Out of necessity, Edge Machine Learning (ML) moves computing away from the data
 center to the edges of the network where the data is generated. This means your
-resource-intensive ML applications, must be local applications, to function
+resource-intensive ML applications must be local applications to function
 properly.
 
 This raises an important question, which is: 
 
-> "How do you access the important information on your edge devices?".
+> "How do you access the important information on your edge devices?"
 
 You could spend engineering time trying to synchronize the data on your edge 
 devices with your data center, but this is a hard problem to solve, and you can
-save yourself a lot of time and effort by using Mycelial to move your data where
-it needs to go.
+save yourself a lot of time and effort by using Mycelial to move your data where it needs to go.
 
 Mycelial offers you an easy solution to your data movement needs.
 
 ## What is Mycelial?
 
-Mycelial is an open-source software solution that moves data from sources to 
-destinations. 
+Mycelial is an open-source software solution that moves data from sources to destinations. 
 
-For example, consider an edge Machine Learning application that stores its
+For example, consider an Edge Machine Learning application that stores its
 information in a local [SQLite](https://sqlite.org/) database.
 
-So how do you get the information off of your edge device and onto a system
+So, how do you get the information off of your edge device and onto a system
 where the information can be analyzed?
 
 Well, with Mycelial you can declaratively create data pipelines that move your 
@@ -39,14 +37,14 @@ The client is installed and executed on source and destination computers. These
 clients will register with the server component, and they will receive
 data pipeline specifications from the server.
 
-The server offers you a way to setup data pipelines specifications, which move
-your data from one location to another via the installed clients. You can setup
+The server offers you a way to set up data pipeline specifications, which move
+your data from one location to another via the installed clients. You can set up
 these data pipelines via a drag-and-drop web interface, or you can add these
 pipelines via api calls.
 
 Once you've installed Mycelial (clients and server) you can easily begin moving
 your data from source systems to destination systems of your choosing. Currently
-Mycelial has adapters for SQLite but many other adapters are being built.
+Mycelial has adapters for SQLite but many other adapters are in the works. 
 
 ## How do I get started?
 
