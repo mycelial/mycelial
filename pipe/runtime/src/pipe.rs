@@ -129,7 +129,7 @@ where
             );
 
         let future = async move {
-            let mut _handles = handles;
+            let mut handles = handles;
             while let Ok(msg) = root_channel.recv().await {
                 match msg {
                     SectionRequest::StoreState{reply_to, ..} => {
@@ -144,6 +144,12 @@ where
                     },
                     SectionRequest::Log { id, message } => {
                         println!("log request from section with id: {id}, message: {message}");
+                    },
+                    SectionRequest::Stopped { id } => {
+                        return match (&mut handles[id as usize]).handle.take() {
+                            Some(handle) => handle.await?,
+                            None => Ok(())
+                        }
                     },
                     _req => {
                         unreachable!()

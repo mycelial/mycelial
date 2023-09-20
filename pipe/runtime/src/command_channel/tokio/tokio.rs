@@ -198,6 +198,12 @@ impl<S: StateTrait> SectionChannelTrait for SectionChannel<S> {
     }
 }
 
+impl<S: StateTrait> Drop for SectionChannel<S> {
+    fn drop(&mut self) {
+        self.root_tx.try_send(SectionRequest::Stopped{ id: self.id }).ok();
+    }
+}
+
 
 pub struct WeakSectionChannel {
     weak_tx: WeakUnboundedSender<Command>

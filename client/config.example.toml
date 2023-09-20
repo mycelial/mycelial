@@ -50,7 +50,7 @@ database = "public"
 [[sources]]
 type = "mycelite"
 display_name = "Mycelial Movie"
-journal_path = "/tmp/something.sqlite.mycelial"
+journal_path = "/tmp/something.sqlite.mycelial_src"
 
 # DESTINATIONS
 # Define all data DESTINATIONS (data stores and directory paths)

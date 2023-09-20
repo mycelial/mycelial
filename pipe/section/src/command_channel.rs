@@ -63,6 +63,7 @@ pub enum SectionRequest<S: State, Rs: ReplyTo<With=Option<S>>, Ss: ReplyTo<With=
     RetrieveState{id: u64, reply_to: Rs},
     StoreState{id: u64, state: S, reply_to: Ss},
     Log{id: u64, message: String},
+    Stopped{ id: u64 },
 }
 
 impl<S: State, Rs: ReplyTo<With=Option<S>>, Ss: ReplyTo<With=()>> std::fmt::Debug for SectionRequest<S, Rs, Ss> {
@@ -83,6 +84,11 @@ impl<S: State, Rs: ReplyTo<With=Option<S>>, Ss: ReplyTo<With=()>> std::fmt::Debu
                 f.debug_struct("SectionRequest::Log")
                     .field("id", id)
                     .field("message", message)
+                    .finish()
+            },
+            Self::Stopped { id } => {
+                f.debug_struct("SectionRequest::Stopped")
+                    .field("id", id)
                     .finish()
             },
             #[allow(unreachable_patterns)]

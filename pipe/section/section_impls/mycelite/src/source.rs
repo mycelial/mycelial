@@ -77,6 +77,7 @@ impl Mycelite {
         // initalize fs watcher to journal
         let (tx, watcher_rx) = tokio::sync::mpsc::channel::<()>(2);
         let mut watcher_rx = pin!(ReceiverStream::new(watcher_rx).fuse());
+        tx.send(()).await?;
         let _watcher = self.watch(self.journal_path.as_str(), tx).await?;
 
         let mut state = section_chan.retrieve_state().await?.unwrap_or(

@@ -6,7 +6,10 @@ use std::{future::Future, pin::Pin};
 
 use pipe::{
     registry::{Constructor, Registry},
-    scheduler::{Scheduler, SchedulerHandle}, storage::Storage, types::SectionError,
+    scheduler::{Scheduler, SchedulerHandle},
+    storage::Storage,
+    types::SectionError,
+    sections::mycelite,
 };
 use section::State;
 
@@ -15,8 +18,8 @@ fn setup_registry() -> Registry {
     let arr: &[(&str, Constructor)] = &[
       //("sqlite_source", sqlite::source::constructor),
       //("sqlite_destination", sqlite::destination::constructor),
-      //("mycelite_source", mycelite::source::constructor),
-      //("mycelite_destination", mycelite::destination::constructor),
+        ("mycelite_source", mycelite::source::constructor),
+        ("mycelite_destination", mycelite::destination::constructor),
       //("mycelial_net_source", mycelial_net::source::constructor),
       //(
       //    "mycelial_net_destination",
@@ -29,8 +32,7 @@ fn setup_registry() -> Registry {
       //("mycelite_destination", mycelite::destination::constructor),
       //("postgres_source", postgres::source::constructor),
     ];
-    arr.iter()
-        .fold(Registry::new(), |mut acc, &(section_name, constructor)| {
+    arr.iter() .fold(Registry::new(), |mut acc, &(section_name, constructor)| {
             acc.register_section(section_name, constructor);
             acc
         })

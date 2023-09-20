@@ -21,11 +21,11 @@ impl State for DynSectionState {
     }
 
     fn get<T>(&self, _key: &str) -> Option<T> {
-        unimplemented!()
+        None
     }
 
     fn set<T>(&mut self, _key: &str, _value: T) {
-        unimplemented!()
+        
     }
 }
 
