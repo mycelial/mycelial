@@ -29,7 +29,7 @@ use section::{
     ReplyTo
 };
 
-pub type SectionRequest<S=SectionState> = _SectionRequest<S, OneshotReply<Option<S>>, OneshotReply<()>>;
+pub type SectionRequest<S> = _SectionRequest<S, OneshotReply<Option<S>>, OneshotReply<()>>;
 
 pub struct OneshotReply<T> {
     tx: OneshotSender<T>
@@ -73,23 +73,23 @@ impl std::fmt::Display for ChanError {
 impl std::error::Error for ChanError{}
 
 // Root channel
-pub struct RootChannel {
-    rx: Receiver<SectionRequest>,
-    tx: Sender<SectionRequest>,
+pub struct RootChannel<S: StateTrait> {
+    rx: Receiver<SectionRequest<S>>,
+    tx: Sender<SectionRequest<S>>,
     section_handles: BTreeMap<u64, UnboundedSender<Command>>
 }
 
-impl RootChannel {
+impl<S: StateTrait> RootChannel<S> {
     pub fn new() -> Self {
-        let (tx, rx) = channel::<SectionRequest>(1);
+        let (tx, rx) = channel::<SectionRequest<S>>(1);
         Self {tx, rx, section_handles: BTreeMap::new()}
     }
 }
 
 #[async_trait]
-impl RootChannelTrait for RootChannel {
+impl<S: StateTrait> RootChannelTrait for RootChannel<S> {
     type Error = ChanError;
-    type SectionChannel = SectionChannel;
+    type SectionChannel = SectionChannel<S>;
 
     fn section_channel(
         &mut self,
@@ -104,7 +104,7 @@ impl RootChannelTrait for RootChannel {
         Ok(SectionChannel::new(section_id, self.tx.clone(), section_rx, weak_section_tx))
     }
 
-    async fn recv(&mut self) -> Result<SectionRequest, Self::Error> {
+    async fn recv(&mut self) -> Result<SectionRequest<S>, Self::Error> {
         match self.rx.recv().await {
             Some(msg) => Ok(msg),
             None => Err(ChanError::Closed),
@@ -122,34 +122,8 @@ impl RootChannelTrait for RootChannel {
     }
 }
 
-
-// section state
-#[derive(Debug, Clone)]
-pub struct SectionState {
-
-}
-
-impl SectionState {
-    pub fn new() -> Self {
-        Self {}
-    }
-}
-
-impl StateTrait for SectionState {
-    fn get<T>(&self, _key: &str) -> Option<T> {
-        None
-    }
-
-    fn set<T>(&mut self, _key: &str, _value: T) {
-    }
-
-    fn new() -> Self {
-        SectionState::new()
-    }
-}
-
 // section channels
-pub struct SectionChannel<S=SectionState> where S: StateTrait { 
+pub struct SectionChannel<S> where S: StateTrait { 
     id: u64,
     root_tx: Sender<SectionRequest<S>>,
     rx: UnboundedReceiver<Command>,
@@ -173,7 +147,7 @@ impl<S: StateTrait> SectionChannel<S>{
 impl<S: StateTrait> SectionChannelTrait for SectionChannel<S> {
     type State = S;
     type Error = ChanError;
-    type WeakRef = WeakSectionChannel;
+    type WeakChannel = WeakSectionChannel;
     type Request = SectionRequest<S>;
 
     // request to runtime
@@ -218,7 +192,7 @@ impl<S: StateTrait> SectionChannelTrait for SectionChannel<S> {
 
     // weak reference to self which can send Command messages
     // used for message acks
-    fn weak_chan(&self) -> Self::WeakRef {
+    fn weak_chan(&self) -> Self::WeakChannel{
         let weak_tx = self.weak_tx.clone();
         WeakSectionChannel{ weak_tx }
     }

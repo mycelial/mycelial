@@ -5,31 +5,23 @@ use std::future::IntoFuture;
 use tokio::task::JoinHandle;
 
 use crate::channel::channel;
-<<<<<<< HEAD
-use crate::command_channel::{Command, RootChannel};
+use crate::command_channel::RootChannel;
 use crate::types::{DynSection, DynSink, DynStream, SectionError, SectionFuture};
-use section::Section;
-=======
-use section::{Section, ReplyTo as _};
-use crate::types::{SectionError, SectionFuture, DynStream, DynSink, DynSection};
-use crate::command_channel::{RootChannel, SectionRequest};
+use section::{Section, ReplyTo as _, SectionRequest};
 use section::RootChannel as _;
->>>>>>> af66d55 (Initial)
 
 use super::config::Config;
 use super::message::Message;
 use super::registry::Registry;
-use super::scheduler::Storage;
 use stub::Stub;
 
-pub struct Pipe<T> {
+pub struct Pipe {
     id: u64,
-    storage: T,
     config: Config,
     sections: Option<Vec<Box<dyn DynSection>>>,
 }
 
-impl<T: std::fmt::Debug> std::fmt::Debug for Pipe<T> {
+impl std::fmt::Debug for Pipe {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Pipe")
             .field("config", &self.config)
@@ -45,18 +37,17 @@ impl<T: std::fmt::Debug> std::fmt::Debug for Pipe<T> {
     }
 }
 
-impl<T> Pipe<T> {
-    pub fn new(id: u64, config: Config, sections: Vec<Box<dyn DynSection>>, storage: T) -> Self {
+impl Pipe {
+    pub fn new(id: u64, config: Config, sections: Vec<Box<dyn DynSection>>) -> Self {
         Self {
             id,
-            storage,
             config,
             sections: Some(sections),
         }
     }
 }
 
-impl<T: Storage + Send + 'static> IntoFuture for Pipe<T> {
+impl IntoFuture for Pipe {
     type Output = Result<(), SectionError>;
     type IntoFuture = SectionFuture;
 
@@ -69,11 +60,11 @@ impl<T: Storage + Send + 'static> IntoFuture for Pipe<T> {
     }
 }
 
-impl<T: Storage + Send + 'static> TryFrom<(u64, Config, &'_ Registry, T)> for Pipe<T> {
+impl TryFrom<(u64, Config, &'_ Registry)> for Pipe {
     type Error = SectionError;
 
     fn try_from(
-        (id, config, registry, storage): (u64, Config, &Registry, T),
+        (id, config, registry): (u64, Config, &Registry),
     ) -> Result<Self, Self::Error> {
         let sections = config
             .get_sections()
@@ -90,15 +81,14 @@ impl<T: Storage + Send + 'static> TryFrom<(u64, Config, &'_ Registry, T)> for Pi
                 constructor(section_cfg)
             })
             .collect::<Result<Vec<Box<dyn DynSection>>, _>>()?;
-        Ok(Pipe::new(id, config, sections, storage))
+        Ok(Pipe::new(id, config, sections))
     }
 }
 
-impl<Input, Output, T> Section<Input, Output, ()> for Pipe<T>
+impl<Input, Output> Section<Input, Output, ()> for Pipe
 where
     Input: Stream<Item = Message> + Send + 'static,
     Output: Sink<Message, Error = SectionError> + Send + 'static,
-    T: Storage + Send + 'static,
 {
     type Error = SectionError;
     type Future = SectionFuture;
@@ -108,31 +98,6 @@ where
         let input: DynStream = Box::pin(input);
         let output: DynSink = Box::pin(output);
         let mut root_channel = RootChannel::new();
-<<<<<<< HEAD
-        let (_, _, _, handles) = self.sections.take().unwrap().into_iter().enumerate().fold(
-            (None, Some(input), Some(output), vec![]),
-            |(prev, mut pipe_input, mut pipe_output, mut acc), (pos, section)| {
-                let input: DynStream = match prev {
-                    None => pipe_input.take().unwrap(),
-                    Some(rx) => rx,
-                };
-                let (next_input, output): (DynStream, DynSink) = if pos == len - 1 {
-                    // last element
-                    let next_input = Box::pin(Stub::<_, SectionError>::new());
-                    let output = pipe_output.take().unwrap();
-                    (next_input, output)
-                } else {
-                    let (tx, rx) = channel::<Message>(1);
-                    let tx = tx.sink_map_err(|_| -> SectionError { "send error".into() });
-                    (Box::pin(rx), Box::pin(tx))
-                };
-                let (section_tx, section_channel) = root_channel.section_channel(pos as u64);
-                let handle = tokio::spawn(section.dyn_start(input, output, section_channel));
-                acc.push((section_tx, HandleWrap::new(handle)));
-                (Some(next_input), pipe_input, pipe_output, acc)
-            },
-        );
-=======
         let (_, _, _, handles) = self
             .sections
             .take()
@@ -162,46 +127,11 @@ where
                     (Some(next_input), pipe_input, pipe_output, acc)
                 },
             );
->>>>>>> af66d55 (Initial)
 
         let future = async move {
             let mut _handles = handles;
             while let Ok(msg) = root_channel.recv().await {
                 match msg {
-<<<<<<< HEAD
-                    Command::StoreState { id, state } => {
-                        // FIXME: unwrap
-                        let name = self.config.get_sections()[id as usize].get("name").unwrap();
-                        let future = self.storage.store_state(
-                            self.id,
-                            id,
-                            name.as_str().unwrap().to_string(),
-                            state,
-                        );
-                        future.await?;
-                    }
-                    Command::RetrieveState { id, reply_to } => {
-                        // FIXME: unwrap
-                        let name = self.config.get_sections()[id as usize].get("name").unwrap();
-                        let future = self.storage.retrieve_state(
-                            self.id,
-                            id,
-                            name.as_str().unwrap().to_string(),
-                        );
-                        reply_to.send(future.await?).ok();
-                    }
-                    Command::Log { .. } => {}
-                    Command::Stopped { id } => {
-                        // FIXME: add timeout
-                        handles[id as usize].1.handle.take().unwrap().await??;
-                    }
-                    Command::Stop => {
-                        // pipe ignores stop from sections
-                    }
-                    Command::Ack(_) => {
-                        // pipe can't ack messages
-                    }
-=======
                     SectionRequest::StoreState{reply_to, ..} => {
                         // FIXME: unwrap
                         //let name = self.config.get_sections()[id as usize].get("name").unwrap();
@@ -218,7 +148,6 @@ where
                     _req => {
                         unreachable!()
                     }
->>>>>>> af66d55 (Initial)
                 }
             }
             Ok(())

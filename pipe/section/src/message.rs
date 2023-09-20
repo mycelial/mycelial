@@ -8,7 +8,7 @@ pub type Ack = Pin<Box<dyn Future<Output=()> + Send + 'static>>;
 pub struct Message<Payload> {
     pub origin: String,
     pub payload: Payload,
-    ack: Option<Ack>,
+    pub ack: Option<Ack>,
 }
 
 impl<P: std::fmt::Debug> std::fmt::Debug for Message<P> {
