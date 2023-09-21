@@ -19,6 +19,11 @@ serde_json = "1"
 toml = "0.7"
 section = { path = "../section" }
 
+## fixme
+reqwest = { version = "0.11" }
+base64 = { version = "0.21" }
+bytes = "1.5"
+
 ## sections
 stub = { path = "../section/section_impls/stub/" }
 sqlite = { path = "../section/section_impls/sqlite/" }

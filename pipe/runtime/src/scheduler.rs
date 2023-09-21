@@ -3,7 +3,7 @@
 use crate::storage::Storage;
 use crate::{config::Config, pipe::Pipe, registry::Registry, types::SectionError};
 use std::future::{Future, IntoFuture};
-use std::marker::PhantomData;
+
 use std::{collections::HashMap, time::Duration};
 use section::State;
 use tokio::{

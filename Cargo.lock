@@ -2139,8 +2139,11 @@ name = "runtime"
 version = "0.1.0"
 dependencies = [
  "arrow",
+ "base64",
+ "bytes",
  "futures",
  "mycelite",
+ "reqwest",
  "section",
  "serde_json",
  "sqlite",

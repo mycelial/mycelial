@@ -10,6 +10,8 @@ use pipe::{
     storage::Storage,
     types::SectionError,
     sections::mycelite,
+    sections::mycelial_net,
+    sections::sqlite,
 };
 use section::State;
 
@@ -18,15 +20,15 @@ use crate::storage::{SqliteStorage, SqliteStorageHandle};
 /// Setup & populate registry
 fn setup_registry<S: State>() -> Registry<S> {
     let arr: &[(&str, Constructor<S>)] = &[
-      //("sqlite_source", sqlite::source::constructor),
-      //("sqlite_destination", sqlite::destination::constructor),
+        ("sqlite_source", sqlite::source::constructor),
+        ("sqlite_destination", sqlite::destination::constructor),
         ("mycelite_source", mycelite::source::constructor),
         ("mycelite_destination", mycelite::destination::constructor),
-      //("mycelial_net_source", mycelial_net::source::constructor),
-      //(
-      //    "mycelial_net_destination",
-      //    mycelial_net::destination::constructor,
-      //),
+        ("mycelial_net_source", mycelial_net::source::constructor),
+        (
+            "mycelial_net_destination",
+            mycelial_net::destination::constructor,
+        ),
       //("kafka_source", kafka::source::constructor),
       //("snowflake_source", snowflake::source::constructor),
       //("snowflake_destination", snowflake::destination::constructor),

@@ -146,7 +146,7 @@ where
                         println!("log request from section with id: {id}, message: {message}");
                     },
                     SectionRequest::Stopped { id } => {
-                        return match (&mut handles[id as usize]).handle.take() {
+                        return match handles[id as usize].handle.take() {
                             Some(handle) => handle.await?,
                             None => Ok(())
                         }
