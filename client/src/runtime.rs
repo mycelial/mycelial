@@ -2,20 +2,15 @@
 //!
 //! Pipe scheduling and peristance
 
-use std::{future::Future, pin::Pin};
-
 use pipe::{
     registry::{Constructor, Registry},
     scheduler::{Scheduler, SchedulerHandle},
-    storage::Storage,
-    types::SectionError,
     sections::mycelite,
     sections::mycelial_net,
     sections::sqlite,
 };
 use section::State;
-
-use crate::storage::{SqliteStorage, SqliteStorageHandle};
+use crate::storage::SqliteStorageHandle;
 
 /// Setup & populate registry
 fn setup_registry<S: State>() -> Registry<S> {

@@ -24,6 +24,7 @@ impl<S: State> std::fmt::Debug for Registry<S> {
 }
 
 impl<S: State> Registry<S> {
+    #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
         Self {
             reg: HashMap::new(),

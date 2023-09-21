@@ -74,7 +74,7 @@ impl Mycelial {
                     Ok(res) => Err(format!("unexpected status code: {}", res.status()))?
                 }
             }
-            msg.ack();
+            msg.ack().await;
         }
         Ok(())
     }

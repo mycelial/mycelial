@@ -131,7 +131,7 @@ impl Mycelite {
                     }
 
                     // flush last message
-                    if let Some(msg) = self.to_message(&section_chan)? {
+                    if let Some(msg) = self.build_message(&section_chan)? {
                         output.send(msg).await?
                     }
                 },
@@ -149,7 +149,7 @@ impl Mycelite {
         match self.cur_snapshot != Some(snapshot_header.id) {
             true => {
                 self.cur_snapshot = Some(snapshot_header.id);
-                let res = self.to_message(section_chan)?.map(Buf::Ok).unwrap_or(Buf::More);
+                let res = self.build_message(section_chan)?.map(Buf::Ok).unwrap_or(Buf::More);
                 self.buf.push((snapshot_header, blob_header, blob));
                 Ok(res)
             },
@@ -160,7 +160,7 @@ impl Mycelite {
         }
     }
 
-    fn to_message<SectionChan: SectionChannel>(
+    fn build_message<SectionChan: SectionChannel>(
         &mut self,
         section_chan: &SectionChan
     ) -> Result<Option<Message>, StdError> {

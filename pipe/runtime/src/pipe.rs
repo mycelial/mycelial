@@ -15,6 +15,7 @@ use super::message::Message;
 use super::registry::Registry;
 use stub::Stub;
 
+#[allow(dead_code)]
 pub struct Pipe<S: State> {
     id: u64,
     config: Config,

@@ -43,10 +43,7 @@ impl Sqlite {
         loop {
             futures::select! {
                 cmd = section_chan.recv().fuse() => {
-                    match cmd? {
-                        Command::Stop => return Ok(()),
-                        _ => {}
-                    }
+                    if let Command::Stop = cmd? { return Ok(()) }
                 },
                 message = input.next() => {
                     let mut message = match message {

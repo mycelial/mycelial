@@ -14,6 +14,7 @@ use tokio::{
     },
 };
 
+#[allow(dead_code)]
 pub struct Scheduler<T: Storage<S>, S: State> {
     registry: Registry<S>,
     storage: T,

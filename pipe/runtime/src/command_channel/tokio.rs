@@ -77,6 +77,7 @@ pub struct RootChannel<S: StateTrait> {
 }
 
 impl<S: StateTrait> RootChannel<S> {
+    #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
         let (tx, rx) = unbounded_channel::<SectionRequest<S>>();
         Self {tx, rx, section_handles: BTreeMap::new()}

@@ -75,10 +75,7 @@ impl Mycelite {
         loop {
             futures::select! {
                 cmd = section_chan.recv().fuse() => {
-                    match cmd? {
-                        Command::Stop => return Ok(()),
-                        _ => (),
-                    }
+                    if let Command::Stop = cmd? { return Ok(()) };
                 },
                 msg = input.next() => {
                     if msg.is_none() {

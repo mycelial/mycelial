@@ -8,6 +8,7 @@ use crate::{
     types::{SectionError, DynSection, DynStream, DynSink},
 };
 
+#[allow(dead_code)]
 pub struct SqliteAdapter {
     inner: Sqlite,
 }

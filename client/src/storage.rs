@@ -1,7 +1,6 @@
 //! storage backend for client
 
 use pipe::storage::Storage;
-use sqlx::sqlite::SqliteError;
 use std::any::{Any, TypeId};
 use section::State;
 use sqlx::{sqlite::SqliteConnectOptions, ConnectOptions, Row, SqliteConnection};
@@ -55,7 +54,7 @@ impl State for SqliteState {
         match value {
             serde_json::Value::String(s) if TypeId::of::<String>() == type_id => {
                 let any = s as &dyn Any;
-                Ok(any.downcast_ref().map(|s: &T| s.clone()))
+                Ok(any.downcast_ref().cloned())
             },
             serde_json::Value::Number(num) if TypeId::of::<u64>() == type_id => {
                 let num = match num.as_u64() {
@@ -63,7 +62,7 @@ impl State for SqliteState {
                     Some(num) => num,
                 };
                 let any = &num as &dyn Any;
-                Ok(any.downcast_ref().map(|s: &T| s.clone()))
+                Ok(any.downcast_ref().cloned())
             },
             serde_json::Value::Number(num) if TypeId::of::<i64>() == type_id => {
                 let num = match num.as_i64() {
@@ -71,7 +70,7 @@ impl State for SqliteState {
                     Some(num) => num,
                 };
                 let any = &num as &dyn Any;
-                Ok(any.downcast_ref().map(|s: &T| s.clone()))
+                Ok(any.downcast_ref().cloned())
             },
             _ => Ok(None),
         }
