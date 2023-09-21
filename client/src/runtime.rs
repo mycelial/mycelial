@@ -13,9 +13,11 @@ use pipe::{
 };
 use section::State;
 
+use crate::storage::{SqliteStorage, SqliteStorageHandle};
+
 /// Setup & populate registry
-fn setup_registry() -> Registry {
-    let arr: &[(&str, Constructor)] = &[
+fn setup_registry<S: State>() -> Registry<S> {
+    let arr: &[(&str, Constructor<S>)] = &[
       //("sqlite_source", sqlite::source::constructor),
       //("sqlite_destination", sqlite::destination::constructor),
         ("mycelite_source", mycelite::source::constructor),
@@ -38,49 +40,6 @@ fn setup_registry() -> Registry {
         })
 }
 
-#[derive(Debug, Clone)]
-pub struct NoopStorage {
-}
-
-#[derive(Debug, Clone)]
-pub struct NoopState {
-}
-
-impl State for NoopState {
-    fn new() -> Self {
-        Self {}
-    }
-
-    fn get<T>(&self, key: &str) -> Option<T> {
-        None
-    }
-
-    fn set<T>(&mut self, key: &str, value: T) {
-    }
-}
-
-impl Storage<NoopState> for NoopStorage {
-    fn store_state(
-        &self,
-        id: u64,
-        section_id: u64,
-        section_name: String,
-        state: NoopState,
-    ) -> Pin<Box<dyn Future<Output = Result<(), SectionError>> + Send + 'static>> {
-        Box::pin(async { Ok(()) })
-    }
-
-    fn retrieve_state(
-        &self,
-        id: u64,
-        section_id: u64,
-        section_name: String,
-    ) -> Pin<Box<dyn Future<Output = Result<Option<NoopState>, SectionError>> + Send + 'static>> {
-        Box::pin( async { Ok(None) })
-    }
-}
-
-pub fn new() -> SchedulerHandle {
-    let storage = NoopStorage{};
+pub fn new(storage: SqliteStorageHandle) -> SchedulerHandle {
     Scheduler::new(setup_registry(), storage).spawn()
 }

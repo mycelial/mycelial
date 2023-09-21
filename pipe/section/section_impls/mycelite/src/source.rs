@@ -83,7 +83,7 @@ impl Mycelite {
         let mut state = section_chan.retrieve_state().await?.unwrap_or(
             <SectionChan as SectionChannel>::State::new()
         );
-        self.cur_snapshot = state.get::<u64>("snapshot_id");
+        self.cur_snapshot = state.get::<u64>("snapshot_id")?;
 
         let mut output = pin!(output);
         loop {
@@ -94,7 +94,7 @@ impl Mycelite {
                         Command::Ack(ack) => {
                             match ack.downcast::<u64>() {
                                 Ok(snapshot_id) => {
-                                    state.set("snapshot_id", *snapshot_id);
+                                    state.set("snapshot_id", *snapshot_id)?;
                                     section_chan.store_state(state.clone()).await?;
                                     self.cur_snapshot = Some(*snapshot_id);
                                 },

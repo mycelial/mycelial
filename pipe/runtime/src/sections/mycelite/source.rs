@@ -1,22 +1,22 @@
 use crate::{
-    types::{DynSection, SectionError, SectionFuture, DynStream, DynSink, DynSectionState},
+    types::{DynSection, SectionError, SectionFuture, DynStream, DynSink},
     config::Map,
     message,
 };
 use futures::{StreamExt, SinkExt};
 use mycelite::source::Mycelite;
-use section::Section;
+use section::{Section, State};
 use crate::command_channel::SectionChannel;
 
 pub struct MyceliteAdapter {
     inner: Mycelite
 }
 
-impl Section<DynStream, DynSink, SectionChannel<DynSectionState>> for MyceliteAdapter {
+impl<S: State> Section<DynStream, DynSink, SectionChannel<S>> for MyceliteAdapter {
     type Future = SectionFuture;
     type Error = SectionError;
 
-    fn start(self, input: DynStream, output: DynSink, command_channel: SectionChannel<DynSectionState>) -> Self::Future {
+    fn start(self, input: DynStream, output: DynSink, command_channel: SectionChannel<S>) -> Self::Future {
         Box::pin(async move { 
             // adapt incoming message to mycelite message
             let input = input.map(|msg| {
@@ -39,7 +39,7 @@ impl Section<DynStream, DynSink, SectionChannel<DynSectionState>> for MyceliteAd
 /// name = "mycelite_source"
 /// journal_path = "/tmp/path_to_journal"
 /// ```
-pub fn constructor(config: &Map) -> Result<Box<dyn DynSection>, SectionError> {
+pub fn constructor<S: State>(config: &Map) -> Result<Box<dyn DynSection<S>>, SectionError> {
     let path = config
         .get("journal_path")
         .ok_or("mycelite journal path is required")?

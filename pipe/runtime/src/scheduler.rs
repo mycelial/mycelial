@@ -15,11 +15,10 @@ use tokio::{
 };
 
 pub struct Scheduler<T: Storage<S>, S: State> {
-    registry: Registry,
+    registry: Registry<S>,
     storage: T,
     pipe_configs: HashMap<u64, Config>,
     pipes: HashMap<u64, OneshotSender<()>>,
-    _state: PhantomData<S>,
 }
 
 #[allow(dead_code)] // fixme
@@ -67,13 +66,12 @@ pub enum ScheduleResult {
 
 #[allow(dead_code)] // fixme
 impl<S: State + 'static, T: Storage<S> + Clone + Send + 'static> Scheduler<T, S> {
-    pub fn new(registry: Registry, storage: T) -> Self {
+    pub fn new(registry: Registry<S>, storage: T) -> Self {
         Self {
             registry,
             storage,
             pipe_configs: HashMap::new(),
             pipes: HashMap::new(),
-            _state: PhantomData,
         }
     }
 

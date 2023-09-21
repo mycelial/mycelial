@@ -139,7 +139,7 @@ impl Sqlite {
                         Command::Ack(any) => {
                             match any.downcast::<AckMessage>() {
                                 Ok(ack) => {
-                                    state.set(&ack.table, ack.offset);
+                                    state.set(&ack.table, ack.offset)?;
                                     section_channel.store_state(state.clone()).await?;
                                 },
                                 Err(_) => 
@@ -247,7 +247,7 @@ impl Sqlite {
                 };
                 col_types.push(ty);
             };
-            let offset = state.get::<i64>(&name).unwrap_or(0);
+            let offset = state.get::<i64>(&name)?.unwrap_or(0);
             let table = Table {
                 name: Arc::from(name),
                 columns: Arc::from(cols),

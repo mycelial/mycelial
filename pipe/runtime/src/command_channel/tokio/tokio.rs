@@ -1,10 +1,7 @@
 //! Root channel implementation for tokio
 
 use tokio::sync::mpsc::{
-    channel,
     unbounded_channel,
-    Receiver,
-    Sender,
     UnboundedSender,
     UnboundedReceiver, 
     WeakUnboundedSender,

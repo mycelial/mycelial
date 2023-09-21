@@ -47,8 +47,8 @@ async fn main() -> Result<()> {
     let cli = Cli::try_parse()?;
     let config = read_config(&cli.config)?;
 
-    //let storage_handle = storage::new(config.node.storage_path.clone()).await?;
-    let runtime_handle = runtime::new(); //storage_handle);
+    let storage_handle = storage::new(config.node.storage_path.clone()).await?;
+    let runtime_handle = runtime::new(storage_handle);
     let client_handle = http_client::new(config, runtime_handle);
     client_handle.await??;
 

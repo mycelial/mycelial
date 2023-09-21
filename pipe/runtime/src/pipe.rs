@@ -7,7 +7,7 @@ use tokio::task::JoinHandle;
 use crate::channel::channel;
 use crate::command_channel::RootChannel;
 use crate::types::{DynSection, DynSink, DynStream, SectionError, SectionFuture};
-use section::{Section, ReplyTo as _, SectionRequest};
+use section::{Section, ReplyTo as _, SectionRequest, State};
 use section::RootChannel as _;
 
 use super::config::Config;
@@ -15,13 +15,13 @@ use super::message::Message;
 use super::registry::Registry;
 use stub::Stub;
 
-pub struct Pipe {
+pub struct Pipe<S: State> {
     id: u64,
     config: Config,
-    sections: Option<Vec<Box<dyn DynSection>>>,
+    sections: Option<Vec<Box<dyn DynSection<S>>>>,
 }
 
-impl std::fmt::Debug for Pipe {
+impl<S: State> std::fmt::Debug for Pipe<S> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Pipe")
             .field("config", &self.config)
@@ -37,8 +37,8 @@ impl std::fmt::Debug for Pipe {
     }
 }
 
-impl Pipe {
-    pub fn new(id: u64, config: Config, sections: Vec<Box<dyn DynSection>>) -> Self {
+impl<S: State> Pipe<S> {
+    pub fn new(id: u64, config: Config, sections: Vec<Box<dyn DynSection<S>>>) -> Self {
         Self {
             id,
             config,
@@ -47,7 +47,7 @@ impl Pipe {
     }
 }
 
-impl IntoFuture for Pipe {
+impl<S: State> IntoFuture for Pipe<S> {
     type Output = Result<(), SectionError>;
     type IntoFuture = SectionFuture;
 
@@ -60,16 +60,16 @@ impl IntoFuture for Pipe {
     }
 }
 
-impl TryFrom<(u64, Config, &'_ Registry)> for Pipe {
+impl<S: State> TryFrom<(u64, Config, &'_ Registry<S>)> for Pipe<S> {
     type Error = SectionError;
 
     fn try_from(
-        (id, config, registry): (u64, Config, &Registry),
+        (id, config, registry): (u64, Config, &Registry<S>),
     ) -> Result<Self, Self::Error> {
         let sections = config
             .get_sections()
             .iter()
-            .map(|section_cfg| -> Result<Box<dyn DynSection>, SectionError> {
+            .map(|section_cfg| -> Result<Box<dyn DynSection<S>>, SectionError> {
                 let name: &str = section_cfg
                     .get("name")
                     .ok_or("section needs to have a name")?
@@ -80,12 +80,12 @@ impl TryFrom<(u64, Config, &'_ Registry)> for Pipe {
                     .ok_or(format!("no constructor for '{name}' available"))?;
                 constructor(section_cfg)
             })
-            .collect::<Result<Vec<Box<dyn DynSection>>, _>>()?;
+            .collect::<Result<Vec<Box<dyn DynSection<S>>>, _>>()?;
         Ok(Pipe::new(id, config, sections))
     }
 }
 
-impl<Input, Output> Section<Input, Output, ()> for Pipe
+impl<Input, Output, S: State> Section<Input, Output, ()> for Pipe<S>
 where
     Input: Stream<Item = Message> + Send + 'static,
     Output: Sink<Message, Error = SectionError> + Send + 'static,
