@@ -122,7 +122,7 @@ impl<S: State + Send, Rs: ReplyTo<With=Option<S>>, Ss: ReplyTo<With=()>> Section
                 reply_to
                     .reply(state)
                     .await
-                    .map_err(|e| SectionRequestReplyError::ReplyError(e))
+                    .map_err(SectionRequestReplyError::ReplyError)
             },
             _ => Err(SectionRequestReplyError::BadResponse("expected to reply to state request")),
         }
@@ -134,7 +134,7 @@ impl<S: State + Send, Rs: ReplyTo<With=Option<S>>, Ss: ReplyTo<With=()>> Section
                 reply_to
                     .reply(())
                     .await
-                    .map_err(|e| SectionRequestReplyError::ReplyError(e))
+                    .map_err(SectionRequestReplyError::ReplyError)
             },
             _ => Err(SectionRequestReplyError::BadResponse("expected to reply to state request")),
         }

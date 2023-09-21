@@ -3,7 +3,7 @@ use std::str::FromStr;
 use futures::{StreamExt, SinkExt};
 use sqlx::{sqlite::SqliteConnectOptions, ConnectOptions, Connection, SqliteConnection};
 use stub::Stub;
-use section::{RootChannel as _, SectionChannel as _, Section as _};
+use section::{Section as _};
 use section::dummy::dummy_command_channel::*;
 use sqlite::{source, Message, SqlitePayload, ColumnType, Value};
 use tempfile::NamedTempFile;
@@ -113,7 +113,7 @@ async fn source() -> Result<(), StdError> {
                 Value::Real(30.0),
                 Value::Real(40.0),
             ],
-        ].into(),
+        ],
         offset: 4,
     });
     handle.abort();

@@ -37,7 +37,7 @@ impl Mycelial {
         self, 
         input: Input,
         _output: Output,
-        section_chan: SectionChan
+        _section_chan: SectionChan
     ) -> Result<(), SectionError>
     where Input: Stream<Item=Message> + Send + 'static,
           Output: Sink<Message, Error=SectionError> + Send + 'static,

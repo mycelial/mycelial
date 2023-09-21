@@ -16,7 +16,7 @@ impl<S: State> Section<DynStream, DynSink, SectionChannel<S>> for SqliteAdapter 
     type Future = SectionFuture;
     type Error = SectionError;
 
-    fn start(self, input: DynStream, output: DynSink, section_channel: SectionChannel<S>) -> Self::Future {
+    fn start(self, _input: DynStream, _output: DynSink, _section_channel: SectionChannel<S>) -> Self::Future {
         unimplemented!()
     }
 }

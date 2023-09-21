@@ -1,4 +1,4 @@
-use std::{pin::{pin, Pin},  sync::Arc};
+use std::{pin::{pin, Pin}};
 use futures::{Stream, StreamExt, Sink, FutureExt};
 use section::{SectionChannel, Section, Command};
 
