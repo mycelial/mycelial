@@ -1,5 +1,5 @@
 use crate::{RootChannel, SectionChannel, async_trait, WeakSectionChannel, State, Command};
-use std::{future::{ready, pending}, any::Any};
+use std::{future::{ready, pending}, any::Any, convert::Infallible};
 
 #[derive(Debug)]
 pub struct DummyError {
@@ -84,16 +84,18 @@ impl SectionChannel for DummySectionChannel {
 pub struct DummyState{}
 
 impl State for DummyState {
+    type Error = Infallible;
+
     fn new() -> Self {
         Self{}
     }
 
-    fn get<T>(&self, _key: &str) -> Option<T> {
-        None
+    fn get<T>(&self, _key: &str) -> Result<Option<T>, Self::Error> {
+        Ok(None)
     }
 
-    fn set<T>(&mut self, _key: &str, _value: T) {
-
+    fn set<T>(&mut self, _key: &str, _value: T) -> Result<(), Self::Error> {
+        Ok(())
     }
 }
 
