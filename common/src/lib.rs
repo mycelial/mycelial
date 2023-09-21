@@ -1,5 +1,7 @@
-use exp2::dynamic_pipe::config::Config as DynamicPipeConfig;
-use exp2::dynamic_pipe::config::Value as DynamicPipeValue;
+use pipe::{config::{
+    Config as DynamicPipeConfig,
+    Value as DynamicPipeValue,
+}, types::SectionError};
 use serde::{Deserialize, Serialize};
 
 /// Top level configuration object
@@ -174,7 +176,7 @@ pub struct PipeConfig {
 }
 
 impl TryInto<DynamicPipeConfig> for PipeConfig {
-    type Error = exp2::dynamic_pipe::section::Error;
+    type Error = SectionError;
 
     fn try_into(self) -> Result<DynamicPipeConfig, Self::Error> {
         let value: DynamicPipeValue = self.pipe.try_into()?;

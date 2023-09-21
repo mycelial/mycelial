@@ -9,11 +9,7 @@ use common::{
     ClientConfig, IssueTokenRequest, IssueTokenResponse, PipeConfig, PipeConfigs,
     ProvisionClientRequest, ProvisionClientResponse,
 };
-use exp2::dynamic_pipe::{
-    config::{Config as DynamicPipeConfig, Value},
-    scheduler::SchedulerHandle,
-    section,
-};
+use pipe::{scheduler::SchedulerHandle, config::{Value, Config}, types::SectionError};
 use tokio::task::JoinHandle;
 
 /// Http Client
@@ -28,7 +24,7 @@ struct Client {
     scheduler_handle: SchedulerHandle,
 }
 
-fn is_for_client(config: &DynamicPipeConfig, name: &str) -> bool {
+fn is_for_client(config: &Config, name: &str) -> bool {
     config.get_sections().iter().any(
         |section| matches!(section.get("client"), Some(Value::String(client)) if client == name),
     )
@@ -45,7 +41,7 @@ impl Client {
         }
     }
 
-    async fn register(&mut self) -> Result<(), section::Error> {
+    async fn register(&mut self) -> Result<(), SectionError> {
         let client = reqwest::Client::new();
         let url = format!("{}/api/client", self.config.server.endpoint.as_str());
         let _x: ProvisionClientResponse = client
@@ -75,7 +71,7 @@ impl Client {
         Ok(())
     }
 
-    async fn get_configs(&self) -> Result<Vec<PipeConfig>, section::Error> {
+    async fn get_configs(&self) -> Result<Vec<PipeConfig>, SectionError> {
         let client = reqwest::Client::new();
         let url = format!("{}/api/pipe/configs", self.config.server.endpoint.as_str());
         let configs: PipeConfigs = client
@@ -101,11 +97,11 @@ impl Client {
     }
 
     // spawns client
-    pub fn spawn(mut self) -> JoinHandle<Result<(), section::Error>> {
+    pub fn spawn(mut self) -> JoinHandle<Result<(), SectionError>> {
         tokio::spawn(async move { self.enter_loop().await })
     }
 
-    async fn enter_loop(&mut self) -> Result<(), section::Error> {
+    async fn enter_loop(&mut self) -> Result<(), SectionError> {
         while let Err(e) = self.register().await {
             log::error!("failed to register client: {:?}", e);
             tokio::time::sleep(Duration::from_secs(3)).await;
@@ -125,7 +121,7 @@ impl Client {
                 HashSet::from_iter(self.scheduler_handle.list_ids().await?.into_iter());
             for pipe_config in pipe_configs.into_iter() {
                 let id = pipe_config.id;
-                let config: DynamicPipeConfig = match pipe_config.try_into() {
+                let config: Config = match pipe_config.try_into() {
                     Ok(c) => c,
                     Err(e) => {
                         log::error!("bad pipe config: {:?}", e);
@@ -151,6 +147,6 @@ impl Client {
 pub fn new(
     config: ClientConfig,
     scheduler_handle: SchedulerHandle,
-) -> JoinHandle<Result<(), section::Error>> {
+) -> JoinHandle<Result<(), SectionError>> {
     Client::new(config, scheduler_handle).spawn()
 }

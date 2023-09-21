@@ -22,7 +22,7 @@ dev:
 	RUST_LOG=DEBUG cargo-watch -c -q \
 		-i dev_client.sqlite \
 		-i dev_client.sqlite-journal \
-		-s 'cargo run -r -- --config=config.example.toml'
+		-s 'cargo run -- --config=config.example.toml'
 
 .PHONY: vendor
 vendor:

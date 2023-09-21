@@ -9,7 +9,7 @@ mod storage;
 
 use clap::Parser;
 use common::ClientConfig;
-use exp2::dynamic_pipe::section;
+use pipe::types::SectionError;
 use std::fs::File;
 use std::io::Read;
 use std::{io, result};
@@ -17,7 +17,7 @@ use std::{io, result};
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error(transparent)]
-    Section(#[from] section::Error),
+    Section(#[from] SectionError),
 
     #[error(transparent)]
     Io(#[from] io::Error),

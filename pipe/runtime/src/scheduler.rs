@@ -1,10 +1,11 @@
 //! Pipe scheduler
 
-use crate::state::State;
+use crate::storage::Storage;
 use crate::{config::Config, pipe::Pipe, registry::Registry, types::SectionError};
 use std::future::{Future, IntoFuture};
-use std::pin::Pin;
+
 use std::{collections::HashMap, time::Duration};
+use section::State;
 use tokio::{
     sync::mpsc::{channel, Receiver, Sender},
     sync::{
@@ -13,27 +14,9 @@ use tokio::{
     },
 };
 
-pub trait Storage {
-    fn store_state(
-        &self,
-        id: u64,
-        section_id: u64,
-        section_name: String,
-        state: State,
-    ) -> Pin<Box<dyn Future<Output = Result<(), SectionError>> + Send + 'static>>;
-
-    fn retrieve_state(
-        &self,
-        id: u64,
-        section_id: u64,
-        section_name: String,
-    ) -> Pin<Box<dyn Future<Output = Result<Option<State>, SectionError>> + Send + 'static>>;
-}
-
-#[allow(dead_code)] // fixme
-pub struct Scheduler<Storage> {
-    registry: Registry,
-    storage: Storage,
+pub struct Scheduler<T: Storage<S>, S: State> {
+    registry: Registry<S>,
+    storage: T,
     pipe_configs: HashMap<u64, Config>,
     pipes: HashMap<u64, OneshotSender<()>>,
 }
@@ -82,8 +65,8 @@ pub enum ScheduleResult {
 }
 
 #[allow(dead_code)] // fixme
-impl<T: Storage + Clone + Send + 'static> Scheduler<T> {
-    pub fn new(registry: Registry, storage: T) -> Self {
+impl<S: State + 'static, T: Storage<S> + Clone + Send + 'static> Scheduler<T, S> {
+    pub fn new(registry: Registry<S>, storage: T) -> Self {
         Self {
             registry,
             storage,
@@ -158,7 +141,7 @@ impl<T: Storage + Clone + Send + 'static> Scheduler<T> {
     fn schedule(&mut self, id: u64, tx: WeakSender<Message>) -> Result<(), SectionError> {
         // FIXME: error reporting
         if let Some(config) = self.pipe_configs.get(&id).cloned() {
-            let pipe = Pipe::try_from((id, config.clone(), &self.registry, self.storage.clone()))?;
+            let pipe = Pipe::try_from((id, config.clone(), &self.registry))?;
             let rx = spawn(id, tx, pipe.into_future());
             self.pipes.insert(id, rx);
         }
