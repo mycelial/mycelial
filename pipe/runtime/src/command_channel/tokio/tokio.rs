@@ -74,14 +74,14 @@ impl std::error::Error for ChanError{}
 
 // Root channel
 pub struct RootChannel<S: StateTrait> {
-    rx: Receiver<SectionRequest<S>>,
-    tx: Sender<SectionRequest<S>>,
+    rx: UnboundedReceiver<SectionRequest<S>>,
+    tx: UnboundedSender<SectionRequest<S>>,
     section_handles: BTreeMap<u64, UnboundedSender<Command>>
 }
 
 impl<S: StateTrait> RootChannel<S> {
     pub fn new() -> Self {
-        let (tx, rx) = channel::<SectionRequest<S>>(1);
+        let (tx, rx) = unbounded_channel::<SectionRequest<S>>();
         Self {tx, rx, section_handles: BTreeMap::new()}
     }
 }
@@ -125,7 +125,7 @@ impl<S: StateTrait> RootChannelTrait for RootChannel<S> {
 // section channels
 pub struct SectionChannel<S> where S: StateTrait { 
     id: u64,
-    root_tx: Sender<SectionRequest<S>>,
+    root_tx: UnboundedSender<SectionRequest<S>>,
     rx: UnboundedReceiver<Command>,
     weak_tx: WeakUnboundedSender<Command>,
     _marker: PhantomData<S>,
@@ -134,7 +134,7 @@ pub struct SectionChannel<S> where S: StateTrait {
 impl<S: StateTrait> SectionChannel<S>{
     fn new(
         id: u64,
-        root_tx: Sender<SectionRequest<S>>,
+        root_tx: UnboundedSender<SectionRequest<S>>,
         rx: UnboundedReceiver<Command>,
         weak_tx: WeakUnboundedSender<Command>,
     ) -> Self {
@@ -157,7 +157,6 @@ impl<S: StateTrait> SectionChannelTrait for SectionChannel<S> {
             id: self.id,
             reply_to,
         })
-            .await
             .map_err(|_| ChanError::Closed)?;
         rx
             .await
@@ -168,7 +167,6 @@ impl<S: StateTrait> SectionChannelTrait for SectionChannel<S> {
     async fn store_state(&mut self, state: Self::State) -> Result<(), Self::Error> {
         let (reply_to, rx) = OneshotReply::new();
         self.root_tx.send(SectionRequest::StoreState{id: self.id, state, reply_to})
-            .await
             .map_err(|_| ChanError::Closed)?;
         rx
             .await
@@ -178,7 +176,6 @@ impl<S: StateTrait> SectionChannelTrait for SectionChannel<S> {
     // request to runtime
     async fn log<T: Into<String> + Send>(&mut self, log: T) -> Result<(), Self::Error> {
         self.root_tx.send(SectionRequest::Log{id: self.id, message: log.into()})
-            .await
             .map_err(|_| ChanError::Closed)
     }
 
@@ -200,7 +197,7 @@ impl<S: StateTrait> SectionChannelTrait for SectionChannel<S> {
 
 impl<S: StateTrait> Drop for SectionChannel<S> {
     fn drop(&mut self) {
-        self.root_tx.try_send(SectionRequest::Stopped{ id: self.id }).ok();
+        self.root_tx.send(SectionRequest::Stopped{ id: self.id }).ok();
     }
 }
 

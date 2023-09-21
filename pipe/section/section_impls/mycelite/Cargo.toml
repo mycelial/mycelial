@@ -13,4 +13,5 @@ arrow = { version = "42", features = ["prettyprint"] }
 tokio = { version = "1", features = ["full"] }
 tokio-stream = "0.1"
 notify = { version = "6", default-features = false, features = ["macos_kqueue"] }
-journal = { git = "https://github.com/mycelial/mycelite", rev="fd1d472eea7e359772e55fff05a73361a349e958", features=["async"] }
+#journal = { git = "https://github.com/mycelial/mycelite", rev="fd1d472eea7e359772e55fff05a73361a349e958", features=["async"] }
+journal = { path = "../../../../../mycelite/journal/", features=["async"] }
