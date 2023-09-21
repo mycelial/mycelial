@@ -9,7 +9,11 @@ use common::{
     ClientConfig, IssueTokenRequest, IssueTokenResponse, PipeConfig, PipeConfigs,
     ProvisionClientRequest, ProvisionClientResponse,
 };
-use pipe::{scheduler::SchedulerHandle, config::{Value, Config}, types::SectionError};
+use pipe::{
+    config::{Config, Value},
+    scheduler::SchedulerHandle,
+    types::SectionError,
+};
 use tokio::task::JoinHandle;
 
 /// Http Client

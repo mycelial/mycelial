@@ -1,9 +1,8 @@
 use std::time::Duration;
 
-use runtime::command_channel::{RootChannel, SectionState, SectionRequest};
+use runtime::command_channel::{RootChannel, SectionRequest, SectionState};
+use section::{Command, RootChannel as _, SectionChannel as _, WeakSectionChannel as _};
 use tokio::time::timeout;
-use section::{RootChannel as _, SectionChannel as _, WeakSectionChannel as _, Command};
-
 
 const TIMEOUT: Duration = Duration::from_millis(100);
 
@@ -23,7 +22,6 @@ async fn test_command_channel() -> Result<(), Box<dyn std::error::Error>> {
         let state = SectionState::new();
         let res = timeout(TIMEOUT, section_chan.store_state(state)).await;
         assert!(matches!(res, Ok(Ok(_))));
-
 
         // send ack through weak ref to self
         let ack_chan = section_chan.weak_chan();
@@ -48,8 +46,10 @@ async fn test_command_channel() -> Result<(), Box<dyn std::error::Error>> {
         assert!(cmd.is_ok());
         let cmd = cmd.unwrap();
         match cmd {
-            Command::Stop => Result::<_, Box<dyn std::error::Error + Send + Sync + 'static>>::Ok(()),
-            _ => Err(format!("unexpected command: {:?}", cmd))?
+            Command::Stop => {
+                Result::<_, Box<dyn std::error::Error + Send + Sync + 'static>>::Ok(())
+            }
+            _ => Err(format!("unexpected command: {:?}", cmd))?,
         }
     });
 
@@ -74,7 +74,7 @@ async fn test_command_channel() -> Result<(), Box<dyn std::error::Error>> {
     assert!(matches!(log_request, SectionRequest::Log { .. }));
     let (id, log) = match log_request {
         section::SectionRequest::Log { id, message } => (id, message),
-        _ => unreachable!()
+        _ => unreachable!(),
     };
     assert_eq!(id, 0);
     assert_eq!(log, "hello");

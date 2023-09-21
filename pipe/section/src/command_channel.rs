@@ -1,7 +1,7 @@
 //! Command channel
 
-use std::any::Any;
 use async_trait::async_trait;
+use std::any::Any;
 
 use crate::State;
 
@@ -14,7 +14,9 @@ pub trait RootChannel {
     fn section_channel(&mut self, section_id: u64) -> Result<Self::SectionChannel, Self::Error>;
 
     // receive request from section
-    async fn recv(&mut self) -> Result<<Self::SectionChannel as SectionChannel>::Request, Self::Error>;
+    async fn recv(
+        &mut self,
+    ) -> Result<<Self::SectionChannel as SectionChannel>::Request, Self::Error>;
 
     // send command to section by id
     async fn send(&mut self, section_id: u64, command: Command) -> Result<(), Self::Error>;
@@ -59,42 +61,38 @@ pub enum Command {
 }
 
 #[non_exhaustive]
-pub enum SectionRequest<S: State, Rs: ReplyTo<With=Option<S>>, Ss: ReplyTo<With=()>> {
-    RetrieveState{id: u64, reply_to: Rs},
-    StoreState{id: u64, state: S, reply_to: Ss},
-    Log{id: u64, message: String},
-    Stopped{ id: u64 },
+pub enum SectionRequest<S: State, Rs: ReplyTo<With = Option<S>>, Ss: ReplyTo<With = ()>> {
+    RetrieveState { id: u64, reply_to: Rs },
+    StoreState { id: u64, state: S, reply_to: Ss },
+    Log { id: u64, message: String },
+    Stopped { id: u64 },
 }
 
-impl<S: State, Rs: ReplyTo<With=Option<S>>, Ss: ReplyTo<With=()>> std::fmt::Debug for SectionRequest<S, Rs, Ss> {
+impl<S: State, Rs: ReplyTo<With = Option<S>>, Ss: ReplyTo<With = ()>> std::fmt::Debug
+    for SectionRequest<S, Rs, Ss>
+{
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::RetrieveState { id, .. } => {
-                f.debug_struct("SectionRequest::RetrieveState")
-                    .field("id", id)
-                    .finish()
-            },
-            Self::StoreState { id, state, .. } => {
-                f.debug_struct("SectionRequest::StoreState")
-                    .field("id", id)
-                    .field("state", state)
-                    .finish()
-            },
-            Self::Log { id, message } => {
-                f.debug_struct("SectionRequest::Log")
-                    .field("id", id)
-                    .field("message", message)
-                    .finish()
-            },
-            Self::Stopped { id } => {
-                f.debug_struct("SectionRequest::Stopped")
-                    .field("id", id)
-                    .finish()
-            },
+            Self::RetrieveState { id, .. } => f
+                .debug_struct("SectionRequest::RetrieveState")
+                .field("id", id)
+                .finish(),
+            Self::StoreState { id, state, .. } => f
+                .debug_struct("SectionRequest::StoreState")
+                .field("id", id)
+                .field("state", state)
+                .finish(),
+            Self::Log { id, message } => f
+                .debug_struct("SectionRequest::Log")
+                .field("id", id)
+                .field("message", message)
+                .finish(),
+            Self::Stopped { id } => f
+                .debug_struct("SectionRequest::Stopped")
+                .field("id", id)
+                .finish(),
             #[allow(unreachable_patterns)]
-            _ => {
-                Err(std::fmt::Error)
-            }
+            _ => Err(std::fmt::Error),
         }
     }
 }
@@ -109,34 +107,38 @@ pub trait ReplyTo {
 
 pub enum SectionRequestReplyError<E> {
     ReplyError(E),
-    BadResponse(&'static str)
+    BadResponse(&'static str),
 }
 
-impl<S: State + Send, Rs: ReplyTo<With=Option<S>>, Ss: ReplyTo<With=()>> SectionRequest<S, Rs, Ss> { 
+impl<S: State + Send, Rs: ReplyTo<With = Option<S>>, Ss: ReplyTo<With = ()>>
+    SectionRequest<S, Rs, Ss>
+{
     pub async fn reply_retrieve_state(
         self,
-        state: Option<S>
+        state: Option<S>,
     ) -> Result<(), SectionRequestReplyError<<Rs as ReplyTo>::Error>> {
         match self {
-            Self::RetrieveState { reply_to, .. } => {
-                reply_to
-                    .reply(state)
-                    .await
-                    .map_err(SectionRequestReplyError::ReplyError)
-            },
-            _ => Err(SectionRequestReplyError::BadResponse("expected to reply to state request")),
+            Self::RetrieveState { reply_to, .. } => reply_to
+                .reply(state)
+                .await
+                .map_err(SectionRequestReplyError::ReplyError),
+            _ => Err(SectionRequestReplyError::BadResponse(
+                "expected to reply to state request",
+            )),
         }
     }
 
-    pub async fn reply_store_state(self) -> Result<(), SectionRequestReplyError<<Ss as ReplyTo>::Error>> {
+    pub async fn reply_store_state(
+        self,
+    ) -> Result<(), SectionRequestReplyError<<Ss as ReplyTo>::Error>> {
         match self {
-            Self::StoreState { reply_to, .. } => {
-                reply_to
-                    .reply(())
-                    .await
-                    .map_err(SectionRequestReplyError::ReplyError)
-            },
-            _ => Err(SectionRequestReplyError::BadResponse("expected to reply to state request")),
+            Self::StoreState { reply_to, .. } => reply_to
+                .reply(())
+                .await
+                .map_err(SectionRequestReplyError::ReplyError),
+            _ => Err(SectionRequestReplyError::BadResponse(
+                "expected to reply to state request",
+            )),
         }
     }
 }

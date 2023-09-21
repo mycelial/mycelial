@@ -1,10 +1,10 @@
 //! Mycelial Net
-//! 
+//!
 //! network section, dumps incoming messages to provided http endpoint
 use arrow::ipc::writer::StreamWriter;
 use bytes::Bytes;
 use futures::{Sink, Stream, StreamExt};
-use section::{State, SectionChannel, Section};
+use section::{Section, SectionChannel, State};
 use std::future::Future;
 
 use base64::engine::{general_purpose::STANDARD as BASE64, Engine};
@@ -12,9 +12,9 @@ use std::pin::{pin, Pin};
 use std::time::Duration;
 
 use crate::{
+    config::Map,
     message::Message,
     types::{DynSection, SectionError},
-    config::Map
 };
 
 #[derive(Debug)]
@@ -25,7 +25,11 @@ pub struct Mycelial {
 }
 
 impl Mycelial {
-    pub fn new(endpoint: impl Into<String>, token: impl Into<String>, topic: impl Into<String>) -> Self {
+    pub fn new(
+        endpoint: impl Into<String>,
+        token: impl Into<String>,
+        topic: impl Into<String>,
+    ) -> Self {
         Self {
             endpoint: endpoint.into(),
             token: token.into(),
@@ -34,14 +38,15 @@ impl Mycelial {
     }
 
     pub async fn enter_loop<Input, Output, SectionChan>(
-        self, 
+        self,
         input: Input,
         _output: Output,
-        _section_chan: SectionChan
+        _section_chan: SectionChan,
     ) -> Result<(), SectionError>
-    where Input: Stream<Item=Message> + Send + 'static,
-          Output: Sink<Message, Error=SectionError> + Send + 'static,
-          SectionChan: SectionChannel + Send + Sync + 'static,
+    where
+        Input: Stream<Item = Message> + Send + 'static,
+        Output: Sink<Message, Error = SectionError> + Send + 'static,
+        SectionChan: SectionChannel + Send + Sync + 'static,
     {
         let mut input = pin!(input.fuse());
         let client = &mut reqwest::Client::new();
@@ -57,7 +62,11 @@ impl Mycelial {
             let bytes: Bytes = stream_writer.into_inner().unwrap().into();
             loop {
                 match client
-                    .post(format!("{}/{}", self.endpoint.as_str().trim_end_matches('/'), self.topic))
+                    .post(format!(
+                        "{}/{}",
+                        self.endpoint.as_str().trim_end_matches('/'),
+                        self.topic
+                    ))
                     .header("Authorization", self.basic_auth())
                     .header("x-message-origin", &msg.origin)
                     .body(bytes.clone())
@@ -67,11 +76,9 @@ impl Mycelial {
                     Err(e) => {
                         println!("error: {:?}", e);
                         tokio::time::sleep(Duration::from_secs(3)).await;
-                    },
-                    Ok(res) if res.status() == 200 => {
-                        break
-                    },
-                    Ok(res) => Err(format!("unexpected status code: {}", res.status()))?
+                    }
+                    Ok(res) if res.status() == 200 => break,
+                    Ok(res) => Err(format!("unexpected status code: {}", res.status()))?,
                 }
             }
             msg.ack().await;
@@ -85,9 +92,10 @@ impl Mycelial {
 }
 
 impl<Input, Output, SectionChan> Section<Input, Output, SectionChan> for Mycelial
-    where Input: Stream<Item=Message> + Send + 'static,
-          Output: Sink<Message, Error=SectionError> + Send + 'static,
-          SectionChan: SectionChannel + Send + Sync + 'static,
+where
+    Input: Stream<Item = Message> + Send + 'static,
+    Output: Sink<Message, Error = SectionError> + Send + 'static,
+    SectionChan: SectionChannel + Send + Sync + 'static,
 {
     // FIXME: define proper error
     type Error = SectionError;

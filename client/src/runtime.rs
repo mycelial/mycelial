@@ -2,15 +2,15 @@
 //!
 //! Pipe scheduling and peristance
 
+use crate::storage::SqliteStorageHandle;
 use pipe::{
     registry::{Constructor, Registry},
     scheduler::{Scheduler, SchedulerHandle},
-    sections::mycelite,
     sections::mycelial_net,
+    sections::mycelite,
     sections::sqlite,
 };
 use section::State;
-use crate::storage::SqliteStorageHandle;
 
 /// Setup & populate registry
 fn setup_registry<S: State>() -> Registry<S> {
@@ -24,14 +24,15 @@ fn setup_registry<S: State>() -> Registry<S> {
             "mycelial_net_destination",
             mycelial_net::destination::constructor,
         ),
-      //("kafka_source", kafka::source::constructor),
-      //("snowflake_source", snowflake::source::constructor),
-      //("snowflake_destination", snowflake::destination::constructor),
-      //("mycelite_source", mycelite::source::constructor),
-      //("mycelite_destination", mycelite::destination::constructor),
-      //("postgres_source", postgres::source::constructor),
+        //("kafka_source", kafka::source::constructor),
+        //("snowflake_source", snowflake::source::constructor),
+        //("snowflake_destination", snowflake::destination::constructor),
+        //("mycelite_source", mycelite::source::constructor),
+        //("mycelite_destination", mycelite::destination::constructor),
+        //("postgres_source", postgres::source::constructor),
     ];
-    arr.iter() .fold(Registry::new(), |mut acc, &(section_name, constructor)| {
+    arr.iter()
+        .fold(Registry::new(), |mut acc, &(section_name, constructor)| {
             acc.register_section(section_name, constructor);
             acc
         })

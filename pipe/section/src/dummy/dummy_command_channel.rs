@@ -1,9 +1,12 @@
-use crate::{RootChannel, SectionChannel, async_trait, WeakSectionChannel, State, Command};
-use std::{future::{ready, pending}, any::Any, convert::Infallible};
+use crate::{async_trait, Command, RootChannel, SectionChannel, State, WeakSectionChannel};
+use std::{
+    any::Any,
+    convert::Infallible,
+    future::{pending, ready},
+};
 
 #[derive(Debug)]
-pub struct DummyError {
-}
+pub struct DummyError {}
 
 impl std::fmt::Display for DummyError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -11,7 +14,7 @@ impl std::fmt::Display for DummyError {
     }
 }
 
-impl std::error::Error for DummyError{}
+impl std::error::Error for DummyError {}
 
 #[derive(Debug)]
 pub struct DummyRootChannel {}
@@ -22,14 +25,13 @@ impl DummyRootChannel {
     }
 }
 
-
 #[async_trait]
 impl RootChannel for DummyRootChannel {
     type Error = DummyError;
     type SectionChannel = DummySectionChannel;
 
     async fn recv(&mut self) -> Result<(), Self::Error> {
-        pending::<Result::<(), Self::Error>>().await
+        pending::<Result<(), Self::Error>>().await
     }
 
     async fn send(&mut self, _section_id: u64, _command: Command) -> Result<(), Self::Error> {
@@ -37,14 +39,12 @@ impl RootChannel for DummyRootChannel {
     }
 
     fn section_channel(&mut self, _section_id: u64) -> Result<Self::SectionChannel, Self::Error> {
-        Ok(DummySectionChannel{})
+        Ok(DummySectionChannel {})
     }
 }
 
-
 #[derive(Debug)]
-pub struct DummySectionChannel {
-}
+pub struct DummySectionChannel {}
 
 impl DummySectionChannel {
     pub fn new() -> Self {
@@ -76,18 +76,18 @@ impl SectionChannel for DummySectionChannel {
     }
 
     fn weak_chan(&self) -> Self::WeakChannel {
-        Self::WeakChannel{}
+        Self::WeakChannel {}
     }
 }
 
 #[derive(Debug, Clone)]
-pub struct DummyState{}
+pub struct DummyState {}
 
 impl State for DummyState {
     type Error = Infallible;
 
     fn new() -> Self {
-        Self{}
+        Self {}
     }
 
     fn get<T>(&self, _key: &str) -> Result<Option<T>, Self::Error> {
@@ -100,8 +100,7 @@ impl State for DummyState {
 }
 
 #[derive(Debug)]
-pub struct DummyWeakChannel {
-}
+pub struct DummyWeakChannel {}
 
 #[async_trait]
 impl WeakSectionChannel for DummyWeakChannel {

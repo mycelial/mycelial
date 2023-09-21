@@ -1,36 +1,33 @@
-use std::{pin::{pin, Pin}};
-use futures::{Stream, StreamExt, Sink, FutureExt};
-use section::{SectionChannel, Section, Command};
+use futures::{FutureExt, Sink, Stream, StreamExt};
+use section::{Command, Section, SectionChannel};
+use std::pin::{pin, Pin};
 
+use crate::{escape_table_name, generate_schema, Message, StdError, Value};
+use sqlx::Connection;
+use sqlx::{sqlite::SqliteConnectOptions, ConnectOptions};
 use std::future::Future;
 use std::str::FromStr;
-use sqlx::Connection;
-use sqlx::{
-    ConnectOptions,
-    sqlite::SqliteConnectOptions
-};
-use crate::{escape_table_name, Message, StdError, generate_schema, Value};
 
 #[derive(Debug)]
-pub struct Sqlite{
+pub struct Sqlite {
     path: String,
 }
 
-
 impl Sqlite {
     pub fn new(path: impl Into<String>) -> Self {
-        Self{ path: path.into() }
+        Self { path: path.into() }
     }
 
     async fn enter_loop<Input, Output, SectionChan>(
-        self, 
+        self,
         input: Input,
         output: Output,
         mut section_chan: SectionChan,
     ) -> Result<(), StdError>
-        where Input: Stream<Item=Message> + Send + 'static,
-              Output: Sink<Message, Error=StdError> + Send + 'static,
-              SectionChan: SectionChannel + Send + 'static,
+    where
+        Input: Stream<Item = Message> + Send + 'static,
+        Output: Sink<Message, Error = StdError> + Send + 'static,
+        SectionChan: SectionChannel + Send + 'static,
     {
         let mut input = pin!(input.fuse());
         let mut _output = pin!(output);
@@ -75,15 +72,15 @@ impl Sqlite {
                     message.ack().await;
                 }
             }
-        };
+        }
     }
 }
 
-
 impl<Input, Output, SectionChan> Section<Input, Output, SectionChan> for Sqlite
-    where Input: Stream<Item=Message> + Send + 'static,
-          Output: Sink<Message, Error=StdError> + Send + 'static,
-          SectionChan: SectionChannel + Send + 'static,
+where
+    Input: Stream<Item = Message> + Send + 'static,
+    Output: Sink<Message, Error = StdError> + Send + 'static,
+    SectionChan: SectionChannel + Send + 'static,
 {
     type Error = StdError;
     type Future = Pin<Box<dyn Future<Output = Result<(), Self::Error>> + Send + 'static>>;

@@ -1,4 +1,4 @@
-//! Sqlite section for query-based CDC 
+//! Sqlite section for query-based CDC
 //!
 //! Query-based CDC implementation, which uses `notify` crate to detect changes to database.  
 //! Sqlite-CDC section assumes append-only tables, any other usecase is not supported (yet?).
@@ -10,44 +10,42 @@
 //! - column types
 //! - query
 //! - limit and offset
-//! 
+//!
 //! # Known issues
 //! 1. Sqlite is not strict when running by default, any column can contain any datatype, which
 //!    this implementation can't handle properly
 //! 2. Column names and types are derived at start, if table was changed during runtime - section will error out.
 
-use crate::{
-    ColumnType, Value, escape_table_name, Message, SqlitePayload, StdError
-};
-use section::{Section, SectionChannel, Command, State, WeakSectionChannel};
+use crate::{escape_table_name, ColumnType, Message, SqlitePayload, StdError, Value};
 use fallible_iterator::FallibleIterator;
-use futures::{Sink, SinkExt, Stream, StreamExt, FutureExt};
-use notify::{Event, Watcher, RecursiveMode};
+use futures::{FutureExt, Sink, SinkExt, Stream, StreamExt};
+use notify::{Event, RecursiveMode, Watcher};
+use section::{Command, Section, SectionChannel, State, WeakSectionChannel};
 use sqlite3_parser::{
-    ast::{Cmd, Stmt, CreateTableBody},
-    lexer::sql::Parser
+    ast::{Cmd, CreateTableBody, Stmt},
+    lexer::sql::Parser,
 };
 use sqlx::{
-    sqlite::{SqliteRow, SqliteConnectOptions},
-    ConnectOptions,
-    Row,
-    SqliteConnection
+    sqlite::{SqliteConnectOptions, SqliteRow},
+    ConnectOptions, Row, SqliteConnection,
 };
 
 // FIXME: drop direct dependency
 use tokio::sync::mpsc::Sender;
 use tokio_stream::wrappers::ReceiverStream;
 
-use std::{future::Future, sync::Arc};
 use std::path::Path;
-use std::{pin::{pin, Pin}, str::FromStr};
+use std::{future::Future, sync::Arc};
+use std::{
+    pin::{pin, Pin},
+    str::FromStr,
+};
 
 #[derive(Debug)]
 pub struct Sqlite {
     path: String,
     tables: Vec<String>,
 }
-
 
 impl TryFrom<(ColumnType, usize, &SqliteRow)> for Value {
     // FIXME: specific error instead of Box<dyn Error>
@@ -66,7 +64,7 @@ impl TryFrom<(ColumnType, usize, &SqliteRow)> for Value {
         // | null       |
         // | text       |
         // +------------+
-        // obvisouly such table will break following code 
+        // obvisouly such table will break following code
         //
         // more info: https://www.sqlite.org/datatype3.html
         let value = match col {
@@ -76,7 +74,7 @@ impl TryFrom<(ColumnType, usize, &SqliteRow)> for Value {
             ColumnType::Real => row.try_get::<Option<f64>, _>(index)?.map(Value::Real),
             _ => return Err(format!("unimplemented: {:?}", col).into()),
         }
-            .unwrap_or(Value::Null);
+        .unwrap_or(Value::Null);
         Ok(value)
     }
 }
@@ -95,7 +93,7 @@ impl Sqlite {
     pub fn new(path: impl Into<String>, tables: &[&str]) -> Self {
         Self {
             path: path.into(),
-            tables: tables.iter().map(|&x| x.into()).collect()
+            tables: tables.iter().map(|&x| x.into()).collect(),
         }
     }
 
@@ -107,7 +105,7 @@ impl Sqlite {
     ) -> Result<(), StdError>
     where
         Input: Stream + Send,
-        Output: Sink<Message, Error=StdError> + Send,
+        Output: Sink<Message, Error = StdError> + Send,
         SectionChan: SectionChannel + Send + Sync,
     {
         let mut connection = SqliteConnectOptions::from_str(self.path.as_str())?
@@ -126,9 +124,14 @@ impl Sqlite {
 
         let mut _input = pin!(input.fuse());
         let mut output = pin!(output);
-        let mut state = section_channel.retrieve_state().await?.unwrap_or(<<SectionChan as SectionChannel>::State>::new());
+        let mut state = section_channel
+            .retrieve_state()
+            .await?
+            .unwrap_or(<<SectionChan as SectionChannel>::State>::new());
 
-        let mut tables = self.init_tables::<SectionChan>(&mut connection, &state).await?;
+        let mut tables = self
+            .init_tables::<SectionChan>(&mut connection, &state)
+            .await?;
 
         let rx = ReceiverStream::new(rx);
         let mut rx = pin!(rx.fuse());
@@ -142,7 +145,7 @@ impl Sqlite {
                                     state.set(&ack.table, ack.offset)?;
                                     section_channel.store_state(state.clone()).await?;
                                 },
-                                Err(_) => 
+                                Err(_) =>
                                     Err("Failed to downcast incoming Ack message to Message")?,
                             };
                         },
@@ -200,10 +203,10 @@ impl Sqlite {
     async fn init_tables<C: SectionChannel>(
         &self,
         connection: &mut SqliteConnection,
-        state: &<C as SectionChannel>::State
+        state: &<C as SectionChannel>::State,
     ) -> Result<Vec<Table>, StdError> {
         let mut tables = Vec::with_capacity(self.tables.len());
-        
+
         let all_tables: Vec<String>;
         let table_names = match self.tables.iter().any(|table| table == "*") {
             true => {
@@ -212,7 +215,7 @@ impl Sqlite {
                     .fetch_all(&mut *connection)
                     .await?;
                 all_tables.as_slice()
-            },
+            }
             false => self.tables.as_slice(),
         };
 
@@ -226,7 +229,10 @@ impl Sqlite {
                 .try_get::<String, _>(0)?;
             let mut parser = Parser::new(table_sql.as_bytes());
             let columns = match parser.next()? {
-                Some(Cmd::Stmt(Stmt::CreateTable { body: CreateTableBody::ColumnsAndConstraints { columns, .. }, .. })) => columns,
+                Some(Cmd::Stmt(Stmt::CreateTable {
+                    body: CreateTableBody::ColumnsAndConstraints { columns, .. },
+                    ..
+                })) => columns,
                 other => Err(format!("unexpected parser response: {:?}", other))?,
             };
             let mut cols = Vec::with_capacity(columns.len());
@@ -235,18 +241,26 @@ impl Sqlite {
                 cols.push(column.col_name.to_string());
                 let ty = match column.col_type {
                     Some(ref ty) => ty,
-                    None => Err("untyped column")?
+                    None => Err("untyped column")?,
                 };
                 // FIXME: Numeric type as a wildcard match
                 let ty = match &ty.name.to_lowercase() {
                     ty if ty.contains("int") => ColumnType::Int,
-                    ty if ty.contains("text") || ty.contains("char") || ty.contains("text") || ty.contains("clob") => ColumnType::Text,
+                    ty if ty.contains("text")
+                        || ty.contains("char")
+                        || ty.contains("text")
+                        || ty.contains("clob") =>
+                    {
+                        ColumnType::Text
+                    }
                     ty if ty.contains("blob") => ColumnType::Blob,
-                    ty if ty.contains("real") || ty.contains("double") || ty.contains("real") => ColumnType::Real,
+                    ty if ty.contains("real") || ty.contains("double") || ty.contains("real") => {
+                        ColumnType::Real
+                    }
                     _ => ColumnType::Numeric,
                 };
                 col_types.push(ty);
-            };
+            }
             let offset = state.get::<i64>(&name)?.unwrap_or(0);
             let table = Table {
                 name: Arc::from(name),
@@ -279,36 +293,39 @@ impl Sqlite {
                 let value = Value::try_from((column, index, row))?;
                 values[index].push(value);
             }
-        };
+        }
         let batch = SqlitePayload {
             columns: Arc::clone(&table.columns),
             column_types: Arc::clone(&table.column_types),
             values,
-            offset: table.offset
+            offset: table.offset,
         };
         Ok(batch)
     }
 
     /// Watch sqlite database file and sqlite WAL (if present) for changes
     /// Notify main loop when change occurs
-    fn watch_sqlite_paths(&self, sqlite_path: &str, tx: Sender<()>) -> notify::Result<impl Watcher> {
+    fn watch_sqlite_paths(
+        &self,
+        sqlite_path: &str,
+        tx: Sender<()>,
+    ) -> notify::Result<impl Watcher> {
         // initiate first check on startup
-        let mut watcher = notify::recommended_watcher(move |res: Result<Event, _>| {
-            match res {
-                Ok(event) if event.kind.is_modify() || event.kind.is_create() => {
-                    tx.blocking_send(()).ok();
-                },
-                Ok(_) => (),
-                Err(_e) => (),
+        let mut watcher = notify::recommended_watcher(move |res: Result<Event, _>| match res {
+            Ok(event) if event.kind.is_modify() || event.kind.is_create() => {
+                tx.blocking_send(()).ok();
             }
+            Ok(_) => (),
+            Err(_e) => (),
         })?;
         // watch both sqlite and wal file
         let _ = &[
             Path::new(sqlite_path),
             Path::new(&format!("{}-wal", sqlite_path)),
         ]
-            .into_iter()
-            .filter(|path| path.exists()).try_for_each(|path| watcher.watch(path, RecursiveMode::NonRecursive))?;
+        .into_iter()
+        .filter(|path| path.exists())
+        .try_for_each(|path| watcher.watch(path, RecursiveMode::NonRecursive))?;
         Ok(watcher)
     }
 }
@@ -321,7 +338,7 @@ struct AckMessage {
 impl<Input, Output, SectionChan> Section<Input, Output, SectionChan> for Sqlite
 where
     Input: Stream + Send + 'static,
-    Output: Sink<Message, Error=StdError> + Send + 'static, 
+    Output: Sink<Message, Error = StdError> + Send + 'static,
     SectionChan: SectionChannel + Send + Sync + 'static,
 {
     type Error = StdError;

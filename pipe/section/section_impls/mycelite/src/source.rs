@@ -1,15 +1,15 @@
 //! Mycelite journal source
 
+use arrow::array::{Array, BinaryArray, Int64Array, UInt32Array, UInt64Array};
+use arrow::datatypes::{DataType, Field, Schema};
+use arrow::record_batch::RecordBatch;
+use futures::{FutureExt, Sink, SinkExt, Stream, StreamExt};
+use notify::{Event, RecursiveMode, Watcher};
+use section::{Command, Section, SectionChannel, State, WeakSectionChannel};
+use std::future::Future;
 use std::path::Path;
 use std::pin::{pin, Pin};
-use std::future::Future;
 use std::sync::Arc;
-use arrow::datatypes::{Schema, Field, DataType};
-use arrow::array::{Array, UInt64Array, UInt32Array, Int64Array, BinaryArray};
-use arrow::record_batch::RecordBatch;
-use futures::{Sink, SinkExt, Stream, StreamExt, FutureExt};
-use notify::{Event, Watcher, RecursiveMode};
-use section::{Command, SectionChannel, Section, State, WeakSectionChannel};
 use tokio::sync::mpsc::Sender;
 
 #[derive(Debug)]
@@ -21,11 +21,10 @@ pub struct Mycelite {
     origin: Option<String>,
 }
 
-use journal::{AsyncJournal, SnapshotHeader, BlobHeader};
+use journal::{AsyncJournal, BlobHeader, SnapshotHeader};
 use tokio_stream::wrappers::ReceiverStream;
 
 use crate::{Message, StdError};
-
 
 #[derive(Debug)]
 enum Buf {
@@ -35,17 +34,15 @@ enum Buf {
 
 impl Mycelite {
     pub fn new(journal_path: impl Into<String>) -> Self {
-        let schema = Schema::new(
-            vec![
-                Field::new("snapshot_id", DataType::UInt64, false),
-                Field::new("timestamp", DataType::Int64, false),
-                Field::new("page_size", DataType::UInt32, true),
-                Field::new("offset", DataType::UInt64, false),
-                Field::new("blob_num", DataType::UInt32, false),
-                Field::new("blob_size", DataType::UInt32, false),
-                Field::new("blob", DataType::Binary, false),
-            ]
-        );
+        let schema = Schema::new(vec![
+            Field::new("snapshot_id", DataType::UInt64, false),
+            Field::new("timestamp", DataType::Int64, false),
+            Field::new("page_size", DataType::UInt32, true),
+            Field::new("offset", DataType::UInt64, false),
+            Field::new("blob_num", DataType::UInt32, false),
+            Field::new("blob_size", DataType::UInt32, false),
+            Field::new("blob", DataType::Binary, false),
+        ]);
         Self {
             journal_path: journal_path.into(),
             buf: vec![],
@@ -55,24 +52,29 @@ impl Mycelite {
         }
     }
 
-    async fn enter_loop<Input, Output, SectionChan> (
+    async fn enter_loop<Input, Output, SectionChan>(
         mut self,
         input: Input,
         mut output: Output,
         mut section_chan: SectionChan,
     ) -> Result<(), StdError>
-    where Input: Stream<Item=Message> + Send + 'static,
-          Output: Sink<Message, Error=StdError> + Send,
-          SectionChan: SectionChannel + Send + Sync + 'static
+    where
+        Input: Stream<Item = Message> + Send + 'static,
+        Output: Sink<Message, Error = StdError> + Send,
+        SectionChan: SectionChannel + Send + Sync + 'static,
     {
         // section doesn't consume any input
         let _input = input;
 
         // open async journal
         let mut journal = AsyncJournal::try_from(self.journal_path.as_str()).await?;
-        
+
         // better than empty string, but might be just configurable
-        self.origin = Path::new(self.journal_path.as_str()).file_name().unwrap().to_str().map(Into::into);
+        self.origin = Path::new(self.journal_path.as_str())
+            .file_name()
+            .unwrap()
+            .to_str()
+            .map(Into::into);
 
         // initalize fs watcher to journal
         let (tx, watcher_rx) = tokio::sync::mpsc::channel::<()>(2);
@@ -80,9 +82,10 @@ impl Mycelite {
         tx.send(()).await?;
         let _watcher = self.watch(self.journal_path.as_str(), tx).await?;
 
-        let mut state = section_chan.retrieve_state().await?.unwrap_or(
-            <SectionChan as SectionChannel>::State::new()
-        );
+        let mut state = section_chan
+            .retrieve_state()
+            .await?
+            .unwrap_or(<SectionChan as SectionChannel>::State::new());
         self.cur_snapshot = state.get::<u64>("snapshot_id")?;
 
         let mut output = pin!(output);
@@ -144,15 +147,18 @@ impl Mycelite {
         snapshot_header: SnapshotHeader,
         blob_header: BlobHeader,
         blob: Vec<u8>,
-        section_chan: &SectionChan
+        section_chan: &SectionChan,
     ) -> Result<Buf, StdError> {
         match self.cur_snapshot != Some(snapshot_header.id) {
             true => {
                 self.cur_snapshot = Some(snapshot_header.id);
-                let res = self.build_message(section_chan)?.map(Buf::Ok).unwrap_or(Buf::More);
+                let res = self
+                    .build_message(section_chan)?
+                    .map(Buf::Ok)
+                    .unwrap_or(Buf::More);
                 self.buf.push((snapshot_header, blob_header, blob));
                 Ok(res)
-            },
+            }
             false => {
                 self.buf.push((snapshot_header, blob_header, blob));
                 Ok(Buf::More)
@@ -162,51 +168,94 @@ impl Mycelite {
 
     fn build_message<SectionChan: SectionChannel>(
         &mut self,
-        section_chan: &SectionChan
+        section_chan: &SectionChan,
     ) -> Result<Option<Message>, StdError> {
         if self.buf.is_empty() {
-            return Ok(None)
+            return Ok(None);
         }
         let columns: Vec<Arc<dyn Array>> = vec![
-            Arc::new(self.buf.iter().map(|(s, _, _)| s.id).collect::<UInt64Array>()),
-            Arc::new(self.buf.iter().map(|(s, _, _)| s.timestamp).collect::<Int64Array>()),
-            Arc::new(self.buf.iter().map(|(s, _, _)| s.page_size).collect::<UInt32Array>()),
-            Arc::new(self.buf.iter().map(|(_, b, _)| b.offset).collect::<UInt64Array>()),
-            Arc::new(self.buf.iter().map(|(_, b, _)| b.blob_num).collect::<UInt32Array>()),
-            Arc::new(self.buf.iter().map(|(_, b, _)| b.blob_size).collect::<UInt32Array>()),
-            Arc::new(self.buf.iter().map(|(_, _, d)| Some(d.as_slice())).collect::<BinaryArray>()),
+            Arc::new(
+                self.buf
+                    .iter()
+                    .map(|(s, _, _)| s.id)
+                    .collect::<UInt64Array>(),
+            ),
+            Arc::new(
+                self.buf
+                    .iter()
+                    .map(|(s, _, _)| s.timestamp)
+                    .collect::<Int64Array>(),
+            ),
+            Arc::new(
+                self.buf
+                    .iter()
+                    .map(|(s, _, _)| s.page_size)
+                    .collect::<UInt32Array>(),
+            ),
+            Arc::new(
+                self.buf
+                    .iter()
+                    .map(|(_, b, _)| b.offset)
+                    .collect::<UInt64Array>(),
+            ),
+            Arc::new(
+                self.buf
+                    .iter()
+                    .map(|(_, b, _)| b.blob_num)
+                    .collect::<UInt32Array>(),
+            ),
+            Arc::new(
+                self.buf
+                    .iter()
+                    .map(|(_, b, _)| b.blob_size)
+                    .collect::<UInt32Array>(),
+            ),
+            Arc::new(
+                self.buf
+                    .iter()
+                    .map(|(_, _, d)| Some(d.as_slice()))
+                    .collect::<BinaryArray>(),
+            ),
         ];
-        let snapshot_id = self.buf.iter().take(1).map(|(s, _, _)| s.id).next().unwrap();
+        let snapshot_id = self
+            .buf
+            .iter()
+            .take(1)
+            .map(|(s, _, _)| s.id)
+            .next()
+            .unwrap();
         self.buf = vec![];
         let record_batch = RecordBatch::try_new(Arc::clone(&self.schema), columns)?;
         let weak_chan = section_chan.weak_chan();
         let ack = Box::pin(async move { weak_chan.ack(Box::new(snapshot_id)).await });
-        Ok(Some(Message::new(self.origin.as_deref().unwrap_or(""), record_batch, Some(ack))))
+        Ok(Some(Message::new(
+            self.origin.as_deref().unwrap_or(""),
+            record_batch,
+            Some(ack),
+        )))
     }
 
     // initiate first check on startup
     async fn watch(&self, path: &str, tx: Sender<()>) -> notify::Result<impl Watcher> {
         tx.send(()).await.ok();
-        let mut watcher = notify::recommended_watcher(move |res: Result<Event, _>| {
-            match res {
-                Ok(event) if event.kind.is_modify() || event.kind.is_create() => {
-                    tx.blocking_send(()).ok();
-                },
-                Ok(_) => (),
-                Err(_e) => (),
+        let mut watcher = notify::recommended_watcher(move |res: Result<Event, _>| match res {
+            Ok(event) if event.kind.is_modify() || event.kind.is_create() => {
+                tx.blocking_send(()).ok();
             }
+            Ok(_) => (),
+            Err(_e) => (),
         })?;
         watcher.watch(Path::new(path), RecursiveMode::NonRecursive)?;
         Ok(watcher)
     }
 }
 
-impl<Input, Output, SectionChan> Section <Input, Output, SectionChan> for Mycelite
-    where Input: Stream<Item=Message> + Send + 'static,
-          Output: Sink<Message, Error=StdError> + Send + 'static,
-          SectionChan: SectionChannel + Send + Sync + 'static,
+impl<Input, Output, SectionChan> Section<Input, Output, SectionChan> for Mycelite
+where
+    Input: Stream<Item = Message> + Send + 'static,
+    Output: Sink<Message, Error = StdError> + Send + 'static,
+    SectionChan: SectionChannel + Send + Sync + 'static,
 {
-
     type Error = Box<dyn std::error::Error + Send + Sync + 'static>;
     type Future = Pin<Box<dyn Future<Output = Result<(), Self::Error>> + Send + 'static>>;
 

@@ -1,11 +1,11 @@
+use crate::command_channel::SectionChannel;
 use section::{Section, State};
 use sqlite::destination::Sqlite;
-use crate::command_channel::SectionChannel;
 
 use crate::types::SectionFuture;
 use crate::{
     config::Map,
-    types::{SectionError, DynSection, DynStream, DynSink},
+    types::{DynSection, DynSink, DynStream, SectionError},
 };
 
 #[allow(dead_code)]
@@ -17,7 +17,12 @@ impl<S: State> Section<DynStream, DynSink, SectionChannel<S>> for SqliteAdapter 
     type Future = SectionFuture;
     type Error = SectionError;
 
-    fn start(self, _input: DynStream, _output: DynSink, _section_channel: SectionChannel<S>) -> Self::Future {
+    fn start(
+        self,
+        _input: DynStream,
+        _output: DynSink,
+        _section_channel: SectionChannel<S>,
+    ) -> Self::Future {
         unimplemented!()
     }
 }
@@ -36,5 +41,7 @@ pub fn constructor<S: State>(config: &Map) -> Result<Box<dyn DynSection<S>>, Sec
         .ok_or("sqlite section requires 'path'")?
         .as_str()
         .ok_or("path should be string")?;
-    Ok(Box::new(SqliteAdapter{inner: Sqlite::new(path)}))
+    Ok(Box::new(SqliteAdapter {
+        inner: Sqlite::new(path),
+    }))
 }

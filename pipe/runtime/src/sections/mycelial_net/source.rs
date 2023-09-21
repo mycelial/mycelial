@@ -1,16 +1,16 @@
 //! Mycelial Net
 
-use section::{Section, State, SectionChannel, Command, WeakSectionChannel};
 use crate::{
-    config::Map, 
-    types::{SectionError, DynSection, SectionFuture},
+    config::Map,
     message::{Message, RecordBatch},
+    types::{DynSection, SectionError, SectionFuture},
 };
 use arrow::ipc::reader::StreamReader;
 use futures::{stream::FusedStream, FutureExt};
-use futures::{Sink, Stream, StreamExt, SinkExt};
+use futures::{Sink, SinkExt, Stream, StreamExt};
 use reqwest::Client;
-use tokio::time::{Interval, Instant};
+use section::{Command, Section, SectionChannel, State, WeakSectionChannel};
+use tokio::time::{Instant, Interval};
 
 use base64::engine::{general_purpose::STANDARD as BASE64, Engine};
 use std::pin::{pin, Pin};
@@ -30,15 +30,15 @@ pub struct Mycelial {
 
 struct IntervalStream {
     delay: Duration,
-    interval: Interval
+    interval: Interval,
 }
 
 impl IntervalStream {
     /// Create a new `IntervalStream`.
     pub fn new(delay: Duration) -> Self {
-        Self { 
+        Self {
             delay,
-            interval: tokio::time::interval(delay)
+            interval: tokio::time::interval(delay),
         }
     }
 
@@ -56,16 +56,19 @@ impl FusedStream for IntervalStream {
 impl Stream for IntervalStream {
     type Item = Instant;
 
-    fn poll_next(mut self: Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> std::task::Poll<Option<Self::Item>> {
+    fn poll_next(
+        mut self: Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<Option<Self::Item>> {
         self.interval.poll_tick(cx).map(Some)
     }
 }
 
 impl Mycelial {
     pub fn new(
-        endpoint: impl Into<String>, 
+        endpoint: impl Into<String>,
         token: impl Into<String>,
-        topic: impl Into<String>
+        topic: impl Into<String>,
     ) -> Self {
         Self {
             endpoint: endpoint.into(),
@@ -80,9 +83,10 @@ impl Mycelial {
         output: Output,
         mut section_chan: SectionChan,
     ) -> Result<(), SectionError>
-        where Input: Stream<Item=Message> + Send + 'static,
-              Output: Sink<Message, Error=SectionError> + Send + 'static,
-              SectionChan: SectionChannel + Send + 'static
+    where
+        Input: Stream<Item = Message> + Send + 'static,
+        Output: Sink<Message, Error = SectionError> + Send + 'static,
+        SectionChan: SectionChannel + Send + 'static,
     {
         let mut output = pin!(output);
         let mut client = reqwest::Client::new();
@@ -93,7 +97,7 @@ impl Mycelial {
             futures::select! {
                 _ = interval.next() => {
                     match self.get_next_batch(&mut client, &section_chan, &mut offset).await {
-                        Ok(Some(msg)) => { 
+                        Ok(Some(msg)) => {
                             output.send(msg).await.ok();
                             interval.reset();
                         },
@@ -109,7 +113,7 @@ impl Mycelial {
                                     state.set(&self.topic, *offset)?;
                                     section_chan.store_state(state.clone()).await?;
                                 },
-                                Err(_) => 
+                                Err(_) =>
                                     break Err("Failed to downcast incoming Ack message to SqliteRecordBatch".into()),
                             };
                         },
@@ -122,15 +126,20 @@ impl Mycelial {
             }
         }
     }
-        
+
     async fn get_next_batch<SectionChan: SectionChannel>(
         &self,
         client: &mut Client,
         section_chan: &SectionChan,
-        offset: &mut u64
+        offset: &mut u64,
     ) -> Result<Option<Message>, SectionError> {
         let res = client
-            .get(format!("{}/{}/{}", self.endpoint.as_str().trim_end_matches('/'), self.topic, offset))
+            .get(format!(
+                "{}/{}/{}",
+                self.endpoint.as_str().trim_end_matches('/'),
+                self.topic,
+                offset
+            ))
             .header("Authorization", self.basic_auth())
             .send()
             .await?;
@@ -143,11 +152,11 @@ impl Mycelial {
         let maybe_new_offset = match res.headers().get("x-message-id") {
             None => Err("response needs to have x-message-id header")?,
             // FIXME: unwrap
-            Some(v) => v.to_str().unwrap().parse().unwrap()
+            Some(v) => v.to_str().unwrap().parse().unwrap(),
         };
 
         if maybe_new_offset == *offset {
-            return Ok(None)
+            return Ok(None);
         }
         *offset = maybe_new_offset;
 
@@ -163,11 +172,13 @@ impl Mycelial {
             mut vec if vec.len() == 1 => {
                 let batch = RecordBatch(vec.pop().unwrap());
                 let o = *offset;
-                let message = Message::new(origin, batch, Some(Box::pin(async move {
-                    weak_chan.ack(Box::new(o)).await
-                })));
+                let message = Message::new(
+                    origin,
+                    batch,
+                    Some(Box::pin(async move { weak_chan.ack(Box::new(o)).await })),
+                );
                 Ok(Some(message))
-            },
+            }
             _ => Err("multiple batches are not supported")?,
         }
     }
@@ -178,9 +189,10 @@ impl Mycelial {
 }
 
 impl<Input, Output, SectionChan> Section<Input, Output, SectionChan> for Mycelial
-    where Input: Stream<Item=Message> + Send + 'static,
-          Output: Sink<Message, Error=SectionError> + Send + 'static,
-          SectionChan: SectionChannel + Send + 'static,
+where
+    Input: Stream<Item = Message> + Send + 'static,
+    Output: Sink<Message, Error = SectionError> + Send + 'static,
+    SectionChan: SectionChannel + Send + 'static,
 {
     // FIXME: define proper error
     type Error = SectionError;

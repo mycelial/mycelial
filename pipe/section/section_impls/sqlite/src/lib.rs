@@ -1,8 +1,8 @@
-use std::{sync::Arc, fmt::Display};
 use section::Message as _Message;
+use std::{fmt::Display, sync::Arc};
 
-pub mod source;
 pub mod destination;
+pub mod source;
 
 type StdError = Box<dyn std::error::Error + Send + Sync + 'static>;
 pub type Message = _Message<SqlitePayload>;
@@ -19,9 +19,8 @@ pub struct SqlitePayload {
     pub values: Vec<Vec<Value>>,
 
     /// offset
-    pub offset: i64
+    pub offset: i64,
 }
-
 
 // FIXME: numeric?
 // redo whole value enum?
@@ -63,10 +62,11 @@ pub fn escape_table_name(name: impl AsRef<str>) -> String {
         .flat_map(|char| {
             let maybe_char = match char {
                 '"' => Some('\\'),
-                _   => None,
+                _ => None,
             };
             maybe_char.into_iter().chain([char])
-        }).collect::<String>()
+        })
+        .collect::<String>()
 }
 
 /// generate create table command for provided record batch
@@ -80,7 +80,5 @@ pub fn generate_schema(message: &Message) -> String {
         .map(|(name, ty)| format!("{name} {ty}"))
         .collect::<Vec<_>>()
         .join(",");
-    format!(
-        "CREATE TABLE IF NOT EXISTS \"{name}\" ({columns})",
-    )
+    format!("CREATE TABLE IF NOT EXISTS \"{name}\" ({columns})",)
 }

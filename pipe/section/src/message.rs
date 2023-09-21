@@ -3,7 +3,7 @@
 use std::future::Future;
 use std::pin::Pin;
 
-pub type Ack = Pin<Box<dyn Future<Output=()> + Send + 'static>>;
+pub type Ack = Pin<Box<dyn Future<Output = ()> + Send + 'static>>;
 
 pub struct Message<Payload> {
     pub origin: String,
@@ -14,15 +14,15 @@ pub struct Message<Payload> {
 impl<P: std::fmt::Debug> std::fmt::Debug for Message<P> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Message")
-         .field("origin", &self.origin)
-         .field("payload", &self.payload)
-         .finish()
+            .field("origin", &self.origin)
+            .field("payload", &self.payload)
+            .finish()
     }
 }
 
 impl<P> Message<P> {
     pub fn new(origin: impl Into<String>, payload: impl Into<P>, ack: Option<Ack>) -> Self {
-        Self{
+        Self {
             origin: origin.into(),
             payload: payload.into(),
             ack,

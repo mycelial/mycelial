@@ -7,8 +7,8 @@ use tokio::task::JoinHandle;
 use crate::channel::channel;
 use crate::command_channel::RootChannel;
 use crate::types::{DynSection, DynSink, DynStream, SectionError, SectionFuture};
-use section::{Section, ReplyTo as _, SectionRequest, State};
 use section::RootChannel as _;
+use section::{ReplyTo as _, Section, SectionRequest, State};
 
 use super::config::Config;
 use super::message::Message;
@@ -64,23 +64,23 @@ impl<S: State> IntoFuture for Pipe<S> {
 impl<S: State> TryFrom<(u64, Config, &'_ Registry<S>)> for Pipe<S> {
     type Error = SectionError;
 
-    fn try_from(
-        (id, config, registry): (u64, Config, &Registry<S>),
-    ) -> Result<Self, Self::Error> {
+    fn try_from((id, config, registry): (u64, Config, &Registry<S>)) -> Result<Self, Self::Error> {
         let sections = config
             .get_sections()
             .iter()
-            .map(|section_cfg| -> Result<Box<dyn DynSection<S>>, SectionError> {
-                let name: &str = section_cfg
-                    .get("name")
-                    .ok_or("section needs to have a name")?
-                    .as_str()
-                    .ok_or("section name should be string")?;
-                let constructor = registry
-                    .get_constructor(name)
-                    .ok_or(format!("no constructor for '{name}' available"))?;
-                constructor(section_cfg)
-            })
+            .map(
+                |section_cfg| -> Result<Box<dyn DynSection<S>>, SectionError> {
+                    let name: &str = section_cfg
+                        .get("name")
+                        .ok_or("section needs to have a name")?
+                        .as_str()
+                        .ok_or("section name should be string")?;
+                    let constructor = registry
+                        .get_constructor(name)
+                        .ok_or(format!("no constructor for '{name}' available"))?;
+                    constructor(section_cfg)
+                },
+            )
             .collect::<Result<Vec<Box<dyn DynSection<S>>>, _>>()?;
         Ok(Pipe::new(id, config, sections))
     }
@@ -99,59 +99,53 @@ where
         let input: DynStream = Box::pin(input);
         let output: DynSink = Box::pin(output);
         let mut root_channel = RootChannel::new();
-        let (_, _, _, handles) = self
-            .sections
-            .take()
-            .unwrap()
-            .into_iter()
-            .enumerate()
-            .fold(
-                (None, Some(input), Some(output), vec![]), |(prev, mut pipe_input, mut pipe_output, mut acc), (pos, section)| {
-                    let input: DynStream = match prev {
-                        None => pipe_input.take().unwrap(),
-                        Some(rx) => rx,
-                    };
-                    let (next_input, output): (DynStream, DynSink) =
-                        if pos == len - 1 {
-                            // last element
-                            let next_input = Box::pin(Stub::<_, SectionError>::new());
-                            let output = pipe_output.take().unwrap();
-                            (next_input, output)
-                        } else {
-                            let (tx, rx) = channel::<Message>(1);
-                            let tx = tx.sink_map_err(|_| -> SectionError { "send error".into() });
-                            (Box::pin(rx), Box::pin(tx))
-                        };
-                    let section_channel = root_channel.section_channel(pos as u64).unwrap();
-                    let handle = tokio::spawn(section.dyn_start(input, output, section_channel));
-                    acc.push(HandleWrap::new(handle));
-                    (Some(next_input), pipe_input, pipe_output, acc)
-                },
-            );
+        let (_, _, _, handles) = self.sections.take().unwrap().into_iter().enumerate().fold(
+            (None, Some(input), Some(output), vec![]),
+            |(prev, mut pipe_input, mut pipe_output, mut acc), (pos, section)| {
+                let input: DynStream = match prev {
+                    None => pipe_input.take().unwrap(),
+                    Some(rx) => rx,
+                };
+                let (next_input, output): (DynStream, DynSink) = if pos == len - 1 {
+                    // last element
+                    let next_input = Box::pin(Stub::<_, SectionError>::new());
+                    let output = pipe_output.take().unwrap();
+                    (next_input, output)
+                } else {
+                    let (tx, rx) = channel::<Message>(1);
+                    let tx = tx.sink_map_err(|_| -> SectionError { "send error".into() });
+                    (Box::pin(rx), Box::pin(tx))
+                };
+                let section_channel = root_channel.section_channel(pos as u64).unwrap();
+                let handle = tokio::spawn(section.dyn_start(input, output, section_channel));
+                acc.push(HandleWrap::new(handle));
+                (Some(next_input), pipe_input, pipe_output, acc)
+            },
+        );
 
         let future = async move {
             let mut handles = handles;
             while let Ok(msg) = root_channel.recv().await {
                 match msg {
-                    SectionRequest::StoreState{reply_to, ..} => {
+                    SectionRequest::StoreState { reply_to, .. } => {
                         // FIXME: unwrap
                         //let name = self.config.get_sections()[id as usize].get("name").unwrap();
                         //let future = self.storage.store_state(self.id, id, name.as_str().unwrap().to_string(), state);
                         //future.await?;
                         reply_to.reply(()).await?;
-                    },
+                    }
                     SectionRequest::RetrieveState { reply_to, .. } => {
                         reply_to.reply(None).await?;
-                    },
+                    }
                     SectionRequest::Log { id, message } => {
                         println!("log request from section with id: {id}, message: {message}");
-                    },
+                    }
                     SectionRequest::Stopped { id } => {
                         return match handles[id as usize].handle.take() {
                             Some(handle) => handle.await?,
-                            None => Ok(())
+                            None => Ok(()),
                         }
-                    },
+                    }
                     _req => {
                         unreachable!()
                     }

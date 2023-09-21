@@ -1,13 +1,13 @@
 //! Mycelite journal destination
 
+use arrow::array::{BinaryArray, Int64Array, UInt32Array, UInt64Array};
+use arrow::datatypes::{DataType, Field, Schema};
+use futures::{FutureExt, Sink, Stream, StreamExt};
 use std::collections::HashSet;
-use std::path::Path;
-use std::io::SeekFrom;
-use std::pin::{pin, Pin};
 use std::future::Future;
-use arrow::array::{UInt64Array, BinaryArray, Int64Array, UInt32Array};
-use arrow::datatypes::{Schema, Field, DataType};
-use futures::{Sink, Stream, StreamExt, FutureExt};
+use std::io::SeekFrom;
+use std::path::Path;
+use std::pin::{pin, Pin};
 
 #[derive(Debug)]
 pub struct Mycelite {
@@ -16,25 +16,23 @@ pub struct Mycelite {
     schema: Schema,
 }
 
-use journal::{AsyncJournal, SnapshotHeader, BlobHeader};
-use section::{SectionChannel, Section, Command};
+use journal::{AsyncJournal, BlobHeader, SnapshotHeader};
+use section::{Command, Section, SectionChannel};
 use tokio::io::{AsyncSeekExt, AsyncWriteExt};
 
 use crate::{Message, StdError};
 
 impl Mycelite {
     pub fn new(journal_path: impl Into<String>, database_path: Option<impl Into<String>>) -> Self {
-        let schema = Schema::new(
-            vec![
-                Field::new("snapshot_id", DataType::UInt64, false),
-                Field::new("timestamp", DataType::Int64, false),
-                Field::new("page_size", DataType::UInt32, true),
-                Field::new("offset", DataType::UInt64, false),
-                Field::new("blob_num", DataType::UInt32, false),
-                Field::new("blob_size", DataType::UInt32, false),
-                Field::new("blob", DataType::Binary, false),
-            ]
-        );
+        let schema = Schema::new(vec![
+            Field::new("snapshot_id", DataType::UInt64, false),
+            Field::new("timestamp", DataType::Int64, false),
+            Field::new("page_size", DataType::UInt32, true),
+            Field::new("offset", DataType::UInt64, false),
+            Field::new("blob_num", DataType::UInt32, false),
+            Field::new("blob_size", DataType::UInt32, false),
+            Field::new("blob", DataType::Binary, false),
+        ]);
         Self {
             journal_path: journal_path.into(),
             database_path: database_path.map(Into::into),
@@ -42,22 +40,25 @@ impl Mycelite {
         }
     }
 
-    async fn enter_loop<Input, Output, SectionChan> (
+    async fn enter_loop<Input, Output, SectionChan>(
         self,
         input: Input,
         output: Output,
         mut section_chan: SectionChan,
     ) -> Result<(), StdError>
-        where Input: Stream<Item=Message> + Send + 'static,
-              Output: Sink<Message, Error=StdError> + Send,
-              SectionChan: SectionChannel + Send + Sync + 'static,
+    where
+        Input: Stream<Item = Message> + Send + 'static,
+        Output: Sink<Message, Error = StdError> + Send,
+        SectionChan: SectionChannel + Send + Sync + 'static,
     {
         let mut db_fd = match self.database_path.as_ref() {
-            Some(path) =>
-                Some(tokio::fs::OpenOptions::new()
+            Some(path) => Some(
+                tokio::fs::OpenOptions::new()
                     .create(true)
                     .write(true)
-                    .open(Path::new(path)).await?),
+                    .open(Path::new(path))
+                    .await?,
+            ),
             None => None,
         };
 
@@ -68,7 +69,9 @@ impl Mycelite {
         // open async journal
         let mut journal = match AsyncJournal::try_from(self.journal_path.as_str()).await {
             Ok(j) => Ok(j),
-            Err(e) if e.journal_not_exists() => AsyncJournal::create(self.journal_path.as_str()).await,
+            Err(e) if e.journal_not_exists() => {
+                AsyncJournal::create(self.journal_path.as_str()).await
+            }
             Err(e) => Err(e),
         }?;
 
@@ -121,7 +124,7 @@ impl Mycelite {
                         journal.commit().await?;
                     }
                     msg.ack().await;
-                    
+
                     // FIXME: db recovered from scratch
                     let mut journal_stream = pin!(journal.stream());
                     if let Some(ref mut fd) = db_fd {
@@ -138,12 +141,12 @@ impl Mycelite {
     }
 }
 
-impl<Input, Output, SectionChan> Section <Input, Output, SectionChan> for Mycelite
-    where Input: Stream<Item=Message> + Send + 'static,
-          Output: Sink<Message, Error=StdError> + Send + 'static,
-          SectionChan: SectionChannel + Send + Sync + 'static,
+impl<Input, Output, SectionChan> Section<Input, Output, SectionChan> for Mycelite
+where
+    Input: Stream<Item = Message> + Send + 'static,
+    Output: Sink<Message, Error = StdError> + Send + 'static,
+    SectionChan: SectionChannel + Send + Sync + 'static,
 {
-
     type Error = Box<dyn std::error::Error + Send + Sync + 'static>;
     type Future = Pin<Box<dyn Future<Output = Result<(), Self::Error>> + Send + 'static>>;
 

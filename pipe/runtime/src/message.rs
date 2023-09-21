@@ -2,8 +2,8 @@
 //!
 //! Message is a data struct which used to communicate between sections in the pipe.
 use arrow::record_batch::RecordBatch as _RecordBatch;
-use std::ops::{Deref, DerefMut};
 use section::Message as _Message;
+use std::ops::{Deref, DerefMut};
 
 #[derive(Debug)]
 #[repr(transparent)]

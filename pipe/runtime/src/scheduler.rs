@@ -4,8 +4,8 @@ use crate::storage::Storage;
 use crate::{config::Config, pipe::Pipe, registry::Registry, types::SectionError};
 use std::future::{Future, IntoFuture};
 
-use std::{collections::HashMap, time::Duration};
 use section::State;
+use std::{collections::HashMap, time::Duration};
 use tokio::{
     sync::mpsc::{channel, Receiver, Sender},
     sync::{

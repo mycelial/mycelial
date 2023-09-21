@@ -1,16 +1,16 @@
 //! storage backend for client
 
 use pipe::storage::Storage;
-use std::any::{Any, TypeId};
 use section::State;
+use serde::{Deserialize, Serialize};
 use sqlx::{sqlite::SqliteConnectOptions, ConnectOptions, Row, SqliteConnection};
+use std::any::{Any, TypeId};
 use std::future::Future;
 use std::{pin::Pin, str::FromStr};
 use tokio::sync::{
     mpsc::{channel, Receiver, Sender},
     oneshot::{channel as oneshot_channel, Sender as OneshotSender},
 };
-use serde::{Serialize, Deserialize};
 
 pub type StdError = Box<dyn std::error::Error + Send + Sync + 'static>;
 
@@ -22,12 +22,12 @@ pub struct SqliteStorage {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SqliteState {
-    map: serde_json::Map<String, serde_json::Value>
+    map: serde_json::Map<String, serde_json::Value>,
 }
 
 #[derive(Debug)]
 pub enum SqliteStateError {
-    UnsupportedType{ id: TypeId }
+    UnsupportedType { id: TypeId },
 }
 
 impl std::fmt::Display for SqliteStateError {
@@ -42,7 +42,9 @@ impl State for SqliteState {
     type Error = SqliteStateError;
 
     fn new() -> Self {
-        Self { map: serde_json::Map::new() }
+        Self {
+            map: serde_json::Map::new(),
+        }
     }
 
     fn get<T: Clone + Send + Sync + 'static>(&self, key: &str) -> Result<Option<T>, Self::Error> {
@@ -55,7 +57,7 @@ impl State for SqliteState {
             serde_json::Value::String(s) if TypeId::of::<String>() == type_id => {
                 let any = s as &dyn Any;
                 Ok(any.downcast_ref().cloned())
-            },
+            }
             serde_json::Value::Number(num) if TypeId::of::<u64>() == type_id => {
                 let num = match num.as_u64() {
                     None => return Ok(None),
@@ -63,7 +65,7 @@ impl State for SqliteState {
                 };
                 let any = &num as &dyn Any;
                 Ok(any.downcast_ref().cloned())
-            },
+            }
             serde_json::Value::Number(num) if TypeId::of::<i64>() == type_id => {
                 let num = match num.as_i64() {
                     None => return Ok(None),
@@ -71,28 +73,32 @@ impl State for SqliteState {
                 };
                 let any = &num as &dyn Any;
                 Ok(any.downcast_ref().cloned())
-            },
+            }
             _ => Ok(None),
         }
     }
 
-    fn set<T: Clone + Send + Sync + 'static>(&mut self, key: &str, value: T) -> Result<(), Self::Error> {
+    fn set<T: Clone + Send + Sync + 'static>(
+        &mut self,
+        key: &str,
+        value: T,
+    ) -> Result<(), Self::Error> {
         let any = &value as &dyn Any;
         let type_id = TypeId::of::<T>();
         let value = match type_id {
             t if t == TypeId::of::<String>() => {
                 let string: &String = any.downcast_ref().unwrap();
                 serde_json::Value::String(string.clone())
-            },
+            }
             t if t == TypeId::of::<u64>() => {
                 let num: &u64 = any.downcast_ref().unwrap();
                 serde_json::Value::Number((*num).into())
-            },
+            }
             t if t == TypeId::of::<i64>() => {
                 let num: &i64 = any.downcast_ref().unwrap();
                 serde_json::Value::Number((*num).into())
-            },
-            _ => Err(SqliteStateError::UnsupportedType{ id: type_id })?
+            }
+            _ => Err(SqliteStateError::UnsupportedType { id: type_id })?,
         };
         self.map.insert(key.to_string(), value);
         Ok(())
@@ -138,7 +144,7 @@ impl SqliteStorage {
                         .map(|_| ())
                         .map_err(|e| e.into());
                     reply_to.send(result).ok();
-                },
+                }
 
                 Message::RetrieveState {
                     id,
@@ -208,15 +214,14 @@ impl Storage<SqliteState> for SqliteStorageHandle {
         let this = self.clone();
         Box::pin(async move {
             let (reply_to, rx) = oneshot_channel();
-            this.send(
-                Message::StoreState {
-                    id,
-                    section_id,
-                    section_name,
-                    state,
-                    reply_to
-                }
-            ).await?;
+            this.send(Message::StoreState {
+                id,
+                section_id,
+                section_name,
+                state,
+                reply_to,
+            })
+            .await?;
             rx.await?
         })
     }
@@ -230,14 +235,13 @@ impl Storage<SqliteState> for SqliteStorageHandle {
         let this = self.clone();
         Box::pin(async move {
             let (reply_to, rx) = oneshot_channel();
-            this.send(
-                Message::RetrieveState {
-                    id,
-                    section_id,
-                    section_name,
-                    reply_to
-                }
-            ).await?;
+            this.send(Message::RetrieveState {
+                id,
+                section_id,
+                section_name,
+                reply_to,
+            })
+            .await?;
             rx.await?
         })
     }
@@ -247,15 +251,14 @@ pub async fn new(storage_path: String) -> Result<SqliteStorageHandle, StdError> 
     Ok(SqliteStorage::new(storage_path).await?.spawn())
 }
 
-
 #[cfg(test)]
 mod test {
     use super::*;
-    
+
     #[test]
     fn test_sqlite_state() {
         let mut state = SqliteState::new();
-        
+
         // set key and retrieve key as a string
         state.set("key", "value".to_string()).unwrap();
         assert_eq!("value", state.get::<String>("key").unwrap().unwrap());

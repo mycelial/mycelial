@@ -1,15 +1,15 @@
-mod section;
-mod state;
 mod command_channel;
 mod message;
+mod section;
+mod state;
 
-pub use section::Section;
-pub use state::State;
+pub use async_trait::async_trait;
 pub use command_channel::{
-    Command, SectionRequest, SectionChannel, RootChannel, WeakSectionChannel, ReplyTo
+    Command, ReplyTo, RootChannel, SectionChannel, SectionRequest, WeakSectionChannel,
 };
 pub use message::Message;
-pub use async_trait::async_trait;
+pub use section::Section;
+pub use state::State;
 
-#[cfg(feature="dummy")]
+#[cfg(feature = "dummy")]
 pub mod dummy;

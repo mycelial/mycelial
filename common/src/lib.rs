@@ -1,7 +1,7 @@
-use pipe::{config::{
-    Config as DynamicPipeConfig,
-    Value as DynamicPipeValue,
-}, types::SectionError};
+use pipe::{
+    config::{Config as DynamicPipeConfig, Value as DynamicPipeValue},
+    types::SectionError,
+};
 use serde::{Deserialize, Serialize};
 
 /// Top level configuration object
