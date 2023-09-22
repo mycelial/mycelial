@@ -40,7 +40,7 @@ data pipeline specifications from the server.
 The server offers you a way to set up data pipeline specifications, which move
 your data from one location to another via the installed clients. You can set up
 these data pipelines via a drag-and-drop web interface, or you can add these
-pipelines via api calls.
+pipelines via [api](/docs/API.md) calls.
 
 Once you've installed Mycelial (clients and server) you can easily begin moving
 your data from source systems to destination systems of your choosing. Currently

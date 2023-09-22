@@ -8,14 +8,15 @@ The source and destination computers need a Mycelial client installed.
 
 1. Setup Rust: use provided script at [rustup.rs](https://rustup.rs)
 2. Update Rust: `rustup update`
-3. Navigate to `mycelial/client`
-4. Make a copy of [config.example.toml](../client/config.example.toml) and name the copy `config.toml`.
-5. Modify the `config.toml` file as follows:
+3. Install cargo-watch with `cargo install cargo-watch`
+4. Navigate to `mycelial/client`
+5. Make a copy of [config.example.toml](../client/config.example.toml) and name the copy `config.toml`.
+6. Modify the `config.toml` file as follows:
    1. Under the `[node]` table, modify the `display_name` and the `unique_id` as desired
    2. Under the `[server]` table, modify the `endpoint` value to be the servers address and set the `token` to be the security token you intend on using on the server.
    3. Add the sources and destinations that you'd like for the client
-6. Modify the Makefile's `dev` rule, change the `--config` option to point to your new `config.toml` file
-7. run `make dev` to start the client
+7. Modify the Makefile's `dev` rule, change the `--config` option to point to your new `config.toml` file
+8. run `make dev` to start the client
 
 ## Mycelial Server
 
