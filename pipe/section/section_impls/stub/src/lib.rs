@@ -26,20 +26,20 @@ impl<T, E> Stub<T, E> {
     }
 }
 
-impl<T, E, Input, Output, CommandChannel> Section<Input, Output, CommandChannel> for Stub<T, E>
+impl<T, E, Input, Output, SectionChannel> Section<Input, Output, SectionChannel> for Stub<T, E>
 where
     Input: Send + 'static,
     Output: Send + 'static,
-    CommandChannel: Send + 'static,
+    SectionChannel: Send + 'static,
 {
     type Error = E;
     type Future = Pin<Box<dyn Future<Output = Result<(), Self::Error>> + Send + 'static>>;
 
-    fn start(self, input: Input, output: Output, command: CommandChannel) -> Self::Future {
+    fn start(self, input: Input, output: Output, section_channel: SectionChannel) -> Self::Future {
         Box::pin(async move {
             let _input = input;
             let _output = output;
-            let _command = command;
+            let _section_channel = section_channel;
             pending::<()>().await;
             Ok(())
         })
