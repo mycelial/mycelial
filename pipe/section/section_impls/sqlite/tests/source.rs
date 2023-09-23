@@ -4,7 +4,7 @@ use futures::{SinkExt, StreamExt};
 use section::dummy::*;
 use section::Section as _;
 use sqlite::{source, ColumnType, Message, SqlitePayload, Value};
-use sqlx::{sqlite::SqliteConnectOptions, ConnectOptions, Connection, SqliteConnection};
+use sqlx::{sqlite::SqliteConnectOptions, ConnectOptions, SqliteConnection};
 use stub::Stub;
 use tempfile::NamedTempFile;
 use tokio::sync::mpsc::{Receiver, Sender};

@@ -99,7 +99,6 @@ impl Mycelite {
                                 Ok(snapshot_id) => {
                                     state.set("snapshot_id", *snapshot_id)?;
                                     section_chan.store_state(state.clone()).await?;
-                                    self.cur_snapshot = Some(*snapshot_id);
                                 },
                                 Err(_) => Err("failed to downcast ack to u64")?
                             }
@@ -111,7 +110,6 @@ impl Mycelite {
                     if msg.is_none() {
                         Err("watcher down")?;
                     }
-
                     // FIXME: journal has no file locks
                     journal.update_header().await?;
 

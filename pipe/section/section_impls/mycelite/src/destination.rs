@@ -85,7 +85,6 @@ impl Mycelite {
                         Err("input closed")?
                     }
                     let mut msg = msg.unwrap();
-
                     if msg.payload.schema().as_ref() != &self.schema {
                         Err("unexpected schema message")?
                     }

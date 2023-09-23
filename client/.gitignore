@@ -1,2 +1,2 @@
 vendor/
-dev_client.sqlite
+*.sqlite

@@ -19,9 +19,9 @@ clean:
 
 .PHONY: dev
 dev:
-	RUST_LOG=DEBUG cargo-watch -c -q \
-		-i dev_client.sqlite \
-		-i dev_client.sqlite-journal \
+	RUST_LOG=INFO cargo-watch -c -q \
+		-i client_state.sqlite \
+		-i client_state.sqlite-journal \
 		-s 'cargo run -- --config=config.example.toml'
 
 .PHONY: vendor
