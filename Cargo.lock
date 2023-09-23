@@ -467,7 +467,7 @@ dependencies = [
 [[package]]
 name = "block"
 version = "0.1.0"
-source = "git+https://github.com/mycelial/mycelite?rev=fd1d472eea7e359772e55fff05a73361a349e958#fd1d472eea7e359772e55fff05a73361a349e958"
+source = "git+https://github.com/mycelial/mycelite?rev=v0.3.2#2837a7b55c26fd61ca622564add0c79fdd3b107e"
 dependencies = [
  "block_macro",
 ]
@@ -484,7 +484,7 @@ dependencies = [
 [[package]]
 name = "block_macro"
 version = "0.1.0"
-source = "git+https://github.com/mycelial/mycelite?rev=fd1d472eea7e359772e55fff05a73361a349e958#fd1d472eea7e359772e55fff05a73361a349e958"
+source = "git+https://github.com/mycelial/mycelite?rev=v0.3.2#2837a7b55c26fd61ca622564add0c79fdd3b107e"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1381,7 +1381,7 @@ checksum = "af150ab688ff2122fcef229be89cb50dd66af9e01a4ff320cc137eecc9bacc38"
 [[package]]
 name = "journal"
 version = "0.1.0"
-source = "git+https://github.com/mycelial/mycelite?rev=fd1d472eea7e359772e55fff05a73361a349e958#fd1d472eea7e359772e55fff05a73361a349e958"
+source = "git+https://github.com/mycelial/mycelite?rev=v0.3.2#2837a7b55c26fd61ca622564add0c79fdd3b107e"
 dependencies = [
  "async-stream",
  "block",
@@ -2308,7 +2308,7 @@ dependencies = [
 [[package]]
 name = "serde_sqlite"
 version = "0.1.0"
-source = "git+https://github.com/mycelial/mycelite?rev=fd1d472eea7e359772e55fff05a73361a349e958#fd1d472eea7e359772e55fff05a73361a349e958"
+source = "git+https://github.com/mycelial/mycelite?rev=v0.3.2#2837a7b55c26fd61ca622564add0c79fdd3b107e"
 dependencies = [
  "block",
  "serde",
