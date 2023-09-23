@@ -1,4 +1,4 @@
-use crate::{async_trait, Command, RootChannel, SectionChannel, State, WeakSectionChannel};
+use crate::{async_trait, Command, RootChannel, SectionChannel, WeakSectionChannel};
 use std::{
     any::Any,
     future::{pending, ready},

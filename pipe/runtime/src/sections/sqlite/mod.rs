@@ -5,14 +5,15 @@ use std::sync::Arc;
 
 use crate::message::RecordBatch;
 use arrow::{
-    error::ArrowError,
+    array::{Array, ArrayRef, AsArray, BinaryArray, Float64Array, Int64Array, StringArray},
     datatypes::{
-        Schema, Field, DataType, Int8Type, Int16Type, Int32Type, Int64Type, Float16Type, Float32Type, Float64Type,
-    }, array::{ArrayRef, Int64Array, Array, BinaryArray, StringArray, Float64Array, AsArray},
+        DataType, Field, Float16Type, Float32Type, Float64Type, Int16Type, Int32Type, Int64Type,
+        Int8Type, Schema,
+    },
+    error::ArrowError,
     record_batch::RecordBatch as _RecordBatch,
 };
-use sqlite::{SqlitePayload, ColumnType, Value};
-
+use sqlite::{ColumnType, SqlitePayload, Value};
 
 fn to_datatype(sqlite_coltype: ColumnType) -> DataType {
     // FIXME: make use of int32/f32 where possible?
@@ -20,7 +21,8 @@ fn to_datatype(sqlite_coltype: ColumnType) -> DataType {
         ColumnType::Int => DataType::Int64,
         ColumnType::Blob => DataType::Binary,
         ColumnType::Text => DataType::Utf8,
-        ColumnType::Real => DataType::Float64, _ => panic!("unexpected sqlite type: {:?}", sqlite_coltype),
+        ColumnType::Real => DataType::Float64,
+        _ => panic!("unexpected sqlite type: {:?}", sqlite_coltype),
     }
 }
 
@@ -97,7 +99,7 @@ impl TryInto<RecordBatch> for &SqlitePayload {
                             })
                             .collect::<Float64Array>();
                         Arc::new(arrow_column)
-                    },
+                    }
                     // FIXME:
                     _ => unreachable!(),
                 }
@@ -122,77 +124,71 @@ pub struct SqlitePayloadNewType(SqlitePayload);
 
 impl From<&RecordBatch> for SqlitePayloadNewType {
     fn from(arrow_rb: &RecordBatch) -> Self {
-        let (columns, column_types) = arrow_rb
-            .schema()
-            .fields
-            .into_iter()
-            .fold((vec![], vec![]), |(mut columns, mut column_types), field| {
+        let (columns, column_types) = arrow_rb.schema().fields.into_iter().fold(
+            (vec![], vec![]),
+            |(mut columns, mut column_types), field| {
                 columns.push(field.name().clone());
                 column_types.push(to_coltype(field.data_type()));
                 (columns, column_types)
-            });
-        let values = arrow_rb.columns().iter().map(|column| {
-            let array = column.as_ref();
-            // FIXME: is it possible to use downcast_macro from arrow? 
-            match array.data_type() {
-                DataType::Int8 => {
-                    array.as_primitive::<Int8Type>()
+            },
+        );
+        let values = arrow_rb
+            .columns()
+            .iter()
+            .map(|column| {
+                let array = column.as_ref();
+                // FIXME: is it possible to use downcast_macro from arrow?
+                match array.data_type() {
+                    DataType::Int8 => array
+                        .as_primitive::<Int8Type>()
                         .into_iter()
                         .map(|x| x.map(|x| x as i64).map(Value::Int).unwrap_or(Value::Null))
-                        .collect()
-                },
-                DataType::Int16 => {
-                    array.as_primitive::<Int16Type>()
+                        .collect(),
+                    DataType::Int16 => array
+                        .as_primitive::<Int16Type>()
                         .into_iter()
                         .map(|x| x.map(|x| x as i64).map(Value::Int).unwrap_or(Value::Null))
-                        .collect()
-                },
-                DataType::Int32 => {
-                    array.as_primitive::<Int32Type>()
+                        .collect(),
+                    DataType::Int32 => array
+                        .as_primitive::<Int32Type>()
                         .into_iter()
                         .map(|x| x.map(|x| x as i64).map(Value::Int).unwrap_or(Value::Null))
-                        .collect()
-                },
-                DataType::Int64 => {
-                    array.as_primitive::<Int64Type>()
+                        .collect(),
+                    DataType::Int64 => array
+                        .as_primitive::<Int64Type>()
                         .into_iter()
                         .map(|x| x.map(Value::Int).unwrap_or(Value::Null))
-                        .collect()
-                },
-                DataType::Float16 => {
-                    array.as_primitive::<Float16Type>()
+                        .collect(),
+                    DataType::Float16 => array
+                        .as_primitive::<Float16Type>()
                         .into_iter()
                         .map(|x| x.map(|x| x.into()).map(Value::Real).unwrap_or(Value::Null))
-                        .collect()
-                },
-                DataType::Float32 => {
-                    array.as_primitive::<Float32Type>()
+                        .collect(),
+                    DataType::Float32 => array
+                        .as_primitive::<Float32Type>()
                         .into_iter()
                         .map(|x| x.map(|x| x.into()).map(Value::Real).unwrap_or(Value::Null))
-                        .collect()
-                }, 
-                DataType::Float64 => {
-                    array.as_primitive::<Float64Type>()
+                        .collect(),
+                    DataType::Float64 => array
+                        .as_primitive::<Float64Type>()
                         .into_iter()
                         .map(|x| x.map(Value::Real).unwrap_or(Value::Null))
-                        .collect()
-                },
-                DataType::Binary => {
-                    array.as_binary::<i32>()
+                        .collect(),
+                    DataType::Binary => array
+                        .as_binary::<i32>()
                         .into_iter()
                         .map(|x| x.map(|x| Value::Blob(x.into())).unwrap_or(Value::Null))
-                        .collect()
-                },
-                DataType::Utf8 => {
-                    array.as_string::<i32>()
+                        .collect(),
+                    DataType::Utf8 => array
+                        .as_string::<i32>()
                         .into_iter()
                         .map(|x| x.map(|x| Value::Text(x.into())).unwrap_or(Value::Null))
-                        .collect()
-                },
-                dt => unimplemented!("unimplemented {}", dt),
-            }
-        }).collect();
-        let payload = SqlitePayload{
+                        .collect(),
+                    dt => unimplemented!("unimplemented {}", dt),
+                }
+            })
+            .collect();
+        let payload = SqlitePayload {
             columns: Arc::from(columns),
             column_types: Arc::from(column_types),
             values,

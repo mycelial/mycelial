@@ -7,7 +7,7 @@ pub struct DummyState {}
 
 impl DummyState {
     pub fn new() -> Self {
-        Self{}
+        Self {}
     }
 }
 

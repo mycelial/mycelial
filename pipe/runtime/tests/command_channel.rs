@@ -1,8 +1,8 @@
 use std::time::Duration;
 
 use runtime::command_channel::{RootChannel, SectionRequest};
-use section::{Command, RootChannel as _, SectionChannel as _, WeakSectionChannel};
 use section::dummy::DummyState;
+use section::{Command, RootChannel as _, SectionChannel as _, WeakSectionChannel};
 use tokio::time::timeout;
 
 const TIMEOUT: Duration = Duration::from_millis(100);

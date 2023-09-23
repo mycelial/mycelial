@@ -34,11 +34,7 @@ impl<S: State> Section<DynStream, DynSink, SectionChannel<S>> for SqliteAdapter 
                 sqlite::Message::new(message.origin, sqlite_payload.0, message.ack)
             });
             let output = Stub::<sqlite::Message, SectionError>::new();
-            self.inner.start(
-                input,
-                output, 
-                section_channel
-            ).await
+            self.inner.start(input, output, section_channel).await
         })
     }
 }
