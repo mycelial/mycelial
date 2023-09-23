@@ -223,11 +223,12 @@ impl WeakSectionChannelTrait for WeakSectionChannel {
 #[cfg(test)]
 mod test {
     use super::*;
+    use section::dummy::DummyState;
 
     #[test]
     fn send() {
         fn test_send<T: Send>(_: T) {}
-        let mut root_chan = RootChannel::new();
+        let mut root_chan = RootChannel::<DummyState>::new();
         let section_chan = root_chan.section_channel(0).unwrap();
         let weak_chan = section_chan.weak_chan();
         test_send(root_chan);

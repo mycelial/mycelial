@@ -1,7 +1,8 @@
 use std::time::Duration;
 
-use runtime::command_channel::{RootChannel, SectionRequest, SectionState};
-use section::{Command, RootChannel as _, SectionChannel as _, WeakSectionChannel as _};
+use runtime::command_channel::{RootChannel, SectionRequest};
+use section::{Command, RootChannel as _, SectionChannel as _, WeakSectionChannel};
+use section::dummy::DummyState;
 use tokio::time::timeout;
 
 const TIMEOUT: Duration = Duration::from_millis(100);
@@ -19,7 +20,7 @@ async fn test_command_channel() -> Result<(), Box<dyn std::error::Error>> {
         assert!(state.is_none());
 
         // ask to store state
-        let state = SectionState::new();
+        let state = DummyState::new();
         let res = timeout(TIMEOUT, section_chan.store_state(state)).await;
         assert!(matches!(res, Ok(Ok(_))));
 

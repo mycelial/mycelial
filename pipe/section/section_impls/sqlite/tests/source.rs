@@ -1,7 +1,7 @@
 use std::str::FromStr;
 
 use futures::{SinkExt, StreamExt};
-use section::dummy::dummy_command_channel::*;
+use section::dummy::*;
 use section::Section as _;
 use sqlite::{source, ColumnType, Message, SqlitePayload, Value};
 use sqlx::{sqlite::SqliteConnectOptions, ConnectOptions, Connection, SqliteConnection};
