@@ -18,6 +18,7 @@ tokio-stream = "0.1"
 serde_json = "1"
 toml = "0.7"
 section = { path = "../section" }
+log = "0.4"
 
 ## fixme
 reqwest = { version = "0.11" }

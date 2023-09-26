@@ -66,7 +66,10 @@ pub enum ScheduleResult {
 }
 
 #[allow(dead_code)] // fixme
-impl<S: State + 'static, T: Storage<S> + std::fmt::Debug + Clone + Send + 'static> Scheduler<T, S> {
+impl<T, S> Scheduler<T, S> 
+    where S: State + 'static,
+          T: Storage<S> + std::fmt::Debug + Clone + Send + 'static,
+{
     pub fn new(registry: Registry<S>, storage: T) -> Self {
         Self {
             registry,
@@ -125,7 +128,7 @@ impl<S: State + 'static, T: Storage<S> + std::fmt::Debug + Clone + Send + 'stati
                         },
                         SectionRequest::Log { id, message } => {
                             // FIXME: use proper logger
-                            println!("pipe<{id}>: {message}");
+                            log::info!("pipe<{id}>: {message}");
                         },
                         SectionRequest::Stopped{ id } => {
                             // FIXME: use proper logger

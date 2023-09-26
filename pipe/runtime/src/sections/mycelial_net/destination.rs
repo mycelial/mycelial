@@ -3,8 +3,8 @@
 //! network section, dumps incoming messages to provided http endpoint
 use arrow::ipc::writer::StreamWriter;
 use bytes::Bytes;
-use futures::{Sink, Stream, StreamExt};
-use section::{Section, SectionChannel, State};
+use futures::{Sink, Stream, StreamExt, FutureExt};
+use section::{Section, SectionChannel, State, Command};
 use std::future::Future;
 
 use base64::engine::{general_purpose::STANDARD as BASE64, Engine};
@@ -41,7 +41,7 @@ impl Mycelial {
         self,
         input: Input,
         _output: Output,
-        _section_chan: SectionChan,
+        mut section_chan: SectionChan,
     ) -> Result<(), SectionError>
     where
         Input: Stream<Item = Message> + Send + 'static,
@@ -50,40 +50,54 @@ impl Mycelial {
     {
         let mut input = pin!(input.fuse());
         let client = &mut reqwest::Client::new();
-        while let Some(mut msg) = input.next().await {
-            // FIXME: error / unwrap
-            let mut stream_writer: StreamWriter<_> =
-                StreamWriter::try_new(vec![], msg.payload.0.schema().as_ref()).unwrap();
+        loop {
+            futures::select! {
+                msg = input.next() => {
+                    let mut msg = match msg {
+                        Some(msg) => msg,
+                        None => Err("input stream closed")?
+                    };
+                    // FIXME: error / unwrap
+                    let mut stream_writer: StreamWriter<_> =
+                        StreamWriter::try_new(vec![], msg.payload.0.schema().as_ref()).unwrap();
 
-            // FIXME: unwrap
-            stream_writer.write(&msg.payload).unwrap();
-            stream_writer.finish().unwrap();
+                    // FIXME: unwrap
+                    stream_writer.write(&msg.payload).unwrap();
+                    stream_writer.finish().unwrap();
 
-            let bytes: Bytes = stream_writer.into_inner().unwrap().into();
-            loop {
-                match client
-                    .post(format!(
-                        "{}/{}",
-                        self.endpoint.as_str().trim_end_matches('/'),
-                        self.topic
-                    ))
-                    .header("Authorization", self.basic_auth())
-                    .header("x-message-origin", &msg.origin)
-                    .body(bytes.clone())
-                    .send()
-                    .await
-                {
-                    Err(e) => {
-                        println!("error: {:?}", e);
-                        tokio::time::sleep(Duration::from_secs(3)).await;
+                    let bytes: Bytes = stream_writer.into_inner().unwrap().into();
+                    loop {
+                        match client
+                            .post(format!(
+                                "{}/{}",
+                                self.endpoint.as_str().trim_end_matches('/'),
+                                self.topic
+                            ))
+                            .header("Authorization", self.basic_auth())
+                            .header("x-message-origin", &msg.origin)
+                            .body(bytes.clone())
+                            .send()
+                            .await
+                        {
+                            Err(e) => {
+                                section_chan.log(format!("failed to push message: {:?}", e)).await?;
+                                tokio::time::sleep(Duration::from_secs(3)).await;
+                            }
+                            Ok(res) if res.status() == 200 => break,
+                            Ok(res) => Err(format!("unexpected status code: {}", res.status()))?,
+                        }
                     }
-                    Ok(res) if res.status() == 200 => break,
-                    Ok(res) => Err(format!("unexpected status code: {}", res.status()))?,
+                    msg.ack().await;
+                },
+                cmd = section_chan.recv().fuse() => {
+                    match cmd? {
+                        Command::Stop => return Ok(()),
+                        _ => {},
+                    }
                 }
+
             }
-            msg.ack().await;
         }
-        Ok(())
     }
 
     fn basic_auth(&self) -> String {

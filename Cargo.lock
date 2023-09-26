@@ -2142,6 +2142,7 @@ dependencies = [
  "base64",
  "bytes",
  "futures",
+ "log",
  "mycelite",
  "reqwest",
  "section",

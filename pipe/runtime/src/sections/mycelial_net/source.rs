@@ -102,7 +102,7 @@ impl Mycelial {
                             interval.reset();
                         },
                         Ok(None) => (),
-                        Err(e) => println!("failed to retrieve next batch: {:?}", e),
+                        Err(e) => section_chan.log(format!("failed to retrieve next batch: {:?}", e)).await?,
                     }
                 },
                 cmd = section_chan.recv().fuse() => {
