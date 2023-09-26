@@ -52,7 +52,7 @@ fn read_config(path: &str) -> Result<ClientConfig> {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    pretty_env_logger::init();
+    pretty_env_logger::init_timed();
     let cli = Cli::try_parse()?;
     let config = read_config(&cli.config)?;
 
