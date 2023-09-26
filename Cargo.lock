@@ -580,27 +580,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cd7cc57abe963c6d3b9d8be5b06ba7c8957a930305ca90304f24ef040aa6f961"
 
 [[package]]
-name = "client"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "base64",
- "clap",
- "common",
- "log",
- "pretty_env_logger",
- "reqwest",
- "runtime",
- "section",
- "serde",
- "serde_json",
- "sqlx",
- "thiserror",
- "tokio",
- "toml",
-]
-
-[[package]]
 name = "colorchoice"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1602,6 +1581,27 @@ dependencies = [
  "log",
  "wasi",
  "windows-sys",
+]
+
+[[package]]
+name = "myceliald"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "base64",
+ "clap",
+ "common",
+ "log",
+ "pretty_env_logger",
+ "reqwest",
+ "runtime",
+ "section",
+ "serde",
+ "serde_json",
+ "sqlx",
+ "thiserror",
+ "tokio",
+ "toml",
 ]
 
 [[package]]

@@ -1,6 +1,6 @@
 SHELL := bash
 SQLITE_PATH ?= "/tmp/test.sqlite"
-TAG ?= pipe_client
+TAG ?= myceliald
 RUST_LOG ?= INFO
 
 .PHONY: all
@@ -16,13 +16,13 @@ bootstrap_sqlite:
 
 .PHONY: clean
 clean:
-	rm -f dev_client.sqlite*
+	rm -f myceliald_state.sqlite*
 
 .PHONY: dev
 dev:
 	RUST_LOG=$(RUST_LOG) cargo-watch -c -q \
-		-i client_state.sqlite \
-		-i client_state.sqlite-journal \
+		-i myceliald.sqlite \
+		-i myceliald.sqlite-journal \
 		-s 'cargo run -- --config=config.example.toml'
 
 .PHONY: vendor
@@ -31,7 +31,7 @@ vendor:
 
 .PHONY: dockerize_vendored
 dockerize_vendored:
-	cd ../ && docker build -f client/Dockerfile -t $(TAG) .
+	cd ../ && docker build -f myceliald/Dockerfile -t $(TAG) .
 
 
 .PHONY: run_docker
@@ -45,7 +45,7 @@ stop_docker:
 
 .PHONY: deploy_at_flyio
 deploy_at_flyio:
-	cd ../ && flyctl deploy -c client/flyio.toml
+	cd ../ && flyctl deploy -c myceliald/flyio.toml
 
 .PHONY: attach_to_flyio
 attach_to_flyio:
