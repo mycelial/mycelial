@@ -27,5 +27,5 @@ bytes = "1.5"
 
 ## sections
 stub = { path = "../section/section_impls/stub/" }
-sqlite = { path = "../section/section_impls/sqlite/" }
-mycelite = { path = "../section/section_impls/mycelite" }
+sqlite_connector = { path = "../section/section_impls/sqlite_connector/" }
+sqlite_physical_replication = { path = "../section/section_impls/sqlite_physical_replication/" }

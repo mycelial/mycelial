@@ -1,5 +1,5 @@
 [package]
-name = "mycelite"
+name = "sqlite_physical_replication"
 version = "0.1.0"
 edition = "2021"
 

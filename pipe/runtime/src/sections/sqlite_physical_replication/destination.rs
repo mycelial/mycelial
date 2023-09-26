@@ -5,14 +5,14 @@ use crate::{
     types::{DynSection, DynSink, DynStream, SectionError, SectionFuture},
 };
 use futures::{SinkExt, StreamExt};
-use mycelite::destination::Mycelite;
+use sqlite_physical_replication::destination::Destination;
 use section::{Section, State};
 
-pub struct MyceliteAdapter {
-    inner: Mycelite,
+pub struct DestinationAdapter {
+    inner: Destination,
 }
 
-impl<S: State> Section<DynStream, DynSink, SectionChannel<S>> for MyceliteAdapter {
+impl<S: State> Section<DynStream, DynSink, SectionChannel<S>> for DestinationAdapter {
     type Future = SectionFuture;
     type Error = SectionError;
 
@@ -23,10 +23,10 @@ impl<S: State> Section<DynStream, DynSink, SectionChannel<S>> for MyceliteAdapte
         command_channel: SectionChannel<S>,
     ) -> Self::Future {
         Box::pin(async move {
-            // adapt incoming message to mycelite message
-            let input = input.map(|msg| mycelite::Message::new(msg.origin, msg.payload.0, msg.ack));
+            // adapt incoming message to sqlite_physical_replication message
+            let input = input.map(|msg| sqlite_physical_replication::Message::new(msg.origin, msg.payload.0, msg.ack));
             // adapt outgoing message to pipe message
-            let output = output.with(|msg: mycelite::Message| async move {
+            let output = output.with(|msg: sqlite_physical_replication::Message| async move {
                 Ok(message::Message::new(msg.origin, msg.payload, msg.ack))
             });
             self.inner.start(input, output, command_channel).await
@@ -34,19 +34,19 @@ impl<S: State> Section<DynStream, DynSink, SectionChannel<S>> for MyceliteAdapte
     }
 }
 
-/// constructor for mycelite journal destination
+/// constructor for sqlite_physical_replication journal destination
 ///
 /// # Config example:
 /// ```toml
 /// [[section]]
-/// name = "mycelite_destination"
+/// name = "sqlite_physical_replication_destination"
 /// journal_path = "/tmp/path_to_journal"
 /// database_path = "/tmp/path_to_database"
 /// ```
 pub fn constructor<S: State>(config: &Map) -> Result<Box<dyn DynSection<S>>, SectionError> {
     let path = config
         .get("journal_path")
-        .ok_or("mycelite journal path is required")?
+        .ok_or("sqlite_physical_replication journal path is required")?
         .as_str()
         .ok_or("path should be string")?;
     let database_path = config.get("database_path").map_or(
@@ -63,7 +63,7 @@ pub fn constructor<S: State>(config: &Map) -> Result<Box<dyn DynSection<S>>, Sec
                 })
         },
     )?;
-    Ok(Box::new(MyceliteAdapter {
-        inner: Mycelite::new(path, database_path),
+    Ok(Box::new(DestinationAdapter {
+        inner: Destination::new(path, database_path),
     }))
 }

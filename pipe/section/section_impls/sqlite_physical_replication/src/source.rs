@@ -1,4 +1,4 @@
-//! Mycelite journal source
+//! Source journal source
 
 use arrow::array::{Array, BinaryArray, Int64Array, UInt32Array, UInt64Array};
 use arrow::datatypes::{DataType, Field, Schema};
@@ -13,7 +13,7 @@ use std::sync::Arc;
 use tokio::sync::mpsc::Sender;
 
 #[derive(Debug)]
-pub struct Mycelite {
+pub struct Source {
     journal_path: String,
     cur_snapshot: Option<u64>,
     buf: Vec<(SnapshotHeader, BlobHeader, Vec<u8>)>,
@@ -32,7 +32,7 @@ enum Buf {
     More,
 }
 
-impl Mycelite {
+impl Source {
     pub fn new(journal_path: impl Into<String>) -> Self {
         let schema = Schema::new(vec![
             Field::new("snapshot_id", DataType::UInt64, false),
@@ -248,7 +248,7 @@ impl Mycelite {
     }
 }
 
-impl<Input, Output, SectionChan> Section<Input, Output, SectionChan> for Mycelite
+impl<Input, Output, SectionChan> Section<Input, Output, SectionChan> for Source
 where
     Input: Stream<Item = Message> + Send + 'static,
     Output: Sink<Message, Error = StdError> + Send + 'static,

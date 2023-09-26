@@ -13,7 +13,7 @@ use arrow::{
     error::ArrowError,
     record_batch::RecordBatch as _RecordBatch,
 };
-use sqlite::{ColumnType, SqlitePayload, Value};
+use sqlite_connector::{ColumnType, SqlitePayload, Value};
 
 fn to_datatype(sqlite_coltype: ColumnType) -> DataType {
     // FIXME: make use of int32/f32 where possible?
