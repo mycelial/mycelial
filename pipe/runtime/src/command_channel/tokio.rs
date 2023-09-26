@@ -81,7 +81,7 @@ impl<S: StateTrait> RootChannelTrait for RootChannel<S> {
     type Error = ChanError;
     type SectionChannel = SectionChannel<S>;
 
-    fn section_channel(&mut self, section_id: u64) -> Result<Self::SectionChannel, Self::Error> {
+    fn add_section(&mut self, section_id: u64) -> Result<Self::SectionChannel, Self::Error> {
         if self.section_handles.contains_key(&section_id) {
             return Err(ChanError::SectionExists);
         }
@@ -94,6 +94,13 @@ impl<S: StateTrait> RootChannelTrait for RootChannel<S> {
             section_rx,
             weak_section_tx,
         ))
+    }
+
+    fn remove_section(&mut self, section_id: u64) -> Result<(), Self::Error> {
+        match self.section_handles.remove(&section_id) {
+            Some(_) => Ok(()),
+            None => Err(ChanError::NoSuchSection)
+        }
     }
 
     async fn recv(&mut self) -> Result<SectionRequest<S>, Self::Error> {
@@ -229,7 +236,7 @@ mod test {
     fn send() {
         fn test_send<T: Send>(_: T) {}
         let mut root_chan = RootChannel::<DummyState>::new();
-        let section_chan = root_chan.section_channel(0).unwrap();
+        let section_chan = root_chan.add_section(0).unwrap();
         let weak_chan = section_chan.weak_chan();
         test_send(root_chan);
         test_send(section_chan);

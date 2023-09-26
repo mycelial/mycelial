@@ -40,7 +40,6 @@ pub struct PollUnboundedSender<T> {
 }
 
 impl<T> PollUnboundedSender<T> {
-    #[allow(dead_code)] // fixme
     pub fn new(inner: UnboundedSender<T>) -> Self {
         Self { inner }
     }

@@ -1,23 +1,21 @@
 //! Pipe
 
-use futures::{Sink, SinkExt, Stream};
-use std::future::IntoFuture;
+use futures::{Sink, SinkExt, Stream, FutureExt};
 use tokio::task::JoinHandle;
 
 use crate::channel::channel;
 use crate::command_channel::RootChannel;
 use crate::types::{DynSection, DynSink, DynStream, SectionError, SectionFuture};
-use section::RootChannel as _;
+use section::{RootChannel as _, SectionChannel, Command};
 use section::{ReplyTo as _, Section, SectionRequest, State};
+use stub::Stub;
 
 use super::config::Config;
 use super::message::Message;
 use super::registry::Registry;
-use stub::Stub;
 
 #[allow(dead_code)]
 pub struct Pipe<S: State> {
-    id: u64,
     config: Config,
     sections: Option<Vec<Box<dyn DynSection<S>>>>,
 }
@@ -39,32 +37,18 @@ impl<S: State> std::fmt::Debug for Pipe<S> {
 }
 
 impl<S: State> Pipe<S> {
-    pub fn new(id: u64, config: Config, sections: Vec<Box<dyn DynSection<S>>>) -> Self {
+    pub fn new(config: Config, sections: Vec<Box<dyn DynSection<S>>>) -> Self {
         Self {
-            id,
             config,
             sections: Some(sections),
         }
     }
 }
 
-impl<S: State> IntoFuture for Pipe<S> {
-    type Output = Result<(), SectionError>;
-    type IntoFuture = SectionFuture;
-
-    fn into_future(self) -> Self::IntoFuture {
-        Box::new(self).start(
-            Stub::<_, SectionError>::new(),
-            Stub::<_, SectionError>::new(),
-            (),
-        )
-    }
-}
-
-impl<S: State> TryFrom<(u64, Config, &'_ Registry<S>)> for Pipe<S> {
+impl<S: State> TryFrom<(&'_ Config, &'_ Registry<S>)> for Pipe<S> {
     type Error = SectionError;
 
-    fn try_from((id, config, registry): (u64, Config, &Registry<S>)) -> Result<Self, Self::Error> {
+    fn try_from((config, registry): (&Config, &Registry<S>)) -> Result<Self, Self::Error> {
         let sections = config
             .get_sections()
             .iter()
@@ -82,19 +66,20 @@ impl<S: State> TryFrom<(u64, Config, &'_ Registry<S>)> for Pipe<S> {
                 },
             )
             .collect::<Result<Vec<Box<dyn DynSection<S>>>, _>>()?;
-        Ok(Pipe::new(id, config, sections))
+        Ok(Pipe::new(config.clone(), sections))
     }
 }
 
-impl<Input, Output, S: State> Section<Input, Output, ()> for Pipe<S>
+impl<Input, Output, S: State, SectionChan> Section<Input, Output, SectionChan> for Pipe<S>
 where
     Input: Stream<Item = Message> + Send + 'static,
     Output: Sink<Message, Error = SectionError> + Send + 'static,
+    SectionChan: SectionChannel + Send + 'static
 {
     type Error = SectionError;
     type Future = SectionFuture;
 
-    fn start(mut self, input: Input, output: Output, _command: ()) -> Self::Future {
+    fn start(mut self, input: Input, output: Output, mut section_chan: SectionChan) -> Self::Future {
         let len = self.sections.as_ref().unwrap().len();
         let input: DynStream = Box::pin(input);
         let output: DynSink = Box::pin(output);
@@ -116,7 +101,7 @@ where
                     let tx = tx.sink_map_err(|_| -> SectionError { "send error".into() });
                     (Box::pin(rx), Box::pin(tx))
                 };
-                let section_channel = root_channel.section_channel(pos as u64).unwrap();
+                let section_channel = root_channel.add_section(pos as u64).unwrap();
                 let handle = tokio::spawn(section.dyn_start(input, output, section_channel));
                 acc.push(HandleWrap::new(handle));
                 (Some(next_input), pipe_input, pipe_output, acc)
@@ -124,34 +109,45 @@ where
         );
 
         let future = async move {
+            let mut state = section_chan.retrieve_state().await?.unwrap_or(<SectionChan as SectionChannel>::State::new());
             let mut handles = handles;
-            while let Ok(msg) = root_channel.recv().await {
-                match msg {
-                    SectionRequest::StoreState { reply_to, .. } => {
-                        // FIXME: unwrap
-                        //let name = self.config.get_sections()[id as usize].get("name").unwrap();
-                        //let future = self.storage.store_state(self.id, id, name.as_str().unwrap().to_string(), state);
-                        //future.await?;
-                        reply_to.reply(()).await?;
-                    }
-                    SectionRequest::RetrieveState { reply_to, .. } => {
-                        reply_to.reply(None).await?;
-                    }
-                    SectionRequest::Log { id, message } => {
-                        println!("log request from section with id: {id}, message: {message}");
-                    }
-                    SectionRequest::Stopped { id } => {
-                        return match handles[id as usize].handle.take() {
-                            Some(handle) => handle.await?,
-                            None => Ok(()),
+            loop {
+                futures::select! {
+                    msg = root_channel.recv().fuse() => {
+                        match msg? {
+                            SectionRequest::StoreState { reply_to, id, state: section_state } => {
+                                state.set(&format!("{id}"), section_state)?;
+                                section_chan.store_state(state.clone()).await?;
+                                reply_to.reply(()).await?;
+                            }
+                            SectionRequest::RetrieveState { id, reply_to } => {
+                                let retrieved_state = state.get(&format!("{id}"))?;
+                                reply_to.reply(retrieved_state).await?;
+                            }
+                            SectionRequest::Log { id, message } => {
+                                section_chan.log(format!("section_id<id: {id}>: {message}")).await?;
+                            }
+                            SectionRequest::Stopped { id } => {
+                                return match handles[id as usize].handle.take() {
+                                    Some(handle) => {
+                                        let err = handle.await?;
+                                        println!("err: {:?}", err);
+                                        err
+                                    },
+                                    None => Ok(()),
+                                }
+                            }
+                            req => unreachable!("{:?}", req)
                         }
-                    }
-                    _req => {
-                        unreachable!()
+                    },
+                    cmd = section_chan.recv().fuse() => {
+                        match cmd? {
+                            Command::Stop => return Ok(()),
+                            _ => (),
+                        }
                     }
                 }
             }
-            Ok(())
         };
         Box::pin(future)
     }

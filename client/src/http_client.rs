@@ -140,7 +140,7 @@ impl Client {
                 }
             }
             for id in ids.into_iter() {
-                self.scheduler_handle.remove_pipe(id).await.unwrap()
+                self.scheduler_handle.remove_pipe(id).await?;
             }
 
             tokio::time::sleep(Duration::from_secs(5)).await

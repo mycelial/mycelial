@@ -10,8 +10,11 @@ pub trait RootChannel {
     type SectionChannel: SectionChannel;
     type Error;
 
-    // create new channel for section
-    fn section_channel(&mut self, section_id: u64) -> Result<Self::SectionChannel, Self::Error>;
+    // create and return new section channel
+    fn add_section(&mut self, section_id: u64) -> Result<Self::SectionChannel, Self::Error>;
+
+    // remove section
+    fn remove_section(&mut self, section_id: u64) -> Result<(), Self::Error>;
 
     // receive request from section
     async fn recv(

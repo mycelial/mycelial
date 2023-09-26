@@ -10,7 +10,7 @@ const TIMEOUT: Duration = Duration::from_millis(100);
 #[tokio::test]
 async fn test_command_channel() -> Result<(), Box<dyn std::error::Error>> {
     let mut root_chan = RootChannel::new();
-    let mut section_chan = root_chan.section_channel(0).unwrap();
+    let mut section_chan = root_chan.add_section(0).unwrap();
 
     let handle = tokio::spawn(async move {
         // ask root chan for state

@@ -39,8 +39,12 @@ impl RootChannel for DummyRootChannel {
         ready(Ok(())).await
     }
 
-    fn section_channel(&mut self, _section_id: u64) -> Result<Self::SectionChannel, Self::Error> {
+    fn add_section(&mut self, _section_id: u64) -> Result<Self::SectionChannel, Self::Error> {
         Ok(DummySectionChannel {})
+    }
+
+    fn remove_section(&mut self, _section_id: u64) -> Result<(), Self::Error> {
+        Ok(())
     }
 }
 

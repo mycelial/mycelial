@@ -41,6 +41,15 @@ struct Cli {
     config: String,
 }
 
+fn read_config(path: &str) -> Result<ClientConfig> {
+    let mut config = String::default();
+    let mut config_file = File::open(path)?;
+    config_file.read_to_string(&mut config)?;
+
+    Ok(toml::from_str(&config)?)
+}
+
+
 #[tokio::main]
 async fn main() -> Result<()> {
     pretty_env_logger::init();
@@ -51,14 +60,5 @@ async fn main() -> Result<()> {
     let runtime_handle = runtime::new(storage_handle);
     let client_handle = http_client::new(config, runtime_handle);
     client_handle.await??;
-
     Ok(())
-}
-
-fn read_config(path: &str) -> Result<ClientConfig> {
-    let mut config = String::default();
-    let mut config_file = File::open(path)?;
-    config_file.read_to_string(&mut config)?;
-
-    Ok(toml::from_str(&config)?)
 }

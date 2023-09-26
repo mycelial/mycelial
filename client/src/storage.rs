@@ -4,7 +4,7 @@ use pipe::storage::Storage;
 use section::State;
 use serde::{Deserialize, Serialize};
 use sqlx::{sqlite::SqliteConnectOptions, ConnectOptions, Row, SqliteConnection};
-use std::any::{Any, TypeId};
+use std::any::{Any, TypeId, type_name};
 use std::future::Future;
 use std::{pin::Pin, str::FromStr};
 use tokio::sync::{
@@ -27,7 +27,7 @@ pub struct SqliteState {
 
 #[derive(Debug)]
 pub enum SqliteStateError {
-    UnsupportedType { id: TypeId },
+    UnsupportedType { id: TypeId, type_name: &'static str },
 }
 
 impl std::fmt::Display for SqliteStateError {
@@ -73,17 +73,24 @@ impl State for SqliteState {
                 };
                 let any = &num as &dyn Any;
                 Ok(any.downcast_ref().cloned())
-            }
-            _ => Ok(None),
+            },
+            serde_json::Value::Object(map) if TypeId::of::<Self>() == type_id => {
+                let any = &SqliteState{map: map.clone()} as &dyn Any;
+                Ok(any.downcast_ref().cloned())
+            },
+            _ => {
+                // FIXME: this one points to foot
+                Ok(None)
+           }
         }
     }
 
     fn set<T: Clone + Send + Sync + 'static>(
         &mut self,
         key: &str,
-        value: T,
+        mut value: T,
     ) -> Result<(), Self::Error> {
-        let any = &value as &dyn Any;
+        let any = &mut value as &mut dyn Any;
         let type_id = TypeId::of::<T>();
         let value = match type_id {
             t if t == TypeId::of::<String>() => {
@@ -98,7 +105,12 @@ impl State for SqliteState {
                 let num: &i64 = any.downcast_ref().unwrap();
                 serde_json::Value::Number((*num).into())
             }
-            _ => Err(SqliteStateError::UnsupportedType { id: type_id })?,
+            t if t == TypeId::of::<SqliteState>() => {
+                let sqlite_state: &mut SqliteState = any.downcast_mut().unwrap(); 
+                let map = std::mem::replace(&mut sqlite_state.map, serde_json::Map::new()); 
+                serde_json::Value::Object(map)
+            },
+            _ => Err(SqliteStateError::UnsupportedType { id: type_id, type_name: type_name::<T>() })?,
         };
         self.map.insert(key.to_string(), value);
         Ok(())
@@ -126,18 +138,14 @@ impl SqliteStorage {
         while let Some(msg) = rx.recv().await {
             match msg {
                 Message::StoreState {
-                    id,
-                    section_id,
-                    section_name,
+                    pipe_id,
                     state,
                     reply_to,
                 } => {
                     let result = sqlx::query(
-                        "INSERT INTO state VALUES(?, ?, ?, ?) ON CONFLICT (id, section_id, section_name) DO UPDATE SET state = excluded.state"
+                        "INSERT INTO state VALUES(?, ?) ON CONFLICT (id) DO UPDATE SET state = excluded.state"
                     )
-                        .bind(id as i64)
-                        .bind(section_id as i64)
-                        .bind(section_name)
+                        .bind(pipe_id as i64)
                         .bind(serde_json::to_string(&serde_json::Value::Object(state.map))?)
                         .execute(&mut self.connection)
                         .await
@@ -147,17 +155,13 @@ impl SqliteStorage {
                 }
 
                 Message::RetrieveState {
-                    id,
-                    section_id,
-                    section_name,
+                    pipe_id,
                     reply_to,
                 } => {
                     let result = sqlx::query(
-                        "SELECT state FROM state WHERE id = ? and section_id = ? and section_name = ?"
+                        "SELECT state FROM state WHERE id = ?"
                     )
-                        .bind(id as i64)
-                        .bind(section_id as i64)
-                        .bind(section_name)
+                        .bind(pipe_id as i64)
                         .fetch_optional(&mut self.connection)
                         .await
                         .map(|row| row.map(|val| {
@@ -178,21 +182,17 @@ impl SqliteStorage {
 #[derive(Debug)]
 pub enum Message {
     StoreState {
-        id: u64,
-        section_id: u64,
-        section_name: String,
+        pipe_id: u64,
         state: SqliteState,
         reply_to: OneshotSender<Result<(), StdError>>,
     },
     RetrieveState {
-        id: u64,
-        section_id: u64,
-        section_name: String,
+        pipe_id: u64,
         reply_to: OneshotSender<Result<Option<SqliteState>, StdError>>,
     },
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct SqliteStorageHandle {
     tx: Sender<Message>,
 }
@@ -206,18 +206,14 @@ impl SqliteStorageHandle {
 impl Storage<SqliteState> for SqliteStorageHandle {
     fn store_state(
         &self,
-        id: u64,
-        section_id: u64,
-        section_name: String,
+        pipe_id: u64,
         state: SqliteState,
     ) -> Pin<Box<dyn Future<Output = Result<(), StdError>> + Send + 'static>> {
         let this = self.clone();
         Box::pin(async move {
             let (reply_to, rx) = oneshot_channel();
             this.send(Message::StoreState {
-                id,
-                section_id,
-                section_name,
+                pipe_id,
                 state,
                 reply_to,
             })
@@ -228,17 +224,13 @@ impl Storage<SqliteState> for SqliteStorageHandle {
 
     fn retrieve_state(
         &self,
-        id: u64,
-        section_id: u64,
-        section_name: String,
+        pipe_id: u64,
     ) -> Pin<Box<dyn Future<Output = Result<Option<SqliteState>, StdError>> + Send + 'static>> {
         let this = self.clone();
         Box::pin(async move {
             let (reply_to, rx) = oneshot_channel();
             this.send(Message::RetrieveState {
-                id,
-                section_id,
-                section_name,
+                pipe_id,
                 reply_to,
             })
             .await?;

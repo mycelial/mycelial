@@ -1,6 +1,7 @@
 SHELL := bash
 SQLITE_PATH ?= "/tmp/test.sqlite"
 TAG ?= pipe_client
+RUST_LOG ?= INFO
 
 .PHONY: all
 all:
@@ -19,7 +20,7 @@ clean:
 
 .PHONY: dev
 dev:
-	RUST_LOG=INFO cargo-watch -c -q \
+	RUST_LOG=$(RUST_LOG) cargo-watch -c -q \
 		-i client_state.sqlite \
 		-i client_state.sqlite-journal \
 		-s 'cargo run -- --config=config.example.toml'
