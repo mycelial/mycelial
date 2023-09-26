@@ -5,8 +5,8 @@ use crate::{
     types::{DynSection, DynSink, DynStream, SectionError, SectionFuture},
 };
 use futures::{SinkExt, StreamExt};
-use sqlite_physical_replication::destination::Destination;
 use section::{Section, State};
+use sqlite_physical_replication::destination::Destination;
 
 pub struct DestinationAdapter {
     inner: Destination,
@@ -24,7 +24,9 @@ impl<S: State> Section<DynStream, DynSink, SectionChannel<S>> for DestinationAda
     ) -> Self::Future {
         Box::pin(async move {
             // adapt incoming message to sqlite_physical_replication message
-            let input = input.map(|msg| sqlite_physical_replication::Message::new(msg.origin, msg.payload.0, msg.ack));
+            let input = input.map(|msg| {
+                sqlite_physical_replication::Message::new(msg.origin, msg.payload.0, msg.ack)
+            });
             // adapt outgoing message to pipe message
             let output = output.with(|msg: sqlite_physical_replication::Message| async move {
                 Ok(message::Message::new(msg.origin, msg.payload, msg.ack))

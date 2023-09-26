@@ -5,8 +5,8 @@ use crate::{
     types::{DynSection, DynSink, DynStream, SectionError, SectionFuture},
 };
 use futures::{SinkExt, StreamExt};
-use sqlite_physical_replication::source::Source;
 use section::{Section, State};
+use sqlite_physical_replication::source::Source;
 
 pub struct SourceAdapter {
     inner: Source,
@@ -23,7 +23,9 @@ impl<S: State> Section<DynStream, DynSink, SectionChannel<S>> for SourceAdapter 
         command_channel: SectionChannel<S>,
     ) -> Self::Future {
         Box::pin(async move {
-            let input = input.map(|msg| sqlite_physical_replication::Message::new(msg.origin, msg.payload.0, msg.ack));
+            let input = input.map(|msg| {
+                sqlite_physical_replication::Message::new(msg.origin, msg.payload.0, msg.ack)
+            });
             let output = output.with(|msg: sqlite_physical_replication::Message| async move {
                 Ok(message::Message::new(msg.origin, msg.payload, msg.ack))
             });
@@ -32,7 +34,7 @@ impl<S: State> Section<DynStream, DynSink, SectionChannel<S>> for SourceAdapter 
     }
 }
 
-/// constructor for sqlite_physical_replication 
+/// constructor for sqlite_physical_replication
 ///
 /// # Config example:
 /// ```toml

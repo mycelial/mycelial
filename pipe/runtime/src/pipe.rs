@@ -1,12 +1,12 @@
 //! Pipe
 
-use futures::{Sink, SinkExt, Stream, FutureExt};
+use futures::{FutureExt, Sink, SinkExt, Stream};
 use tokio::task::JoinHandle;
 
 use crate::channel::channel;
 use crate::command_channel::RootChannel;
 use crate::types::{DynSection, DynSink, DynStream, SectionError, SectionFuture};
-use section::{RootChannel as _, SectionChannel, Command};
+use section::{Command, RootChannel as _, SectionChannel};
 use section::{ReplyTo as _, Section, SectionRequest, State};
 use stub::Stub;
 
@@ -74,12 +74,17 @@ impl<Input, Output, S: State, SectionChan> Section<Input, Output, SectionChan> f
 where
     Input: Stream<Item = Message> + Send + 'static,
     Output: Sink<Message, Error = SectionError> + Send + 'static,
-    SectionChan: SectionChannel + Send + 'static
+    SectionChan: SectionChannel + Send + 'static,
 {
     type Error = SectionError;
     type Future = SectionFuture;
 
-    fn start(mut self, input: Input, output: Output, mut section_chan: SectionChan) -> Self::Future {
+    fn start(
+        mut self,
+        input: Input,
+        output: Output,
+        mut section_chan: SectionChan,
+    ) -> Self::Future {
         let len = self.sections.as_ref().unwrap().len();
         let input: DynStream = Box::pin(input);
         let output: DynSink = Box::pin(output);
@@ -109,7 +114,10 @@ where
         );
 
         let future = async move {
-            let mut state = section_chan.retrieve_state().await?.unwrap_or(<SectionChan as SectionChannel>::State::new());
+            let mut state = section_chan
+                .retrieve_state()
+                .await?
+                .unwrap_or(<SectionChan as SectionChannel>::State::new());
             let mut handles = handles;
             loop {
                 futures::select! {

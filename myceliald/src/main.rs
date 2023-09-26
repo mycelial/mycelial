@@ -49,7 +49,6 @@ fn read_config(path: &str) -> Result<ClientConfig> {
     Ok(toml::from_str(&config)?)
 }
 
-
 #[tokio::main]
 async fn main() -> Result<()> {
     pretty_env_logger::init_timed();

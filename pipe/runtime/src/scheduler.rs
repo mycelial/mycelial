@@ -2,17 +2,12 @@
 
 use crate::command_channel::RootChannel;
 use crate::storage::Storage;
-use crate::{
-    config::Config,
-    pipe::Pipe,
-    registry::Registry,
-    types::SectionError
-};
+use crate::{config::Config, pipe::Pipe, registry::Registry, types::SectionError};
 
-use section::{State, RootChannel as _, Section, SectionRequest, ReplyTo, Command};
+use section::{Command, ReplyTo, RootChannel as _, Section, SectionRequest, State};
+use std::collections::HashMap;
 use stub::Stub;
 use tokio::task::JoinHandle;
-use std::collections::HashMap;
 use tokio::{
     sync::mpsc::{channel, Receiver, Sender},
     sync::oneshot::{channel as oneshot_channel, Sender as OneshotSender},
@@ -66,9 +61,10 @@ pub enum ScheduleResult {
 }
 
 #[allow(dead_code)] // fixme
-impl<T, S> Scheduler<T, S> 
-    where S: State + 'static,
-          T: Storage<S> + std::fmt::Debug + Clone + Send + 'static,
+impl<T, S> Scheduler<T, S>
+where
+    S: State + 'static,
+    T: Storage<S> + std::fmt::Debug + Clone + Send + 'static,
 {
     pub fn new(registry: Registry<S>, storage: T) -> Self {
         Self {
@@ -145,11 +141,7 @@ impl<T, S> Scheduler<T, S>
         }
     }
 
-    async fn add_pipe(
-        &mut self,
-        id: u64,
-        config: Config,
-    ) -> Result<ScheduleResult, SectionError> {
+    async fn add_pipe(&mut self, id: u64, config: Config) -> Result<ScheduleResult, SectionError> {
         let schedule_result = match self.pipe_configs.get(&id) {
             Some(c) if c == &config => return Ok(ScheduleResult::Noop),
             Some(_) => {
@@ -197,8 +189,8 @@ impl<T, S> Scheduler<T, S>
             Some(handle) if handle.is_some() => {
                 let handle = handle.take().unwrap();
                 handle.await?
-            },
-            _ => Ok(())
+            }
+            _ => Ok(()),
         }
     }
 }
