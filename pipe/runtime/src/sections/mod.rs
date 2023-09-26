@@ -1,3 +1,3 @@
-pub mod mycelial_net;
+pub mod mycelial_server;
 pub mod sqlite_physical_replication;
 pub mod sqlite_connector;
