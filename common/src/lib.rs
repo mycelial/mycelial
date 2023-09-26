@@ -31,23 +31,25 @@ pub struct Node {
 }
 
 /// Internally-tagged type of a source needs to match the variant name
+#[allow(non_camel_case_types)]
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(tag = "type", rename_all = "lowercase")]
 pub enum Source {
-    Sqlite(SqliteConfig),
+    Sqlite_Connector(SqliteConnectorConfig),
     Kafka(KafkaConfig),
     Postgres(PostgresConfig),
     Snowflake(SnowflakeConfig),
-    Mycelite(MyceliteSourceConfig),
+    Sqlite_Physical_Replication(SqlitePhysicalReplicationSourceConfig),
 }
 
 /// Internally-tagged type of a source needs to match the variant name
+#[allow(non_camel_case_types)]
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(tag = "type", rename_all = "lowercase")]
 pub enum Destination {
-    Sqlite(SqliteConfig),
+    Sqlite_Connector(SqliteConnectorConfig),
     Snowflake(SnowflakeConfig),
-    Mycelite(MyceliteDestinationConfig),
+    Sqlite_Physical_Replication(SqlitePhysicalReplicationDestinationConfig),
 }
 
 // Shared between all source definitions
@@ -58,7 +60,7 @@ pub struct CommonAttrs {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct SqliteConfig {
+pub struct SqliteConnectorConfig {
     #[serde(flatten)]
     pub common_attrs: CommonAttrs,
     pub path: String,
@@ -96,7 +98,7 @@ pub struct SnowflakeConfig {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct MyceliteSourceConfig {
+pub struct SqlitePhysicalReplicationSourceConfig {
     #[serde(flatten)]
     pub common_attrs: CommonAttrs,
     pub journal_path: String,
@@ -104,7 +106,7 @@ pub struct MyceliteSourceConfig {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct MyceliteDestinationConfig {
+pub struct SqlitePhysicalReplicationDestinationConfig {
     #[serde(flatten)]
     pub common_attrs: CommonAttrs,
     pub journal_path: String,
@@ -165,8 +167,8 @@ pub struct PipeConfig {
     ///             },
     ///             {
     ///                 "endpoint": "http://localhost:8080/ingestion",
-    ///                 "name": "mycelial_net",
-    ///                 "token": "mycelial_net_token"
+    ///                 "name": "mycelial_server",
+    ///                 "token": "mycelial_server_token"
     ///             }
     ///         ]
     ///     }
