@@ -90,9 +90,8 @@ impl Mycelial {
                     msg.ack().await;
                 },
                 cmd = section_chan.recv().fuse() => {
-                    match cmd? {
-                        Command::Stop => return Ok(()),
-                        _ => {},
+                    if let Command::Stop = cmd? {
+                        return Ok(())
                     }
                 }
 
