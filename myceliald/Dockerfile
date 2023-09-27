@@ -1,14 +1,11 @@
 # myceliald
 FROM rust:alpine AS build_myceliald
 
-WORKDIR /app/myceliald
-COPY myceliald/ /app/myceliald/
-COPY common /app/common/
-COPY pipe /app/pipe/
-COPY Cargo.lock /app/myceliald/
-COPY myceliald/build/docker_cargo_config.toml /app/myceliald/.cargo/config.toml
+WORKDIR /app/
+COPY . /app/
 
 RUN apk add musl-dev openssl-dev bash build-base && \
+    cd /app/myceliald/ && \
     RUSTFLAGS=-Ctarget-feature=-crt-static cargo build --release
 
 
@@ -16,8 +13,8 @@ RUN apk add musl-dev openssl-dev bash build-base && \
 FROM alpine:3.18
 RUN apk add --no-cache libgcc sqlite
 
-COPY --from=build_myceliald /app/myceliald/target/release/myceliald /app/myceliald
-COPY --from=build_myceliald /app/myceliald/config.flyio.toml /app/myceliald
+COPY --from=build_myceliald /app/target/release/myceliald /app/
+COPY --from=build_myceliald /app/myceliald/config.flyio.toml /app/
 
 RUN echo "SELECT * FROM test" | sqlite3 /tmp/sqlite.db \
 		-cmd 'CREATE TABLE test (key INT PRIMARY KEY, text TEXT, bin BLOB)' \
