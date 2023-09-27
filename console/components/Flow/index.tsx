@@ -31,11 +31,11 @@ import styles from "./Flow.module.css";
 // import DatabaseNode from './DatabaseNode';
 
 import {
-  SqliteSourceNode,
-  SqliteDestinationNode,
-  MyceliteSourceNode,
-  MyceliteDestinationNode,
-  MycelialNetworkNode,
+  SqliteConnectorSourceNode,
+  SqliteConnectorDestinationNode,
+  SqlitePhysicalReplicationSourceNode,
+  SqlitePhysicalReplicationDestinationNode,
+  MycelialServerNode,
   KafkaSourceNode,
   SnowflakeSourceNode,
   SnowflakeDestinationNode,
@@ -166,11 +166,11 @@ const initialEdges: Edge[] = [];
 
 const nodeTypes = {
   custom: CustomNode,
-  sqlite_source: SqliteSourceNode,
-  sqlite_destination: SqliteDestinationNode,
-  mycelite_source: MyceliteSourceNode,
-  mycelite_destination: MyceliteDestinationNode,
-  mycelial_network: MycelialNetworkNode,
+  sqlite_connector_source: SqliteConnectorSourceNode,
+  sqlite_connector_destination: SqliteConnectorDestinationNode,
+  sqlite_physical_replication_source: SqlitePhysicalReplicationSourceNode,
+  sqlite_physical_replication_destination: SqlitePhysicalReplicationDestinationNode,
+  mycelial_server: MycelialServerNode,
   kafka_source: KafkaSourceNode,
   snowflake_source: SnowflakeSourceNode,
   snowflake_destination: SnowflakeDestinationNode,
@@ -256,8 +256,8 @@ function NavbarSearch(props: NavbarSearchProps) {
   // todo: is there a data-driven way to do this?
   const transportLinks = () => {
     let source = {
-      type: "mycelial_network",
-      display_name: "Mycelial Network",
+      type: "mycelial_server",
+      display_name: "Mycelial Server",
       endpoint: "http://localhost:8080/ingestion",
       token: "token",
       topic: getRandomString(),
@@ -265,12 +265,12 @@ function NavbarSearch(props: NavbarSearchProps) {
 
     return [
       <div
-        key="mycelial_network"
+        key="mycelial_server"
         className={classes.collectionLink}
         onDragStart={(event) => onDragStart(event, null, source, source)}
         draggable
       >
-        Mycelial Network
+        Mycelial Server 
       </div>,
     ];
   };
@@ -400,10 +400,10 @@ function Flow() {
 
         let nodeType = element.name;
         if (
-          nodeType === "mycelial_net_source" ||
-          nodeType === "mycelial_net_destination"
+          nodeType === "mycelial_server_source" ||
+          nodeType === "mycelial_server_destination"
         ) {
-          nodeType = "mycelial_network";
+          nodeType = "mycelial_server";
         }
 
         let node: Node = {
@@ -506,14 +506,14 @@ function Flow() {
 
   const getDetailsForNode = useCallback(
     (node: Node | undefined, kind: String) => {
-      if (node?.type === "mycelial_network" && kind === "source") {
+      if (node?.type === "mycelial_server" && kind === "source") {
         return {
-          name: "mycelial_net_source",
+          name: "mycelial_server_source",
           ...node.data,
         };
-      } else if (node?.type === "mycelial_network" && kind === "destination") {
+      } else if (node?.type === "mycelial_server" && kind === "destination") {
         return {
-          name: "mycelial_net_destination",
+          name: "mycelial_server_destination",
           ...node.data,
         };
       } else if (node?.type) {
@@ -752,7 +752,7 @@ function Flow() {
 
                 <Panel position="top-right">
                   {/* <button className="text-blue-300 bg-blue-50 rounded p-2 drop-shadow-md hover:bg-blue-100" onClick={() => onLayout('LR')}>auto-layout</button> */}
-                  {/* <button className="text-blue-300 bg-blue-50 rounded p-2 drop-shadow-md hover:bg-blue-100" onClick={() => removeMycelialNetworkNodes()}>remove myc net nodes</button> */}
+                  {/* <button className="text-blue-300 bg-blue-50 rounded p-2 drop-shadow-md hover:bg-blue-100" onClick={() => removeMycelialServerNodes()}>remove myc net nodes</button> */}
                 </Panel>
               </ReactFlow>
             </div>

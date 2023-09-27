@@ -1,5 +1,5 @@
 [package]
-name = "sqlite"
+name = "sqlite_connector"
 version = "0.1.0"
 edition = "2021"
 

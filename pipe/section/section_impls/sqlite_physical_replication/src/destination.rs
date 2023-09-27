@@ -1,4 +1,4 @@
-//! Mycelite journal destination
+//! Destination journal destination
 
 use arrow::array::{BinaryArray, Int64Array, UInt32Array, UInt64Array};
 use arrow::datatypes::{DataType, Field, Schema};
@@ -10,7 +10,7 @@ use std::path::Path;
 use std::pin::{pin, Pin};
 
 #[derive(Debug)]
-pub struct Mycelite {
+pub struct Destination {
     journal_path: String,
     database_path: Option<String>,
     schema: Schema,
@@ -22,7 +22,7 @@ use tokio::io::{AsyncSeekExt, AsyncWriteExt};
 
 use crate::{Message, StdError};
 
-impl Mycelite {
+impl Destination {
     pub fn new(journal_path: impl Into<String>, database_path: Option<impl Into<String>>) -> Self {
         let schema = Schema::new(vec![
             Field::new("snapshot_id", DataType::UInt64, false),
@@ -140,7 +140,7 @@ impl Mycelite {
     }
 }
 
-impl<Input, Output, SectionChan> Section<Input, Output, SectionChan> for Mycelite
+impl<Input, Output, SectionChan> Section<Input, Output, SectionChan> for Destination
 where
     Input: Stream<Item = Message> + Send + 'static,
     Output: Sink<Message, Error = StdError> + Send + 'static,

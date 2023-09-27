@@ -99,7 +99,7 @@ impl<S: StateTrait> RootChannelTrait for RootChannel<S> {
     fn remove_section(&mut self, section_id: u64) -> Result<(), Self::Error> {
         match self.section_handles.remove(&section_id) {
             Some(_) => Ok(()),
-            None => Err(ChanError::NoSuchSection)
+            None => Err(ChanError::NoSuchSection),
         }
     }
 

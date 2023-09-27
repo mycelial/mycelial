@@ -3,8 +3,8 @@
 //! network section, dumps incoming messages to provided http endpoint
 use arrow::ipc::writer::StreamWriter;
 use bytes::Bytes;
-use futures::{Sink, Stream, StreamExt, FutureExt};
-use section::{Section, SectionChannel, State, Command};
+use futures::{FutureExt, Sink, Stream, StreamExt};
+use section::{Command, Section, SectionChannel, State};
 use std::future::Future;
 
 use base64::engine::{general_purpose::STANDARD as BASE64, Engine};
@@ -90,9 +90,8 @@ impl Mycelial {
                     msg.ack().await;
                 },
                 cmd = section_chan.recv().fuse() => {
-                    match cmd? {
-                        Command::Stop => return Ok(()),
-                        _ => {},
+                    if let Command::Stop = cmd? {
+                        return Ok(())
                     }
                 }
 

@@ -16,7 +16,7 @@ import styles from "@/components/Flow/Flow.module.css";
 import { ClientContext } from "./context/clientContext";
 import { ClientContextType } from "./@types/client";
 
-const SqliteSourceNode: FC<NodeProps> = memo(({ id, data, selected }) => {
+const SqliteConnectorSourceNode: FC<NodeProps> = memo(({ id, data, selected }) => {
   const instance = useReactFlow();
   const { clients } = useContext(ClientContext) as ClientContextType;
 
@@ -83,7 +83,7 @@ const SqliteSourceNode: FC<NodeProps> = memo(({ id, data, selected }) => {
         </button>
         <TextInput
           name="sqlitedatabase_path"
-          label="Sqlite Database Path"
+          label="SqliteConnector Database Path"
           placeholder={initialValues.database_path}
           defaultValue={initialValues.database_path}
           onChange={(event) => handleChange("path", event.currentTarget.value)}
@@ -113,7 +113,7 @@ const SqliteSourceNode: FC<NodeProps> = memo(({ id, data, selected }) => {
   );
 });
 
-const SqliteDestinationNode: FC<NodeProps> = memo(({ id, data, selected }) => {
+const SqliteConnectorDestinationNode: FC<NodeProps> = memo(({ id, data, selected }) => {
   const instance = useReactFlow();
   const { clients } = useContext(ClientContext) as ClientContextType;
 
@@ -176,7 +176,7 @@ const SqliteDestinationNode: FC<NodeProps> = memo(({ id, data, selected }) => {
         </button>
         <TextInput
           name="sqlitedatabase_path"
-          label="Sqlite Database Path"
+          label="SqliteConnector Database Path"
           placeholder={initialValues.database_path}
           defaultValue={initialValues.database_path}
           onChange={(event) => handleChange("path", event.currentTarget.value)}
@@ -197,7 +197,7 @@ const SqliteDestinationNode: FC<NodeProps> = memo(({ id, data, selected }) => {
   );
 });
 
-const MyceliteSourceNode: FC<NodeProps> = memo(({ id, data, selected }) => {
+const SqlitePhysicalReplicationSourceNode: FC<NodeProps> = memo(({ id, data, selected }) => {
   const instance = useReactFlow();
   const { clients } = useContext(ClientContext) as ClientContextType;
 
@@ -247,7 +247,7 @@ const MyceliteSourceNode: FC<NodeProps> = memo(({ id, data, selected }) => {
   return (
     <div className={classNames}>
       <div className=" grid grid-cols-1 gap-x-6 gap-y-2">
-        <h2 className="text-slate-400 font-normal">Mycelite Source</h2>
+        <h2 className="text-slate-400 font-normal">SqlitePhysicalReplication Source</h2>
         <button
           onClick={() => {
             if (confirm("Are you sure you want to delete this node?")) {
@@ -262,7 +262,7 @@ const MyceliteSourceNode: FC<NodeProps> = memo(({ id, data, selected }) => {
         </button>
         <TextInput
           name="journal_path"
-          label="Mycelite Journal Path"
+          label="SqlitePhysicalReplication Journal Path"
           placeholder={initialValues.journal_path}
           defaultValue={initialValues.journal_path}
           onChange={(event) =>
@@ -285,7 +285,7 @@ const MyceliteSourceNode: FC<NodeProps> = memo(({ id, data, selected }) => {
   );
 });
 
-const MyceliteDestinationNode: FC<NodeProps> = memo(
+const SqlitePhysicalReplicationDestinationNode: FC<NodeProps> = memo(
   ({ id, data, selected }) => {
     const instance = useReactFlow();
     const { clients } = useContext(ClientContext) as ClientContextType;
@@ -339,7 +339,7 @@ const MyceliteDestinationNode: FC<NodeProps> = memo(
       <div className={classNames}>
         <div className=" grid grid-cols-1 gap-x-6 gap-y-2">
           <h2 className="text-slate-400 font-normal">
-            Mycelite Journal Destination
+            SqlitePhysicalReplication Journal Destination
           </h2>
           <button
             onClick={() => {
@@ -355,7 +355,7 @@ const MyceliteDestinationNode: FC<NodeProps> = memo(
           </button>
           <TextInput
             name="mycelitejournal_path"
-            label="Mycelite Journal Path"
+            label="SqlitePhysicalReplication Journal Path"
             placeholder={initialValues.journal_path}
             defaultValue={initialValues.journal_path}
             onChange={(event) =>
@@ -364,7 +364,7 @@ const MyceliteDestinationNode: FC<NodeProps> = memo(
           />
           <TextInput
             name="mycelitedatabase_path"
-            label="Mycelite Database Path"
+            label="SqlitePhysicalReplication Database Path"
             placeholder={initialValues.database_path}
             defaultValue={initialValues.database_path}
             onChange={(event) =>
@@ -388,7 +388,7 @@ const MyceliteDestinationNode: FC<NodeProps> = memo(
   },
 );
 
-const MycelialNetworkNode: FC<NodeProps> = memo(({ id, data, selected }) => {
+const MycelialServerNode: FC<NodeProps> = memo(({ id, data, selected }) => {
   const instance = useReactFlow();
 
   let initialValues = useMemo(() => {
@@ -440,7 +440,7 @@ const MycelialNetworkNode: FC<NodeProps> = memo(({ id, data, selected }) => {
       <div className=" grid grid-cols-1 gap-x-6 gap-y-2">
         <Handle type="target" position={Position.Left} id={id} />
         <Handle type="source" position={Position.Right} id={id} />
-        <h2 className="text-slate-400 font-normal">Mycelial Network</h2>
+        <h2 className="text-slate-400 font-normal">Mycelial Server</h2>
 
         <button
           onClick={() => {
@@ -1042,11 +1042,11 @@ const PostgresSourceNode: FC<NodeProps> = memo(({ id, data, selected }) => {
 });
 
 export {
-  SqliteSourceNode,
-  SqliteDestinationNode,
-  MyceliteSourceNode,
-  MyceliteDestinationNode,
-  MycelialNetworkNode,
+  SqliteConnectorSourceNode,
+  SqliteConnectorDestinationNode,
+  SqlitePhysicalReplicationSourceNode,
+  SqlitePhysicalReplicationDestinationNode,
+  MycelialServerNode,
   KafkaSourceNode,
   SnowflakeSourceNode,
   SnowflakeDestinationNode,

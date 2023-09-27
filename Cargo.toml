@@ -1,7 +1,7 @@
 [workspace]
 members = [
     "server",
-    "client",
+    "myceliald",
     "common",
     "pipe/runtime",
     "pipe/section",

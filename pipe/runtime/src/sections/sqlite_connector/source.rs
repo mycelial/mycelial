@@ -2,7 +2,7 @@ use crate::command_channel::SectionChannel;
 use crate::message::{Message, RecordBatch};
 use futures::SinkExt;
 use section::{Section, State};
-use sqlite::source::Sqlite;
+use sqlite_connector::source::Sqlite;
 
 use crate::types::SectionFuture;
 use crate::{
@@ -26,7 +26,7 @@ impl<S: State> Section<DynStream, DynSink, SectionChannel<S>> for SqliteAdapter 
         section_channel: SectionChannel<S>,
     ) -> Self::Future {
         Box::pin(async move {
-            let output = output.with(|message: sqlite::Message| async {
+            let output = output.with(|message: sqlite_connector::Message| async {
                 let payload: RecordBatch = message.payload.try_into()?;
                 let message = Message::new(message.origin, payload, message.ack);
                 Ok(message)

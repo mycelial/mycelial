@@ -2,7 +2,7 @@ use crate::command_channel::SectionChannel;
 use crate::message::Message;
 use futures::StreamExt;
 use section::{Section, State};
-use sqlite::destination::Sqlite;
+use sqlite_connector::destination::Sqlite;
 use stub::Stub;
 
 use crate::types::SectionFuture;
@@ -31,9 +31,9 @@ impl<S: State> Section<DynStream, DynSink, SectionChannel<S>> for SqliteAdapter 
         Box::pin(async move {
             let input = input.map(|message: Message| {
                 let sqlite_payload: SqlitePayloadNewType = (&message.payload).into();
-                sqlite::Message::new(message.origin, sqlite_payload.0, message.ack)
+                sqlite_connector::Message::new(message.origin, sqlite_payload.0, message.ack)
             });
-            let output = Stub::<sqlite::Message, SectionError>::new();
+            let output = Stub::<sqlite_connector::Message, SectionError>::new();
             self.inner.start(input, output, section_channel).await
         })
     }
