@@ -20,4 +20,4 @@ primary_region = "iad"
   dockerfile = "Dockerfile"
 
 [env]
-  CONFIG_PATH = "/app/client/config.flyio.toml"
+  CONFIG_PATH = "/app/config.flyio.toml"
