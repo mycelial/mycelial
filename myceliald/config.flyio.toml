@@ -11,7 +11,7 @@ token = "TOKEN"
 
 # define all sources owned by the client node
 [[sources]]
-type = "sqlite"
+type = "sqlite_connector"
 display_name = "Test Sqlite"
 path = "/tmp/sqlite.db"
 
@@ -26,7 +26,7 @@ warehouse = "COMPUTE_WH"
 database = "TEST"
 
 [[destinations]]
-type = "sqlite"
+type = "sqlite_connector"
 display_name = "Another Sqlite"
 path = "/tmp/anoter.sqlite"
 
