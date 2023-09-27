@@ -24,11 +24,11 @@ fn setup_registry<S: State>() -> Registry<S> {
             sqlite_connector::destination::constructor,
         ),
         (
-            "sqlite_physical_replication",
+            "sqlite_physical_replication_source",
             sqlite_physical_replication::source::constructor,
         ),
         (
-            "sqlite_physical_repl_destination",
+            "sqlite_physical_replication_destination",
             sqlite_physical_replication::destination::constructor,
         ),
         (
