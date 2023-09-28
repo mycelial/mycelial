@@ -1,4 +1,3 @@
-//! Mycelial server
 use arrow::{
     ipc::{reader::StreamReader, writer::StreamWriter},
     record_batch::RecordBatch,
@@ -27,7 +26,6 @@ use sqlx::{sqlite::SqliteConnectOptions, ConnectOptions, Row, SqliteConnection};
 use std::{net::SocketAddr, path::Path};
 use std::{str::FromStr, sync::Arc};
 use tokio::sync::Mutex;
-use tower_http::services::ServeDir;
 use uuid::Uuid;
 
 mod error;
