@@ -51,6 +51,10 @@ type = "sqlite_physical_replication"
 display_name = "Sqlite Physical Replication Movie"
 journal_path = "/tmp/something.sqlite.mycelial_src"
 
+[[sources]]
+type = "hello_world"
+display_name = "Hello World Src"
+
 # DESTINATIONS
 # Define all data DESTINATIONS (data stores and directory paths)
 # accessible by the Node that should be exposed as DESTINATIONS to the Sqlite Physical Replication Server
@@ -74,3 +78,8 @@ role = "MYCELIAL"
 account_identifier = "A_B"
 warehouse = "WAREHOUSE"
 database = "TEST"
+
+[[destinations]]
+type = "hello_world"
+display_name = "Hello World Dest"
+path = "/tmp/test.sqlite"
