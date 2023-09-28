@@ -1,0 +1,16 @@
+[package]
+name = "sqlite_physical_replication"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+section = { path = "../../" }
+## FIXME: re-export through section?
+futures = "0.3"
+arrow = { version = "42", features = ["prettyprint"] }
+tokio = { version = "1", features = ["full"] }
+tokio-stream = "0.1"
+notify = { version = "6", default-features = false, features = ["macos_kqueue"] }
+journal = { git = "https://github.com/mycelial/mycelite", rev="v0.3.2", features=["async"] }

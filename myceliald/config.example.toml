@@ -1,0 +1,76 @@
+# sample node config
+
+# MYCELIAL NODE
+# "Node" refers to the container, VM, or bare metal machine where this
+# Sqlite Physical Replication Client is installed.
+[node]
+display_name = "Dev" # Human-readable Name for this Sqlite Physical Replication Client
+unique_id = "dev" # Unique ID for this Sqlite Physical Replication Client
+storage_path = "myceliald_state.sqlite" # Path and name of SQLite database to store this Sqlite Physical Replication Client's state
+
+# MYCELIAL SERVER
+# Replace with the endpoint and token for your Sqlite Physical Replication Server
+[server]
+endpoint = "http://localhost:8080" # Default Sqlite Physical Replication Server endpoint
+token = "token" # Default token for Sqlite Physical Replication Server and Clietns
+
+# SOURCES
+# Define all data sources (data stores and directory paths)
+# accessible by the Node that should be exposed as SOURCES to Sqlite Physical Replication Server
+[[sources]]
+type = "sqlite_connector"
+display_name = "Movie Database"
+path = "/tmp/test.sqlite"
+
+[[sources]]
+type = "kafka"
+display_name = "Production Kafka"
+brokers = "localhost:3001"
+
+[[sources]]
+type = "snowflake"
+display_name = "Data Science Warehouse"
+username = "SVCMYCELIAL"
+password = "123456"
+role = "MYCELIAL"
+account_identifier = "A_B"
+warehouse = "WAREHOUSE"
+database = "TEST"
+
+[[sources]]
+type = "postgres"
+display_name = "App DB"
+host = "localhost"
+port = 9876
+user = "admin"
+password = "pwd"
+database = "public"
+
+[[sources]]
+type = "sqlite_physical_replication"
+display_name = "Sqlite Physical Replication Movie"
+journal_path = "/tmp/something.sqlite.mycelial_src"
+
+# DESTINATIONS
+# Define all data DESTINATIONS (data stores and directory paths)
+# accessible by the Node that should be exposed as DESTINATIONS to the Sqlite Physical Replication Server
+[[destinations]]
+type = "sqlite_connector"
+display_name = "Sqlite State"
+path = "/tmp/test_dest.sqlite"
+
+[[destinations]]
+type = "sqlite_physical_replication"
+display_name = "Sqlite Physical Replication Movie"
+journal_path = "/tmp/something.sqlite.mycelial"
+database_path = "/tmp/hydrated_db.sqlite"
+
+[[destinations]]
+type = "snowflake"
+display_name = "Data Science Warehouse"
+username = "SVCMYCELIAL"
+password = "123456"
+role = "MYCELIAL"
+account_identifier = "A_B"
+warehouse = "WAREHOUSE"
+database = "TEST"

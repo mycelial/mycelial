@@ -24,7 +24,7 @@ The source and destination computers need a Mycelial client installed.
 2. Modify the [Makefile](../server/Makefile.md), changing the `--token` options value to the security token you wish to use. This token should match the tokens used by the clients.
 3. Start the server with `make dev`
 
-## Mycelial Webserver
+## Mycelial Console
 
 1. Navigate to `mycelial/console`
 2. Build the frontend with `make build`

@@ -19,7 +19,7 @@ jobs:
       matrix:
         include:
           - dir: server
-          - dir: client
+          - dir: myceliald
       
     steps:
       - name: checkout 

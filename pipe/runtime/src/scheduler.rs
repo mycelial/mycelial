@@ -1,44 +1,27 @@
 //! Pipe scheduler
 
-use crate::state::State;
+use crate::command_channel::RootChannel;
+use crate::storage::Storage;
 use crate::{config::Config, pipe::Pipe, registry::Registry, types::SectionError};
-use std::future::{Future, IntoFuture};
-use std::pin::Pin;
-use std::{collections::HashMap, time::Duration};
+
+use section::{Command, ReplyTo, RootChannel as _, Section, SectionRequest, State};
+use std::collections::HashMap;
+use stub::Stub;
+use tokio::task::JoinHandle;
 use tokio::{
     sync::mpsc::{channel, Receiver, Sender},
-    sync::{
-        mpsc::WeakSender,
-        oneshot::{channel as oneshot_channel, Sender as OneshotSender},
-    },
+    sync::oneshot::{channel as oneshot_channel, Sender as OneshotSender},
 };
 
-pub trait Storage {
-    fn store_state(
-        &self,
-        id: u64,
-        section_id: u64,
-        section_name: String,
-        state: State,
-    ) -> Pin<Box<dyn Future<Output = Result<(), SectionError>> + Send + 'static>>;
-
-    fn retrieve_state(
-        &self,
-        id: u64,
-        section_id: u64,
-        section_name: String,
-    ) -> Pin<Box<dyn Future<Output = Result<Option<State>, SectionError>> + Send + 'static>>;
-}
-
-#[allow(dead_code)] // fixme
-pub struct Scheduler<Storage> {
-    registry: Registry,
-    storage: Storage,
+#[allow(dead_code)]
+pub struct Scheduler<T: Storage<S>, S: State> {
+    registry: Registry<S>,
+    storage: T,
     pipe_configs: HashMap<u64, Config>,
-    pipes: HashMap<u64, OneshotSender<()>>,
+    pipes: HashMap<u64, Option<JoinHandle<Result<(), SectionError>>>>,
+    root_chan: RootChannel<S>,
 }
 
-#[allow(dead_code)] // fixme
 #[derive(Debug)]
 pub enum Message {
     /// Add new pipe to schedule
@@ -59,16 +42,12 @@ pub enum Message {
         reply_to: OneshotSender<Result<(), SectionError>>,
     },
 
-    /// Notify scheduler on pipe down
-    PipeDown { id: u64 },
-
     /// List pipe ids
     ListIds {
         reply_to: OneshotSender<Result<Vec<u64>, SectionError>>,
     },
 }
 
-#[allow(dead_code)] // fixme
 #[derive(Debug)]
 pub enum ScheduleResult {
     /// New pipe was scheduler
@@ -82,124 +61,138 @@ pub enum ScheduleResult {
 }
 
 #[allow(dead_code)] // fixme
-impl<T: Storage + Clone + Send + 'static> Scheduler<T> {
-    pub fn new(registry: Registry, storage: T) -> Self {
+impl<T, S> Scheduler<T, S>
+where
+    S: State + 'static,
+    T: Storage<S> + std::fmt::Debug + Clone + Send + 'static,
+{
+    pub fn new(registry: Registry<S>, storage: T) -> Self {
         Self {
             registry,
             storage,
             pipe_configs: HashMap::new(),
             pipes: HashMap::new(),
+            root_chan: RootChannel::new(),
         }
     }
 
     pub fn spawn(mut self) -> SchedulerHandle {
         let (tx, mut rx) = channel(8);
-        let weak_tx = tx.clone().downgrade();
-        tokio::spawn(async move {
-            self.enter_loop(&mut rx, weak_tx).await;
-        });
+        tokio::spawn(async move { self.enter_loop(&mut rx).await });
         SchedulerHandle { tx }
     }
 
-    async fn enter_loop(&mut self, rx: &mut Receiver<Message>, tx: WeakSender<Message>) {
-        while let Some(message) = rx.recv().await {
-            match message {
-                Message::Shutdown { reply_to } => {
-                    reply_to.send(Ok(())).ok();
-                    return;
+    async fn enter_loop(&mut self, rx: &mut Receiver<Message>) -> Result<(), SectionError> {
+        loop {
+            tokio::select! {
+                message = rx.recv() => {
+                    let message = match message {
+                        Some(message) => message,
+                        None => return Ok(()) // scheduler handle was dropped
+                    };
+                    match message {
+                        Message::Shutdown { reply_to } => {
+                            reply_to.send(Ok(())).ok();
+                            return Ok(());
+                        }
+                        Message::AddPipe {
+                            id,
+                            config,
+                            reply_to,
+                        } => {
+                            reply_to.send(self.add_pipe(id, config).await).ok();
+                        }
+                        Message::RemovePipe { id, reply_to } => {
+                            self.remove_pipe(id).await;
+                            reply_to.send(Ok(())).ok();
+                        }
+                        Message::ListIds { reply_to } => {
+                            reply_to
+                                .send(Ok(self.pipe_configs.keys().copied().collect()))
+                                .ok();
+                        }
+                    };
+                },
+                req = self.root_chan.recv() => {
+                    match req? {
+                        SectionRequest::RetrieveState { id, reply_to } => {
+                            reply_to.reply(self.storage.retrieve_state(id).await?).await?
+                        },
+                        SectionRequest::StoreState { id, state, reply_to } => {
+                            self.storage.store_state(id, state).await?;
+                            reply_to.reply(()).await?;
+                        },
+                        SectionRequest::Log { id, message } => {
+                            // FIXME: use proper logger
+                            log::info!("pipe<{id}>: {message}");
+                        },
+                        SectionRequest::Stopped{ id } => {
+                            // FIXME: use proper logger
+                            if let Err(err) = self.retrieve_pipe_error(id).await {
+                                println!("pipe with id: {id} stopped: {:?}", err);
+                            };
+                            self.unschedule(id).await;
+                            self.schedule(id)?;
+                        },
+                        _ => {},
+                    };
                 }
-                Message::AddPipe {
-                    id,
-                    config,
-                    reply_to,
-                } => {
-                    reply_to.send(self.add_pipe(id, config, tx.clone())).ok();
-                }
-                Message::RemovePipe { id, reply_to } => {
-                    self.remove_pipe(id);
-                    reply_to.send(Ok(())).ok();
-                }
-                Message::PipeDown { id } => {
-                    self.unschedule(id);
-                    self.schedule(id, tx.clone()).ok();
-                }
-                Message::ListIds { reply_to } => {
-                    reply_to
-                        .send(Ok(self.pipe_configs.keys().copied().collect()))
-                        .ok();
-                }
-            };
+            }
         }
     }
 
-    pub fn add_pipe(
-        &mut self,
-        id: u64,
-        config: Config,
-        tx: WeakSender<Message>,
-    ) -> Result<ScheduleResult, SectionError> {
+    async fn add_pipe(&mut self, id: u64, config: Config) -> Result<ScheduleResult, SectionError> {
         let schedule_result = match self.pipe_configs.get(&id) {
             Some(c) if c == &config => return Ok(ScheduleResult::Noop),
             Some(_) => {
-                self.remove_pipe(id);
+                self.remove_pipe(id).await;
                 ScheduleResult::Updated
             }
             None => ScheduleResult::New,
         };
         self.pipe_configs.insert(id, config);
-        self.schedule(id, tx).map(|_| schedule_result)
+        self.schedule(id).map(|_| schedule_result)
     }
 
-    pub fn remove_pipe(&mut self, id: u64) {
+    async fn remove_pipe(&mut self, id: u64) {
         self.pipe_configs.remove(&id);
-        self.unschedule(id);
+        self.unschedule(id).await;
     }
 
-    fn schedule(&mut self, id: u64, tx: WeakSender<Message>) -> Result<(), SectionError> {
-        // FIXME: error reporting
+    fn schedule(&mut self, id: u64) -> Result<(), SectionError> {
         if let Some(config) = self.pipe_configs.get(&id).cloned() {
-            let pipe = Pipe::try_from((id, config.clone(), &self.registry, self.storage.clone()))?;
-            let rx = spawn(id, tx, pipe.into_future());
-            self.pipes.insert(id, rx);
+            let pipe = Pipe::try_from((&config, &self.registry))?;
+            let section_chan = self.root_chan.add_section(id)?;
+            let pipe = pipe.start(
+                Stub::<_, SectionError>::new(),
+                Stub::<_, SectionError>::new(),
+                section_chan,
+            );
+            let handle = Some(tokio::spawn(pipe));
+            self.pipes.insert(id, handle);
         }
         Ok(())
     }
 
     /// Stop pipe by removing it from pipes list
-    fn unschedule(&mut self, pipe_id: u64) {
-        if let Some(handle) = self.pipes.remove(&pipe_id) {
-            drop(handle)
+    async fn unschedule(&mut self, pipe_id: u64) {
+        self.root_chan.send(pipe_id, Command::Stop).await.ok();
+        if let Some(Some(handle)) = self.pipes.remove(&pipe_id) {
+            handle.abort();
+        }
+        self.root_chan.remove_section(pipe_id).ok();
+    }
+
+    /// retrieve pipe error, if any
+    async fn retrieve_pipe_error(&mut self, pipe_id: u64) -> Result<(), SectionError> {
+        match self.pipes.get_mut(&pipe_id) {
+            Some(handle) if handle.is_some() => {
+                let handle = handle.take().unwrap();
+                handle.await?
+            }
+            _ => Ok(()),
         }
     }
-}
-
-/// spawn pipe
-///
-/// if future exited before rx channel - notify scheduler that pipe did die
-#[allow(dead_code)] // fixme
-fn spawn(
-    id: u64,
-    scheduler_tx: WeakSender<Message>,
-    future: impl Future<Output = Result<(), SectionError>> + Send + 'static,
-) -> OneshotSender<()> {
-    let (tx, rx) = oneshot_channel();
-    tokio::spawn(async move {
-        println!("pipe with id {id} spawned");
-        tokio::select! {
-            _ = rx => {
-                println!("pipe exit: join handle dropped")
-            },
-            res = future => {
-                println!("pipe exit: pipe finished: {:?}", res);
-                if let Some(scheduler_tx) = scheduler_tx.upgrade() {
-                    // FIXME: delay added to disallow rescheduling spam
-                    tokio::time::sleep(Duration::from_secs(3)).await;
-                    scheduler_tx.send(Message::PipeDown{ id }).await.ok();
-                }
-            }
-        };
-    });
-    tx
 }
 
 #[allow(dead_code)] // fixme
@@ -212,9 +205,6 @@ pub struct SchedulerHandle {
 // - crates new oneshot channel
 // - assembles message, appends reply_to
 // - sends message to and awaits response
-//
-// reduces boilerplate a bit
-// named after gen_server:call
 macro_rules! call {
     ($self:ident, $ty:tt :: $arm:tt { $($field:tt: $value:expr),* $(,)?} ) => {
         {

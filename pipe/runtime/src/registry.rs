@@ -3,38 +3,35 @@
 //! Registry is a mapping between section name and section constuctor.
 //! Registry is used mainly by pipe scheduler to build pipelines out of text configs.
 
+use section::State;
+
 use crate::{
     config::Map,
     types::{DynSection, SectionError},
 };
 use std::collections::HashMap;
 
-pub type Constructor = fn(&Map) -> Result<Box<dyn DynSection>, SectionError>;
+pub type Constructor<S> = fn(&Map) -> Result<Box<dyn DynSection<S>>, SectionError>;
 
-pub struct Registry {
-    reg: HashMap<String, Constructor>,
+pub struct Registry<S: State> {
+    reg: HashMap<String, Constructor<S>>,
 }
 
-impl std::fmt::Debug for Registry {
+impl<S: State> std::fmt::Debug for Registry<S> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "Registry {{}}")
     }
 }
 
-impl Default for Registry {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl Registry {
+impl<S: State> Registry<S> {
+    #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
         Self {
             reg: HashMap::new(),
         }
     }
 
-    pub fn register_section(&mut self, name: impl Into<String>, init: Constructor) {
+    pub fn register_section(&mut self, name: impl Into<String>, init: Constructor<S>) {
         self.reg.insert(name.into(), init);
     }
 
@@ -42,7 +39,7 @@ impl Registry {
         self.reg.remove(name.as_ref());
     }
 
-    pub fn get_constructor(&self, name: impl AsRef<str>) -> Option<Constructor> {
+    pub fn get_constructor(&self, name: impl AsRef<str>) -> Option<Constructor<S>> {
         self.reg.get(name.as_ref()).copied()
     }
 }

@@ -1,11 +1,12 @@
-pub(crate) mod channel;
-pub(crate) mod command_channel;
-pub(crate) mod config;
-pub(crate) mod message;
-pub(crate) mod pipe;
-pub(crate) mod registry;
-pub(crate) mod scheduler;
-pub(crate) mod state;
-pub(crate) mod types;
+pub mod channel;
+pub mod command_channel;
+pub mod config;
+pub mod message;
+pub mod pipe;
+pub mod registry;
+pub mod scheduler;
+pub mod sections;
+pub mod storage;
+pub mod types;
 
 pub use pipe::Pipe;

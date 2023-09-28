@@ -1,9 +1,15 @@
-//! Section interface
-use std::future::Future;
+mod command_channel;
+mod message;
+mod section;
+mod state;
 
-pub trait Section<Input, Output, CommandChannel> {
-    type Error;
-    type Future: Future<Output = Result<(), Self::Error>>;
+pub use async_trait::async_trait;
+pub use command_channel::{
+    Command, ReplyTo, RootChannel, SectionChannel, SectionRequest, WeakSectionChannel,
+};
+pub use message::Message;
+pub use section::Section;
+pub use state::State;
 
-    fn start(self, input: Input, output: Output, command_channel: CommandChannel) -> Self::Future;
-}
+#[cfg(feature = "dummy")]
+pub mod dummy;

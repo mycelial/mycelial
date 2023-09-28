@@ -8,13 +8,24 @@ edition = "2021"
 default = ["tokio"]
 tokio = []
 
+
 [dependencies]
 futures = "0.3"
-arrow = "45"
+arrow = "42"
 tokio = { version = "1", features=["full"] }
 tokio-util = "0.7"
 tokio-stream = "0.1"
 serde_json = "1"
 toml = "0.7"
 section = { path = "../section" }
+log = "0.4"
+
+## fixme
+reqwest = { version = "0.11" }
+base64 = { version = "0.21" }
+bytes = "1.5"
+
+## sections
 stub = { path = "../section/section_impls/stub/" }
+sqlite_connector = { path = "../section/section_impls/sqlite_connector/" }
+sqlite_physical_replication = { path = "../section/section_impls/sqlite_physical_replication/" }
