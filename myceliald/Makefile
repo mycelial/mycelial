@@ -42,11 +42,3 @@ run_docker:
 .PHONY: stop_docker
 stop_docker:
 	docker rm -f $(TAG)
-
-.PHONY: deploy_at_flyio
-deploy_at_flyio:
-	cd ../ && flyctl deploy -c myceliald/flyio.toml
-
-.PHONY: attach_to_flyio
-attach_to_flyio:
-	flyctl -c flyio.toml ssh console
