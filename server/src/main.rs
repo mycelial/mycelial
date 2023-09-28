@@ -9,7 +9,7 @@ use axum::{
     http::{self, header, Method, Request, StatusCode, Uri},
     middleware::{self, Next},
     response::{IntoResponse, Response},
-    routing::{get, get_service, post},
+    routing::{get, post},
     Json, Router, Server, TypedHeader,
 };
 use base64::engine::{general_purpose::STANDARD as BASE64, Engine};
@@ -20,6 +20,7 @@ use common::{
     ProvisionClientRequest, ProvisionClientResponse, Source,
 };
 use futures::StreamExt;
+use rust_embed::RustEmbed;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use sqlx::{sqlite::SqliteConnectOptions, ConnectOptions, Row, SqliteConnection};
@@ -39,10 +40,6 @@ struct Cli {
     /// Server authorization token
     #[clap(short, long, env = "ENDPOINT_TOKEN")]
     token: String,
-
-    /// Assets dir
-    #[clap(short, long, env = "ASSETS_DIR")]
-    assets_dir: String,
 
     /// Database path
     #[clap(short, long, env = "DATABASE_PATH", default_value = "mycelial.db")]
@@ -496,6 +493,10 @@ pub struct App {
     token: String,
 }
 
+#[derive(RustEmbed)]
+#[folder = "../console/out/"]
+pub struct Assets;
+
 impl App {
     async fn delete_config(&self, id: u64) -> Result<(), error::Error> {
         self.database.delete_config(id).await?;
@@ -505,13 +506,10 @@ impl App {
     /// Set pipe configs
     async fn set_configs(&self, new_configs: &PipeConfigs) -> Result<Vec<u64>, error::Error> {
         let mut inserted_ids = Vec::new();
-
         for config in new_configs.configs.iter() {
             let id = self.database.insert_config(&config.pipe).await?;
-            // fixme: unsafe conversion
             inserted_ids.push(id);
         }
-
         Ok(inserted_ids)
     }
 
@@ -531,7 +529,6 @@ impl App {
         self.database.get_config(id).await
     }
 
-    /// Return pipe configs
     async fn get_configs(&self) -> Result<PipeConfigs, error::Error> {
         self.database.get_configs().await
     }
@@ -556,6 +553,20 @@ impl App {
 
     fn basic_auth_token(&self) -> String {
         format!("Basic {}", BASE64.encode(format!("{}:", self.token)))
+    }
+}
+
+async fn assets(uri: Uri) -> Result<impl IntoResponse, StatusCode>{
+    let path = match uri.path() {
+        "/" => "index.html",
+        p => p
+    }.trim_start_matches("/");
+    match Assets::get(path) {
+        Some(file) => {
+            let mime = mime_guess::from_path(path).first_or_octet_stream();
+            Ok(([(header::CONTENT_TYPE, mime.as_ref())], file.data).into_response())
+        },
+        None => Err(StatusCode::NOT_FOUND),
     }
 }
 
@@ -587,11 +598,12 @@ async fn main() -> anyhow::Result<()> {
                         .delete(delete_pipe_config)
                         .put(put_pipe_config),
                 )
-                .route("/api/clients", get(get_clients)), // .layer(middleware::from_fn_with_state(state.clone(), client_auth)),
+                .route("/api/clients", get(get_clients)),
         )
         .with_state(state.clone());
 
-    let assets = Router::new().nest_service("/", get_service(ServeDir::new(cli.assets_dir)));
+    let assets = Router::new()
+        .fallback(assets);
 
     let router = Router::new()
         .merge(api)
