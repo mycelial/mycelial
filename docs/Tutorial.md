@@ -68,7 +68,7 @@ Start the server binary with the following command `./server --token secrettoken
 <details>
   <summary>Mac Arm_64</summary>
 
-  ```toml
+  ```sh
   curl -L https://github.com/mycelial/mycelite/releases/latest/download/aarch64-apple-darwin.tgz --output aarch64-apple-darwin.tgz
   tar -xvzf aarch64-apple-darwin.tgz
   ```
