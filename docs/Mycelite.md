@@ -28,10 +28,18 @@ tar -xvzf x86_64-apple-darwin.tgz
 ```
 </details>
 <details>
-  <summary>Linux Arm</summary>
+  <summary>Linux Arm 32</summary>
 
 ```toml
 curl -L https://github.com/mycelial/mycelite/releases/latest/download/arm-unknown-linux-gnueabihf.tgz --output arm-unknown-linux-gnueabihf.tgz 
+tar -xvzf arm-unknown-linux-gnueabihf.tgz 
+```
+</details>
+<details>
+  <summary>Linux Arm 64</summary>
+
+```toml
+curl -L https://github.com/mycelial/mycelite/releases/latest/download/aarch64-unknown-linux-gnu.tgz --output arm-unknown-linux-gnueabihf.tgz 
 tar -xvzf arm-unknown-linux-gnueabihf.tgz 
 ```
 </details>
@@ -158,9 +166,10 @@ After configuring the Mycelial client, open the [server
 console](http://localhost:8080) and perform the following steps.
 
 1. Drag and drop your source node onto the canvas.
-2. Drag and drop your destination node onto the canvas.
-3. Connect the source and destination nodes.
-4. Publish your configuration
+2. Drag and drop the Mycelial Server node onto the canvas.
+3. Drag and drop your destination node onto the canvas.
+4. Connect the source and destination nodes, via the Mycelial Server node
+5. Publish your configuration
 
 After performing the above steps, your source SQLite database is replicated in 
 near real-time to the destination SQLite database.
@@ -170,8 +179,10 @@ near real-time to the destination SQLite database.
 If you prefer to set up your data pipelines with an [API](API.md) call, do the
 following:
 
-Create the pipeline by making a `POST` specification API call to
-`/api/pipe/configs` with the following payload:
+Create the pipeline by making a `POST` specification API calls to
+`/api/pipe/configs` with the following payloads:
+
+#### Source to Mycelial Server 
 
 ```json
 {
@@ -180,19 +191,56 @@ Create the pipeline by making a `POST` specification API call to
       "id": 0,
       "pipe": [
         {
-          "name": "mycelite_source",
+          "name": "sqlite_physical_replication_source",
+          "label": "sqlite_physical_replication_source node",
           "client": "{client name}",
-          "journal_path": "{path and filename of source journal}"
+          "type": "sqlite_physical_replication",
+          "display_name": "{display name}",
+          "journal_path": "{path and filename of source journal"
         },
         {
-          "name": "mycelite_destination",
-          "client": "{client name}",
-          "journal_path": "{path and file name of destination journal}",
-          "database_path": "{path and file name of destination database}"
+          "name": "mycelial_server_destination",
+          "label": "mycelial_server node",
+          "type": "mycelial_server",
+          "display_name": "Mycelial Server",
+          "endpoint": "http://{host or ip}:8080/ingestion",
+          "token": "{security token}",
+          "topic": "{unique topic id}"
         }
       ]
     }
   ]
 }
+```
 
+### Mycelial Server to destination
+
+```json
+{
+  "configs": [
+    {
+      "id": 0,
+      "pipe": [
+        {
+          "name": "mycelial_server_source",
+          "label": "mycelial_server node",
+          "type": "mycelial_server",
+          "display_name": "Mycelial Server",
+          "endpoint": "http://{host or ip}:8080/ingestion",
+          "token": "token",
+          "topic": "{topic id}"
+        },
+        {
+          "name": "sqlite_physical_replication_destination",
+          "label": "sqlite_physical_replication_destination node",
+          "client": "dev",
+          "type": "sqlite_physical_replication",
+          "display_name": "{display name}",
+          "journal_path": "{path and filename of destination journal}",
+          "database_path": "{path and filename of destination database"
+        }
+      ]
+    }
+  ]
+}
 ```
