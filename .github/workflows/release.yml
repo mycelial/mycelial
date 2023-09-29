@@ -39,9 +39,9 @@ jobs:
             os: macos-12
             target: aarch64-apple-darwin
 
-         #- build: windows
-         #  os: windows-2022
-         #  target: x86_64-pc-windows-msvc
+          - build: windows
+            os: windows-2022
+            target: x86_64-pc-windows-msvc
 
          #- build: windows
          #  os: windows-2022
@@ -90,10 +90,9 @@ jobs:
             echo "OPENSSL_STATIC=1" >> $GITHUB_ENV
 
 
-    # - name: install packages (windows)
-    #   if: matrix.build == 'windows'
-    #   run: |
-    #     echo 1
+      - name: install packages (windows)
+        if: matrix.build == 'windows'
+        run: |
 
       - name: setup rust
         uses: dtolnay/rust-toolchain@master
@@ -138,10 +137,12 @@ jobs:
       - name: build archive
         if: matrix.build == 'windows'
         run: |
-          $env:MYCELIALD_NAME="${{ matrix.target }}.zip"
-          mv .\target\${{ matrix.target }}\release\mycelite.dll .\target\${{ matrix.target }}\release\libmycelite.dll
-          Compress-Archive -Path .\target\${{ matrix.target }}\release\libmycelite.dll -DestinationPath $env:MYCELIALD_NAME
+          $env:MYCELIALD_NAME="myceliald-${{ matrix.target }}.zip"
+          $env:SERVER_NAME="server-${{ matrix.target }}.zip"
+          Compress-Archive -Path .\target\${{ matrix.target }}\release\myceliald.exe -DestinationPath $env:MYCELIALD_NAME
+          Compress-Archive -Path .\target\${{ matrix.target }}\release\server.exe -DestinationPath $env:SERVER_NAME
           echo "MYCELIALD_NAME=$env:MYCELIALD_NAME" >> $env:GITHUB_ENV
+          echo "SERVER_NAME=$env:SERVER_NAME" >> $env:GITHUB_ENV
 
       - name: release
         uses: ncipollo/release-action@v1
