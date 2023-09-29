@@ -1,0 +1,153 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - '*'
+
+jobs:
+  release:
+    runs-on: ${{ matrix.os }}
+
+    env:
+      RUSTFLAGS: "-C target-feature=-crt-static"
+      CARGO_TARGET_ARM_UNKNOWN_LINUX_GNUEABIHF_LINKER: arm-linux-gnueabihf-gcc
+      CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
+      OPENSSL_VERSION: 1.1.1w
+      OPENSSL_PREFIX: /tmp/openssl/
+
+    strategy:
+      matrix:
+        include:
+          - build: linux
+            os: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+
+          - build: linux
+            os: ubuntu-20.04 ## older ubuntu to avoid messing with glibc version
+            target: aarch64-unknown-linux-gnu
+
+          - build: linux
+            os: ubuntu-20.04 ## older ubuntu to avoid messing with glibc version
+            target: arm-unknown-linux-gnueabihf
+
+          - build: macos
+            os: macos-12
+            target: x86_64-apple-darwin
+
+          - build: macos
+            os: macos-12
+            target: aarch64-apple-darwin
+
+          - build: windows
+            os: windows-2022
+            target: x86_64-pc-windows-msvc
+
+         #- build: windows
+         #  os: windows-2022
+         #  target: x86_64-pc-windows-gnu
+
+
+    steps:
+      - name: checkout
+        uses: actions/checkout@v3
+
+      - name: install packages (linux)
+        if: matrix.build == 'linux'
+        run: |
+          sudo apt update
+          sudo apt install pkg-config gcc-arm-linux-gnueabihf gcc-aarch64-linux-gnu musl-tools libssl-dev wget -qy
+
+      - name: install packages (macos)
+        if: matrix.build == 'macos'
+        run: |
+          brew install openssl
+      
+      - name: build openssl 
+        if: matrix.build == 'linux' && matrix.target != 'x86_64-unknown-linux-gnu'
+        run: |
+            export CC_PREFIX=`echo ${{ matrix.target }} | sed 's/unknown-//g'`
+            mkdir -p $OPENSSL_PREFIX/$OPENSSL_VERSION/
+            cd ${OPENSSL_PREFIX}
+            wget -nc https://www.openssl.org/source/openssl-$OPENSSL_VERSION.tar.gz
+            tar xvf openssl-$OPENSSL_VERSION.tar.gz
+            cd openssl-${OPENSSL_VERSION}
+            export CC="$CC_PREFIX-gcc"
+            exportCXX="$CC_PREFIX-g++"
+            export AS="$CC_PREFIX-as"
+            export AR="$CC_PREFIX-ar"
+            export NM="$CC_PREFIX-nm"
+            export RANLIB="$CC_PREFIX-ranlib"
+            export LD="$CC_PREFIX-ld"
+            export STRIP="$CC_PREFIX-strip"
+            ./Configure linux-generic32 shared \
+               --prefix=$OPENSSL_PREFIX/$OPENSSL_VERSION/${{ matrix.target }} \
+               --openssldir=$OPENSSL_PREFIX/$OPENSSL_VERSION/${{ matrix.target }}
+            make
+            make install
+            echo "OPENSSL_INCLUDE_DIR=$OPENSSL_PREFIX/$OPENSSL_VERSION/${{matrix.target}}/include" >> $GITHUB_ENV
+            echo "OPENSSL_LIB_DIR=$OPENSSL_PREFIX/$OPENSSL_VERSION/${{matrix.target}}/lib" >> $GITHUB_ENV
+            echo "OPENSSL_STATIC=1" >> $GITHUB_ENV
+
+
+      - name: install packages (windows)
+        if: matrix.build == 'windows'
+        run: |
+
+      - name: setup rust
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: stable
+          target: ${{ matrix.target }}
+
+      - name: setup node
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20.x'
+
+      - name: build assets 
+        run: |
+          cd console && npm i && npm run build
+
+      - name: build binary
+        run: |
+          cargo build --verbose --release --target ${{ matrix.target }}
+          ls target/${{ matrix.target }}/release/
+
+      - name: build archive
+        if: matrix.build == 'linux'
+        run: |
+          export MYCELIALD_NAME=myceliald-${{ matrix.target }}.tgz
+          export SERVER_NAME=server-${{ matrix.target }}.tgz
+          tar -czf $MYCELIALD_NAME -C "./target/${{ matrix.target }}/release/" myceliald
+          tar -czf $SERVER_NAME -C "./target/${{ matrix.target }}/release/" server
+          echo "MYCELIALD_NAME=$MYCELIALD_NAME" >> $GITHUB_ENV
+          echo "SERVER_NAME=$SERVER_NAME" >> $GITHUB_ENV
+
+      - name: build archive
+        if: matrix.build == 'macos'
+        run: |
+          export MYCELIALD_NAME=myceliald-${{ matrix.target }}.tgz
+          export SERVER_NAME=server-${{ matrix.target }}.tgz
+          tar -czf $MYCELIALD_NAME -C "./target/${{ matrix.target }}/release/" myceliald
+          tar -czf $SERVER_NAME -C "./target/${{ matrix.target }}/release/" server
+          echo "MYCELIALD_NAME=$MYCELIALD_NAME" >> $GITHUB_ENV
+          echo "SERVER_NAME=$SERVER_NAME" >> $GITHUB_ENV
+
+      - name: build archive
+        if: matrix.build == 'windows'
+        run: |
+          $env:MYCELIALD_NAME="myceliald-${{ matrix.target }}.zip"
+          $env:SERVER_NAME="server-${{ matrix.target }}.zip"
+          Compress-Archive -Path .\target\${{ matrix.target }}\release\myceliald.exe -DestinationPath $env:MYCELIALD_NAME
+          Compress-Archive -Path .\target\${{ matrix.target }}\release\server.exe -DestinationPath $env:SERVER_NAME
+          echo "MYCELIALD_NAME=$env:MYCELIALD_NAME" >> $env:GITHUB_ENV
+          echo "SERVER_NAME=$env:SERVER_NAME" >> $env:GITHUB_ENV
+
+      - name: release
+        uses: ncipollo/release-action@v1
+        with:
+          artifacts: "${{ env.MYCELIALD_NAME }}, ${{ env.SERVER_NAME }}"
+          artifactErrorsFailBuild: true
+          allowUpdates: true
+

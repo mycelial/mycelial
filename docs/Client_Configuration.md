@@ -63,7 +63,6 @@ last property you'll define is the `journal_path`, the value you assign to it is
 the full path and file name to the Mycelite journal. Note: the Mycelite journal
 is automatically created as a sibling file to the SQLite database file when you
 use the Mycelite SQLite extension.
-
 <details>
   <summary>Example Mycelite Source Section</summary>
 
