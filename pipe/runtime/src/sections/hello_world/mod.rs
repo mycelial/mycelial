@@ -4,9 +4,10 @@ pub mod source;
 use std::{sync::Arc, vec};
 
 use arrow::{
+    array::{ArrayRef, StringArray},
     datatypes::{DataType, Field, Schema},
     error::ArrowError,
-    record_batch::RecordBatch as _RecordBatch, array::{StringArray, ArrayRef},
+    record_batch::RecordBatch as _RecordBatch,
 };
 use section::Message as _Message;
 
@@ -30,9 +31,7 @@ impl TryInto<RecordBatch> for &HelloWorldPayload {
             DataType::Utf8,
             true,
         )]));
-        let columns: Vec<ArrayRef> = vec![Arc::new(StringArray::from(vec![
-            self.message.clone(),
-        ]))];
+        let columns: Vec<ArrayRef> = vec![Arc::new(StringArray::from(vec![self.message.clone()]))];
         let r = _RecordBatch::try_new(schema, columns)?;
 
         Ok(message::RecordBatch(r))

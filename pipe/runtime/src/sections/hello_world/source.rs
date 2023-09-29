@@ -1,7 +1,7 @@
 //! HelloWorld Source example section implementation
 //!
-//! Since it is a source, this section ignores the input stream, and generates a "Hello World"
-//! message every 5 seconds to the output stream.
+//! Generates a "Hello World" message every 5 seconds.
+//! Since it is a source, this section ignores the input stream, and writes its message to the output stream.
 use super::HelloWorldPayload;
 use crate::{
     config::Map,
@@ -69,6 +69,7 @@ impl HelloWorld {
         let mut interval = pin!(IntervalStream::new(Duration::from_secs(5)));
         loop {
             futures::select! {
+                // Every 5 seconds, send a new "Hello, World!" message
                 _ = interval.next() => {
                     match self.get_message().await {
                         Ok(msg) => {
