@@ -1,7 +1,7 @@
 # Tutorial
 
 In this tutorial, we'll setup Mycelial to synchronize data from one SQLite
-instance to another.
+instance to another using [Mycelite](Mycelite.md).
 
 ## Mycelial Server
 
@@ -153,6 +153,9 @@ sqlite3
 .load ./libmycelite mycelite_writer
 .open data.db
 ```
+
+**NOTE**: You must load the extension everytime you open the source SQLite
+database.
 
 Next, create a table in your sqlite database and insert a record.
 

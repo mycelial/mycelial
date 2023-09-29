@@ -48,12 +48,8 @@ Mycelial has adapters for SQLite but many other adapters are in the works.
 
 ## How do I get started?
 
-Follow our [Setup Instructions](/docs/Setup.md) to install clients and servers.
-
-## How do I move my data from A to B?
-
-Follow our [getting started](/docs/Getting_Started.md) guides which walk you
-through how to set up data pipelines.
+Follow our [Tutorial](/docs/Tutorial.md) to start using Mycelial from the
+command line.
 
 ## API
 
