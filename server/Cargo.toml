@@ -3,6 +3,9 @@ name = "server"
 version = "0.1.0"
 edition = "2021"
 
+[features]
+default = []
+embed_assets = []
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
@@ -22,6 +25,8 @@ tower-http = { version = "0.4.1", features = ["fs"] }
 log = "0.4"
 pretty_env_logger = "0.5"
 common = { path = "../common" }
+rust-embed = "8.0.0"
+mime_guess = { version = "2" }
 
 [dependencies.uuid]
 version = "1.4.0"

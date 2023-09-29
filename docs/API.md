@@ -1,6 +1,6 @@
 # Mycelial API
 
-## CONFIGURATION 
+## Pipeline Specification (workflows)
 
 <details>
   <summary><code>POST</code> <code><b>/api/pipe/configs</b></code> <code>Creates or updates config</code></summary>
@@ -19,79 +19,30 @@
 #### Payloads
 
 <details>
-  <summary>SQLite Source</summary>
+  <summary>Mycelite Source</summary>
 
-```js
+```json
 {
   "configs": [
     {
       "id": 0,
       "pipe": [
         {
-          "name": "sqlite_source",
-          "client": "{client_name}",
-          "path": "{path_to_sqlite}",
-          "tables": "{tables}"
-        },
-        {
-          "name": "mycelial_net_destination",
-          "endpoint": "http://{server}:8080/ingestion",
-          "topic": "{unique_topic_id}"
-        }
-      ]
-    }
-  ]
-}
-```
-
-</details>
-
-<details>
-  <summary>SQLite Destination</summary>
-
-```js
-{
-  "configs": [
-    {
-      "id": 0,
-      "pipe": [
-        {
-          "name": "mycelial_net_source",
-          "endpoint": "http://{server}:8080/ingestion",
-          "topic": "{matching_topic_id}"
-        },
-        {
-          "name": "sqlite_destination",
-          "path": "{path_to_sqlite}",
-          "client": "{client_name}"
-        }
-      ]
-    }
-  ]
-}
-```
-
-</details>
-
-<details>
-  <summary>Mycelite Source and Destination</summary>
-
-```js
-{
-  "configs": [
-    {
-      "id": 0,
-      "pipe": [
-        {
-          "name": "mycelite_source",
+          "name": "sqlite_physical_replication_source",
+          "label": "sqlite_physical_replication_source node",
           "client": "{client name}",
-          "journal_path": "{path to mycelite journal}"
+          "type": "sqlite_physical_replication",
+          "display_name": "{display name}",
+          "journal_path": "{path and filename of source journal"
         },
         {
-          "name": "mycelite_destination",
-          "client": "{client name}",
-          "journal_path": "{path to mycelite journal}",
-          "database_path": "{path to sqlite database}"
+          "name": "mycelial_server_destination",
+          "label": "mycelial_server node",
+          "type": "mycelial_server",
+          "display_name": "Mycelial Server",
+          "endpoint": "http://{host or ip}:8080/ingestion",
+          "token": "{security token}",
+          "topic": "{unique topic id}"
         }
       ]
     }
@@ -102,36 +53,31 @@
 </details>
 
 <details>
-  <summary>Snowflake Source and Destination</summary>
+  <summary>Mycelite Destination</summary>
 
-```js
+```json
 {
   "configs": [
     {
       "id": 0,
       "pipe": [
         {
-          "name": "snowflake_source",
-          "username": "{snowflake account name}",
-          "password": "{snowflake account password",
-          "role": "{snowflake role}",
-          "account_identifier": "{snowflake account identifier}",
-          "warehouse": "{warehouse name}",
-          "database": "{database name}",
-          "schema": "{database schema}",
-          "query": "{sql query}",
-          "client": "{client name}"
+          "name": "mycelial_server_source",
+          "label": "mycelial_server node",
+          "type": "mycelial_server",
+          "display_name": "Mycelial Server",
+          "endpoint": "http://{host or ip}:8080/ingestion",
+          "token": "token",
+          "topic": "{topic id}"
         },
         {
-          "name": "snowflake_destination",
-          "username": "{snowflake account name}",
-          "password": "{snowflake account password}",
-          "role": "{snowflake role}",
-          "account_identifier": "{snowflake account identifier}",
-          "warehouse": "{warehouse name}",
-          "database": "{database name}",
-          "schema": "{database schema}",
-          "table": "{destination table name}"
+          "name": "sqlite_physical_replication_destination",
+          "label": "sqlite_physical_replication_destination node",
+          "client": "dev",
+          "type": "sqlite_physical_replication",
+          "display_name": "{display name}",
+          "journal_path": "{path and filename of destination journal}",
+          "database_path": "{path and filename of destination database"
         }
       ]
     }
@@ -140,6 +86,7 @@
 ```
 
 </details>
+
 
 ### Responses
 
@@ -178,7 +125,7 @@
 </details>
 
 <details>
- <summary><code>GET</code> <code><b>/api/pipe/configs</b></code> <code>(fetch all active configurations)</code></summary>
+ <summary><code>GET</code> <code><b>/api/pipe/configs</b></code> <code>(fetch all active pipeline specifications)</code></summary>
 
 ##### Parameters
 
@@ -232,28 +179,18 @@
 >             "display_name": "Client 1",
 >             "sources": [
 >                 {
->                     "type": "sqlite",
->                     "display_name": "Source 1",
->                     "path": "/tmp/test.sqlite"
->                 },
->                 {
->                     "type": "mycelite",
+>                     "type": "sqlite_physical_replication",
 >                     "display_name": "Mycelite SRC",
 >                     "journal_path": "/Users/knowthen/junk/source.db-mycelial"
 >                 }
 >             ],
 >             "destinations": [
 >                 {
->                     "type": "mycelite",
+>                     "type": "sqlite_physical_replication",
 >                     "display_name": "Mycelite DEST",
 >                     "journal_path": "/Users/knowthen/junk/dest/destination.db-mycelial",
 >                     "database_path": "/Users/knowthen/junk/dest/destination.db"
 >                 },
->                 {
->                     "type": "sqlite",
->                     "display_name": "Dest 1",
->                     "path": "/tmp/test_dest.sqlite"
->                 }
 >             ]
 >         },
 >         {

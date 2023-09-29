@@ -1,6 +1,6 @@
 SHELL := bash
-TAG ?= pipe_server
-export ASSETS_DIR ?= $(shell echo `dirname $(PWD)`/console/out/)
+TAG ?= server
+RUST_LOG ?= INFO
 
 .PHONY: all
 all:
@@ -15,9 +15,9 @@ clean:
 
 .PHONY: dev
 dev:
-	RUST_LOG=INFO cargo-watch -q -c \
+	RUST_LOG=$(RUST_LOG) cargo-watch -q -c \
 		-i mycelial.db \
-		-s 'cargo run -- --token=token'
+		-s 'cargo run -r -- --token=token'
 
 .PHONY: vendor
 vendor:
@@ -35,12 +35,3 @@ run_docker:
 .PHONY: stop_docker
 stop_docker:
 	docker rm -f $(TAG)
-
-.PHONY: deploy_at_flyio
-deploy_at_flyio:
-	cd ../ && flyctl deploy -c server/flyio.toml
-
-
-.PHONY: attach_at_flyio
-attach_at_flyio:
-	flyctl -c flyio.toml ssh console
