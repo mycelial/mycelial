@@ -171,7 +171,7 @@ client in a moment.
 
 You will need to open another shell to continue below.
 
-## Client (mycelaild)
+## Client (myceliald)
 
 ### Download and unarchive the Mycelial Client (myceliald) for your system
 
