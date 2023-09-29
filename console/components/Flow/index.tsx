@@ -40,6 +40,8 @@ import {
   SnowflakeSourceNode,
   SnowflakeDestinationNode,
   PostgresSourceNode,
+  HelloWorldSourceNode,
+  HelloWorldDestinationNode,
 } from "@/components/nodes";
 
 import { Grid, Group } from "@/components/layout";
@@ -175,6 +177,8 @@ const nodeTypes = {
   snowflake_source: SnowflakeSourceNode,
   snowflake_destination: SnowflakeDestinationNode,
   postgres_source: PostgresSourceNode,
+  hello_world_source: HelloWorldSourceNode,
+  hello_world_destination: HelloWorldDestinationNode,
 };
 
 const defaultEdgeOptions = {
