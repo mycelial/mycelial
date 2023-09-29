@@ -142,7 +142,7 @@ sibling file to the SQLite database file. Make a **note** of the journal
 `filename` as it will need to be referenced when setting up your pipeline
 specification in Mycelial.
 
-_MacOS users: The default SQLite that ships with MacOS does not have extensions enabled. One alternative is to install SQLite with Homebrew. Be sure to adjust your PATH if necessary to point to the SQLite version you installed with Homebrew.
+_MacOS users_: The default SQLite that ships with MacOS does not have extensions enabled. One alternative is to install SQLite with Homebrew. Be sure to adjust your PATH if necessary to point to the SQLite version you installed with Homebrew.
 
 ```sh
 sqlite3
@@ -224,13 +224,13 @@ You will need to open another shell to continue below.
 
 Mycelial Clients require a configuration file to function properly.
 
-You can find a [config.example.toml](myceliald/config.example.toml) example file,
+You can find a [config.example.toml](../myceliald/config.example.toml) example file,
 which you can reference when creating your own client configuration files.
 
 The configuration file is passed to the client binary file via the
 `./myceliald --config=./config.toml` command line option.
 
-Copy the [config.example.toml](myceliald/config.example.toml), rename it to
+Copy the [config.example.toml](../myceliald/config.example.toml), rename it to
 `config.toml`.
 
 Edit the copied config file as follows. **NOTE** be sure to change the
