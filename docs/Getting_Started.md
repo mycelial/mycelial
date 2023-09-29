@@ -7,12 +7,13 @@ server and clients.
 
 When you open up the [web interface](http://localhost:8080) you'll be prompted
 with a Basic Authentication modal window. Enter the token you specified in the
-`--token` option when starting the server.
+`--token` option when starting the server. **Note** the token goes in the
+_username_ field.
 
 ## Available nodes
 
 In the upper left corner of the web page, you'll see the sources and
 destinations that the client(s) have made available to you. If you don't see a 
 source or destination that you wish to use, you'll need to modify the clients
-[toml](../client/config.example.toml) file to include the sources and/or
+[toml](../myceliald/config.example.toml) file to include the sources and/or
 destinations you wish to use.
