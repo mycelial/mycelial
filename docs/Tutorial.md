@@ -77,7 +77,7 @@ Start the server binary with the following command `./server --token secrettoken
 <details>
   <summary>Mac x86_64</summary>
 
-```toml
+```sh
 curl -L https://github.com/mycelial/mycelite/releases/latest/download/x86_64-apple-darwin.tgz --output x86_64-apple-darwin.tgz
 tar -xvzf x86_64-apple-darwin.tgz
 ```
@@ -85,7 +85,7 @@ tar -xvzf x86_64-apple-darwin.tgz
 <details>
   <summary>Linux arm_32</summary>
 
-```toml
+```sh
 curl -L https://github.com/mycelial/mycelite/releases/latest/download/arm-unknown-linux-gnueabihf.tgz --output arm-unknown-linux-gnueabihf.tgz 
 tar -xvzf arm-unknown-linux-gnueabihf.tgz 
 ```
@@ -93,7 +93,7 @@ tar -xvzf arm-unknown-linux-gnueabihf.tgz
 <details>
   <summary>Linux arm_64</summary>
 
-```toml
+```sh
 curl -L https://github.com/mycelial/mycelite/releases/latest/download/aarch64-unknown-linux-gnu.tgz --output arm-unknown-linux-gnueabihf.tgz 
 tar -xvzf arm-unknown-linux-gnueabihf.tgz 
 ```
@@ -101,7 +101,7 @@ tar -xvzf arm-unknown-linux-gnueabihf.tgz
 <details>
   <summary>Linux x86_gnu</summary>
 
-```toml
+```sh
 curl -L https://github.com/mycelial/mycelite/releases/latest/download/x86_64-unknown-linux-gnu.tgz --output x86_64-unknown-linux-gnu.tgz 
 tar -xvzf x86_64-unknown-linux-gnu.tgz 
 ```
@@ -109,7 +109,7 @@ tar -xvzf x86_64-unknown-linux-gnu.tgz
 <details>
   <summary>Linux x86_musl</summary>
 
-```toml
+```sh
 curl -L https://github.com/mycelial/mycelite/releases/latest/download/x86_64-unknown-linux-musl.tgz --output x86_64-unknown-linux-musl.tgz 
 tar -xvzf x86_64-unknown-linux-musl.tgz  
 ```
@@ -117,7 +117,7 @@ tar -xvzf x86_64-unknown-linux-musl.tgz
 <details>
   <summary>Windows x86_gnu</summary>
 
-```toml
+```sh
 curl.exe -L https://github.com/mycelial/mycelite/releases/latest/download/x86_64-pc-windows-gnu.zip --output x86_64-pc-windows-gnu.zip 
 tar.exe -xvzf x86_64-pc-windows-gnu.zip
 ```
@@ -125,7 +125,7 @@ tar.exe -xvzf x86_64-pc-windows-gnu.zip
 <details>
   <summary>Windows x86_msvc</summary>
 
-```toml
+```sh
 curl.exe -L https://github.com/mycelial/mycelite/releases/latest/download/x86_64-pc-windows-msvc.zip --output x86_64-pc-windows-msvc.zip 
 tar.exe -xvzf x86_64-pc-windows-msvc.zip
 ```
@@ -141,7 +141,7 @@ sibling file to the SQLite database file. Make a **note** of the journal
 specification in Mycelial.
 
 
-```
+```sh
 sqlite3
 .load ./libmycelite mycelite_writer
 .open data.db
