@@ -142,7 +142,11 @@ sibling file to the SQLite database file. Make a **note** of the journal
 `filename` as it will need to be referenced when setting up your pipeline
 specification in Mycelial.
 
-_MacOS users_: The default SQLite that ships with MacOS does not have extensions enabled. One alternative is to install SQLite with Homebrew. Be sure to adjust your PATH if necessary to point to the SQLite version you installed with Homebrew.
+_MacOS users_: The default SQLite that ships with MacOS does not have extensions
+enabled. One alternative is to [install
+SQLite](https://formulae.brew.sh/formula/sqlite) with
+[Homebrew](https://brew.sh/). Be sure to adjust your PATH environmental variable
+if necessary to point to the SQLite version you installed with Homebrew.
 
 ```sh
 sqlite3

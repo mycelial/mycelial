@@ -3,6 +3,9 @@
 Follow the [Setup](./Setup.md) instructions to install and start the Mycelial
 server and clients.
 
+Follow this [Tutorial](./Tutorial.md) if you are using Mycelial for the first
+time.
+
 ## Opening the web interface
 
 When you open up the [web interface](http://localhost:8080) you'll be prompted
