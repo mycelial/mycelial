@@ -1,9 +1,9 @@
 # Tutorial
 
-In this tutorial, we'll setup Mycelial to synchronize data from one SQLite 
+In this tutorial, we'll setup Mycelial to synchronize data from one SQLite
 instance to another.
 
-## Server
+## Mycelial Server
 
 ### Download and unarchive the server binary for you system.
 
@@ -16,7 +16,7 @@ instance to another.
    ```
 
    </details>
-   
+
    <details>
    <summary>Mac x86_64</summary>
 
@@ -57,13 +57,15 @@ instance to another.
 
    </details>
 
-### Start the server
+### Start the Mycelial Server
 
-Start the server binary with the following command `./server --token secrettoken`
+Start the Mycelial Server binary with the following command `./server --token secrettoken`. If the Server is up and healthy, you will see no output in your terminal.
+
+You will need to open another shell to continue below.
 
 ## Mycelite
 
-### Download and unarchive the mycelite extension for your system
+### Download and unarchive the Mycelite extension for your system
 
 <details>
   <summary>Mac Arm_64</summary>
@@ -86,39 +88,39 @@ tar -xvzf x86_64-apple-darwin.tgz
   <summary>Linux arm_32</summary>
 
 ```sh
-curl -L https://github.com/mycelial/mycelite/releases/latest/download/arm-unknown-linux-gnueabihf.tgz --output arm-unknown-linux-gnueabihf.tgz 
-tar -xvzf arm-unknown-linux-gnueabihf.tgz 
+curl -L https://github.com/mycelial/mycelite/releases/latest/download/arm-unknown-linux-gnueabihf.tgz --output arm-unknown-linux-gnueabihf.tgz
+tar -xvzf arm-unknown-linux-gnueabihf.tgz
 ```
 </details>
 <details>
   <summary>Linux arm_64</summary>
 
 ```sh
-curl -L https://github.com/mycelial/mycelite/releases/latest/download/aarch64-unknown-linux-gnu.tgz --output arm-unknown-linux-gnueabihf.tgz 
-tar -xvzf arm-unknown-linux-gnueabihf.tgz 
+curl -L https://github.com/mycelial/mycelite/releases/latest/download/aarch64-unknown-linux-gnu.tgz --output arm-unknown-linux-gnueabihf.tgz
+tar -xvzf arm-unknown-linux-gnueabihf.tgz
 ```
 </details>
 <details>
   <summary>Linux x86_gnu</summary>
 
 ```sh
-curl -L https://github.com/mycelial/mycelite/releases/latest/download/x86_64-unknown-linux-gnu.tgz --output x86_64-unknown-linux-gnu.tgz 
-tar -xvzf x86_64-unknown-linux-gnu.tgz 
+curl -L https://github.com/mycelial/mycelite/releases/latest/download/x86_64-unknown-linux-gnu.tgz --output x86_64-unknown-linux-gnu.tgz
+tar -xvzf x86_64-unknown-linux-gnu.tgz
 ```
 </details>
 <details>
   <summary>Linux x86_musl</summary>
 
 ```sh
-curl -L https://github.com/mycelial/mycelite/releases/latest/download/x86_64-unknown-linux-musl.tgz --output x86_64-unknown-linux-musl.tgz 
-tar -xvzf x86_64-unknown-linux-musl.tgz  
+curl -L https://github.com/mycelial/mycelite/releases/latest/download/x86_64-unknown-linux-musl.tgz --output x86_64-unknown-linux-musl.tgz
+tar -xvzf x86_64-unknown-linux-musl.tgz
 ```
 </details>
 <details>
   <summary>Windows x86_gnu</summary>
 
 ```sh
-curl.exe -L https://github.com/mycelial/mycelite/releases/latest/download/x86_64-pc-windows-gnu.zip --output x86_64-pc-windows-gnu.zip 
+curl.exe -L https://github.com/mycelial/mycelite/releases/latest/download/x86_64-pc-windows-gnu.zip --output x86_64-pc-windows-gnu.zip
 tar.exe -xvzf x86_64-pc-windows-gnu.zip
 ```
 </details>
@@ -126,7 +128,7 @@ tar.exe -xvzf x86_64-pc-windows-gnu.zip
   <summary>Windows x86_msvc</summary>
 
 ```sh
-curl.exe -L https://github.com/mycelial/mycelite/releases/latest/download/x86_64-pc-windows-msvc.zip --output x86_64-pc-windows-msvc.zip 
+curl.exe -L https://github.com/mycelial/mycelite/releases/latest/download/x86_64-pc-windows-msvc.zip --output x86_64-pc-windows-msvc.zip
 tar.exe -xvzf x86_64-pc-windows-msvc.zip
 ```
 </details>
@@ -140,6 +142,7 @@ sibling file to the SQLite database file. Make a **note** of the journal
 `filename` as it will need to be referenced when setting up your pipeline
 specification in Mycelial.
 
+_MacOS users_: The default SQLite that ships with MacOS does not have extensions enabled. One alternative is to install SQLite with Homebrew. Be sure to adjust your PATH if necessary to point to the SQLite version you installed with Homebrew.
 
 ```sh
 sqlite3
@@ -156,12 +159,14 @@ INSERT INTO users(name) VALUES ('John');
 
 After modifying the database, the Mycelite extension will create a journal file
 as a sibling to the database file. In this example setup, the journal file name
-should be `data.db-mycelial`. This file will be used to setup the Mycelial 
+should be `data.db-mycelial`. This file will be used to setup the Mycelial
 client in a moment.
+
+You will need to open another shell to continue below.
 
 ## Client (mycelaild)
 
-### Download and unarchive the mycelial client (myceliald) for your system
+### Download and unarchive the Mycelial Client (myceliald) for your system
 
    <details>
    <summary>Mac arm_64</summary>
@@ -217,18 +222,18 @@ client in a moment.
 
 ### Configure the client
 
-Mycelial clients require a configuration file to function properly.
+Mycelial Clients require a configuration file to function properly.
 
-You can find a [config.example.toml](myceliald/config.example.toml) example file,
+You can find a [config.example.toml](../myceliald/config.example.toml) example file,
 which you can reference when creating your own client configuration files.
 
 The configuration file is passed to the client binary file via the
-`./myceliald --config=./config.toml` command line option. 
+`./myceliald --config=./config.toml` command line option.
 
-Copy the [config.example.toml](myceliald/config.example.toml), rename it to 
+Copy the [config.example.toml](../myceliald/config.example.toml), rename it to
 `config.toml`.
 
-Edit the copied config file as follows. **NOTE** be sure to change the 
+Edit the copied config file as follows. **NOTE** be sure to change the
 `journal_path` to point to the journal file created ealier.
 
 ```toml
@@ -238,13 +243,13 @@ unique_id = "client_1"
 storage_path = "client.sqlite"
 
 [server]
-endpoint = "http://localhost:8080" 
-token = "secrettoken" 
+endpoint = "http://localhost:8080"
+token = "secrettoken"
 
 [[sources]]
 type = "sqlite_physical_replication"
 display_name = "Example Source"
-journal_path = "{full path and file name to the mycelite journal}"
+journal_path = "{full path and file name to the Mycelite journal}"
 
 [[destinations]]
 type = "sqlite_physical_replication"
@@ -267,17 +272,17 @@ Open your web browser and navigate to `http://localhost:8080`. When prompted
 for a username and password, enter the token `secrettoken` into the username
 field.
 
-In the upper left portion of the page, you'll see the source and destination 
+In the upper left portion of the page, you'll see the source and destination
 that we configured for the client, and the `Mycelial Server`.
 
 Drag and drop the source node onto the canvas.
 
-Next, drag and drop the `Mycelial Server` onto the canvas. Set the token to 
+Next, drag and drop the `Mycelial Server` onto the canvas. Set the token to
 `secrettoken`.
 
 Next, drag and drop the destination node onto the canvas.
 
-Lastly, connect the source to the destination, via the mycelial network.
+Lastly, connect the source to the destination, via the `Mycelial Server`.
 
 Now push the `publish` button to start the synchronization workflow.
 
@@ -286,7 +291,7 @@ Now push the `publish` button to start the synchronization workflow.
 At this point, you can navigate to `/tmp/` and you'll see a `destination.sqlite`
 SQLite database.
 
-Open and query the database as follows:
+Open a new terminal shell and query the database as follows:
 
 ```sh
 cd /tmp
