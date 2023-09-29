@@ -1,6 +1,6 @@
 SHELL := bash
-TAG ?= pipe_server
-export ASSETS_DIR ?= $(shell echo `dirname $(PWD)`/console/out/)
+TAG ?= server
+RUST_LOG ?= INFO
 
 .PHONY: all
 all:
@@ -15,7 +15,7 @@ clean:
 
 .PHONY: dev
 dev:
-	RUST_LOG=INFO cargo-watch -q -c \
+	RUST_LOG=$(RUST_LOG) cargo-watch -q -c \
 		-i mycelial.db \
 		-s 'cargo run -r -- --token=token'
 
