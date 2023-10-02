@@ -260,7 +260,7 @@ journal_path = "{full path and file name to the Mycelite journal}"
 
 [[destinations]]
 type = "sqlite_physical_replication"
-display_name = "Sqlite Physical Replication Movie"
+display_name = "Example Destination"
 journal_path = "/tmp/destination.sqlite.mycelial"
 database_path = "/tmp/destination.sqlite"
 ```
