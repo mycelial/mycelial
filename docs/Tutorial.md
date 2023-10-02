@@ -167,7 +167,7 @@ INSERT INTO users(name) VALUES ('John');
 After modifying the database, the Mycelite extension will create a journal file
 as a sibling to the database file. In this example setup, the journal file name
 should be `data.db-mycelial`. This file will be used to setup the Mycelial
-client in a moment.
+Client in a moment.
 
 You will need to open another shell to continue below.
 
