@@ -48,11 +48,17 @@ impl Stream for IntervalStream {
         self.interval.poll_tick(cx).map(Some)
     }
 }
+     impl Default for HelloWorld {
+             fn default() -> Self {
+                 Self::new()
+             }
+         }
 
 impl HelloWorld {
     pub fn new() -> Self {
         Self {}
     }
+
 
     pub async fn enter_loop<Input, Output, SectionChan>(
         self,

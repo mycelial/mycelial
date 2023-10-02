@@ -14,6 +14,12 @@ use crate::{
     types::{DynSection, SectionError},
 };
 
+impl Default for HelloWorld {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[derive(Debug)]
 pub struct HelloWorld {}
 
