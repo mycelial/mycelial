@@ -89,7 +89,8 @@ specification in Mycelial.
 <details>
   <summary>Command Line</summary>
 
-```
+```sh
+# You must load the extension every time you open the SQLite database
 sqlite3
 .load ./libmycelite mycelite_writer
 .open writer.db

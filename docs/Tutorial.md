@@ -1,7 +1,7 @@
 # Tutorial
 
 In this tutorial, we'll setup Mycelial to synchronize data from one SQLite
-instance to another.
+instance to another using [Mycelite](Mycelite.md).
 
 ## Mycelial Server
 
@@ -142,13 +142,20 @@ sibling file to the SQLite database file. Make a **note** of the journal
 `filename` as it will need to be referenced when setting up your pipeline
 specification in Mycelial.
 
-_MacOS users_: The default SQLite that ships with MacOS does not have extensions enabled. One alternative is to install SQLite with Homebrew. Be sure to adjust your PATH if necessary to point to the SQLite version you installed with Homebrew.
+_MacOS users_: The default SQLite that ships with MacOS does not have extensions
+enabled. One alternative is to [install
+SQLite](https://formulae.brew.sh/formula/sqlite) with
+[Homebrew](https://brew.sh/). Be sure to adjust your PATH environmental variable
+if necessary to point to the SQLite version you installed with Homebrew.
 
 ```sh
 sqlite3
 .load ./libmycelite mycelite_writer
 .open data.db
 ```
+
+**NOTE**: You must load the extension everytime you open the source SQLite
+database.
 
 Next, create a table in your sqlite database and insert a record.
 
@@ -160,11 +167,11 @@ INSERT INTO users(name) VALUES ('John');
 After modifying the database, the Mycelite extension will create a journal file
 as a sibling to the database file. In this example setup, the journal file name
 should be `data.db-mycelial`. This file will be used to setup the Mycelial
-client in a moment.
+Client in a moment.
 
 You will need to open another shell to continue below.
 
-## Client (mycelaild)
+## Client (myceliald)
 
 ### Download and unarchive the Mycelial Client (myceliald) for your system
 
