@@ -9,11 +9,13 @@ type ISource =
   | ISqlite
   | IKafka
   | IPostgres
+  | IHelloWorld
   | ISnowflake
   | IMyceliteSource
   | IMycelialNetwork;
 type IDestination =
   | ISqlite
+  | IHelloWorld
   | ISnowflake
   | IMyceliteDestination
   | IMycelialNetwork;
@@ -30,6 +32,11 @@ type ISqlite = {
   type: string;
   display_name: string;
   path: string;
+};
+
+type IHelloWorld = {
+  type: string;
+  display_name: string;
 };
 
 type IKafka = {

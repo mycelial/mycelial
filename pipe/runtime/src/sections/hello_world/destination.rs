@@ -1,8 +1,8 @@
-//! HelloWorld Destination example section implementation
+//! HelloWorld Destination/middleware example section implementation
 //!
-//! Upon receipt of a message, this section will log "Hello, World!" + the message received. Being
-//! a destination, there's nothing written to the output stream.
-use futures::{FutureExt, Sink, Stream, StreamExt};
+//! Upon receipt of a message, this section will log "Hello, World!" + the message received. It
+//! then forwards the message on to the next section.
+use futures::{FutureExt, Sink, Stream, StreamExt, SinkExt};
 use section::{Command, Section, SectionChannel, State};
 use std::future::Future;
 
@@ -31,7 +31,7 @@ impl HelloWorld {
     pub async fn enter_loop<Input, Output, SectionChan>(
         self,
         input: Input,
-        _output: Output,
+        output: Output,
         mut section_chan: SectionChan,
     ) -> Result<(), SectionError>
     where
@@ -40,10 +40,11 @@ impl HelloWorld {
         SectionChan: SectionChannel + Send + Sync + 'static,
     {
         let mut input = pin!(input.fuse());
+        let mut output = pin!(output);
         loop {
             futures::select! {
                 msg = input.next() => {
-                    let mut msg = match msg {
+                    let msg = match msg {
                         Some(msg) => msg,
                         None => Err("input stream closed")?
                     };
@@ -51,7 +52,7 @@ impl HelloWorld {
                     let payload = &msg.payload;
                     let origin = &msg.origin;
                     section_chan.log(&format!("Message from '{:?}' received! {:?}", origin, payload)).await?;
-                    msg.ack().await;
+                    output.send(msg).await?;
                 },
                 cmd = section_chan.recv().fuse() => {
                     if let Command::Stop = cmd? {

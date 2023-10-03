@@ -8,7 +8,7 @@ use crate::{
     message::{Message, RecordBatch},
     types::{DynSection, SectionError, SectionFuture},
 };
-use futures::{Sink, SinkExt, Stream};
+use futures::{Sink, SinkExt, Stream, StreamExt};
 use section::{Section, SectionChannel, State};
 use tokio::time;
 
@@ -44,27 +44,17 @@ impl HelloWorld {
         let mut interval = pin!(time::interval(Duration::from_secs(5)));
         loop {
             interval.tick().await;
-            match self.get_message().await {
-                Ok(msg) => {
-                    output.send(msg).await.ok();
-                }
-                Err(e) => {
-                    section_chan
-                        .log(format!("failed to retrieve next batch: {:?}", e))
-                        .await?
-                }
-            }
+
+            let hello_world_payload: HelloWorldPayload = HelloWorldPayload {
+                message: "Hello, World!".to_string(),
+            };
+            let batch: RecordBatch = hello_world_payload.try_into()?;
+            let message = Message::new("hello world", batch, None);
+            section_chan.log(&format!("sending message: '{:?}'", message)).await?;
+            output.send(message).await.ok();
         }
     }
 
-    async fn get_message(&self) -> Result<Message, SectionError> {
-        let hello_world_payload: HelloWorldPayload = HelloWorldPayload {
-            message: "Hello, World!".to_string(),
-        };
-        let batch: RecordBatch = hello_world_payload.try_into()?;
-        let message = Message::new("hello world", batch, None);
-        Ok(message)
-    }
 }
 
 impl<Input, Output, SectionChan> Section<Input, Output, SectionChan> for HelloWorld
