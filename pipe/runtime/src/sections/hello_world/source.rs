@@ -8,57 +8,26 @@ use crate::{
     message::{Message, RecordBatch},
     types::{DynSection, SectionError, SectionFuture},
 };
-use futures::stream::FusedStream;
-use futures::{Sink, SinkExt, Stream, StreamExt};
+use futures::{Sink, SinkExt, Stream};
 use section::{Section, SectionChannel, State};
-use tokio::time::{Instant, Interval};
+use tokio::time;
 
-use std::pin::{pin, Pin};
+use std::pin::pin;
 use std::time::Duration;
 
 #[derive(Debug)]
 pub struct HelloWorld {}
 
-struct IntervalStream {
-    interval: Interval,
-}
-
-impl IntervalStream {
-    /// Create a new `IntervalStream`.
-    pub fn new(delay: Duration) -> Self {
-        Self {
-            interval: tokio::time::interval(delay),
-        }
+impl Default for HelloWorld {
+    fn default() -> Self {
+        Self::new()
     }
 }
-
-impl FusedStream for IntervalStream {
-    fn is_terminated(&self) -> bool {
-        false
-    }
-}
-
-impl Stream for IntervalStream {
-    type Item = Instant;
-
-    fn poll_next(
-        mut self: Pin<&mut Self>,
-        cx: &mut std::task::Context<'_>,
-    ) -> std::task::Poll<Option<Self::Item>> {
-        self.interval.poll_tick(cx).map(Some)
-    }
-}
-     impl Default for HelloWorld {
-             fn default() -> Self {
-                 Self::new()
-             }
-         }
 
 impl HelloWorld {
     pub fn new() -> Self {
         Self {}
     }
-
 
     pub async fn enter_loop<Input, Output, SectionChan>(
         self,
@@ -72,18 +41,18 @@ impl HelloWorld {
         SectionChan: SectionChannel + Send + 'static,
     {
         let mut output = pin!(output);
-        let mut interval = pin!(IntervalStream::new(Duration::from_secs(5)));
+        let mut interval = pin!(time::interval(Duration::from_secs(5)));
         loop {
-            futures::select! {
-                // Every 5 seconds, send a new "Hello, World!" message
-                _ = interval.next() => {
-                    match self.get_message().await {
-                        Ok(msg) => {
-                            output.send(msg).await.ok();
-                        },
-                        Err(e) => section_chan.log(format!("failed to retrieve next batch: {:?}", e)).await?,
-                    }
-                },
+            interval.tick().await;
+            match self.get_message().await {
+                Ok(msg) => {
+                    output.send(msg).await.ok();
+                }
+                Err(e) => {
+                    section_chan
+                        .log(format!("failed to retrieve next batch: {:?}", e))
+                        .await?
+                }
             }
         }
     }
@@ -119,15 +88,14 @@ pub fn constructor<S: State>(_config: &Map) -> Result<Box<dyn DynSection<S>>, Se
 
 #[cfg(test)]
 mod tests {
+    use super::*;
     use section::dummy::DummySectionChannel;
     use stub::Stub;
-
-    use super::*;
-
-    type StdError = Box<dyn std::error::Error + Send + Sync + 'static>;
     use tokio::sync::mpsc::{Receiver, Sender};
     use tokio_stream::wrappers::ReceiverStream;
     use tokio_util::sync::PollSender;
+
+    type StdError = Box<dyn std::error::Error + Send + Sync + 'static>;
 
     pub fn channel<T>(buf_size: usize) -> (PollSender<T>, ReceiverStream<T>)
     where
@@ -154,9 +122,10 @@ mod tests {
         let out = rx.next().await.unwrap();
         assert_eq!(out.origin, "hello world");
 
-        let expected_record_batch : RecordBatch = HelloWorldPayload {
+        let expected_record_batch: RecordBatch = HelloWorldPayload {
             message: "Hello, World!".to_string(),
-        }.try_into()?;
+        }
+        .try_into()?;
 
         assert_eq!(out.payload, expected_record_batch);
 

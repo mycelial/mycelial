@@ -50,7 +50,7 @@ impl HelloWorld {
 
                     let payload = &msg.payload;
                     let origin = &msg.origin;
-                    log::info!("Message from '{:?}' received! {:?}", origin, payload);
+                    section_chan.log(&format!("Message from '{:?}' received! {:?}", origin, payload)).await?;
                     msg.ack().await;
                 },
                 cmd = section_chan.recv().fuse() => {
@@ -58,7 +58,6 @@ impl HelloWorld {
                         return Ok(())
                     }
                 }
-
             }
         }
     }
