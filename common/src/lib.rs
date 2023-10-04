@@ -40,6 +40,7 @@ pub enum Source {
     Postgres(PostgresConfig),
     Snowflake(SnowflakeConfig),
     Sqlite_Physical_Replication(SqlitePhysicalReplicationSourceConfig),
+    Hello_World(HelloWorldConfig),
 }
 
 /// Internally-tagged type of a source needs to match the variant name
@@ -50,6 +51,7 @@ pub enum Destination {
     Sqlite_Connector(SqliteConnectorConfig),
     Snowflake(SnowflakeConfig),
     Sqlite_Physical_Replication(SqlitePhysicalReplicationDestinationConfig),
+    Hello_World(HelloWorldConfig),
 }
 
 // Shared between all source definitions
@@ -103,6 +105,12 @@ pub struct SqlitePhysicalReplicationSourceConfig {
     pub common_attrs: CommonAttrs,
     pub journal_path: String,
     // database path
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct HelloWorldConfig {
+    #[serde(flatten)]
+    pub common_attrs: CommonAttrs,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

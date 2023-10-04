@@ -5,7 +5,7 @@ use arrow::record_batch::RecordBatch as _RecordBatch;
 use section::Message as _Message;
 use std::ops::{Deref, DerefMut};
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 #[repr(transparent)]
 pub struct RecordBatch(pub _RecordBatch);
 

@@ -6,6 +6,7 @@ use crate::storage::SqliteStorageHandle;
 use pipe::{
     registry::{Constructor, Registry},
     scheduler::{Scheduler, SchedulerHandle},
+    sections::hello_world,
     sections::mycelial_server,
     sections::sqlite_connector,
     sections::sqlite_physical_replication,
@@ -38,6 +39,11 @@ fn setup_registry<S: State>() -> Registry<S> {
         (
             "mycelial_server_destination",
             mycelial_server::destination::constructor,
+        ),
+        ("hello_world_source", hello_world::source::constructor),
+        (
+            "hello_world_destination",
+            hello_world::destination::constructor,
         ),
     ];
     arr.iter()
