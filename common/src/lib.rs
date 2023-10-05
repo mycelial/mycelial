@@ -11,7 +11,9 @@ use serde::{Deserialize, Serialize};
 pub struct ClientConfig {
     pub node: Node,
     pub server: Server,
+    #[serde(default)]
     pub sources: Vec<Source>,
+    #[serde(default)]
     pub destinations: Vec<Destination>,
 }
 
