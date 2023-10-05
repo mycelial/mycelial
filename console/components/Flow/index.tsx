@@ -452,7 +452,7 @@ function Flow() {
               type: MarkerType.ArrowClosed,
             },
             data: {
-              ids: [config.id],
+              id: config.id,
             },
           };
           setEdges((eds) => eds.concat(edge));
@@ -498,9 +498,8 @@ function Flow() {
         const change = eds[eid];
         if (change.type === "remove") {
           let edgeChange = change as EdgeRemoveChange;
-          let storedEdgeIds = reactFlowInstance?.getEdge(edgeChange.id)?.data
-            ?.ids;
-          setEdgesToBeDeleted((eds) => eds.concat(storedEdgeIds));
+          let storedEdgeId = reactFlowInstance?.getEdge(edgeChange.id)?.data?.id;
+          setEdgesToBeDeleted((eds) => eds.concat([storedEdgeId]));
         }
       }
       onEdgesChange(eds);
@@ -558,25 +557,31 @@ function Flow() {
       section.push(sourceNodeInfo);
       section.push(targetNodeInfo);
 
-      if (edge.data?.ids?.length > 0) {
-        for (const id of edge.data.ids) {
-          configs.push({ id: id, pipe: section });
-          toDelete = toDelete.filter((ed) => ed !== id);
-          // setEdgesToBeDeleted((eds) => eds.filter((ed) => ed !== id));
+      if (edge.data?.id) {
+        let payload = {
+          configs: [{id: edge.data.id, pipe: section}]
+        }
+        try {
+          const response = await fetch("/api/pipe/configs", {
+            method: "PUT",
+            headers: {
+              "Content-Type": "application/json",
+              "X-Authorization": "Bearer " + btoa(token),
+            },
+            body: JSON.stringify(payload),
+          });
+
+          await response.json();
+        } catch (error) {
+          console.error("Error:", error);
         }
       } else {
-        new_configs.push({ id: 0, pipe: section, ui_id: edge.id });
-      }
-    }
-
-    const payload = {
-      configs: configs,
-    };
-
-    if (configs.length > 0) {
-      try {
+        let id = 0;
+        let payload = {
+          configs: [{id: 0, pipe: section}]
+        }
         const response = await fetch("/api/pipe/configs", {
-          method: "PUT",
+          method: "POST",
           headers: {
             "Content-Type": "application/json",
             "X-Authorization": "Bearer " + btoa(token),
@@ -584,41 +589,22 @@ function Flow() {
           body: JSON.stringify(payload),
         });
 
-        await response.json();
-      } catch (error) {
-        console.error("Error:", error);
-      }
-    }
-
-    for (const config of new_configs) {
-      const new_payload = {
-        configs: [config],
-      };
-      try {
-        // todo: execute the fetches in parallel
-        const response = await fetch("/api/pipe/configs", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "X-Authorization": "Bearer " + btoa(token),
-          },
-          body: JSON.stringify(new_payload),
-        });
-
         const result = await response.json();
+        id = result[0].id;
 
         rf.setEdges((eds) => {
           return eds.map((ed) => {
-            return {
-              data: {
-                id: result[0].id,
-              },
-              ...ed,
-            };
+            if (ed.id === edge.id) {
+              return {
+                ...ed,
+                data: {
+                  id: id,
+                },
+              }
+            } 
+            return ed;
           });
-        });
-      } catch (error) {
-        console.error("Error:", error);
+        })
       }
     }
 
@@ -634,8 +620,6 @@ function Flow() {
             },
           },
         );
-
-        await response.json();
       } catch (error) {
         console.error("Error:", error);
       }
