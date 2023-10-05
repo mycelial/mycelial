@@ -42,7 +42,12 @@ impl HelloWorld {
         let mut input = pin!(input.fuse());
         let mut output = pin!(output);
         loop {
-            futures::select! {
+            futures::select_biased! {
+                cmd = section_chan.recv().fuse() => {
+                    if let Command::Stop = cmd? {
+                        return Ok(())
+                    }
+                }
                 msg = input.next() => {
                     let msg = match msg {
                         Some(msg) => msg,
@@ -54,11 +59,6 @@ impl HelloWorld {
                     section_chan.log(&format!("Message from '{:?}' received! {:?}", origin, payload)).await?;
                     output.send(msg).await?;
                 },
-                cmd = section_chan.recv().fuse() => {
-                    if let Command::Stop = cmd? {
-                        return Ok(())
-                    }
-                }
             }
         }
     }
