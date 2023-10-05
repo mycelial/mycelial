@@ -8,8 +8,8 @@ use crate::{
     message::{Message, RecordBatch},
     types::{DynSection, SectionError, SectionFuture},
 };
-use futures::{Sink, SinkExt, Stream, StreamExt};
-use section::{Section, SectionChannel, State};
+use futures::{FutureExt, Sink, SinkExt, Stream, StreamExt};
+use section::{Command, Section, SectionChannel, State};
 use tokio::time;
 
 use std::pin::pin;
@@ -43,18 +43,24 @@ impl HelloWorld {
         let mut output = pin!(output);
         let mut interval = pin!(time::interval(Duration::from_secs(5)));
         loop {
-            interval.tick().await;
-
-            let hello_world_payload: HelloWorldPayload = HelloWorldPayload {
-                message: "Hello, World!".to_string(),
-            };
-            let batch: RecordBatch = hello_world_payload.try_into()?;
-            let message = Message::new("hello world", batch, None);
-            section_chan.log(&format!("sending message: '{:?}'", message)).await?;
-            output.send(message).await.ok();
+            futures::select_biased! {
+                cmd = section_chan.recv().fuse() => {
+                    if let Command::Stop = cmd? {
+                        return Ok(())
+                    }
+                }
+                _ = interval.tick().fuse() => {
+                    let hello_world_payload: HelloWorldPayload = HelloWorldPayload {
+                        message: "Hello, World!".to_string(),
+                    };
+                    let batch: RecordBatch = hello_world_payload.try_into()?;
+                    let message = Message::new("hello world", batch, None);
+                    section_chan.log(&format!("sending message: '{:?}'", message)).await?;
+                    output.send(message).await.ok();
+                }
+            }
         }
     }
-
 }
 
 impl<Input, Output, SectionChan> Section<Input, Output, SectionChan> for HelloWorld
