@@ -44,6 +44,7 @@ impl<S: State> Section<DynStream, DynSink, SectionChannel<S>> for SqliteAdapter 
 /// name = "sqlite"
 /// path = ":memory:"
 /// tables = "foo,bar,baz"
+/// once = false
 /// ```
 pub fn constructor<S: State>(config: &Map) -> Result<Box<dyn DynSection<S>>, SectionError> {
     let tables = config
@@ -61,7 +62,11 @@ pub fn constructor<S: State>(config: &Map) -> Result<Box<dyn DynSection<S>>, Sec
         .map(|x| x.trim())
         .filter(|x| !x.is_empty())
         .collect::<Vec<&str>>();
+    let once = match config.get("once") {
+        Some(val) => val.as_bool().ok_or("once should be bool")?,
+        None => false
+    };
     Ok(Box::new(SqliteAdapter {
-        inner: Sqlite::new(path, tables.as_slice()),
+        inner: Sqlite::new(path, tables.as_slice(), once),
     }))
 }
