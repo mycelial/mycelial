@@ -278,7 +278,7 @@ impl Sqlite {
                 columns: Arc::from(cols),
                 column_types: Arc::from(col_types),
                 query,
-                limit: 250,
+                limit: 2500,
                 offset,
             };
             tables.push(table);

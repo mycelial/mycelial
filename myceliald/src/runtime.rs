@@ -2,7 +2,7 @@
 //!
 //! Pipe scheduling and peristance
 
-use crate::storage::SqliteStorageHandle;
+use crate::storage::{SqliteStorageHandle, SqliteState};
 use pipe::{
     registry::{Constructor, Registry},
     scheduler::{Scheduler, SchedulerHandle},
@@ -11,10 +11,10 @@ use pipe::{
     sections::sqlite_connector,
     sections::sqlite_physical_replication,
 };
-use section::State;
+use section::SectionChannel;
 
 /// Setup & populate registry
-fn setup_registry<S: State>() -> Registry<S> {
+fn setup_registry<S: SectionChannel>() -> Registry<S> {
     let arr: &[(&str, Constructor<S>)] = &[
         (
             "sqlite_connector_source",
@@ -54,5 +54,5 @@ fn setup_registry<S: State>() -> Registry<S> {
 }
 
 pub fn new(storage: SqliteStorageHandle) -> SchedulerHandle {
-    Scheduler::new(setup_registry(), storage).spawn()
+    Scheduler::<_, pipe::command_channel::RootChannel<SqliteState>>::new(setup_registry(), storage).spawn()
 }

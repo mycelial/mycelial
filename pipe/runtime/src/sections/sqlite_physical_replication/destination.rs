@@ -1,18 +1,17 @@
-use crate::command_channel::SectionChannel;
 use crate::{
     config::Map,
     message,
     types::{DynSection, DynSink, DynStream, SectionError, SectionFuture},
 };
 use futures::{SinkExt, StreamExt};
-use section::{Section, State};
+use section::{Section, SectionChannel};
 use sqlite_physical_replication::destination::Destination;
 
 pub struct DestinationAdapter {
     inner: Destination,
 }
 
-impl<S: State> Section<DynStream, DynSink, SectionChannel<S>> for DestinationAdapter {
+impl<S: SectionChannel> Section<DynStream, DynSink, S> for DestinationAdapter {
     type Future = SectionFuture;
     type Error = SectionError;
 
@@ -20,7 +19,7 @@ impl<S: State> Section<DynStream, DynSink, SectionChannel<S>> for DestinationAda
         self,
         input: DynStream,
         output: DynSink,
-        command_channel: SectionChannel<S>,
+        command_channel: S,
     ) -> Self::Future {
         Box::pin(async move {
             // adapt incoming message to sqlite_physical_replication message
@@ -45,7 +44,7 @@ impl<S: State> Section<DynStream, DynSink, SectionChannel<S>> for DestinationAda
 /// journal_path = "/tmp/path_to_journal"
 /// database_path = "/tmp/path_to_database"
 /// ```
-pub fn constructor<S: State>(config: &Map) -> Result<Box<dyn DynSection<S>>, SectionError> {
+pub fn constructor<S: SectionChannel>(config: &Map) -> Result<Box<dyn DynSection<S>>, SectionError> {
     let path = config
         .get("journal_path")
         .ok_or("sqlite_physical_replication journal path is required")?

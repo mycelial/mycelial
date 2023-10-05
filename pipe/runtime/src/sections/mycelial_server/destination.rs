@@ -4,7 +4,7 @@
 use arrow::ipc::writer::StreamWriter;
 use bytes::Bytes;
 use futures::{FutureExt, Sink, Stream, StreamExt};
-use section::{Command, Section, SectionChannel, State};
+use section::{Command, Section, SectionChannel};
 use std::future::Future;
 
 use base64::engine::{general_purpose::STANDARD as BASE64, Engine};
@@ -128,7 +128,7 @@ where
 /// endpoint = "http://localhost:8080/ingestion"
 /// token = "token"
 /// ```
-pub fn constructor<S: State>(config: &Map) -> Result<Box<dyn DynSection<S>>, SectionError> {
+pub fn constructor<S: SectionChannel>(config: &Map) -> Result<Box<dyn DynSection<S>>, SectionError> {
     let endpoint = config
         .get("endpoint")
         .ok_or("mycelial net section requires 'endpoint' url")?
