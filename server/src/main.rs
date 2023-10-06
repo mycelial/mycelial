@@ -453,7 +453,7 @@ impl Database {
         let raw_config: String = row.get("raw_config");
         Ok(PipeConfig {
             id,
-            pipe: serde_json::json!({ "section": raw_config }),
+            pipe: serde_json::json!(raw_config),
         })
     }
 
@@ -476,7 +476,7 @@ impl Database {
                         serde_json::from_str(raw_config.as_str()).unwrap();
                     PipeConfig {
                         id,
-                        pipe: serde_json::json!({ "section": pipe }),
+                        pipe: serde_json::json!(pipe),
                     }
                 })
                 .collect(),

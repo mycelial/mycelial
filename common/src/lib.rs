@@ -168,8 +168,7 @@ pub struct PipeConfig {
     /// {"configs": [
     ///     {
     ///         "id":1,
-    ///         "pipe": {
-    ///         "section": [
+    ///         "pipe": [
     ///             {
     ///                 "name": "sqlite",
     ///                 "path": "/tmp/test.sqlite",
@@ -181,7 +180,6 @@ pub struct PipeConfig {
     ///                 "token": "mycelial_server_token"
     ///             }
     ///         ]
-    ///     }
     /// }]}
     /// ```
     pub pipe: serde_json::Value,

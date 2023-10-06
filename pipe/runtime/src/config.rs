@@ -123,22 +123,19 @@ impl TryFrom<Value> for Config {
 
     fn try_from(value: Value) -> Result<Self, Self::Error> {
         match value {
-            Value::Map(_) => (),
-            _ => return Err(format!("expected Value::Map, got: {:?}", value).into()),
+            Value::Array(_) => (),
+            _ => return Err(format!("expected Value::Array, got: {:?}", value).into()),
         };
         let sections = value
-            .get("section")
-            .ok_or::<SectionError>("no sections in config".into())?;
-        let sections = sections
             .as_array()
-            .ok_or::<SectionError>("section value should be defined as an array".into())?;
+            .ok_or::<SectionError>("pipe value should be defined as an array".into())?;
         let sections = sections
             .iter()
             .map(|section_cfg| {
                 section_cfg
                     .as_map()
                     .map(Clone::clone)
-                    .ok_or::<SectionError>("section configuration should be of map type".into())
+                    .ok_or::<SectionError>("pipe section configuration should be of map type".into())
             })
             .collect::<Result<_, _>>()?;
         Ok(Self { sections })
