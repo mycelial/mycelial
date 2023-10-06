@@ -398,7 +398,7 @@ function Flow() {
 
     for (const config of configs.configs) {
       let source = null;
-      for (const element of config.pipe.section) {
+      for (const element of config.pipe) {
         let { name, ...data } = element;
         const id = getId();
 
@@ -542,24 +542,24 @@ function Flow() {
     const rf = reactFlowInstance;
 
     for (const edge of edges) {
-      let section = [];
+      let pipe = [];
 
       const sourceNode = rf.getNode(edge.source);
       const targetNode = rf.getNode(edge.target);
 
-      const sourceNodeInfo = getDetailsForNode(sourceNode, "source");
-      const targetNodeInfo = getDetailsForNode(targetNode, "destination");
+      const sourceSection = getDetailsForNode(sourceNode, "source");
+      const targetSection = getDetailsForNode(targetNode, "destination");
 
-      if (sourceNodeInfo === undefined || targetNodeInfo === undefined) {
+      if (sourceSection === undefined || targetSection === undefined) {
         continue;
       }
 
-      section.push(sourceNodeInfo);
-      section.push(targetNodeInfo);
+      pipe.push(sourceSection);
+      pipe.push(targetSection);
 
       if (edge.data?.id) {
         let payload = {
-          configs: [{id: edge.data.id, pipe: section}]
+          configs: [{id: edge.data.id, pipe: pipe}]
         }
         try {
           const response = await fetch("/api/pipe/configs", {
@@ -578,7 +578,7 @@ function Flow() {
       } else {
         let id = 0;
         let payload = {
-          configs: [{id: 0, pipe: section}]
+          configs: [{id: 0, pipe: pipe}]
         }
         const response = await fetch("/api/pipe/configs", {
           method: "POST",
