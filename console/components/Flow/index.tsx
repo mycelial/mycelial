@@ -324,7 +324,7 @@ function NavbarSearch(props: NavbarSearchProps) {
 
 async function getConfigs(token: string) {
   try {
-    const response = await fetch("/api/pipe/configs", {
+    const response = await fetch("/api/pipe", {
       method: "GET",
       headers: {
         "Content-Type": "application/json",
@@ -562,7 +562,7 @@ function Flow() {
           configs: [{id: edge.data.id, pipe: pipe}]
         }
         try {
-          const response = await fetch("/api/pipe/configs", {
+          const response = await fetch("/api/pipe", {
             method: "PUT",
             headers: {
               "Content-Type": "application/json",
@@ -580,7 +580,7 @@ function Flow() {
         let payload = {
           configs: [{id: 0, pipe: pipe}]
         }
-        const response = await fetch("/api/pipe/configs", {
+        const response = await fetch("/api/pipe", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -611,7 +611,7 @@ function Flow() {
     for (const key in toDelete) {
       try {
         const response = await fetch(
-          `/api/pipe/configs/${edgesToBeDeleted[key]}`,
+          `/api/pipe/${edgesToBeDeleted[key]}`,
           {
             method: "DELETE",
             headers: {

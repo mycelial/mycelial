@@ -585,13 +585,13 @@ async fn main() -> anyhow::Result<()> {
         .merge(
             Router::new()
                 .route(
-                    "/api/pipe/configs",
+                    "/api/pipe",
                     get(get_pipe_configs)
                         .post(post_pipe_config)
                         .put(put_pipe_configs),
                 )
                 .route(
-                    "/api/pipe/configs/:id",
+                    "/api/pipe/:id",
                     get(get_pipe_config)
                         .delete(delete_pipe_config)
                         .put(put_pipe_config),
@@ -600,8 +600,7 @@ async fn main() -> anyhow::Result<()> {
         )
         .with_state(state.clone());
 
-    let assets = Router::new()
-        .fallback(assets);
+    let assets = Router::new().fallback(assets);
 
     let router = Router::new()
         .merge(api)
