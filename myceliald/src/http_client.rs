@@ -77,7 +77,7 @@ impl Client {
 
     async fn get_configs(&self) -> Result<Vec<PipeConfig>, SectionError> {
         let client = reqwest::Client::new();
-        let url = format!("{}/api/pipe", self.config.server.endpoint.as_str());
+        let url = format!("{}/api/pipe/configs", self.config.server.endpoint.as_str());
         let configs: PipeConfigs = client
             .get(url)
             .header("Authorization", self.basic_auth())

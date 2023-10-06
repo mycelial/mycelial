@@ -3,7 +3,7 @@
 ## Pipeline Specification (workflows)
 
 <details>
-  <summary><code>POST</code> <code><b>/api/pipe</b></code> <code>Creates or updates config</code></summary>
+  <summary><code>POST</code> <code><b>/api/pipe/configs</b></code> <code>Creates or updates config</code></summary>
 
 ### Headers
 > | name      |  type     | data type               | description                                                          |
@@ -98,13 +98,13 @@
 ### Example cURL
 
 > ```bash
->  curl -X POST 'http://{server}:8080/api/pipe' -H 'Authorization: Basic {base 64 token:}' --data @post.json'
+>  curl -X POST 'http://{server}:8080/api/pipe/configs' -H 'Authorization: Basic {base 64 token:}' --data @post.json'
 > ```
 
 </details>
 
 <details>
-  <summary><code>DELETE</code> <code><b>/api/pipe/{id}</b></config></code> <code>Delete a config</code></summary>
+  <summary><code>DELETE</code> <code><b>/api/pipe/configs/{id}</b></config></code> <code>Delete a config</code></summary>
 
 ### Parameters
 
@@ -119,13 +119,13 @@
 ##### Example cURL
 
 > ```bash
->  curl 'http://localhost:8080/api/pipe/{id}' -X 'DELETE' -H 'Authorization: Basic {base 64 token:}' \
+>  curl 'http://localhost:8080/api/pipe/configs/{id}' -X 'DELETE' -H 'Authorization: Basic {base 64 token:}' \
 > ```
 
 </details>
 
 <details>
- <summary><code>GET</code> <code><b>/api/pipe</b></code> <code>(fetch all active pipeline specifications)</code></summary>
+ <summary><code>GET</code> <code><b>/api/pipe/configs</b></code> <code>(fetch all active pipeline specifications)</code></summary>
 
 ##### Parameters
 
@@ -140,7 +140,7 @@
 ##### Example cURL
 
 > ```bash
->  curl 'http://{server}:8080/api/pipe' -H 'Authorization: Basic {base 64 token:}'
+>  curl 'http://{server}:8080/api/pipe/configs' -H 'Authorization: Basic {base 64 token:}'
 > ```
 
 </details>
