@@ -17,7 +17,7 @@ pub trait DynSection<SectionChan: SectionChannel + Send + 'static>:
         self: Box<Self>,
         input: DynStream,
         output: DynSink,
-        command: SectionChan,
+        section_chan: SectionChan,
     ) -> <Self as Section<DynStream, DynSink, SectionChan>>::Future;
 }
 
@@ -32,8 +32,8 @@ where
         self: Box<Self>,
         input: DynStream,
         output: DynSink,
-        command: SectionChan,
+        section_chan: SectionChan,
     ) -> <Self as Section<DynStream, DynSink, SectionChan>>::Future {
-        self.start(input, output, command)
+        self.start(input, output, section_chan)
     }
 }
