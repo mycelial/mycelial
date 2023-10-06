@@ -51,6 +51,10 @@ Mycelial has adapters for SQLite but many other adapters are in the works.
 Follow our [Tutorial](/docs/Tutorial.md) to start using Mycelial from the
 command line.
 
+Watch this short demo:
+
+[![Mycelial Demo](http://img.youtube.com/vi/4WHOPRPfqgo/0.jpg)](http://www.youtube.com/watch?v=4WHOPRPfqgo "Mycelial Demo")
+
 ## API
 
 API [documentation](/docs/API.md)
