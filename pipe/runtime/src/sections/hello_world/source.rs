@@ -8,8 +8,8 @@ use crate::{
     message::{Message, RecordBatch},
     types::{DynSection, SectionError, SectionFuture},
 };
-use futures::{FutureExt, Sink, SinkExt, Stream, StreamExt};
-use section::{Command, Section, SectionChannel, State};
+use futures::{FutureExt, Sink, SinkExt, Stream};
+use section::{Command, Section, SectionChannel};
 use tokio::time;
 
 use std::pin::pin;
@@ -78,7 +78,7 @@ where
     }
 }
 
-pub fn constructor<S: State>(_config: &Map) -> Result<Box<dyn DynSection<S>>, SectionError> {
+pub fn constructor<S: SectionChannel>(_config: &Map) -> Result<Box<dyn DynSection<S>>, SectionError> {
     Ok(Box::new(HelloWorld::new()))
 }
 
