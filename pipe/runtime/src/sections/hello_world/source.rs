@@ -90,6 +90,7 @@ mod tests {
     use tokio::sync::mpsc::{Receiver, Sender};
     use tokio_stream::wrappers::ReceiverStream;
     use tokio_util::sync::PollSender;
+    use futures::StreamExt;
 
     type StdError = Box<dyn std::error::Error + Send + Sync + 'static>;
 
