@@ -156,6 +156,15 @@ impl Config {
     pub fn try_from_toml(s: &str) -> Result<Self, SectionError> {
         let value: toml::Value = s.parse()?;
         let value: Value = Value::try_from(value)?;
+        let value = match value {
+            Value::Map(mut map) => {
+                match map.remove("section") {
+                    Some(v) => v,
+                    None => Value::Array(vec![])
+                }
+            },
+            _ => Err(format!("unsupported value: {:?}", value))?
+        };
         Self::try_from(value)
     }
 }
@@ -176,12 +185,12 @@ mod test {
             value = "value"
         "#;
 
-        let json = r#"{
-            "section": [
+        let json = r#"
+            [
                 {"name": "name", "key": "key"},
                 {"name": "name2", "value": "value"}
             ]
-        }"#;
+        "#;
         let json_config = Config::try_from_json(json).unwrap();
         let toml_config = Config::try_from_toml(toml).unwrap();
         assert_eq!(toml_config, json_config);
