@@ -6,9 +6,11 @@ use std::any::Any;
 use crate::State;
 
 #[async_trait]
-pub trait RootChannel {
-    type SectionChannel: SectionChannel;
-    type Error;
+pub trait RootChannel: Send + Sync + 'static {
+    type SectionChannel: SectionChannel + Send;
+    type Error: std::error::Error + Send + Sync + 'static;
+
+    fn new() -> Self;
 
     // create and return new section channel
     fn add_section(&mut self, section_id: u64) -> Result<Self::SectionChannel, Self::Error>;
@@ -19,18 +21,25 @@ pub trait RootChannel {
     // receive request from section
     async fn recv(
         &mut self,
-    ) -> Result<<Self::SectionChannel as SectionChannel>::Request, Self::Error>;
+    ) -> Result<SectionRequest<
+                <Self::SectionChannel as SectionChannel>::State,
+                <Self::SectionChannel as SectionChannel>::ReplyRetrieveState,
+                <Self::SectionChannel as SectionChannel>::ReplyStoreState,
+            >,
+            Self::Error
+        >;
 
     // send command to section by id
     async fn send(&mut self, section_id: u64, command: Command) -> Result<(), Self::Error>;
 }
 
 #[async_trait]
-pub trait SectionChannel: Send + Sync {
+pub trait SectionChannel: Send + Sync + 'static {
     type Error: std::error::Error + Send + Sync + 'static;
     type State: State;
     type WeakChannel: WeakSectionChannel;
-    type Request;
+    type ReplyRetrieveState: ReplyTo<With=Option<Self::State>>;
+    type ReplyStoreState: ReplyTo<With=()>;
 
     // ask runtime to retrieve previosly stored state
     async fn retrieve_state(&mut self) -> Result<Option<Self::State>, Self::Error>;
@@ -64,15 +73,14 @@ pub enum Command {
 }
 
 #[non_exhaustive]
-pub enum SectionRequest<S: State, Rs: ReplyTo<With = Option<S>>, Ss: ReplyTo<With = ()>> {
+pub enum SectionRequest<S: State, Rs: ReplyTo<With=Option<S>>, Ss: ReplyTo<With=()> > {
     RetrieveState { id: u64, reply_to: Rs },
     StoreState { id: u64, state: S, reply_to: Ss },
     Log { id: u64, message: String },
     Stopped { id: u64 },
 }
 
-impl<S: State, Rs: ReplyTo<With = Option<S>>, Ss: ReplyTo<With = ()>> std::fmt::Debug
-    for SectionRequest<S, Rs, Ss>
+impl<S: State, Rs: ReplyTo<With=Option<S>>, Ss: ReplyTo<With=()>> std::fmt::Debug for SectionRequest<S, Rs, Ss>
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -101,8 +109,8 @@ impl<S: State, Rs: ReplyTo<With = Option<S>>, Ss: ReplyTo<With = ()>> std::fmt::
 }
 
 #[async_trait]
-pub trait ReplyTo {
-    type Error;
+pub trait ReplyTo: Send {
+    type Error: std::error::Error + Send + Sync + 'static;
     type With;
 
     async fn reply(self, with: Self::With) -> Result<(), Self::Error>;
@@ -113,8 +121,7 @@ pub enum SectionRequestReplyError<E> {
     BadResponse(&'static str),
 }
 
-impl<S: State + Send, Rs: ReplyTo<With = Option<S>>, Ss: ReplyTo<With = ()>>
-    SectionRequest<S, Rs, Ss>
+impl<S: State, Rs: ReplyTo<With=Option<S>>, Ss: ReplyTo<With=()>> SectionRequest<S, Rs, Ss>
 {
     pub async fn reply_retrieve_state(
         self,

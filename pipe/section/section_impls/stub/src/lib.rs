@@ -11,7 +11,6 @@ use section::Section;
 pub struct Stub<T, E = Infallible> {
     _marker: PhantomData<(T, E)>,
 }
-
 impl<T, E> Default for Stub<T, E> {
     fn default() -> Self {
         Self::new()

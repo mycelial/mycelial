@@ -1,7 +1,7 @@
-use crate::command_channel::SectionChannel;
+use section::SectionChannel;
 use crate::message::{Message, RecordBatch};
 use futures::SinkExt;
-use section::{Section, State};
+use section::Section;
 use sqlite_connector::source::Sqlite;
 
 use crate::types::SectionFuture;
@@ -15,7 +15,7 @@ pub struct SqliteAdapter {
     inner: Sqlite,
 }
 
-impl<S: State> Section<DynStream, DynSink, SectionChannel<S>> for SqliteAdapter {
+impl<SectionChan: SectionChannel + Send + 'static> Section<DynStream, DynSink, SectionChan> for SqliteAdapter {
     type Future = SectionFuture;
     type Error = SectionError;
 
@@ -23,7 +23,7 @@ impl<S: State> Section<DynStream, DynSink, SectionChannel<S>> for SqliteAdapter 
         self,
         input: DynStream,
         output: DynSink,
-        section_channel: SectionChannel<S>,
+        section_channel: SectionChan,
     ) -> Self::Future {
         Box::pin(async move {
             let output = output.with(|message: sqlite_connector::Message| async {
@@ -44,8 +44,9 @@ impl<S: State> Section<DynStream, DynSink, SectionChannel<S>> for SqliteAdapter 
 /// name = "sqlite"
 /// path = ":memory:"
 /// tables = "foo,bar,baz"
+/// once = false
 /// ```
-pub fn constructor<S: State>(config: &Map) -> Result<Box<dyn DynSection<S>>, SectionError> {
+pub fn constructor<S: SectionChannel>(config: &Map) -> Result<Box<dyn DynSection<S>>, SectionError> {
     let tables = config
         .get("tables")
         .ok_or("sqlite section requires 'tables'")?
@@ -61,7 +62,11 @@ pub fn constructor<S: State>(config: &Map) -> Result<Box<dyn DynSection<S>>, Sec
         .map(|x| x.trim())
         .filter(|x| !x.is_empty())
         .collect::<Vec<&str>>();
+    let once = match config.get("once") {
+        Some(val) => val.as_bool().ok_or("once should be bool")?,
+        None => false
+    };
     Ok(Box::new(SqliteAdapter {
-        inner: Sqlite::new(path, tables.as_slice()),
+        inner: Sqlite::new(path, tables.as_slice(), once),
     }))
 }

@@ -1,7 +1,6 @@
-use crate::command_channel::SectionChannel;
 use crate::message::Message;
 use futures::StreamExt;
-use section::{Section, State};
+use section::Section;
 use sqlite_connector::destination::Sqlite;
 use stub::Stub;
 
@@ -11,6 +10,8 @@ use crate::{
     types::{DynSection, DynSink, DynStream, SectionError},
 };
 
+use section::SectionChannel;
+
 use super::SqlitePayloadNewType;
 
 #[allow(dead_code)]
@@ -18,7 +19,7 @@ pub struct SqliteAdapter {
     inner: Sqlite,
 }
 
-impl<S: State> Section<DynStream, DynSink, SectionChannel<S>> for SqliteAdapter {
+impl<SectionChan: SectionChannel + Send + 'static> Section<DynStream, DynSink, SectionChan> for SqliteAdapter {
     type Future = SectionFuture;
     type Error = SectionError;
 
@@ -26,7 +27,7 @@ impl<S: State> Section<DynStream, DynSink, SectionChannel<S>> for SqliteAdapter 
         self,
         input: DynStream,
         _output: DynSink,
-        section_channel: SectionChannel<S>,
+        section_channel: SectionChan,
     ) -> Self::Future {
         Box::pin(async move {
             let input = input.map(|message: Message| {
@@ -47,7 +48,7 @@ impl<S: State> Section<DynStream, DynSink, SectionChannel<S>> for SqliteAdapter 
 /// name = "sqlite_destination"
 /// path = ":memory:"
 /// ```
-pub fn constructor<S: State>(config: &Map) -> Result<Box<dyn DynSection<S>>, SectionError> {
+pub fn constructor<S: SectionChannel>(config: &Map) -> Result<Box<dyn DynSection<S>>, SectionError> {
     let path = config
         .get("path")
         .ok_or("sqlite section requires 'path'")?

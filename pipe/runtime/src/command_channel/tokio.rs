@@ -64,9 +64,12 @@ pub struct RootChannel<S: StateTrait> {
     section_handles: BTreeMap<u64, UnboundedSender<Command>>,
 }
 
-impl<S: StateTrait> RootChannel<S> {
-    #[allow(clippy::new_without_default)]
-    pub fn new() -> Self {
+#[async_trait]
+impl<S: StateTrait> RootChannelTrait for RootChannel<S> {
+    type Error = ChanError;
+    type SectionChannel = SectionChannel<S>;
+
+    fn new() -> Self {
         let (tx, rx) = unbounded_channel::<SectionRequest<S>>();
         Self {
             tx,
@@ -74,12 +77,6 @@ impl<S: StateTrait> RootChannel<S> {
             section_handles: BTreeMap::new(),
         }
     }
-}
-
-#[async_trait]
-impl<S: StateTrait> RootChannelTrait for RootChannel<S> {
-    type Error = ChanError;
-    type SectionChannel = SectionChannel<S>;
 
     fn add_section(&mut self, section_id: u64) -> Result<Self::SectionChannel, Self::Error> {
         if self.section_handles.contains_key(&section_id) {
@@ -153,13 +150,14 @@ impl<S: StateTrait> SectionChannelTrait for SectionChannel<S> {
     type State = S;
     type Error = ChanError;
     type WeakChannel = WeakSectionChannel;
-    type Request = SectionRequest<S>;
+    type ReplyStoreState = OneshotReply<()>; 
+    type ReplyRetrieveState = OneshotReply<Option<Self::State>>;
 
     // request to runtime
     async fn retrieve_state(&mut self) -> Result<Option<Self::State>, Self::Error> {
         let (reply_to, rx) = OneshotReply::new();
         self.root_tx
-            .send(Self::Request::RetrieveState {
+            .send(SectionRequest::RetrieveState {
                 id: self.id,
                 reply_to,
             })

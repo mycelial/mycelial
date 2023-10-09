@@ -1,10 +1,9 @@
 //! Pipe scheduler
 
-use crate::command_channel::RootChannel;
 use crate::storage::Storage;
 use crate::{config::Config, pipe::Pipe, registry::Registry, types::SectionError};
 
-use section::{Command, ReplyTo, RootChannel as _, Section, SectionRequest, State};
+use section::{Command, ReplyTo, RootChannel, Section, SectionRequest, SectionChannel};
 use std::collections::HashMap;
 use stub::Stub;
 use tokio::task::JoinHandle;
@@ -14,12 +13,12 @@ use tokio::{
 };
 
 #[allow(dead_code)]
-pub struct Scheduler<T: Storage<S>, S: State> {
-    registry: Registry<S>,
+pub struct Scheduler<T: Storage<<R::SectionChannel as SectionChannel>::State>, R: RootChannel> {
+    registry: Registry<<R as RootChannel>::SectionChannel>,
     storage: T,
     pipe_configs: HashMap<u64, Config>,
     pipes: HashMap<u64, Option<JoinHandle<Result<(), SectionError>>>>,
-    root_chan: RootChannel<S>,
+    root_chan: R,
 }
 
 #[derive(Debug)]
@@ -60,13 +59,12 @@ pub enum ScheduleResult {
     Noop,
 }
 
-#[allow(dead_code)] // fixme
-impl<T, S> Scheduler<T, S>
+impl<T, R> Scheduler<T, R>
 where
-    S: State + 'static,
-    T: Storage<S> + std::fmt::Debug + Clone + Send + 'static,
+    R: RootChannel,
+    T: Storage<<R::SectionChannel as SectionChannel>::State> + std::fmt::Debug + Clone + Send + 'static,
 {
-    pub fn new(registry: Registry<S>, storage: T) -> Self {
+    pub fn new(registry: Registry<R::SectionChannel>, storage: T) -> Self {
         Self {
             registry,
             storage,
@@ -161,7 +159,7 @@ where
 
     fn schedule(&mut self, id: u64) -> Result<(), SectionError> {
         if let Some(config) = self.pipe_configs.get(&id).cloned() {
-            let pipe = Pipe::try_from((&config, &self.registry))?;
+            let pipe = Pipe::<R>::try_from((&config, &self.registry))?;
             let section_chan = self.root_chan.add_section(id)?;
             let pipe = pipe.start(
                 Stub::<_, SectionError>::new(),

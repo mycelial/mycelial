@@ -4,9 +4,8 @@ use futures::{FutureExt, Sink, SinkExt, Stream};
 use tokio::task::JoinHandle;
 
 use crate::channel::channel;
-use crate::command_channel::RootChannel;
 use crate::types::{DynSection, DynSink, DynStream, SectionError, SectionFuture};
-use section::{Command, RootChannel as _, SectionChannel};
+use section::{Command, RootChannel, SectionChannel};
 use section::{ReplyTo as _, Section, SectionRequest, State};
 use stub::Stub;
 
@@ -15,12 +14,12 @@ use super::message::Message;
 use super::registry::Registry;
 
 #[allow(dead_code)]
-pub struct Pipe<S: State> {
+pub struct Pipe<R: RootChannel + Send + 'static> {
     config: Config,
-    sections: Option<Vec<Box<dyn DynSection<S>>>>,
+    sections: Option<Vec<Box<dyn DynSection<R::SectionChannel>>>>,
 }
 
-impl<S: State> std::fmt::Debug for Pipe<S> {
+impl<R: RootChannel + Send + 'static> std::fmt::Debug for Pipe<R> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Pipe")
             .field("config", &self.config)
@@ -36,8 +35,8 @@ impl<S: State> std::fmt::Debug for Pipe<S> {
     }
 }
 
-impl<S: State> Pipe<S> {
-    pub fn new(config: Config, sections: Vec<Box<dyn DynSection<S>>>) -> Self {
+impl<R: RootChannel + Send + 'static> Pipe<R> {
+    pub fn new(config: Config, sections: Vec<Box<dyn DynSection<R::SectionChannel>>>) -> Self {
         Self {
             config,
             sections: Some(sections),
@@ -45,15 +44,15 @@ impl<S: State> Pipe<S> {
     }
 }
 
-impl<S: State> TryFrom<(&'_ Config, &'_ Registry<S>)> for Pipe<S> {
+impl<R: RootChannel + Send + 'static> TryFrom<(&'_ Config, &'_ Registry<R::SectionChannel>)> for Pipe<R> {
     type Error = SectionError;
 
-    fn try_from((config, registry): (&Config, &Registry<S>)) -> Result<Self, Self::Error> {
+    fn try_from((config, registry): (&Config, &Registry<R::SectionChannel>)) -> Result<Self, Self::Error> {
         let sections = config
             .get_sections()
             .iter()
             .map(
-                |section_cfg| -> Result<Box<dyn DynSection<S>>, SectionError> {
+                |section_cfg| -> Result<Box<dyn DynSection<R::SectionChannel>>, SectionError> {
                     let name: &str = section_cfg
                         .get("name")
                         .ok_or("section needs to have a name")?
@@ -65,16 +64,16 @@ impl<S: State> TryFrom<(&'_ Config, &'_ Registry<S>)> for Pipe<S> {
                     constructor(section_cfg)
                 },
             )
-            .collect::<Result<Vec<Box<dyn DynSection<S>>>, _>>()?;
+            .collect::<Result<Vec<Box<dyn DynSection<R::SectionChannel>>>, _>>()?;
         Ok(Pipe::new(config.clone(), sections))
     }
 }
 
-impl<Input, Output, S: State, SectionChan> Section<Input, Output, SectionChan> for Pipe<S>
+impl<Input, Output, RootChan> Section<Input, Output, <RootChan as RootChannel>::SectionChannel> for Pipe<RootChan>
 where
     Input: Stream<Item = Message> + Send + 'static,
     Output: Sink<Message, Error = SectionError> + Send + 'static,
-    SectionChan: SectionChannel + Send + 'static,
+    RootChan: RootChannel + Send + 'static,
 {
     type Error = SectionError;
     type Future = SectionFuture;
@@ -83,12 +82,12 @@ where
         mut self,
         input: Input,
         output: Output,
-        mut section_chan: SectionChan,
+        mut section_chan: RootChan::SectionChannel,
     ) -> Self::Future {
         let len = self.sections.as_ref().unwrap().len();
         let input: DynStream = Box::pin(input);
         let output: DynSink = Box::pin(output);
-        let mut root_channel = RootChannel::new();
+        let mut root_channel = <RootChan as RootChannel>::new();
         let (_, _, _, handles) = self.sections.take().unwrap().into_iter().enumerate().fold(
             (None, Some(input), Some(output), vec![]),
             |(prev, mut pipe_input, mut pipe_output, mut acc), (pos, section)| {
@@ -117,7 +116,7 @@ where
             let mut state = section_chan
                 .retrieve_state()
                 .await?
-                .unwrap_or(<SectionChan as SectionChannel>::State::new());
+                .unwrap_or(<<RootChan as RootChannel>::SectionChannel as SectionChannel>::State::new());
             let mut handles = handles;
             loop {
                 futures::select! {

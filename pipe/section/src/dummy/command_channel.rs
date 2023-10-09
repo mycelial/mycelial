@@ -1,7 +1,7 @@
-use crate::{async_trait, Command, RootChannel, SectionChannel, WeakSectionChannel};
+use crate::{async_trait, Command, RootChannel, SectionChannel, WeakSectionChannel, ReplyTo, SectionRequest as _SectionRequest};
 use std::{
     any::Any,
-    future::{pending, ready},
+    future::{pending, ready}, marker::PhantomData,
 };
 
 use super::DummyState;
@@ -26,13 +26,19 @@ impl DummyRootChannel {
     }
 }
 
+pub type SectionRequest = _SectionRequest<DummyState, RepTo<Option<DummyState>>, RepTo<()>>;
+
 #[async_trait]
 impl RootChannel for DummyRootChannel {
     type Error = DummyError;
     type SectionChannel = DummySectionChannel;
 
-    async fn recv(&mut self) -> Result<(), Self::Error> {
-        pending::<Result<(), Self::Error>>().await
+    fn new() -> Self {
+        Self {}
+    }
+
+    async fn recv(&mut self) -> Result<SectionRequest, Self::Error> {
+        pending::<Result<SectionRequest, Self::Error>>().await
     }
 
     async fn send(&mut self, _section_id: u64, _command: Command) -> Result<(), Self::Error> {
@@ -57,12 +63,27 @@ impl DummySectionChannel {
     }
 }
 
+pub struct RepTo<T> {
+    _marker: PhantomData<T>,
+}
+
+#[async_trait]
+impl<T: Send> ReplyTo for RepTo<T> {
+    type Error = DummyError;
+    type With = T;
+
+    async fn reply(self, _with: Self::With) -> Result<(), Self::Error> {
+        Ok(())
+    }
+}
+
 #[async_trait]
 impl SectionChannel for DummySectionChannel {
     type Error = DummyError;
     type State = DummyState;
     type WeakChannel = DummyWeakChannel;
-    type Request = ();
+    type ReplyRetrieveState = RepTo<Option<Self::State>>;
+    type ReplyStoreState = RepTo<()>;
 
     async fn retrieve_state(&mut self) -> Result<Option<Self::State>, Self::Error> {
         ready(Ok(None)).await

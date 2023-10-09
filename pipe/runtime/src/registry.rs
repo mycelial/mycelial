@@ -3,8 +3,7 @@
 //! Registry is a mapping between section name and section constuctor.
 //! Registry is used mainly by pipe scheduler to build pipelines out of text configs.
 
-use section::State;
-
+use section::SectionChannel;
 use crate::{
     config::Map,
     types::{DynSection, SectionError},
@@ -13,17 +12,17 @@ use std::collections::HashMap;
 
 pub type Constructor<S> = fn(&Map) -> Result<Box<dyn DynSection<S>>, SectionError>;
 
-pub struct Registry<S: State> {
+pub struct Registry<S: SectionChannel> {
     reg: HashMap<String, Constructor<S>>,
 }
 
-impl<S: State> std::fmt::Debug for Registry<S> {
+impl<S: SectionChannel> std::fmt::Debug for Registry<S> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "Registry {{}}")
     }
 }
 
-impl<S: State> Registry<S> {
+impl<S: SectionChannel> Registry<S> {
     #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
         Self {

@@ -45,6 +45,7 @@ use std::{
 pub struct Sqlite {
     path: String,
     tables: Vec<String>,
+    once: bool
 }
 
 impl TryFrom<(ColumnType, usize, &SqliteRow)> for Value {
@@ -89,11 +90,19 @@ pub struct Table {
     pub limit: i64,
 }
 
+#[derive(Debug)]
+enum InnerEvent {
+    NewChange,
+    Stream,
+    StreamEnd,
+}
+
 impl Sqlite {
-    pub fn new(path: impl Into<String>, tables: &[&str]) -> Self {
+    pub fn new(path: impl Into<String>, tables: &[&str], once: bool) -> Self {
         Self {
             path: path.into(),
             tables: tables.iter().map(|&x| x.into()).collect(),
+            once
         }
     }
 
@@ -113,9 +122,8 @@ impl Sqlite {
             .connect()
             .await?;
 
-        let (tx, rx) = tokio::sync::mpsc::channel::<()>(4);
-        // initialize first select always
-        tx.send(()).await?;
+        let (tx, rx) = tokio::sync::mpsc::channel(4);
+        tx.send(InnerEvent::NewChange).await?;
 
         // keep weak ref to be able to send messages to ourselfs
         let weak_tx = tx.clone().downgrade();
@@ -149,16 +157,17 @@ impl Sqlite {
                                     Err("Failed to downcast incoming Ack message to Message")?,
                             };
                         },
-                        Command::Stop => {
-                            return Ok(())
-                        },
+                        Command::Stop => return Ok(()),
                         _ => {},
                     }
                 },
                 msg = rx.next() => {
-                    if msg.is_none() {
-                        break Ok(())
-                    }
+                    match msg {
+                        Some(InnerEvent::StreamEnd) if self.once => return Ok(()),
+                        Some(_) => {},
+                        None => Err("sqlite file watched exited")?
+                    };
+                    
                     let mut empty_count = 0;
                     for table in tables.iter_mut() {
                         let rows = sqlx::query(&table.query)
@@ -186,10 +195,12 @@ impl Sqlite {
                     }
                     // if empty count is less than table count - we didn't reach ends of table on
                     // whole dataset
-                    if empty_count < self.tables.len() {
-                        if let Some(tx) = weak_tx.clone().upgrade() {
-                            tx.try_send(()).ok();
-                        }
+                    if let Some(tx) = weak_tx.clone().upgrade() {
+                        let event = match empty_count < self.tables.len() {
+                            true => InnerEvent::Stream,
+                            false => InnerEvent::StreamEnd,
+                        };
+                        tx.try_send(event).ok();
                     }
                 },
             }
@@ -267,7 +278,7 @@ impl Sqlite {
                 columns: Arc::from(cols),
                 column_types: Arc::from(col_types),
                 query,
-                limit: 250,
+                limit: 2500,
                 offset,
             };
             tables.push(table);
@@ -308,12 +319,12 @@ impl Sqlite {
     fn watch_sqlite_paths(
         &self,
         sqlite_path: &str,
-        tx: Sender<()>,
+        tx: Sender<InnerEvent>,
     ) -> notify::Result<impl Watcher> {
         // initiate first check on startup
         let mut watcher = notify::recommended_watcher(move |res: Result<Event, _>| match res {
             Ok(event) if event.kind.is_modify() || event.kind.is_create() => {
-                tx.blocking_send(()).ok();
+                tx.blocking_send(InnerEvent::NewChange).ok();
             }
             Ok(_) => (),
             Err(_e) => (),
@@ -347,4 +358,9 @@ where
     fn start(self, input: Input, output: Output, command: SectionChan) -> Self::Future {
         Box::pin(async move { self.enter_loop(input, output, command).await })
     }
+}
+
+
+pub fn new(path: impl Into<String>, tables: &[&str], once: bool) -> Sqlite {
+    Sqlite::new(path, tables, once)
 }
