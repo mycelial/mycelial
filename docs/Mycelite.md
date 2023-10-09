@@ -181,7 +181,7 @@ If you prefer to set up your data pipelines with an [API](API.md) call, do the
 following:
 
 Create the pipeline by making a `POST` specification API calls to
-`/api/pipe/configs` with the following payloads:
+`/api/pipe` with the following payloads:
 
 #### Source to Mycelial Server 
 
