@@ -167,7 +167,7 @@ impl Sqlite {
                         Some(_) => {},
                         None => Err("sqlite file watched exited")?
                     };
-                    
+
                     let mut empty_count = 0;
                     for table in tables.iter_mut() {
                         let rows = sqlx::query(&table.query)
@@ -359,7 +359,6 @@ where
         Box::pin(async move { self.enter_loop(input, output, command).await })
     }
 }
-
 
 pub fn new(path: impl Into<String>, tables: &[&str], once: bool) -> Sqlite {
     Sqlite::new(path, tables, once)

@@ -19,6 +19,7 @@ serde_json = "1"
 toml = "0.7"
 section = { path = "../section" }
 log = "0.4"
+rdkafka = "0.34.0"
 
 ## fixme
 reqwest = { version = "0.11" }
@@ -28,4 +29,5 @@ bytes = "1.5"
 ## sections
 stub = { path = "../section/section_impls/stub/" }
 sqlite_connector = { path = "../section/section_impls/sqlite_connector/" }
+kafka = { path = "../section/section_impls/kafka/" }
 sqlite_physical_replication = { path = "../section/section_impls/sqlite_physical_replication/" }

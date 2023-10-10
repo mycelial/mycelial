@@ -54,6 +54,7 @@ pub enum Destination {
     Snowflake(SnowflakeConfig),
     Sqlite_Physical_Replication(SqlitePhysicalReplicationDestinationConfig),
     Hello_World(HelloWorldConfig),
+    Kafka(KafkaDestinationConfig),
 }
 
 // Shared between all source definitions
@@ -113,6 +114,15 @@ pub struct SqlitePhysicalReplicationSourceConfig {
 pub struct HelloWorldConfig {
     #[serde(flatten)]
     pub common_attrs: CommonAttrs,
+}
+
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct KafkaDestinationConfig {
+    #[serde(flatten)]
+    pub common_attrs: CommonAttrs,
+    pub brokers: String,
+    pub topic: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
