@@ -189,8 +189,8 @@ You will need to open another shell to continue below.
    <summary>Mac x86_64</summary>
 
    ```sh
-   curl -L https://github.com/mycelial/mycelial/releases/latest/download/myceliald-x86_64-unknown-linux-gnu.tgz --output myceliald-x86_64-unknown-linux-gnu.tgz
-   tar -xvzf myceliald-x86_64-unknown-linux-gnu.tgz
+   curl -L https://github.com/mycelial/mycelial/releases/latest/download/myceliald-x86_64-apple-darwin.tgz --output myceliald-x86_64-apple-darwin.tgz
+   tar -xvzf myceliald-x86_64-apple-darwin.tgz
    ```
 
    </details>
