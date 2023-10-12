@@ -10,6 +10,7 @@ use pipe::{
     sections::mycelial_server,
     sections::sqlite_connector,
     sections::sqlite_physical_replication,
+    sections::kafka,
 };
 use section::SectionChannel;
 
@@ -44,6 +45,10 @@ fn setup_registry<S: SectionChannel>() -> Registry<S> {
         (
             "hello_world_destination",
             hello_world::destination::constructor,
+        ),
+        (
+            "kafka_destination",
+            kafka::destination::constructor,
         ),
     ];
     arr.iter()

@@ -99,10 +99,12 @@ const HelloWorldSourceNode: FC<NodeProps> = memo(({ id, data, selected }) => {
   let initialValues = useMemo(() => {
     return {
       client: data.client ? data.client : "-",
+      interval_milis: data.interval_milis ? data.interval_milis : 5000,
+      message: data.message ? data.message : "Hello!",
     };
   }, []);
 
-  const handleChange = useCallback((name: string, value: string) => {
+  const handleChange = useCallback((name: string, value: string | number) => {
     instance.setNodes((nodes) =>
       nodes.map((node) => {
         if (node.id === id) {
@@ -119,6 +121,8 @@ const HelloWorldSourceNode: FC<NodeProps> = memo(({ id, data, selected }) => {
 
   useEffect(() => {
     handleChange("client", initialValues.client);
+    handleChange("interval_milis", initialValues.interval_milis);
+    handleChange("message", initialValues.message);
   }, []);
 
   let classNames = `${styles.customNode} `;
@@ -161,6 +165,25 @@ const HelloWorldSourceNode: FC<NodeProps> = memo(({ id, data, selected }) => {
           options={(clients || []).map((c) => c.id)}
           onChange={(value) => {
             handleChange("client", value || "");
+          }}
+        />
+        <TextInput
+          name="message"
+          label="Message"
+          placeholder={initialValues.message}
+          defaultValue={initialValues.message}
+          onChange={(event) => {
+            handleChange("message", event.currentTarget.value)
+          }}
+        />
+        <TextInput
+          name="interval_milis"
+          label="Interval in miliseconds"
+          placeholder={initialValues.interval_milis}
+          defaultValue={initialValues.interval_milis}
+          onChange={(event) => {
+            let value = parseInt(event.currentTarget.value);
+            handleChange("interval_milis", value)
           }}
         />
         <Handle type="source" position={Position.Right} id={id} />
@@ -947,6 +970,100 @@ const SnowflakeSourceNode: FC<NodeProps> = memo(({ id, data, selected }) => {
   );
 });
 
+const KafkaDestination: FC<NodeProps> = memo(({ id, data, selected }) => {
+  const instance = useReactFlow();
+  const { clients } = useContext(ClientContext) as ClientContextType;
+
+  let initialValues = useMemo(() => {
+    return {
+      brokers: data.brokers ? data.brokers : "localhost:9092",
+      topics: data.topics ? data.topics : "topic-0",
+      client: data.client ? data.client : "-",
+    };
+  }, []);
+
+  const handleChange = useCallback((name: string, value: string) => {
+    instance.setNodes((nodes) =>
+      nodes.map((node) => {
+        if (node.id === id) {
+          node.data = {
+            ...node.data,
+            [name]: value,
+          };
+        }
+
+        return node;
+      }),
+    );
+  }, []);
+
+  const removeNode = useCallback((id: string) => {
+    let node = instance.getNode(id);
+    if (node === undefined) {
+      return;
+    }
+    let edges = getConnectedEdges([node], []);
+    instance.deleteElements({ edges, nodes: [node] });
+  }, []);
+
+  useEffect(() => {
+    handleChange("brokers", initialValues.brokers);
+    handleChange("topics", initialValues.topics);
+    handleChange("client", initialValues.client);
+  }, []);
+
+  let classNames = `${styles.customNode} `;
+  if (selected) {
+    classNames = classNames + `${styles.selected}`;
+  }
+  return (
+    <div className={classNames}>
+      <div className=" grid grid-cols-1 gap-x-6 gap-y-2">
+        <h2 className="text-slate-400 font-normal">Kafka Destination</h2>
+        <button
+          onClick={() => {
+            if (confirm("Are you sure you want to delete this node?")) {
+              removeNode(id);
+            }
+          }}
+          type="button"
+          className="absolute right-1 top-1 rounded bg-red-200 text-white shadow-sm hover:bg-red-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-800"
+          title="delete"
+        >
+          <XMarkIcon className="h-5 w-5" aria-hidden="true" />
+        </button>
+        <TextInput
+          name="brokers"
+          label="Brokers"
+          placeholder={initialValues.brokers}
+          defaultValue={initialValues.brokers}
+          onChange={(event) =>
+            handleChange("brokers", event.currentTarget.value)
+          }
+        />
+        <TextInput
+          name="topics"
+          label="Topics"
+          placeholder={initialValues.topics}
+          defaultValue={initialValues.topics}
+          onChange={(event) =>
+            handleChange("topics", event.currentTarget.value)
+          }
+        />
+        <Select
+          name="client"
+          label="Client"
+          placeholder="Pick one"
+          defaultValue={initialValues.client}
+          options={(clients || []).map((c) => c.id)}
+          onChange={(value) => handleChange("client", value || "")}
+        />
+        <Handle type="target" position={Position.Left} id={id} />
+      </div>
+    </div>
+  );
+});
+
 const KafkaSourceNode: FC<NodeProps> = memo(({ id, data, selected }) => {
   const instance = useReactFlow();
   const { clients } = useContext(ClientContext) as ClientContextType;
@@ -1201,6 +1318,7 @@ export {
   SqlitePhysicalReplicationDestinationNode,
   MycelialServerNode,
   KafkaSourceNode,
+  KafkaDestination,
   SnowflakeSourceNode,
   SnowflakeDestinationNode,
   PostgresSourceNode,
