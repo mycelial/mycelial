@@ -1,3 +1,7 @@
+//! Kafka Destination section implementation
+//! CAUTION: ALPHA QUALITY CODE :) Use with caution.
+//!
+//! Receives a message, converts the arrow record batch to json, and outputs it to the configured kafka topic
 use crate::message::Message;
 use futures::StreamExt;
 use kafka::destination::Kafka;
