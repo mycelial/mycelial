@@ -14,11 +14,11 @@ storage_path = "myceliald_state.sqlite" # Path and name of SQLite database to st
 endpoint = "http://localhost:8080" # Default Sqlite Physical Replication Server endpoint
 token = "token"                    # Default token for Sqlite Physical Replication Server and Clietns
 
-# This sqlite_connector only works for append-only tables, and does not support migrations. Uncomment to use.
-# [[sources]]
-# type = "sqlite_connector"
-# display_name = "Sqlite Source"
-# path = "/tmp/test.sqlite"
+# This sqlite connector is a work in progress alpha version. Uncomment to use.
+[[sources]]
+type = "sqlite_connector"
+display_name = "Sqlite Source"
+path = "test.sqlite"
 
 # SOURCES
 # Define all data sources (data stores and directory paths)
@@ -49,11 +49,11 @@ database_path = "/tmp/hydrated_db.sqlite"
 type = "hello_world"
 display_name = "Hello World Dest"
 
-# This sqlite_connector only works for append-only tables, and does not support migrations. Uncomment to use.
+# This sqlite connector is a work in progress alpha version. Uncomment to use.
 # [[destinations]]
 # type = "sqlite_connector"
 # display_name = "Sqlite Destination"
-# path = "/tmp/test_dest.sqlite"
+# path = "test_dest.sqlite"
 # tables = "*"
 
 # This kafka connector is a work in progress alpha version. Uncomment to use.
