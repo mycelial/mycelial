@@ -99,10 +99,12 @@ const HelloWorldSourceNode: FC<NodeProps> = memo(({ id, data, selected }) => {
   let initialValues = useMemo(() => {
     return {
       client: data.client ? data.client : "-",
+      interval_milis: data.interval_milis ? data.interval_milis : 5000,
+      message: data.message ? data.message : "Hello!",
     };
   }, []);
 
-  const handleChange = useCallback((name: string, value: string) => {
+  const handleChange = useCallback((name: string, value: string | number) => {
     instance.setNodes((nodes) =>
       nodes.map((node) => {
         if (node.id === id) {
@@ -119,6 +121,8 @@ const HelloWorldSourceNode: FC<NodeProps> = memo(({ id, data, selected }) => {
 
   useEffect(() => {
     handleChange("client", initialValues.client);
+    handleChange("interval_milis", initialValues.interval_milis);
+    handleChange("message", initialValues.message);
   }, []);
 
   let classNames = `${styles.customNode} `;
@@ -161,6 +165,25 @@ const HelloWorldSourceNode: FC<NodeProps> = memo(({ id, data, selected }) => {
           options={(clients || []).map((c) => c.id)}
           onChange={(value) => {
             handleChange("client", value || "");
+          }}
+        />
+        <TextInput
+          name="message"
+          label="Message"
+          placeholder={initialValues.message}
+          defaultValue={initialValues.message}
+          onChange={(event) => {
+            handleChange("message", event.currentTarget.value)
+          }}
+        />
+        <TextInput
+          name="interval_milis"
+          label="Interval in miliseconds"
+          placeholder={initialValues.interval_milis}
+          defaultValue={initialValues.interval_milis}
+          onChange={(event) => {
+            let value = parseInt(event.currentTarget.value);
+            handleChange("interval_milis", value)
           }}
         />
         <Handle type="source" position={Position.Right} id={id} />

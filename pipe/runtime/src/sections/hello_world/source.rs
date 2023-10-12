@@ -16,17 +16,20 @@ use std::pin::pin;
 use std::time::Duration;
 
 #[derive(Debug)]
-pub struct HelloWorld {}
+pub struct HelloWorld {
+    message: String,
+    interval_milis: i64,
+}
 
 impl Default for HelloWorld {
     fn default() -> Self {
-        Self::new()
+        Self::new("", 5000)
     }
 }
 
 impl HelloWorld {
-    pub fn new() -> Self {
-        Self {}
+    pub fn new(message: impl Into<String>, interval_milis: i64) -> Self {
+        Self { message: message.into(), interval_milis }
     }
 
     pub async fn enter_loop<Input, Output, SectionChan>(
@@ -41,7 +44,8 @@ impl HelloWorld {
         SectionChan: SectionChannel + Send + 'static,
     {
         let mut output = pin!(output);
-        let mut interval = pin!(time::interval(Duration::from_secs(5)));
+        let mut interval = pin!(time::interval(Duration::from_millis(self.interval_milis as u64)));
+        let mut counter = 0;
         loop {
             futures::select_biased! {
                 cmd = section_chan.recv().fuse() => {
@@ -50,8 +54,10 @@ impl HelloWorld {
                     }
                 }
                 _ = interval.tick().fuse() => {
+                    counter += 1;
+                    let message = format!("{} {}", self.message, counter);
                     let hello_world_payload: HelloWorldPayload = HelloWorldPayload {
-                        message: "Hello, World!".to_string(),
+                        message: message,
                     };
                     let batch: RecordBatch = hello_world_payload.try_into()?;
                     let message = Message::new("hello world", batch, None);
@@ -78,8 +84,18 @@ where
     }
 }
 
-pub fn constructor<S: SectionChannel>(_config: &Map) -> Result<Box<dyn DynSection<S>>, SectionError> {
-    Ok(Box::new(HelloWorld::new()))
+pub fn constructor<S: SectionChannel>(config: &Map) -> Result<Box<dyn DynSection<S>>, SectionError> {
+    let message = config
+        .get("message")
+        .ok_or("hello world section requires 'message'")?
+        .as_str()
+        .ok_or("'message' should be a string")?;
+    let interval_milis = config
+        .get("interval_milis")
+        .ok_or("hello world section requires 'interval_milis'")?
+        .as_int()
+        .ok_or("'interval_milis' should be an int")?;
+    Ok(Box::new(HelloWorld::new(message, interval_milis)))
 }
 
 #[cfg(test)]
@@ -104,7 +120,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_source() -> Result<(), StdError> {
-        let hello_world_source = HelloWorld::new();
+        let hello_world_source = HelloWorld::new("Hello, World!", 5000);
 
         let input = Stub::<Message, StdError>::new();
 

@@ -62,6 +62,13 @@ impl Value {
             _ => None,
         }
     }
+
+    pub fn as_int(&self) -> Option<i64> {
+        match self {
+            Self::Int(i) => Some(*i),
+            _ => None,
+        }
+    }
 }
 
 impl TryFrom<toml::Value> for Value {

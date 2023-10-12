@@ -30,6 +30,8 @@ journal_path = "/tmp/something.sqlite.mycelial_src"
 
 [[sources]]
 type = "hello_world"
+interval_milis = 5000
+message = "Hello World"
 display_name = "Hello World Src"
 
 # DESTINATIONS
