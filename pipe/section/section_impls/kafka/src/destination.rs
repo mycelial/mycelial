@@ -1,3 +1,6 @@
+// Kafka destination section implementation
+// CAUTION: ALPHA QUALITY CODE :) Use with caution.
+
 use crate::{Message, StdError};
 use futures::{FutureExt, Sink, SinkExt, Stream, StreamExt};
 use rdkafka::message::OwnedMessage;

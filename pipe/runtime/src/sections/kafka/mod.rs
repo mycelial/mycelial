@@ -1,3 +1,5 @@
+// Kafka section implementation details
+// CAUTION: ALPHA QUALITY CODE :) Use with caution.
 pub mod destination;
 
 use crate::message::RecordBatch;
