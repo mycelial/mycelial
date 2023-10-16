@@ -12,7 +12,7 @@ use axum::{
     Json, Router, Server, TypedHeader,
 };
 use base64::engine::{general_purpose::STANDARD as BASE64, Engine};
-use chrono::Utc;
+use chrono::{DateTime, Utc};
 use clap::Parser;
 use common::{
     Destination, IssueTokenRequest, IssueTokenResponse, PipeConfig, PipeConfigs,
@@ -22,13 +22,38 @@ use futures::StreamExt;
 use rust_embed::RustEmbed;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use sqlx::{sqlite::SqliteConnectOptions, ConnectOptions, Row, SqliteConnection};
+use sqlx::{
+    sqlite::SqliteConnectOptions, sqlite::SqliteRow, ConnectOptions, FromRow, Row, SqliteConnection,
+};
 use std::{net::SocketAddr, path::Path};
 use std::{str::FromStr, sync::Arc};
 use tokio::sync::Mutex;
 use uuid::Uuid;
 
 mod error;
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct Workspace {
+    #[serde(default)]
+    pub id: i64,
+    #[serde(default)]
+    pub created_at: DateTime<Utc>,
+    #[serde(default)]
+    pub pipe_configs: Vec<PipeConfig>,
+    pub name: String,
+}
+
+impl FromRow<'_, SqliteRow> for Workspace {
+    fn from_row(row: &SqliteRow) -> sqlx::Result<Self> {
+        Ok(Self {
+            id: row.get("id"),
+            name: row.get("name"),
+            created_at: Utc::now(),
+            // created_at: row.get("created_at"),
+            pipe_configs: Vec::new(),
+        })
+    }
+}
 
 #[derive(Parser)]
 struct Cli {
@@ -121,6 +146,43 @@ async fn get_pipe_config(
     app.get_config(id).await.map(Json)
 }
 
+// save a name and get an id addigned. it's a place to create pipes in
+async fn create_workspace(
+    State(app): State<Arc<App>>,
+    Json(workspace): Json<Workspace>,
+) -> Result<impl IntoResponse, error::Error> {
+    app.create_workspace(workspace).await.map(Json)
+}
+
+// gets a list of all the workspaces, ids, names, etc. not hydrated with pipe configs
+async fn get_workspaces(State(app): State<Arc<App>>) -> Result<impl IntoResponse, error::Error> {
+    app.get_workspaces().await.map(Json)
+}
+
+// by id, fetches a workspaces, hydrated with the pipe configs
+async fn get_workspace(
+    State(app): State<Arc<App>>,
+    axum::extract::Path(id): axum::extract::Path<u64>,
+) -> Result<impl IntoResponse, error::Error> {
+    app.get_workspace(id).await.map(Json)
+}
+
+// updates the name of a workspace. updating what workspace a pipe is part of is done by updating the pipe config
+async fn update_workspace(
+    State(app): State<Arc<App>>,
+    Json(workspace): Json<Workspace>,
+) -> Result<impl IntoResponse, error::Error> {
+    app.update_workspace(workspace).await.map(Json)
+}
+
+// deletes a workspace by id
+async fn delete_workspace(
+    State(app): State<Arc<App>>,
+    axum::extract::Path(id): axum::extract::Path<u64>,
+) -> Result<impl IntoResponse, error::Error> {
+    app.delete_workspace(id).await
+}
+
 async fn post_pipe_config(
     State(app): State<Arc<App>>,
     Json(configs): Json<PipeConfigs>,
@@ -133,6 +195,7 @@ async fn post_pipe_config(
             .map(|(id, conf)| PipeConfig {
                 id: *id,
                 pipe: conf.pipe,
+                workspace_id: conf.workspace_id,
             })
             .collect::<Vec<PipeConfig>>(),
     )
@@ -335,12 +398,17 @@ impl Database {
         Ok(())
     }
 
-    async fn insert_config(&self, config: &serde_json::Value) -> Result<u64, error::Error> {
+    async fn insert_config(
+        &self,
+        config: &serde_json::Value,
+        workspace_id: i64,
+    ) -> Result<u64, error::Error> {
         let mut connection = self.connection.lock().await;
         // FIXME: unwrap
         let config: String = serde_json::to_string(config)?;
-        let id = sqlx::query("INSERT INTO pipes (raw_config) VALUES (?)")
+        let id = sqlx::query("INSERT INTO pipes (raw_config, workspace_id) VALUES (?, ?)")
             .bind(config)
+            .bind(workspace_id)
             .execute(&mut *connection)
             .await?
             .last_insert_rowid();
@@ -441,46 +509,90 @@ impl Database {
         Ok(Clients { clients })
     }
 
+    async fn get_workspaces(&self) -> Result<Vec<Workspace>, error::Error> {
+        let mut connection = self.connection.lock().await;
+        let records: Vec<Workspace> =
+            sqlx::query_as(r"SELECT id, name, created_at FROM workspaces")
+                .fetch_all(&mut *connection)
+                .await
+                .unwrap();
+
+        Ok(records)
+    }
+
+    async fn create_workspace(&self, mut workspace: Workspace) -> Result<Workspace, error::Error> {
+        let mut connection = self.connection.lock().await;
+        let id = sqlx::query("INSERT INTO workspaces (name) VALUES (?)")
+            .bind(workspace.name.clone())
+            .execute(&mut *connection)
+            .await?
+            .last_insert_rowid();
+        let id = id.try_into().unwrap();
+        workspace.id = id;
+        Ok(workspace)
+    }
+
+    async fn get_workspace(&self, id: u64) -> Result<Workspace, error::Error> {
+        let mut connection = self.connection.lock().await;
+        let id: i64 = id.try_into().unwrap();
+        let mut record: Workspace =
+            sqlx::query_as(r"SELECT id, name, created_at FROM workspaces WHERE id = ?")
+                .bind(id)
+                .fetch_one(&mut *connection)
+                .await
+                .unwrap();
+
+        let pipes: Vec<PipeConfig> =
+            sqlx::query_as("SELECT id, raw_config, workspace_id from pipes where workspace_id = ?")
+                .bind(id)
+                .fetch_all(&mut *connection)
+                .await?;
+
+        record.pipe_configs = pipes;
+
+        Ok(record)
+    }
+
+    async fn update_workspace(&self, workspace: Workspace) -> Result<Workspace, error::Error> {
+        let mut connection = self.connection.lock().await;
+        let _ = sqlx::query("UPDATE workspaces SET name = ? where id = ?")
+            .bind(workspace.name.clone())
+            .bind(workspace.id)
+            .execute(&mut *connection)
+            .await
+            .unwrap();
+        Ok(workspace)
+    }
+
+    async fn delete_workspace(&self, id: u64) -> Result<(), error::Error> {
+        let mut connection = self.connection.lock().await;
+        let id: i64 = id.try_into().unwrap();
+        let _ = sqlx::query("DELETE FROM pipes WHERE id = ?")
+            .bind(id) // fixme
+            .execute(&mut *connection)
+            .await?;
+        Ok(())
+    }
+
     async fn get_config(&self, id: u64) -> Result<PipeConfig, error::Error> {
         let mut connection = self.connection.lock().await;
         let id: i64 = id.try_into().unwrap();
-        let row = sqlx::query("SELECT id, raw_config from pipes WHERE id = ?")
-            .bind(id)
-            .fetch_one(&mut *connection)
-            .await?;
-        let id: i64 = row.get("id");
-        let id: u64 = id.try_into().unwrap();
-        let raw_config: String = row.get("raw_config");
-        Ok(PipeConfig {
-            id,
-            pipe: serde_json::json!(raw_config),
-        })
+        let pipe: PipeConfig =
+            sqlx::query_as("SELECT id, workspace_id, raw_config from pipes WHERE id = ?")
+                .bind(id)
+                .fetch_one(&mut *connection)
+                .await?;
+        Ok(pipe)
     }
 
     async fn get_configs(&self) -> Result<PipeConfigs, error::Error> {
         let mut connection = self.connection.lock().await;
-        // FIXME: sqlx allows query_as<Struct>
-        let rows = sqlx::query("SELECT id, raw_config from pipes")
-            .fetch_all(&mut *connection)
-            .await?;
+        let rows: Vec<PipeConfig> =
+            sqlx::query_as("SELECT id, raw_config, workspace_id from pipes")
+                .fetch_all(&mut *connection)
+                .await?;
 
-        let configs: PipeConfigs = PipeConfigs {
-            configs: rows
-                .into_iter()
-                .map(|row| {
-                    // FIXME: get() will panic if column not presented
-                    let id: i64 = row.get("id");
-                    let id: u64 = id.try_into().unwrap();
-                    let raw_config: String = row.get("raw_config");
-                    let pipe: serde_json::Value =
-                        serde_json::from_str(raw_config.as_str()).unwrap();
-                    PipeConfig {
-                        id,
-                        pipe: serde_json::json!(pipe),
-                    }
-                })
-                .collect(),
-        };
+        let configs: PipeConfigs = PipeConfigs { configs: rows };
         Ok(configs)
     }
 }
@@ -505,7 +617,10 @@ impl App {
     async fn set_configs(&self, new_configs: &PipeConfigs) -> Result<Vec<u64>, error::Error> {
         let mut inserted_ids = Vec::new();
         for config in new_configs.configs.iter() {
-            let id = self.database.insert_config(&config.pipe).await?;
+            let id = self
+                .database
+                .insert_config(&config.pipe, config.workspace_id.try_into().unwrap())
+                .await?;
             inserted_ids.push(id);
         }
         Ok(inserted_ids)
@@ -525,6 +640,26 @@ impl App {
 
     async fn get_config(&self, id: u64) -> Result<PipeConfig, error::Error> {
         self.database.get_config(id).await
+    }
+
+    async fn get_workspaces(&self) -> Result<Vec<Workspace>, error::Error> {
+        self.database.get_workspaces().await
+    }
+
+    async fn create_workspace(&self, workspace: Workspace) -> Result<Workspace, error::Error> {
+        self.database.create_workspace(workspace).await
+    }
+
+    async fn get_workspace(&self, id: u64) -> Result<Workspace, error::Error> {
+        self.database.get_workspace(id).await
+    }
+
+    async fn update_workspace(&self, workspace: Workspace) -> Result<Workspace, error::Error> {
+        self.database.update_workspace(workspace).await
+    }
+
+    async fn delete_workspace(&self, id: u64) -> Result<(), error::Error> {
+        self.database.delete_workspace(id).await
     }
 
     async fn get_configs(&self) -> Result<PipeConfigs, error::Error> {
@@ -554,16 +689,17 @@ impl App {
     }
 }
 
-async fn assets(uri: Uri) -> Result<impl IntoResponse, StatusCode>{
+async fn assets(uri: Uri) -> Result<impl IntoResponse, StatusCode> {
     let path = match uri.path() {
         "/" => "index.html",
-        p => p
-    }.trim_start_matches("/");
+        p => p,
+    }
+    .trim_start_matches("/");
     match Assets::get(path) {
         Some(file) => {
             let mime = mime_guess::from_path(path).first_or_octet_stream();
             Ok(([(header::CONTENT_TYPE, mime.as_ref())], file.data).into_response())
-        },
+        }
         None => Err(StatusCode::NOT_FOUND),
     }
 }
@@ -595,6 +731,16 @@ async fn main() -> anyhow::Result<()> {
                     get(get_pipe_config)
                         .delete(delete_pipe_config)
                         .put(put_pipe_config),
+                )
+                .route(
+                    "/api/workspaces/:id",
+                    get(get_workspace)
+                        .put(update_workspace)
+                        .delete(delete_workspace),
+                )
+                .route(
+                    "/api/workspaces",
+                    get(get_workspaces).post(create_workspace),
                 )
                 .route("/api/clients", get(get_clients)),
         )
