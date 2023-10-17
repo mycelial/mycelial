@@ -33,7 +33,7 @@ impl Kafka {
     async fn enter_loop<Input, Output, SectionChan>(
         self,
         input: Input,
-        output: Output,
+        _output: Output,
         mut section_chan: SectionChan,
     ) -> Result<(), StdError>
     where
@@ -42,7 +42,6 @@ impl Kafka {
         SectionChan: SectionChannel + Send + 'static,
     {
         let mut input = pin!(input.fuse());
-        let mut output = pin!(output);
 
         loop {
             futures::select! {
@@ -51,7 +50,7 @@ impl Kafka {
                 },
                 message = input.next() => {
                     match message {
-                        Some(msg) => {
+                        Some(mut msg) => {
                             let payload: &OwnedMessage = &msg.payload;
                             let origin = &msg.origin;
 
@@ -68,12 +67,8 @@ impl Kafka {
                             if self.producer.send(record, Timeout::Never).await.is_err() {
                                 return Ok(())
                             }
-                            // FIXME
-                            if output.send(msg).await.is_err() {
-                                return Ok(())
-                            }
-                            // let payload = &message.payload;
-                            // msg.ack().await;
+
+                            msg.ack().await;
                         },
                         None => Err("input closed")?,
                     }
