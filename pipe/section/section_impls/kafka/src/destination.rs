@@ -51,8 +51,6 @@ impl Kafka {
                 message = input.next() => {
                     match message {
                         Some(mut msg) => {
-                            msg.ack().await;
-
                             let payload: &OwnedMessage = &msg.payload;
                             let origin = &msg.origin;
 
@@ -69,6 +67,8 @@ impl Kafka {
                             if self.producer.send(record, Timeout::Never).await.is_err() {
                                 return Ok(())
                             }
+
+                            msg.ack().await;
                         },
                         None => Err("input closed")?,
                     }
