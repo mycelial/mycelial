@@ -4,7 +4,9 @@ use crate::storage::Storage;
 use crate::{config::Config, pipe::Pipe, registry::Registry, types::SectionError};
 
 use section::{Command, ReplyTo, RootChannel, Section, SectionRequest, SectionChannel};
+use tokio::sync::mpsc::WeakSender;
 use std::collections::HashMap;
+use std::time::Duration;
 use stub::Stub;
 use tokio::task::JoinHandle;
 use tokio::{
@@ -45,6 +47,9 @@ pub enum Message {
     ListIds {
         reply_to: OneshotSender<Result<Vec<u64>, SectionError>>,
     },
+
+    /// Reschedule pipe
+    Reschedule { id: u64 },
 }
 
 #[derive(Debug)]
@@ -76,11 +81,12 @@ where
 
     pub fn spawn(mut self) -> SchedulerHandle {
         let (tx, mut rx) = channel(8);
-        tokio::spawn(async move { self.enter_loop(&mut rx).await });
+        let weak_tx = tx.clone().downgrade();
+        tokio::spawn(async move { self.enter_loop(&mut rx, weak_tx).await });
         SchedulerHandle { tx }
     }
 
-    async fn enter_loop(&mut self, rx: &mut Receiver<Message>) -> Result<(), SectionError> {
+    async fn enter_loop(&mut self, rx: &mut Receiver<Message>, weak_tx: WeakSender<Message>) -> Result<(), SectionError> {
         loop {
             tokio::select! {
                 message = rx.recv() => {
@@ -109,28 +115,38 @@ where
                                 .send(Ok(self.pipe_configs.keys().copied().collect()))
                                 .ok();
                         }
+                        Message::Reschedule{ id } => {
+                            if !self.pipes.contains_key(&id) {
+                                self.schedule(id).ok();
+                            }
+                        }
                     };
                 },
                 req = self.root_chan.recv() => {
                     match req? {
                         SectionRequest::RetrieveState { id, reply_to } => {
-                            reply_to.reply(self.storage.retrieve_state(id).await?).await?
+                            reply_to.reply(self.storage.retrieve_state(id).await?).await.ok();
                         },
                         SectionRequest::StoreState { id, state, reply_to } => {
                             self.storage.store_state(id, state).await?;
-                            reply_to.reply(()).await?;
+                            reply_to.reply(()).await.ok();
                         },
                         SectionRequest::Log { id, message } => {
                             // FIXME: use proper logger
                             log::info!("pipe<{id}>: {message}");
                         },
                         SectionRequest::Stopped{ id } => {
-                            // FIXME: use proper logger
-                            if let Err(err) = self.retrieve_pipe_error(id).await {
-                                println!("pipe with id: {id} stopped: {:?}", err);
+                            let finished = match self.pipes.get(&id) {
+                                Some(Some(handle)) => handle.is_finished(),
+                                _ => true,
                             };
-                            self.unschedule(id).await;
-                            self.schedule(id)?;
+                            if finished {
+                                if let Err(err) = self.retrieve_pipe_error(id).await {
+                                    log::error!("pipe with id: {id} stopped: {:?}", err);
+                                };
+                                self.unschedule(id).await;
+                                self.reschedule(id, weak_tx.clone());
+                            }
                         },
                         _ => {},
                     };
@@ -181,12 +197,26 @@ where
         self.root_chan.remove_section(pipe_id).ok();
     }
 
+    /// reschedule failed pipe
+    fn reschedule(&self, id: u64, weak_tx: WeakSender<Message>) {
+        tokio::spawn(async move {
+            tokio::time::sleep(Duration::from_secs(3)).await;
+            if let Some(tx) = weak_tx.upgrade() {
+                tx.send(Message::Reschedule{ id }).await.ok();
+            }
+        });
+    }
+
     /// retrieve pipe error, if any
     async fn retrieve_pipe_error(&mut self, pipe_id: u64) -> Result<(), SectionError> {
         match self.pipes.get_mut(&pipe_id) {
             Some(handle) if handle.is_some() => {
-                let handle = handle.take().unwrap();
-                handle.await?
+                if handle.as_mut().map(|handle| handle.is_finished()).unwrap() {
+                    let handle = handle.take().unwrap();
+                    handle.await?
+                } else {
+                    Ok(())
+                }
             }
             _ => Ok(()),
         }
