@@ -2,7 +2,7 @@
 // CAUTION: ALPHA QUALITY CODE :) Use with caution.
 
 use crate::{Message, StdError};
-use futures::{FutureExt, Sink, SinkExt, Stream, StreamExt};
+use futures::{FutureExt, Sink, Stream, StreamExt};
 use rdkafka::message::OwnedMessage;
 use rdkafka::producer::FutureRecord;
 use rdkafka::util::Timeout;

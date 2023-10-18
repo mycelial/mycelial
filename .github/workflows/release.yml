@@ -93,6 +93,7 @@ jobs:
       - name: install packages (windows)
         if: matrix.build == 'windows'
         run: |
+          choco install cmake.portable
 
       - name: setup rust
         uses: dtolnay/rust-toolchain@master
