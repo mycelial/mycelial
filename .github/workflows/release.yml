@@ -10,8 +10,8 @@ jobs:
     runs-on: ${{ matrix.os }}
 
     env:
-      RUSTFLAGS: "-C target-feature=-crt-static"
       CARGO_TARGET_ARM_UNKNOWN_LINUX_GNUEABIHF_LINKER: arm-linux-gnueabihf-gcc
+      CARGO_TARGET_ARM_UNKNOWN_LINUX_GNUEABIHF_RUSTFLAGS: "-latomic"
       CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
       OPENSSL_VERSION: 1.1.1w
       OPENSSL_PREFIX: /tmp/openssl/
@@ -56,7 +56,7 @@ jobs:
         if: matrix.build == 'linux'
         run: |
           sudo apt update
-          sudo apt install pkg-config gcc-arm-linux-gnueabihf gcc-aarch64-linux-gnu musl-tools libssl-dev wget -qy
+          sudo apt install pkg-config gcc-arm-linux-gnueabihf gcc-aarch64-linux-gnu musl-tools g++-arm-linux-gnueabihf g++-aarch64-linux-gnu libssl-dev wget -qy
 
       - name: install packages (macos)
         if: matrix.build == 'macos'
@@ -73,7 +73,7 @@ jobs:
             tar xvf openssl-$OPENSSL_VERSION.tar.gz
             cd openssl-${OPENSSL_VERSION}
             export CC="$CC_PREFIX-gcc"
-            exportCXX="$CC_PREFIX-g++"
+            export CXX="$CC_PREFIX-g++"
             export AS="$CC_PREFIX-as"
             export AR="$CC_PREFIX-ar"
             export NM="$CC_PREFIX-nm"
@@ -109,7 +109,7 @@ jobs:
       - name: build assets 
         run: |
           cd console && npm i && npm run build
-
+          
       - name: build binary
         run: |
           cargo build --verbose --release --target ${{ matrix.target }}
