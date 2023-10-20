@@ -146,7 +146,7 @@ async fn get_pipe_config(
     app.get_config(id).await.map(Json)
 }
 
-// save a name and get an id addigned. it's a place to create pipes in
+// save a name and get an id assigned. it's a place to create pipes in
 async fn create_workspace(
     State(app): State<Arc<App>>,
     Json(workspace): Json<Workspace>,
@@ -167,7 +167,7 @@ async fn get_workspace(
     app.get_workspace(id).await.map(Json)
 }
 
-// updates the name of a workspace. updating what workspace a pipe is part of is done by updating the pipe config
+// updates a workspace. updating what workspace a pipe is part of is done by updating the pipe config
 async fn update_workspace(
     State(app): State<Arc<App>>,
     Json(workspace): Json<Workspace>,
