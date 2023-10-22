@@ -1,0 +1,18 @@
+[package]
+name = "bacalhau"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+section = { path = "../../" }
+futures = "0.3"
+reqwest = { version = "0.11.22", features = ["json"] }
+tokio = "1.33.0"
+tokio-stream = { version = "0.1.14", features = ["tokio-util"] }
+async-watcher = "0.2.0"
+serde = "1"
+serde_json = "1"
+arrow = "42"
+arrow-json = "42"

@@ -43,6 +43,7 @@ pub enum Source {
     Snowflake(SnowflakeConfig),
     Sqlite_Physical_Replication(SqlitePhysicalReplicationSourceConfig),
     Hello_World(HelloWorldConfig),
+    Bacalhau(BacalhauConfig),
 }
 
 /// Internally-tagged type of a source needs to match the variant name
@@ -55,6 +56,7 @@ pub enum Destination {
     Sqlite_Physical_Replication(SqlitePhysicalReplicationDestinationConfig),
     Hello_World(HelloWorldConfig),
     Kafka(KafkaDestinationConfig),
+    Bacalhau(BacalhauConfig),
 }
 
 // Shared between all source definitions
@@ -116,6 +118,11 @@ pub struct HelloWorldConfig {
     pub common_attrs: CommonAttrs,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct BacalhauConfig {
+    #[serde(flatten)]
+    pub common_attrs: CommonAttrs,
+}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct KafkaDestinationConfig {

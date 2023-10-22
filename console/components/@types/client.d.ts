@@ -10,12 +10,14 @@ type ISource =
   | IKafka
   | IPostgres
   | IHelloWorld
+  | IBacalhau
   | ISnowflake
   | IMyceliteSource
   | IMycelialNetwork;
 type IDestination =
   | ISqlite
   | IHelloWorld
+  | IBacalhau  
   | ISnowflake
   | IMyceliteDestination
   | IMycelialNetwork;
@@ -37,6 +39,13 @@ type ISqlite = {
 type IHelloWorld = {
   type: string;
   display_name: string;
+};
+
+type IBacalhau = {
+  type: string;
+  display_name: string;
+  job: string;
+  inputs: string;
 };
 
 type IKafka = {

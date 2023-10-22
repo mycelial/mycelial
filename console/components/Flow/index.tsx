@@ -43,6 +43,9 @@ import {
   PostgresSourceNode,
   HelloWorldSourceNode,
   HelloWorldDestinationNode,
+  BacalhauNode,
+  BacalhauSourceNode,
+  BacalhauDestinationNode,
 } from "@/components/nodes";
 
 import { Grid, Group } from "@/components/layout";
@@ -70,11 +73,10 @@ const useStyles = createStyles((theme) => ({
     marginBottom: theme.spacing.md,
 
     "&:not(:last-of-type)": {
-      borderBottom: `${rem(1)} solid ${
-        theme.colorScheme === "dark"
-          ? theme.colors.dark[4]
-          : theme.colors.gray[3]
-      }`,
+      borderBottom: `${rem(1)} solid ${theme.colorScheme === "dark"
+        ? theme.colors.dark[4]
+        : theme.colors.gray[3]
+        }`,
     },
   },
 
@@ -181,6 +183,9 @@ const nodeTypes = {
   postgres_source: PostgresSourceNode,
   hello_world_source: HelloWorldSourceNode,
   hello_world_destination: HelloWorldDestinationNode,
+  bacalhau: BacalhauNode,
+  bacalhau_source: BacalhauSourceNode,
+  bacalhau_destination: BacalhauDestinationNode,
 };
 
 const defaultEdgeOptions = {
@@ -269,6 +274,13 @@ function NavbarSearch(props: NavbarSearchProps) {
       topic: getRandomString(),
     };
 
+    let bac_source = {
+      type: "bacalhau",
+      display_name: "Bacalhau",
+      endpoint: "http://localhost:2112/accept",
+      job: "Sample",
+    };
+
     return [
       <div
         key="mycelial_server"
@@ -276,7 +288,15 @@ function NavbarSearch(props: NavbarSearchProps) {
         onDragStart={(event) => onDragStart(event, null, source, source)}
         draggable
       >
-        Mycelial Server 
+        Mycelial Server
+      </div>,
+      <div
+        key="bacalhau"
+        className={classes.collectionLink}
+        onDragStart={(event) => onDragStart(event, null, bac_source, bac_source)}
+        draggable
+      >
+        Bacalhau Node
       </div>,
     ];
   };
@@ -335,7 +355,7 @@ async function getConfigs(token: string) {
     });
     const result = await response.json();
     return result;
-  } catch (error) {}
+  } catch (error) { }
 }
 
 const dagreGraph = new dagre.graphlib.Graph();
@@ -410,6 +430,13 @@ function Flow() {
           nodeType === "mycelial_server_destination"
         ) {
           nodeType = "mycelial_server";
+        }
+
+        if (
+          nodeType === "bacalhau_source" ||
+          nodeType === "bacalhaU_destination"
+        ) {
+          nodeType = "bacalhau";
         }
 
         let node: Node = {
@@ -521,6 +548,16 @@ function Flow() {
           name: "mycelial_server_destination",
           ...node.data,
         };
+      } else if (node?.type === "bacalhau" && kind === "source") {
+        return {
+          name: "bacalhau_source",
+          ...node.data,
+        };
+      } else if (node?.type === "bacalhau" && kind === "destination") {
+        return {
+          name: "bacalhau_destination",
+          ...node.data,
+        }
       } else if (node?.type) {
         return {
           name: node.type,
@@ -561,7 +598,7 @@ function Flow() {
 
       if (edge.data?.id) {
         let payload = {
-          configs: [{id: edge.data.id, pipe: pipe}]
+          configs: [{ id: edge.data.id, pipe: pipe }]
         }
         try {
           const response = await fetch("/api/pipe", {
@@ -580,7 +617,7 @@ function Flow() {
       } else {
         let id = 0;
         let payload = {
-          configs: [{id: 0, pipe: pipe}]
+          configs: [{ id: 0, pipe: pipe }]
         }
         const response = await fetch("/api/pipe", {
           method: "POST",
@@ -603,7 +640,7 @@ function Flow() {
                   id: id,
                 },
               }
-            } 
+            }
             return ed;
           });
         })

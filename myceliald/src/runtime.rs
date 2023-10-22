@@ -2,15 +2,16 @@
 //!
 //! Pipe scheduling and peristance
 
-use crate::storage::{SqliteStorageHandle, SqliteState};
+use crate::storage::{SqliteState, SqliteStorageHandle};
 use pipe::{
     registry::{Constructor, Registry},
     scheduler::{Scheduler, SchedulerHandle},
+    sections::bacalhau,
     sections::hello_world,
+    sections::kafka,
     sections::mycelial_server,
     sections::sqlite_connector,
     sections::sqlite_physical_replication,
-    sections::kafka,
 };
 use section::SectionChannel;
 
@@ -46,10 +47,9 @@ fn setup_registry<S: SectionChannel>() -> Registry<S> {
             "hello_world_destination",
             hello_world::destination::constructor,
         ),
-        (
-            "kafka_destination",
-            kafka::destination::constructor,
-        ),
+        ("bacalhau_source", bacalhau::source::constructor),
+        ("bacalhau_destination", bacalhau::destination::constructor),
+        ("kafka_destination", kafka::destination::constructor),
     ];
     arr.iter()
         .fold(Registry::new(), |mut acc, &(section_name, constructor)| {
@@ -59,5 +59,6 @@ fn setup_registry<S: SectionChannel>() -> Registry<S> {
 }
 
 pub fn new(storage: SqliteStorageHandle) -> SchedulerHandle {
-    Scheduler::<_, pipe::command_channel::RootChannel<SqliteState>>::new(setup_registry(), storage).spawn()
+    Scheduler::<_, pipe::command_channel::RootChannel<SqliteState>>::new(setup_registry(), storage)
+        .spawn()
 }
