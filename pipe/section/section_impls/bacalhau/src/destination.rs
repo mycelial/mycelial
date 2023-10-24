@@ -79,10 +79,11 @@ impl Bacalhau {
                     }
                 }
                 msg = input.next() => {
-                    let msg = match msg {
+                    let mut msg = match msg {
                         Some(msg) => msg,
                         None => Err("input stream closed")?
                     };
+                    msg.ack().await;
 
                     let payload = &msg.payload;
                     let origin = &msg.origin;
