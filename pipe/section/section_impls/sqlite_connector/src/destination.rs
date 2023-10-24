@@ -62,6 +62,7 @@ impl Sqlite {
                                 Value::Real(f) => q.bind(f),
                                 Value::Text(t) => q.bind(t),
                                 Value::Blob(b) => q.bind(b),
+                                Value::Bool(b) => q.bind(b),
                                 // FIXME: oof, to insert NULL we need to bind None
                                 Value::Null => q.bind(Option::<i64>::None)
                             };

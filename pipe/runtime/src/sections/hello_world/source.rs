@@ -29,7 +29,10 @@ impl Default for HelloWorld {
 
 impl HelloWorld {
     pub fn new(message: impl Into<String>, interval_milis: i64) -> Self {
-        Self { message: message.into(), interval_milis }
+        Self {
+            message: message.into(),
+            interval_milis,
+        }
     }
 
     pub async fn enter_loop<Input, Output, SectionChan>(
@@ -44,8 +47,11 @@ impl HelloWorld {
         SectionChan: SectionChannel + Send + 'static,
     {
         let mut output = pin!(output);
-        let mut interval = pin!(time::interval(Duration::from_millis(self.interval_milis as u64)));
+        let mut interval = pin!(time::interval(Duration::from_millis(
+            self.interval_milis as u64
+        )));
         let mut counter = 0;
+
         loop {
             futures::select_biased! {
                 cmd = section_chan.recv().fuse() => {
@@ -84,7 +90,9 @@ where
     }
 }
 
-pub fn constructor<S: SectionChannel>(config: &Map) -> Result<Box<dyn DynSection<S>>, SectionError> {
+pub fn constructor<S: SectionChannel>(
+    config: &Map,
+) -> Result<Box<dyn DynSection<S>>, SectionError> {
     let message = config
         .get("message")
         .ok_or("hello world section requires 'message'")?
@@ -101,12 +109,12 @@ pub fn constructor<S: SectionChannel>(config: &Map) -> Result<Box<dyn DynSection
 #[cfg(test)]
 mod tests {
     use super::*;
+    use futures::StreamExt;
     use section::dummy::DummySectionChannel;
     use stub::Stub;
     use tokio::sync::mpsc::{Receiver, Sender};
     use tokio_stream::wrappers::ReceiverStream;
     use tokio_util::sync::PollSender;
-    use futures::StreamExt;
 
     type StdError = Box<dyn std::error::Error + Send + Sync + 'static>;
 

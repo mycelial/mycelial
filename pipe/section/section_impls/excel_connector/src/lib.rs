@@ -1,14 +1,14 @@
+use chrono::NaiveDateTime;
 use section::Message as _Message;
 use std::{fmt::Display, sync::Arc};
 
-pub mod destination;
 pub mod source;
 
 type StdError = Box<dyn std::error::Error + Send + Sync + 'static>;
-pub type Message = _Message<SqlitePayload>;
+pub type Message = _Message<ExcelPayload>;
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct SqlitePayload {
+pub struct ExcelPayload {
     /// column names
     pub columns: Arc<[String]>,
 
@@ -24,14 +24,16 @@ pub struct SqlitePayload {
 
 // FIXME: numeric?
 // redo whole value enum?
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub enum Value {
     Int(i64),
     Text(String),
     Blob(Vec<u8>),
     Real(f64),
-    Null,
     Bool(bool),
+    DateTime(NaiveDateTime),
+    #[default]
+    Null,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -42,6 +44,10 @@ pub enum ColumnType {
     Real,
     Numeric,
     Bool,
+    DateTime,
+    Duration,
+    DateTimeIso,
+    DurationIso,
 }
 
 impl Display for ColumnType {
@@ -52,7 +58,11 @@ impl Display for ColumnType {
             ColumnType::Blob => "BLOB",
             ColumnType::Real => "DOUBLE",
             ColumnType::Numeric => "NUMERIC",
-            ColumnType::Bool => "BOOLEAN",
+            ColumnType::Bool => "BOOL",
+            ColumnType::DateTime => "DATETIME",
+            ColumnType::Duration => "DURATION",
+            ColumnType::DateTimeIso => "DATETIMEISO",
+            ColumnType::DurationIso => "DURATIONISO",
         };
         write!(f, "{}", ty)
     }
@@ -70,18 +80,4 @@ pub fn escape_table_name(name: impl AsRef<str>) -> String {
             maybe_char.into_iter().chain([char])
         })
         .collect::<String>()
-}
-
-/// generate create table command for provided record batch
-pub fn generate_schema(message: &Message) -> String {
-    let name = escape_table_name(message.origin.as_str());
-    let payload = &message.payload;
-    let columns = payload
-        .columns
-        .iter()
-        .zip(payload.column_types.iter())
-        .map(|(name, ty)| format!("{name} {ty}"))
-        .collect::<Vec<_>>()
-        .join(",");
-    format!("CREATE TABLE IF NOT EXISTS \"{name}\" ({columns})",)
 }

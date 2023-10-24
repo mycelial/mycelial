@@ -11,6 +11,7 @@ use pipe::{
     sections::sqlite_connector,
     sections::sqlite_physical_replication,
     sections::kafka,
+    sections::excel_connector,
 };
 use section::SectionChannel;
 
@@ -49,6 +50,10 @@ fn setup_registry<S: SectionChannel>() -> Registry<S> {
         (
             "kafka_destination",
             kafka::destination::constructor,
+        ),
+        (
+            "excel_connector_source",
+            excel_connector::source::constructor,
         ),
     ];
     arr.iter()

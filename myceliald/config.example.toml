@@ -50,11 +50,11 @@ type = "hello_world"
 display_name = "Hello World Dest"
 
 # This sqlite connector is a work in progress alpha version. Uncomment to use.
-# [[destinations]]
-# type = "sqlite_connector"
-# display_name = "Sqlite Destination"
-# path = "test_dest.sqlite"
-# tables = "*"
+[[destinations]]
+type = "sqlite_connector"
+display_name = "Sqlite Destination"
+path = "/tmp/test_dest.sqlite"
+tables = "*"
 
 # This kafka connector is a work in progress alpha version. Uncomment to use.
 # [[destinations]]
