@@ -25,6 +25,7 @@
 {
   "configs": [
     {
+      "workspace_id": 1, // this field is currently optional and will default to 1, but may be required in the future. 
       "pipe": [
         {
           "name": "sqlite_physical_replication_source",
@@ -58,6 +59,7 @@
 {
   "configs": [
     {
+      "workspace_id": 1, // this field is currently optional and will default to 1, but may be required in the future. 
       "pipe": [
         {
           "name": "mycelial_server_source",
@@ -125,6 +127,7 @@
 {
   "configs": [
     {
+      "workspace_id": 1, // this field is currently optional and will default to 1 if not provided, but may be required in the future. 
       "pipe": [
         {
           "name": "sqlite_physical_replication_source",
@@ -158,6 +161,7 @@
 {
   "configs": [
     {
+      "workspace_id": 1, // this field is currently optional and will default to 1 if not provided, but may be required in the future. 
       "pipe": [
         {
           "name": "mycelial_server_source",
@@ -218,6 +222,27 @@
 
 > ```bash
 >  curl 'http://localhost:8080/api/pipe/{id}' -X 'DELETE' -H 'Authorization: Basic {base 64 token:}' \
+> ```
+
+</details>
+
+<details>
+ <summary><code>GET</code> <code><b>/api/pipe/{id}</b></code> <code>fetch a single pipeline specification by id</code></summary>
+
+##### Parameters
+
+> None
+
+##### Responses
+
+> | http code     | content-type                      | response                                                            |
+> |---------------|-----------------------------------|---------------------------------------------------------------------|
+> | `200`         | `application/json`        | active configurations
+
+##### Example cURL
+
+> ```bash
+>  curl 'http://{server}:8080/api/pipe/{id}' -H 'Authorization: Basic {base 64 token:}'
 > ```
 
 </details>
@@ -312,3 +337,25 @@
 </details>
 
 
+## Workspaces
+
+
+<details>
+  <summary><code>GET</code> <code><b>/api/workspaces</b></code> <code>Fetches all workspaces (not hydrated with pipe configs)</code></summary>
+</details>
+
+<details>
+  <summary><code>POST</code> <code><b>/api/workspaces</b></code> <code>Creates a workspace</code></summary>
+</details>
+
+<details>
+  <summary><code>GET</code> <code><b>/api/workspaces/{id}</b></code> <code>Fetches a single workspace by id that is hydrated with pipe configs</code></summary>
+</details>
+
+<details>
+  <summary><code>PUT</code> <code><b>/api/workspaces/{id}</b></code> <code>Update a workspace</code></summary>
+</details>
+
+<details>
+  <summary><code>DELETE</code> <code><b>/api/workspaces/{id}</b></code> <code>Delete a workspace</code></summary>
+</details>
