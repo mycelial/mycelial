@@ -3,6 +3,7 @@ use pipe::{
     types::SectionError,
 };
 use serde::{Deserialize, Serialize};
+use sqlx::FromRow;
 
 /// Top level configuration object
 // todo: should this be only on the client?
@@ -164,12 +165,12 @@ pub struct IssueTokenResponse {
     pub client_id: String,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, FromRow)]
 pub struct PipeConfigs {
     pub configs: Vec<PipeConfig>,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, FromRow)]
 pub struct PipeConfig {
     /// Scheduler needs to maintain pipe processes:
     /// - start new pipes
@@ -178,6 +179,8 @@ pub struct PipeConfig {
     ///
     /// To do that - each pipe config needs to be uniquely identified, so here is i64 integer to
     /// help with that. Signed due to Sqlite backed storage
+    #[serde(default)]
+    #[sqlx(try_from = "i64")]
     pub id: u64,
 
     /// # Example of config
@@ -199,7 +202,15 @@ pub struct PipeConfig {
     ///         ]
     /// }]}
     /// ```
+    #[sqlx(rename = "raw_config")]
     pub pipe: serde_json::Value,
+    #[sqlx(try_from = "i64")]
+    #[serde(default = "default_id")]
+    pub workspace_id: u64,
+}
+
+fn default_id() -> u64 {
+    1
 }
 
 impl TryInto<DynamicPipeConfig> for PipeConfig {

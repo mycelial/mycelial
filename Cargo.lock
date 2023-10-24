@@ -642,6 +642,7 @@ dependencies = [
  "runtime",
  "serde",
  "serde_json",
+ "sqlx",
 ]
 
 [[package]]
