@@ -3,7 +3,7 @@
 ## Pipeline Specification (workflows)
 
 <details>
-  <summary><code>POST</code> <code><b>/api/pipe</b></code> <code>Creates or updates config</code></summary>
+  <summary><code>POST</code> <code><b>/api/pipe</b></code> <code>Creates a pipe config</code></summary>
 
 ### Headers
 > | name      |  type     | data type               | description                                                          |
@@ -25,7 +25,6 @@
 {
   "configs": [
     {
-      "id": 0,
       "pipe": [
         {
           "name": "sqlite_physical_replication_source",
@@ -59,7 +58,6 @@
 {
   "configs": [
     {
-      "id": 0,
       "pipe": [
         {
           "name": "mycelial_server_source",
@@ -99,6 +97,106 @@
 
 > ```bash
 >  curl -X POST 'http://{server}:8080/api/pipe' -H 'Authorization: Basic {base 64 token:}' --data @post.json'
+> ```
+
+</details>
+
+
+<details>
+  <summary><code>PUT</code> <code><b>/api/pipe/{id}</b></code> <code>Updates a pipe config</code></summary>
+
+### Headers
+> | name      |  type     | data type               | description                                                          |
+> |-----------|-----------|-------------------------|-----------------------------------------------------------------------|
+> | Authorization|  required | string               | Base64 encoded token  |
+
+### Parameters
+
+> | name      |  type     | data type               | description                                                           |
+> |-----------|-----------|-------------------------|-----------------------------------------------------------------------|
+> | None      |  required | object/payload (JSON)   | N/A  |
+
+#### Payloads
+
+<details>
+  <summary>Mycelite Source</summary>
+
+```json
+{
+  "configs": [
+    {
+      "pipe": [
+        {
+          "name": "sqlite_physical_replication_source",
+          "label": "sqlite_physical_replication_source node",
+          "client": "{client name}",
+          "type": "sqlite_physical_replication",
+          "display_name": "{display name}",
+          "journal_path": "{path and filename of source journal"
+        },
+        {
+          "name": "mycelial_server_destination",
+          "label": "mycelial_server node",
+          "type": "mycelial_server",
+          "display_name": "Mycelial Server",
+          "endpoint": "http://{host or ip}:8080/ingestion",
+          "token": "{security token}",
+          "topic": "{unique topic id}"
+        }
+      ]
+    }
+  ]
+}
+```
+
+</details>
+
+<details>
+  <summary>Mycelite Destination</summary>
+
+```json
+{
+  "configs": [
+    {
+      "pipe": [
+        {
+          "name": "mycelial_server_source",
+          "label": "mycelial_server node",
+          "type": "mycelial_server",
+          "display_name": "Mycelial Server",
+          "endpoint": "http://{host or ip}:8080/ingestion",
+          "token": "token",
+          "topic": "{topic id}"
+        },
+        {
+          "name": "sqlite_physical_replication_destination",
+          "label": "sqlite_physical_replication_destination node",
+          "client": "dev",
+          "type": "sqlite_physical_replication",
+          "display_name": "{display name}",
+          "journal_path": "{path and filename of destination journal}",
+          "database_path": "{path and filename of destination database"
+        }
+      ]
+    }
+  ]
+}
+```
+
+</details>
+
+
+### Responses
+
+> | http code     | content-type                      | response                                                            |
+> |---------------|-----------------------------------|---------------------------------------------------------------------|
+> | `200`         | `application/json`                | `Configuration created successfully`                                |
+> | `400`         | `text/plain;charset=UTF-8`                |                             |
+
+### Example cURL
+
+> ```bash
+>  curl -X POST 'http://{server}:8080/api/pipe/1' -H 'Authorization: Basic {base 64 token:}' --data @post.json'
 > ```
 
 </details>
