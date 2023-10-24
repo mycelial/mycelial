@@ -532,9 +532,6 @@ function Flow() {
   );
 
   const handleSave = useCallback(async () => {
-    let new_configs = [];
-    let configs = [];
-
     if (reactFlowInstance === null) {
       return;
     }
@@ -578,9 +575,8 @@ function Flow() {
           console.error("Error:", error);
         }
       } else {
-        let id = 0;
         let payload = {
-          configs: [{id: 0, pipe: pipe}]
+          configs: [{pipe: pipe}]
         }
         const response = await fetch("/api/pipe", {
           method: "POST",
@@ -592,7 +588,7 @@ function Flow() {
         });
 
         const result = await response.json();
-        id = result[0].id;
+        const id = result[0].id;
 
         rf.setEdges((eds) => {
           return eds.map((ed) => {
