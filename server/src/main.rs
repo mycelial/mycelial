@@ -170,8 +170,11 @@ async fn get_workspace(
 // updates a workspace. updating what workspace a pipe is part of is done by updating the pipe config
 async fn update_workspace(
     State(app): State<Arc<App>>,
-    Json(workspace): Json<Workspace>,
+    axum::extract::Path(id): axum::extract::Path<u64>,
+    Json(mut workspace): Json<Workspace>,
 ) -> Result<impl IntoResponse, error::Error> {
+    let id: i64 = id.try_into().unwrap();
+    workspace.id = id;
     app.update_workspace(workspace).await.map(Json)
 }
 
