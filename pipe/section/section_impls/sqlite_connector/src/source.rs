@@ -249,7 +249,13 @@ impl Sqlite {
             let mut cols = Vec::with_capacity(columns.len());
             let mut col_types = Vec::with_capacity(columns.len());
             for column in columns {
-                cols.push(column.col_name.to_string());
+                let col_name = column
+                    .col_name
+                    .to_string()
+                    .trim_end_matches('"')
+                    .trim_start_matches('"')
+                    .to_string();
+                cols.push(col_name);
                 let ty = match column.col_type {
                     Some(ref ty) => ty,
                     None => Err("untyped column")?,
