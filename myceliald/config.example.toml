@@ -15,10 +15,10 @@ endpoint = "http://localhost:8080" # Default Sqlite Physical Replication Server 
 token = "token"                    # Default token for Sqlite Physical Replication Server and Clietns
 
 # This sqlite connector is a work in progress alpha version. Uncomment to use.
-[[sources]]
-type = "sqlite_connector"
-display_name = "Sqlite Source"
-path = "test.sqlite"
+# [[sources]]
+# type = "sqlite_connector"
+# display_name = "Sqlite Source"
+# path = "test.sqlite"
 
 # SOURCES
 # Define all data sources (data stores and directory paths)
@@ -50,11 +50,11 @@ type = "hello_world"
 display_name = "Hello World Dest"
 
 # This sqlite connector is a work in progress alpha version. Uncomment to use.
-[[destinations]]
-type = "sqlite_connector"
-display_name = "Sqlite Destination"
-path = "/tmp/test_dest.sqlite"
-tables = "*"
+# [[destinations]]
+# type = "sqlite_connector"
+# display_name = "Sqlite Destination"
+# path = "/tmp/test_dest.sqlite"
+# tables = "*"
 
 # This kafka connector is a work in progress alpha version. Uncomment to use.
 # [[destinations]]
