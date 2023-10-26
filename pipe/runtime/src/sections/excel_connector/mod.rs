@@ -108,13 +108,7 @@ impl TryInto<RecordBatch> for &ExcelPayload {
                         let arrow_column = column
                             .iter()
                             .map(|col| match col {
-                                Value::DateTime(d) => {
-                                    // here, make a datetime
-                                    // Some(*d)
-                                    let date = TimestampSecondType::make_value(*d);
-                                    // let date = Timestamp::new();
-                                    date
-                                }
+                                Value::DateTime(d) => TimestampSecondType::make_value(*d),
                                 Value::Null => None,
                                 _ => unreachable!(),
                             })
