@@ -43,6 +43,7 @@ import {
   PostgresSourceNode,
   HelloWorldSourceNode,
   HelloWorldDestinationNode,
+  ExcelSourceNode,
 } from "@/components/nodes";
 
 import { Grid, Group } from "@/components/layout";
@@ -171,6 +172,7 @@ const nodeTypes = {
   custom: CustomNode,
   sqlite_connector_source: SqliteConnectorSourceNode,
   sqlite_connector_destination: SqliteConnectorDestinationNode,
+  excel_connector_source: ExcelSourceNode,
   sqlite_physical_replication_source: SqlitePhysicalReplicationSourceNode,
   sqlite_physical_replication_destination: SqlitePhysicalReplicationDestinationNode,
   mycelial_server: MycelialServerNode,
