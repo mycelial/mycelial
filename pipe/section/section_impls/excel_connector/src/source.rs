@@ -10,6 +10,7 @@ use tokio_stream::wrappers::ReceiverStream;
 use calamine::{open_workbook_auto, DataType, Reader, Rows};
 use std::path::Path;
 use std::pin::{pin, Pin};
+use std::time::Duration;
 use std::{future::Future, sync::Arc};
 
 fn err_msg(msg: impl Into<String>) -> StdError {
@@ -104,9 +105,6 @@ impl Excel {
     {
         // TOOD: get this from config//self
         let path = &self.path;
-        let mut workbook: calamine::Sheets<std::io::BufReader<std::fs::File>> =
-            open_workbook_auto(path).expect("Cannot open file");
-
         let (tx, rx) = tokio::sync::mpsc::channel(4);
         tx.send(InnerEvent::NewChange).await?;
 
@@ -119,11 +117,6 @@ impl Excel {
             .retrieve_state()
             .await?
             .unwrap_or(<<SectionChan as SectionChannel>::State>::new());
-
-        let mut sheets = self
-            .init_schema::<SectionChan>(&mut workbook, &state)
-            .await?;
-
         let rx = ReceiverStream::new(rx);
         let mut rx = pin!(rx.fuse());
 
@@ -150,6 +143,13 @@ impl Excel {
                         Some(_) => {},
                         None => Err("excel file watched exited")?
                     };
+                    let mut workbook: calamine::Sheets<std::io::BufReader<std::fs::File>> =
+                        open_workbook_auto(path).expect("Cannot open file");
+
+                    let mut sheets = self
+                        .init_schema::<SectionChan>(&mut workbook, &state)
+                        .await?;
+
                     for sheet in sheets.iter_mut() {
                         if let Some(Ok(range)) = workbook.worksheet_range(&sheet.name) {
                             let mut rows = range.rows();
@@ -251,7 +251,6 @@ impl Excel {
                 sheets.push(sheet);
             }
         }
-
         Ok(sheets)
     }
 
@@ -261,13 +260,16 @@ impl Excel {
         tx: Sender<InnerEvent>,
     ) -> notify::Result<impl Watcher> {
         // initiate first check on startup
-        let mut watcher = notify::recommended_watcher(move |res: Result<Event, _>| match res {
-            Ok(event) if event.kind.is_modify() || event.kind.is_create() => {
-                tx.blocking_send(InnerEvent::NewChange).ok();
-            }
-            Ok(_) => (),
-            Err(_e) => (),
-        })?;
+        let mut watcher = notify::PollWatcher::new(
+            move |res: Result<Event, _>| match res {
+                Ok(event) if event.kind.is_modify() || event.kind.is_create() => {
+                    tx.blocking_send(InnerEvent::NewChange).ok();
+                }
+                Ok(_) => (),
+                Err(_e) => (),
+            },
+            notify::Config::default().with_poll_interval(Duration::from_secs(1)),
+        )?;
         // watch excel file
         let _ = &[Path::new(excel_path)]
             .into_iter()
