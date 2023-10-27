@@ -373,6 +373,105 @@ const SqliteConnectorDestinationNode: FC<NodeProps> = memo(({ id, data, selected
   );
 });
 
+const ExcelSourceNode: FC<NodeProps> = memo(({ id, data, selected }) => {
+  const instance = useReactFlow();
+  const { clients } = useContext(ClientContext) as ClientContextType;
+
+  let initialValues = useMemo(() => {
+    return {
+      path: data.path ? data.path : "/tmp/test.xlsx",
+      client: data.client ? data.client : "-",
+      sheets: data.sheets ? data.sheets : "*",
+    };
+  }, []);
+
+  const handleChange = useCallback((name: string, value: string) => {
+    instance.setNodes((nodes) =>
+      nodes.map((node) => {
+        if (node.id === id) {
+          node.data = {
+            ...node.data,
+            [name]: value,
+          };
+        }
+
+        return node;
+      }),
+    );
+  }, []);
+
+  useEffect(() => {
+    handleChange("journal_path", initialValues.path);
+    handleChange("sheets", initialValues.sheets);
+    handleChange("client", initialValues.client);
+  }, []);
+
+  let classNames = `${styles.customNode} `;
+  if (selected) {
+    classNames = classNames + `${styles.selected}`;
+  }
+
+  const removeNode = useCallback((id: string) => {
+    const node = instance.getNode(id);
+    if (node === undefined) {
+      return;
+    }
+    instance.deleteElements({
+      edges: getConnectedEdges([node], []),
+      nodes: [node],
+    });
+  }, []);
+
+  return (
+    <div className={classNames}>
+      <div className=" grid grid-cols-1 gap-x-6 gap-y-2">
+        <h2 className="text-slate-400 font-normal">Excel Source</h2>
+        <button
+          onClick={() => {
+            if (confirm("Are you sure you want to delete this node?")) {
+              removeNode(id);
+            }
+          }}
+          type="button"
+          className="absolute right-1 top-1 rounded bg-red-200 text-white shadow-sm hover:bg-red-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-800"
+          title="delete"
+        >
+          <XMarkIcon className="h-5 w-5" aria-hidden="true" />
+        </button>
+        <TextInput
+          name="path"
+          label="Excel Path"
+          placeholder={initialValues.path}
+          defaultValue={initialValues.path}
+          onChange={(event) =>
+            handleChange("path", event.currentTarget.value)
+          }
+        />
+        <TextInput
+          name="sheets"
+          label="Sheets"
+          placeholder={initialValues.sheets}
+          defaultValue={initialValues.sheets}
+          onChange={(event) =>
+            handleChange("sheets", event.currentTarget.value)
+          }
+        />
+        <Select
+          name="client"
+          label="Client"
+          placeholder="Pick one"
+          defaultValue={initialValues.client}
+          options={(clients || []).map((c) => c.id)}
+          onChange={(value) => {
+            handleChange("client", value || "");
+          }}
+        />
+        <Handle type="source" position={Position.Right} id={id} />
+      </div>
+    </div>
+  );
+});
+
 const SqlitePhysicalReplicationSourceNode: FC<NodeProps> = memo(({ id, data, selected }) => {
   const instance = useReactFlow();
   const { clients } = useContext(ClientContext) as ClientContextType;
@@ -1315,6 +1414,7 @@ export {
   SqliteConnectorSourceNode,
   SqliteConnectorDestinationNode,
   SqlitePhysicalReplicationSourceNode,
+  ExcelSourceNode,
   SqlitePhysicalReplicationDestinationNode,
   MycelialServerNode,
   KafkaSourceNode,

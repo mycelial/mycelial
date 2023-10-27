@@ -32,6 +32,7 @@ fn to_coltype(datatype: &DataType) -> ColumnType {
         DataType::Binary | DataType::LargeBinary => ColumnType::Blob,
         DataType::Float16 | DataType::Float32 | DataType::Float64 => ColumnType::Real,
         DataType::Utf8 | DataType::LargeUtf8 => ColumnType::Text,
+        DataType::Boolean => ColumnType::Bool,
         _ => unimplemented!("Arrow DataType '{}'", datatype),
     }
 }
@@ -183,6 +184,11 @@ impl From<&RecordBatch> for SqlitePayloadNewType {
                         .as_string::<i32>()
                         .into_iter()
                         .map(|x| x.map(|x| Value::Text(x.into())).unwrap_or(Value::Null))
+                        .collect(),
+                    DataType::Boolean => array
+                        .as_boolean()
+                        .into_iter()
+                        .map(|x| x.map(Value::Bool).unwrap_or(Value::Null))
                         .collect(),
                     dt => unimplemented!("unimplemented {}", dt),
                 }
