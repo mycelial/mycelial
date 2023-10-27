@@ -45,7 +45,7 @@ use std::{
 pub struct Sqlite {
     path: String,
     tables: Vec<String>,
-    once: bool
+    once: bool,
 }
 
 impl TryFrom<(ColumnType, usize, &SqliteRow)> for Value {
@@ -102,7 +102,7 @@ impl Sqlite {
         Self {
             path: path.into(),
             tables: tables.iter().map(|&x| x.into()).collect(),
-            once
+            once,
         }
     }
 
@@ -249,7 +249,14 @@ impl Sqlite {
             let mut cols = Vec::with_capacity(columns.len());
             let mut col_types = Vec::with_capacity(columns.len());
             for column in columns {
-                cols.push(column.col_name.to_string());
+                let colname = column
+                    .col_name
+                    .to_string()
+                    .trim_end_matches('"')
+                    .trim_start_matches('"')
+                    .to_string();
+
+                cols.push(colname);
                 let ty = match column.col_type {
                     Some(ref ty) => ty,
                     None => Err("untyped column")?,

@@ -42,12 +42,14 @@ impl Bacalhau {
     pub async fn submit_job(
         &self,
         id: impl Into<String>,
+        key: impl Into<String>,
         msg: impl Into<String>,
     ) -> Result<(), StdError> {
         let _json_response: serde_json::Value = reqwest::Client::new()
             .post(self.endpoint.clone())
             .json(&serde_json::json!({
                 "id": id.into(),
+                "key": key.into(),
                 "message": msg.into(),
             }))
             .send()
@@ -87,7 +89,7 @@ impl Bacalhau {
 
                     let payload = &msg.payload;
                     let origin = &msg.origin;
-                    self.submit_job(&payload.id, &payload.message).await?;
+                    self.submit_job(&payload.id, &payload.key, &payload.message).await?;
 
                     section_chan.log(&format!("Message from '{:?}' received! {:?}", origin, payload)).await?;
                     output.send(msg).await?;

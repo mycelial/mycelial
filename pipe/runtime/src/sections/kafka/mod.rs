@@ -21,15 +21,7 @@ impl From<&RecordBatch> for OwnedMessageNewType {
         let buf = writer.into_inner();
 
         // TODO: Basic message works for now, but need to figure ou tif we need to think about the values in any field other than `payload`
-        let payload = OwnedMessage::new(
-            Some(buf),
-            None,
-            "".into(),
-            Timestamp::now(),
-            0,
-            0,
-            None,
-        );
+        let payload = OwnedMessage::new(Some(buf), None, "".into(), Timestamp::now(), 0, 0, None);
         OwnedMessageNewType(payload)
     }
 }
