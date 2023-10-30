@@ -45,20 +45,13 @@ fn setup_registry<S: SectionChannel>() -> Registry<S> {
             "hello_world_destination",
             hello_world::destination::constructor,
         ),
-<<<<<<< HEAD
-        (
-            "kafka_destination",
-            kafka::destination::constructor,
-        ),
         (
             "excel_connector_source",
             excel_connector::source::constructor,
         ),
-=======
         ("kafka_destination", kafka::destination::constructor),
         ("snowflake_source", snowflake::source::constructor),
         ("snowflake_destination", snowflake::destination::constructor),
->>>>>>> dc6bfee (Fixes)
     ];
     arr.iter()
         .fold(Registry::new(), |mut acc, &(section_name, constructor)| {
