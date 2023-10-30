@@ -2,16 +2,14 @@
 //!
 //! Pipe scheduling and peristance
 
-use crate::storage::{SqliteStorageHandle, SqliteState};
+use crate::storage::{SqliteState, SqliteStorageHandle};
 use pipe::{
     registry::{Constructor, Registry},
     scheduler::{Scheduler, SchedulerHandle},
-    sections::hello_world,
-    sections::mycelial_server,
-    sections::sqlite_connector,
-    sections::sqlite_physical_replication,
-    sections::kafka,
-    sections::excel_connector,
+    sections::{
+        hello_world, kafka, mycelial_server, snowflake, sqlite_connector,
+        sqlite_physical_replication, excel_connector
+    },
 };
 use section::SectionChannel;
 
@@ -47,6 +45,7 @@ fn setup_registry<S: SectionChannel>() -> Registry<S> {
             "hello_world_destination",
             hello_world::destination::constructor,
         ),
+<<<<<<< HEAD
         (
             "kafka_destination",
             kafka::destination::constructor,
@@ -55,6 +54,11 @@ fn setup_registry<S: SectionChannel>() -> Registry<S> {
             "excel_connector_source",
             excel_connector::source::constructor,
         ),
+=======
+        ("kafka_destination", kafka::destination::constructor),
+        ("snowflake_source", snowflake::source::constructor),
+        ("snowflake_destination", snowflake::destination::constructor),
+>>>>>>> dc6bfee (Fixes)
     ];
     arr.iter()
         .fold(Registry::new(), |mut acc, &(section_name, constructor)| {
@@ -64,5 +68,6 @@ fn setup_registry<S: SectionChannel>() -> Registry<S> {
 }
 
 pub fn new(storage: SqliteStorageHandle) -> SchedulerHandle {
-    Scheduler::<_, pipe::command_channel::RootChannel<SqliteState>>::new(setup_registry(), storage).spawn()
+    Scheduler::<_, pipe::command_channel::RootChannel<SqliteState>>::new(setup_registry(), storage)
+        .spawn()
 }

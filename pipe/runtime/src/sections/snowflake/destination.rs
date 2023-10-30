@@ -228,11 +228,11 @@ pub fn constructor<S: SectionChannel>(config: &Map) -> Result<Box<dyn DynSection
         .ok_or("schema required")?
         .as_str()
         .ok_or("'schema' should be a string")?;
-    let query = config
-        .get("query")
-        .ok_or("query required")?
+    let table = config
+        .get("table")
+        .ok_or("table required")?
         .as_str()
-        .ok_or("'query' should be a string")?;
+        .ok_or("'table' should be a string")?;
     Ok(Box::new(SnowflakeDestination::new(
             username,
             password,
@@ -241,7 +241,7 @@ pub fn constructor<S: SectionChannel>(config: &Map) -> Result<Box<dyn DynSection
             warehouse,
             database,
             schema,
-            query,
+            table,
         )
     ))
 }

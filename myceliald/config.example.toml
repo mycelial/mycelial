@@ -35,6 +35,20 @@ interval_milis = 5000
 message = "Hello World"
 display_name = "Hello World Src"
 
+[[sources]]
+type = "snowflake"
+display_name = "snowflake query"
+username = "username"
+password = "password"
+role = "role"
+account_identifier = "account_identifier"
+warehouse = "warehouse"
+database = "database"
+schema = "schema"
+query = "query"
+delay = 5
+
+
 # DESTINATIONS
 # Define all data DESTINATIONS (data stores and directory paths)
 # accessible by the Node that should be exposed as DESTINATIONS to the Sqlite Physical Replication Server
@@ -50,11 +64,10 @@ type = "hello_world"
 display_name = "Hello World Dest"
 
 # This sqlite connector is a work in progress alpha version. Uncomment to use.
-# [[destinations]]
-# type = "sqlite_connector"
-# display_name = "Sqlite Destination"
-# path = "/tmp/test_dest.sqlite"
-# tables = "*"
+[[destinations]]
+type = "sqlite_connector"
+display_name = "Sqlite Destination"
+path = "test_dest.sqlite"
 
 # This kafka connector is a work in progress alpha version. Uncomment to use.
 # [[destinations]]
@@ -62,3 +75,15 @@ display_name = "Hello World Dest"
 # display_name = "Kafka Destination"
 # brokers = "localhost:9092"
 # topic = "test"
+
+[[destinations]]
+type = "snowflake"
+display_name = "snowflake destination"
+username = "username"
+password = "password"
+role = "role"
+account_identifier = "account_identifier"
+warehouse = "warehouse"
+database = "database"
+schema = "schema"
+table = "table"

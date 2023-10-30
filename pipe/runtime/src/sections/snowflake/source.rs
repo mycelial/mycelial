@@ -157,7 +157,7 @@ pub fn constructor<S: SectionChannel>(config: &Map) -> Result<Box<dyn DynSection
         .ok_or("'query' should be a string")?;
     let delay = config
         .get("delay")
-        .ok_or("hello world section requires 'delay'")?
+        .ok_or("snowflake source requires 'delay'")?
         .as_int()
         .ok_or("'delay' should be an int")?;
     Ok(Box::new(SnowflakeSource::new(

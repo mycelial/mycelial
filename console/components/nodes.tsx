@@ -763,16 +763,16 @@ const SnowflakeDestinationNode: FC<NodeProps> = memo(
 
     let initialValues = useMemo(() => {
       return {
-        username: data.username ? data.username : "SVCMYCELIAL",
-        password: data.password ? data.password : "",
-        role: data.role ? data.role : "MYCELIAL",
+        username: data.username ? data.username : "username",
+        password: data.password ? data.password : "password",
+        role: data.role ? data.role : "role",
         account_identifier: data.account_identifier
           ? data.account_identifier
-          : "UW17194-STREAMLITPR",
-        warehouse: data.warehouse ? data.warehouse : "MYCELIAL",
-        database: data.database ? data.database : "MYCELIAL",
-        schema: data.schema ? data.schema : "PIPE",
-        table: data.table ? data.table : "TEST_DESTINATION",
+          : "account_identifier",
+        warehouse: data.warehouse ? data.warehouse : "warehouse",
+        database: data.database ? data.database : "database",
+        schema: data.schema ? data.schema : "schema",
+        table: data.table ? data.table : "table",
       };
     }, []);
 
@@ -917,16 +917,17 @@ const SnowflakeSourceNode: FC<NodeProps> = memo(({ id, data, selected }) => {
 
   let initialValues = useMemo(() => {
     return {
-      username: data.username ? data.username : "SVCMYCELIAL",
-      password: data.password ? data.password : "",
-      role: data.role ? data.role : "MYCELIAL",
+      username: data.username ? data.username : "username",
+      password: data.password ? data.password : "password",
+      role: data.role ? data.role : "role",
       account_identifier: data.account_identifier
         ? data.account_identifier
-        : "UW17194-STREAMLITPR",
-      warehouse: data.warehouse ? data.warehouse : "MYCELIAL",
-      database: data.database ? data.database : "MYCELIAL",
-      schema: data.schema ? data.schema : "GITHUB",
-      query: data.query ? data.query : "SELECT * FROM COMMIT",
+        : "account_identifier",
+      warehouse: data.warehouse ? data.warehouse : "warehouse",
+      database: data.database ? data.database : "database",
+      schema: data.schema ? data.schema : "schema",
+      query: data.query ? data.query : "select 1",
+      delay: data.delay ? data.delay : 5,
       client: data.client ? data.client : "-",
     };
   }, []);
@@ -956,6 +957,7 @@ const SnowflakeSourceNode: FC<NodeProps> = memo(({ id, data, selected }) => {
     handleChange("schema", initialValues.schema);
     handleChange("query", initialValues.query);
     handleChange("client", initialValues.client);
+    handleChange("delay", initialValues.delay);
   }, []);
 
   let classNames = `${styles.customNode} `;
@@ -1054,6 +1056,13 @@ const SnowflakeSourceNode: FC<NodeProps> = memo(({ id, data, selected }) => {
           placeholder={initialValues.query}
           defaultValue={initialValues.query}
           onChange={(event) => handleChange("query", event.currentTarget.value)}
+        />
+        <TextInput
+          name="delay"
+          label="delay in seconds"
+          placeholder={initialValues.delay}
+          defaultValue={initialValues.delay}
+          onChange={(event) => handleChange("delay", event.currentTarget.value)}
         />
         <Select
           name="client"
