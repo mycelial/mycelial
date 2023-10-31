@@ -13,7 +13,7 @@
 
 ### Parameters
 
-> | name | type     | data type             | descr openiption |
+> | name | type     | data type             | description |
 > | ---- | -------- | --------------------- | ---------------- |
 > | None | required | object/payload (JSON) | N/A              |
 
