@@ -62,9 +62,9 @@ jobs:
             os: macos-12
             target: x86_64-apple-darwin
 
-          - build: macos
-            os: macos-12
-            target: aarch64-apple-darwin
+        # - build: macos
+        #   os: macos-12
+        #   target: aarch64-apple-darwin
 
           - build: windows
             os: windows-2022
@@ -88,7 +88,6 @@ jobs:
       - name: install packages (macos)
         if: matrix.build == 'macos'
         run: |
-          softwareupdate --install-rosetta
           brew install openssl
       
       - name: build openssl 
