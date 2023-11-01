@@ -117,7 +117,6 @@ pub struct HelloWorldConfig {
     pub common_attrs: CommonAttrs,
 }
 
-
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct KafkaDestinationConfig {
     #[serde(flatten)]

@@ -45,7 +45,7 @@ use std::{
 pub struct Sqlite {
     path: String,
     tables: Vec<String>,
-    once: bool
+    once: bool,
 }
 
 impl TryFrom<(ColumnType, usize, &SqliteRow)> for Value {
@@ -102,7 +102,7 @@ impl Sqlite {
         Self {
             path: path.into(),
             tables: tables.iter().map(|&x| x.into()).collect(),
-            once
+            once,
         }
     }
 

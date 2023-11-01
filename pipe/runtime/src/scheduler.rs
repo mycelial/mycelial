@@ -3,11 +3,11 @@
 use crate::storage::Storage;
 use crate::{config::Config, pipe::Pipe, registry::Registry, types::SectionError};
 
-use section::{Command, ReplyTo, RootChannel, Section, SectionRequest, SectionChannel};
-use tokio::sync::mpsc::WeakSender;
+use section::{Command, ReplyTo, RootChannel, Section, SectionChannel, SectionRequest};
 use std::collections::HashMap;
 use std::time::Duration;
 use stub::Stub;
+use tokio::sync::mpsc::WeakSender;
 use tokio::task::JoinHandle;
 use tokio::{
     sync::mpsc::{channel, Receiver, Sender},
@@ -67,7 +67,11 @@ pub enum ScheduleResult {
 impl<T, R> Scheduler<T, R>
 where
     R: RootChannel,
-    T: Storage<<R::SectionChannel as SectionChannel>::State> + std::fmt::Debug + Clone + Send + 'static,
+    T: Storage<<R::SectionChannel as SectionChannel>::State>
+        + std::fmt::Debug
+        + Clone
+        + Send
+        + 'static,
 {
     pub fn new(registry: Registry<R::SectionChannel>, storage: T) -> Self {
         Self {
@@ -86,7 +90,11 @@ where
         SchedulerHandle { tx }
     }
 
-    async fn enter_loop(&mut self, rx: &mut Receiver<Message>, weak_tx: WeakSender<Message>) -> Result<(), SectionError> {
+    async fn enter_loop(
+        &mut self,
+        rx: &mut Receiver<Message>,
+        weak_tx: WeakSender<Message>,
+    ) -> Result<(), SectionError> {
         loop {
             tokio::select! {
                 message = rx.recv() => {
@@ -202,7 +210,7 @@ where
         tokio::spawn(async move {
             tokio::time::sleep(Duration::from_secs(3)).await;
             if let Some(tx) = weak_tx.upgrade() {
-                tx.send(Message::Reschedule{ id }).await.ok();
+                tx.send(Message::Reschedule { id }).await.ok();
             }
         });
     }

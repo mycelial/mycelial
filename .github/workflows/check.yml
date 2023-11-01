@@ -1,0 +1,136 @@
+name: Check
+
+on:
+  push
+
+jobs:
+# lints:
+#   name: Rust Lints
+#   runs-on: ubuntu-latest
+#   steps:
+#     - uses: actions/checkout@v3
+#     - uses: actions-rs/toolchain@v1
+#       with:
+#         profile: minimal
+#         toolchain: stable
+#         override: true
+#         components: rustfmt, clippy
+
+#     # FIXME: hack to allow server to compile
+#     - name: out folder
+#       run: mkdir -p console/out/
+
+#     - name: cargo fmt
+#       uses: actions-rs/cargo@v1
+#       with:
+#         command: fmt
+#         args: --all -- --check
+
+#     - name: cargo clippy
+#       uses: actions-rs/cargo@v1
+#       with:
+#         command: clippy
+#         args: -- -D warnings
+
+  tests:
+    runs-on: ${{ matrix.os }}
+    env:
+      CARGO_TARGET_ARM_UNKNOWN_LINUX_GNUEABIHF_LINKER: arm-linux-gnueabihf-gcc
+      CARGO_TARGET_ARM_UNKNOWN_LINUX_GNUEABIHF_RUSTFLAGS: "-latomic"
+      CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
+      OPENSSL_VERSION: 1.1.1w
+      OPENSSL_PREFIX: /tmp/openssl/
+
+    strategy:
+      matrix:
+        include:
+          - build: linux
+            os: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+
+         #- build: linux
+         #  os: ubuntu-20.04 ## older ubuntu to avoid messing with glibc version
+         #  target: aarch64-unknown-linux-gnu
+
+         #- build: linux
+         #  os: ubuntu-20.04 ## older ubuntu to avoid messing with glibc version
+         #  target: arm-unknown-linux-gnueabihf
+
+          - build: macos
+            os: macos-12
+            target: x86_64-apple-darwin
+
+          - build: macos
+            os: macos-12
+            target: aarch64-apple-darwin
+
+          - build: windows
+            os: windows-2022
+            target: x86_64-pc-windows-msvc
+
+         #- build: windows
+         #  os: windows-2022
+         #  target: x86_64-pc-windows-gnu
+
+
+    steps:
+      - name: checkout
+        uses: actions/checkout@v3
+
+      - name: install packages (linux)
+        if: matrix.build == 'linux'
+        run: |
+          sudo apt update
+          sudo apt install pkg-config gcc-arm-linux-gnueabihf gcc-aarch64-linux-gnu musl-tools g++-arm-linux-gnueabihf g++-aarch64-linux-gnu libssl-dev wget -qy
+
+      - name: install packages (macos)
+        if: matrix.build == 'macos'
+        run: |
+          brew install openssl
+      
+      - name: build openssl 
+        if: matrix.build == 'linux' && matrix.target != 'x86_64-unknown-linux-gnu'
+        run: |
+            export CC_PREFIX=`echo ${{ matrix.target }} | sed 's/unknown-//g'`
+            mkdir -p $OPENSSL_PREFIX/$OPENSSL_VERSION/
+            cd ${OPENSSL_PREFIX}
+            wget -nc https://www.openssl.org/source/openssl-$OPENSSL_VERSION.tar.gz
+            tar xvf openssl-$OPENSSL_VERSION.tar.gz
+            cd openssl-${OPENSSL_VERSION}
+            export CC="$CC_PREFIX-gcc"
+            export CXX="$CC_PREFIX-g++"
+            export AS="$CC_PREFIX-as"
+            export AR="$CC_PREFIX-ar"
+            export NM="$CC_PREFIX-nm"
+            export RANLIB="$CC_PREFIX-ranlib"
+            export LD="$CC_PREFIX-ld"
+            export STRIP="$CC_PREFIX-strip"
+            ./Configure linux-generic32 shared \
+               --prefix=$OPENSSL_PREFIX/$OPENSSL_VERSION/${{ matrix.target }} \
+               --openssldir=$OPENSSL_PREFIX/$OPENSSL_VERSION/${{ matrix.target }}
+            make
+            make install
+            echo "OPENSSL_INCLUDE_DIR=$OPENSSL_PREFIX/$OPENSSL_VERSION/${{matrix.target}}/include" >> $GITHUB_ENV
+            echo "OPENSSL_LIB_DIR=$OPENSSL_PREFIX/$OPENSSL_VERSION/${{matrix.target}}/lib" >> $GITHUB_ENV
+            echo "OPENSSL_STATIC=1" >> $GITHUB_ENV
+
+
+      - name: install packages (windows)
+        if: matrix.build == 'windows'
+        run: |
+          choco install cmake.portable
+
+      - name: setup rust
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: stable
+          target: ${{ matrix.target }}
+
+      # FIXME: hacks for embedded assets
+      - name: create node out dir
+        run: mkdir -p console/out/
+
+      - name: run tests
+        run: |
+          cargo test --target ${{ matrix.target }}
+          cargo test --release --target ${{ matrix.target }}

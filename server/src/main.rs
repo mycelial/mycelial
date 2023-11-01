@@ -522,13 +522,11 @@ impl Database {
 
     async fn create_workspace(&self, mut workspace: Workspace) -> Result<Workspace, error::Error> {
         let mut connection = self.connection.lock().await;
-        let id = sqlx::query("INSERT INTO workspaces (name) VALUES (?)")
+        workspace.id = sqlx::query("INSERT INTO workspaces (name) VALUES (?)")
             .bind(workspace.name.clone())
             .execute(&mut *connection)
             .await?
             .last_insert_rowid();
-        let id = id.try_into().unwrap();
-        workspace.id = id;
         Ok(workspace)
     }
 
@@ -694,7 +692,7 @@ async fn assets(uri: Uri) -> Result<impl IntoResponse, StatusCode> {
         "/" => "index.html",
         p => p,
     }
-    .trim_start_matches("/");
+    .trim_start_matches('/');
     match Assets::get(path) {
         Some(file) => {
             let mime = mime_guess::from_path(path).first_or_octet_stream();

@@ -114,9 +114,7 @@ async fn source_stream() -> Result<(), StdError> {
         }
     );
 
-    sqlx::query(
-        "INSERT OR IGNORE INTO test VALUES(5, 'foo', 'foo', 1)",
-    )
+    sqlx::query("INSERT OR IGNORE INTO test VALUES(5, 'foo', 'foo', 1)")
         .execute(&mut conn)
         .await
         .unwrap();
@@ -153,7 +151,6 @@ async fn source_stream() -> Result<(), StdError> {
     handle.abort();
     Ok(())
 }
-
 
 #[tokio::test]
 async fn source_once() -> Result<(), StdError> {
@@ -216,9 +213,7 @@ async fn source_once() -> Result<(), StdError> {
             offset: 4,
         }
     );
-    sqlx::query(
-        "INSERT OR IGNORE INTO test VALUES(5, 'foo', 'foo', 1)",
-    )
+    sqlx::query("INSERT OR IGNORE INTO test VALUES(5, 'foo', 'foo', 1)")
         .execute(&mut conn)
         .await
         .unwrap();

@@ -21,13 +21,14 @@ pub trait RootChannel: Send + Sync + 'static {
     // receive request from section
     async fn recv(
         &mut self,
-    ) -> Result<SectionRequest<
-                <Self::SectionChannel as SectionChannel>::State,
-                <Self::SectionChannel as SectionChannel>::ReplyRetrieveState,
-                <Self::SectionChannel as SectionChannel>::ReplyStoreState,
-            >,
-            Self::Error
-        >;
+    ) -> Result<
+        SectionRequest<
+            <Self::SectionChannel as SectionChannel>::State,
+            <Self::SectionChannel as SectionChannel>::ReplyRetrieveState,
+            <Self::SectionChannel as SectionChannel>::ReplyStoreState,
+        >,
+        Self::Error,
+    >;
 
     // send command to section by id
     async fn send(&mut self, section_id: u64, command: Command) -> Result<(), Self::Error>;
@@ -38,8 +39,8 @@ pub trait SectionChannel: Send + Sync + 'static {
     type Error: std::error::Error + Send + Sync + 'static;
     type State: State;
     type WeakChannel: WeakSectionChannel;
-    type ReplyRetrieveState: ReplyTo<With=Option<Self::State>>;
-    type ReplyStoreState: ReplyTo<With=()>;
+    type ReplyRetrieveState: ReplyTo<With = Option<Self::State>>;
+    type ReplyStoreState: ReplyTo<With = ()>;
 
     // ask runtime to retrieve previosly stored state
     async fn retrieve_state(&mut self) -> Result<Option<Self::State>, Self::Error>;
@@ -73,14 +74,15 @@ pub enum Command {
 }
 
 #[non_exhaustive]
-pub enum SectionRequest<S: State, Rs: ReplyTo<With=Option<S>>, Ss: ReplyTo<With=()> > {
+pub enum SectionRequest<S: State, Rs: ReplyTo<With = Option<S>>, Ss: ReplyTo<With = ()>> {
     RetrieveState { id: u64, reply_to: Rs },
     StoreState { id: u64, state: S, reply_to: Ss },
     Log { id: u64, message: String },
     Stopped { id: u64 },
 }
 
-impl<S: State, Rs: ReplyTo<With=Option<S>>, Ss: ReplyTo<With=()>> std::fmt::Debug for SectionRequest<S, Rs, Ss>
+impl<S: State, Rs: ReplyTo<With = Option<S>>, Ss: ReplyTo<With = ()>> std::fmt::Debug
+    for SectionRequest<S, Rs, Ss>
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -121,8 +123,7 @@ pub enum SectionRequestReplyError<E> {
     BadResponse(&'static str),
 }
 
-impl<S: State, Rs: ReplyTo<With=Option<S>>, Ss: ReplyTo<With=()>> SectionRequest<S, Rs, Ss>
-{
+impl<S: State, Rs: ReplyTo<With = Option<S>>, Ss: ReplyTo<With = ()>> SectionRequest<S, Rs, Ss> {
     pub async fn reply_retrieve_state(
         self,
         state: Option<S>,

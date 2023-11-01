@@ -128,7 +128,9 @@ where
 /// endpoint = "http://localhost:8080/ingestion"
 /// token = "token"
 /// ```
-pub fn constructor<S: SectionChannel>(config: &Map) -> Result<Box<dyn DynSection<S>>, SectionError> {
+pub fn constructor<S: SectionChannel>(
+    config: &Map,
+) -> Result<Box<dyn DynSection<S>>, SectionError> {
     let endpoint = config
         .get("endpoint")
         .ok_or("mycelial net section requires 'endpoint' url")?

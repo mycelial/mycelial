@@ -62,9 +62,7 @@ impl HelloWorld {
                 _ = interval.tick().fuse() => {
                     counter += 1;
                     let message = format!("{} {}", self.message, counter);
-                    let hello_world_payload: HelloWorldPayload = HelloWorldPayload {
-                        message: message,
-                    };
+                    let hello_world_payload = HelloWorldPayload { message };
                     let batch: RecordBatch = hello_world_payload.try_into()?;
                     let message = Message::new("hello world", batch, None);
                     section_chan.log(&format!("sending message: '{:?}'", message)).await?;

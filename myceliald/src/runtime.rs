@@ -7,8 +7,8 @@ use pipe::{
     registry::{Constructor, Registry},
     scheduler::{Scheduler, SchedulerHandle},
     sections::{
-        hello_world, kafka, mycelial_server, snowflake, sqlite_connector,
-        sqlite_physical_replication, excel_connector
+        excel_connector, hello_world, kafka, mycelial_server, snowflake, sqlite_connector,
+        sqlite_physical_replication,
     },
 };
 use section::SectionChannel;

@@ -46,19 +46,19 @@ impl TryFrom<(ColumnType, usize, &[DataType])> for Value {
                 .ok_or(err_msg("oh no"))
                 .unwrap()
                 .get_float()
-                .map(|f| Value::Real(f.into())),
+                .map(Value::Real),
             ColumnType::Bool => row
                 .get(index)
                 .ok_or(err_msg("oh no"))
                 .unwrap()
                 .get_bool()
-                .map(|b| Value::Bool(b.into())), //FIXME: unwrap
+                .map(Value::Bool), //FIXME: unwrap
             ColumnType::DateTime => row
                 .get(index)
                 .ok_or(err_msg("oh no"))
                 .unwrap()
                 .as_datetime()
-                .map(|b| Value::DateTime(b.into())), //FIXME: unwrap;
+                .map(Value::DateTime), //FIXME: unwrap;
             _ => {
                 return Err(format!(
                     "TryFrom<(ColumnType, usize, &[DataType])> for Value - unimplemented: {:?}",
@@ -212,7 +212,7 @@ impl Excel {
         };
 
         for s in sheet_names {
-            if let Some(Ok(range)) = workbook.worksheet_range(&s) {
+            if let Some(Ok(range)) = workbook.worksheet_range(s) {
                 let name = s.as_str();
 
                 let mut rows = range.rows();

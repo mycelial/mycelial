@@ -15,12 +15,7 @@ impl<S: SectionChannel> Section<DynStream, DynSink, S> for SourceAdapter {
     type Future = SectionFuture;
     type Error = SectionError;
 
-    fn start(
-        self,
-        input: DynStream,
-        output: DynSink,
-        command_channel: S,
-    ) -> Self::Future {
+    fn start(self, input: DynStream, output: DynSink, command_channel: S) -> Self::Future {
         Box::pin(async move {
             let input = input.map(|msg| {
                 sqlite_physical_replication::Message::new(msg.origin, msg.payload.0, msg.ack)
@@ -41,7 +36,9 @@ impl<S: SectionChannel> Section<DynStream, DynSink, S> for SourceAdapter {
 /// name = "sqlite_physical_replication_source"
 /// journal_path = "/tmp/path_to_journal"
 /// ```
-pub fn constructor<S: SectionChannel>(config: &Map) -> Result<Box<dyn DynSection<S>>, SectionError> {
+pub fn constructor<S: SectionChannel>(
+    config: &Map,
+) -> Result<Box<dyn DynSection<S>>, SectionError> {
     let path = config
         .get("journal_path")
         .ok_or("sqlite_physical_replication journal path is required")?
