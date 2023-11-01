@@ -142,7 +142,7 @@ mod tests {
         assert_eq!(out.origin, "hello world");
 
         let expected_record_batch: RecordBatch = HelloWorldPayload {
-            message: "Hello, World!".to_string(),
+            message: "Hello, World! 1".to_string(),
         }
         .try_into()?;
 
