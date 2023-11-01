@@ -1,10 +1,10 @@
-use futures::{Sink, Stream, StreamExt, FutureExt};
-use section::{Section, Command, SectionChannel};
-use std::pin::pin;
 use arrow::datatypes::{DataType, SchemaRef};
+use futures::{FutureExt, Sink, Stream, StreamExt};
 use parquet::arrow::AsyncArrowWriter;
 use parquet::errors::ParquetError;
-use snowflake_api::{SnowflakeApiError, SnowflakeApi};
+use section::{Command, Section, SectionChannel};
+use snowflake_api::{SnowflakeApi, SnowflakeApiError};
+use std::pin::pin;
 use tempfile::tempdir;
 use thiserror::Error;
 use tokio::fs::File;
@@ -70,10 +70,10 @@ impl SnowflakeDestination {
         _output: Output,
         mut section_chan: SectionChan,
     ) -> Result<(), SectionError>
-        where
-            Input: Stream<Item=Message>,
-            Output: Sink<<Input as Stream>::Item>,
-            SectionChan: SectionChannel,
+    where
+        Input: Stream<Item = Message>,
+        Output: Sink<<Input as Stream>::Item>,
+        SectionChan: SectionChannel,
     {
         let mut input = pin!(input.fuse());
         let mut api = SnowflakeApi::with_password_auth(
@@ -105,37 +105,46 @@ impl SnowflakeDestination {
         }
     }
 
-    async fn destructive_load_batch(&self, api: &mut SnowflakeApi, batch: &arrow::record_batch::RecordBatch) -> Result<(), SnowflakeDestinationError> {
+    async fn destructive_load_batch(
+        &self,
+        api: &mut SnowflakeApi,
+        batch: &arrow::record_batch::RecordBatch,
+    ) -> Result<(), SnowflakeDestinationError> {
         // fixme: race condition on multiple batches in succession, disambiguate file names?
         let tmp_dir = tempdir()?;
         let file_path = &tmp_dir.path().join("mycelial.parquet");
-        log::info!("Dumping batch to parquet file: {}", file_path.to_str().unwrap());
+        log::info!(
+            "Dumping batch to parquet file: {}",
+            file_path.to_str().unwrap()
+        );
         let mut tmp_file = File::create(file_path).await?;
 
-        let mut writer =
-            AsyncArrowWriter::try_new(&mut tmp_file, batch.schema(), 0, None)?;
+        let mut writer = AsyncArrowWriter::try_new(&mut tmp_file, batch.schema(), 0, None)?;
         writer.write(batch).await?;
         writer.close().await?;
 
         // todo: use load and select into custom stage
         let table_name = self.table.as_str();
         let schema = self.arrow_schema_to_snowflake_schema(batch.schema());
-        api.exec(
-            &format!("CREATE TABLE IF NOT EXISTS {}({});", table_name, schema)
-        ).await?;
+        api.exec(&format!(
+            "CREATE TABLE IF NOT EXISTS {}({});",
+            table_name, schema
+        ))
+        .await?;
 
         // fixme: unwrap
-        api.exec(
-            &format!("PUT file://{} @%{};", &file_path.to_str().unwrap(), table_name)
-        ).await?;
+        api.exec(&format!(
+            "PUT file://{} @%{};",
+            &file_path.to_str().unwrap(),
+            table_name
+        ))
+        .await?;
 
         api.exec(
             "CREATE OR REPLACE TEMPORARY FILE FORMAT CUSTOM_PARQUET_FORMAT TYPE = PARQUET COMPRESSION = NONE TRIM_SPACE = TRUE REPLACE_INVALID_CHARACTERS = TRUE BINARY_AS_TEXT = FALSE;"
         ).await?;
 
-        api.exec(
-            &format!("TRUNCATE TABLE {};", table_name)
-        ).await?;
+        api.exec(&format!("TRUNCATE TABLE {};", table_name)).await?;
 
         api.exec(
             &format!("COPY INTO {} FILE_FORMAT = CUSTOM_PARQUET_FORMAT PURGE = TRUE MATCH_BY_COLUMN_NAME = CASE_INSENSITIVE;", table_name)
@@ -179,10 +188,10 @@ impl SnowflakeDestination {
 }
 
 impl<Input, Output, SectionChan> Section<Input, Output, SectionChan> for SnowflakeDestination
-    where
-        Input: Stream<Item=Message> + Send + 'static,
-        Output: Sink<<Input as Stream>::Item> + Send + 'static,
-        SectionChan: SectionChannel + Send + 'static,
+where
+    Input: Stream<Item = Message> + Send + 'static,
+    Output: Sink<<Input as Stream>::Item> + Send + 'static,
+    SectionChan: SectionChannel + Send + 'static,
 {
     type Error = SectionError;
     type Future = SectionFuture;
@@ -192,7 +201,9 @@ impl<Input, Output, SectionChan> Section<Input, Output, SectionChan> for Snowfla
     }
 }
 
-pub fn constructor<S: SectionChannel>(config: &Map) -> Result<Box<dyn DynSection<S>>, SectionError> {
+pub fn constructor<S: SectionChannel>(
+    config: &Map,
+) -> Result<Box<dyn DynSection<S>>, SectionError> {
     let username = config
         .get("username")
         .ok_or("username required")?
@@ -234,14 +245,13 @@ pub fn constructor<S: SectionChannel>(config: &Map) -> Result<Box<dyn DynSection
         .as_str()
         .ok_or("'table' should be a string")?;
     Ok(Box::new(SnowflakeDestination::new(
-            username,
-            password,
-            role,
-            account_identifier,
-            warehouse,
-            database,
-            schema,
-            table,
-        )
-    ))
+        username,
+        password,
+        role,
+        account_identifier,
+        warehouse,
+        database,
+        schema,
+        table,
+    )))
 }

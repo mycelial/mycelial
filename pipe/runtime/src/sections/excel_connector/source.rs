@@ -1,8 +1,8 @@
-use section::SectionChannel;
 use crate::message::{Message, RecordBatch};
+use excel_connector::source::Excel;
 use futures::SinkExt;
 use section::Section;
-use excel_connector::source::Excel;
+use section::SectionChannel;
 
 use crate::types::SectionFuture;
 use crate::{
@@ -15,7 +15,9 @@ pub struct ExcelAdapter {
     inner: Excel,
 }
 
-impl<SectionChan: SectionChannel + Send + 'static> Section<DynStream, DynSink, SectionChan> for ExcelAdapter {
+impl<SectionChan: SectionChannel + Send + 'static> Section<DynStream, DynSink, SectionChan>
+    for ExcelAdapter
+{
     type Future = SectionFuture;
     type Error = SectionError;
 
@@ -37,7 +39,9 @@ impl<SectionChan: SectionChannel + Send + 'static> Section<DynStream, DynSink, S
 }
 
 /// constructor for Excel
-pub fn constructor<S: SectionChannel>(config: &Map) -> Result<Box<dyn DynSection<S>>, SectionError> {
+pub fn constructor<S: SectionChannel>(
+    config: &Map,
+) -> Result<Box<dyn DynSection<S>>, SectionError> {
     // FIXME: Use correct input config values for excel
     let sheets = config
         .get("sheets")

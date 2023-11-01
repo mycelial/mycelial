@@ -1,7 +1,7 @@
-use section::SectionChannel;
 use crate::message::{Message, RecordBatch};
 use futures::SinkExt;
 use section::Section;
+use section::SectionChannel;
 use sqlite_connector::source::Sqlite;
 
 use crate::types::SectionFuture;
@@ -15,7 +15,9 @@ pub struct SqliteAdapter {
     inner: Sqlite,
 }
 
-impl<SectionChan: SectionChannel + Send + 'static> Section<DynStream, DynSink, SectionChan> for SqliteAdapter {
+impl<SectionChan: SectionChannel + Send + 'static> Section<DynStream, DynSink, SectionChan>
+    for SqliteAdapter
+{
     type Future = SectionFuture;
     type Error = SectionError;
 
@@ -46,7 +48,9 @@ impl<SectionChan: SectionChannel + Send + 'static> Section<DynStream, DynSink, S
 /// tables = "foo,bar,baz"
 /// once = false
 /// ```
-pub fn constructor<S: SectionChannel>(config: &Map) -> Result<Box<dyn DynSection<S>>, SectionError> {
+pub fn constructor<S: SectionChannel>(
+    config: &Map,
+) -> Result<Box<dyn DynSection<S>>, SectionError> {
     let tables = config
         .get("tables")
         .ok_or("sqlite section requires 'tables'")?
@@ -64,7 +68,7 @@ pub fn constructor<S: SectionChannel>(config: &Map) -> Result<Box<dyn DynSection
         .collect::<Vec<&str>>();
     let once = match config.get("once") {
         Some(val) => val.as_bool().ok_or("once should be bool")?,
-        None => false
+        None => false,
     };
     Ok(Box::new(SqliteAdapter {
         inner: Sqlite::new(path, tables.as_slice(), once),

@@ -1,8 +1,8 @@
 use crate::message::Message;
 use futures::{Future, Sink, Stream};
 use section::Section;
-use std::pin::Pin;
 use section::SectionChannel;
+use std::pin::Pin;
 
 pub type SectionError = Box<dyn std::error::Error + Send + Sync + 'static>;
 

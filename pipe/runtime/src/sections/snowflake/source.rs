@@ -1,13 +1,13 @@
-use futures::{Sink, SinkExt, Stream, StreamExt, FutureExt};
-use std::pin::pin;
-use std::time::Duration;
-use snowflake_api::{SnowflakeApi, QueryResult};
-use section::{Section, SectionChannel, Command};
 use crate::{
     config::Map,
     message::Message,
     types::{DynSection, SectionError, SectionFuture},
 };
+use futures::{FutureExt, Sink, SinkExt, Stream, StreamExt};
+use section::{Command, Section, SectionChannel};
+use snowflake_api::{QueryResult, SnowflakeApi};
+use std::pin::pin;
+use std::time::Duration;
 
 pub struct SnowflakeSource {
     username: String,
@@ -53,10 +53,10 @@ impl SnowflakeSource {
         mut output: Output,
         mut section_chan: SectionChan,
     ) -> Result<(), SectionError>
-        where
-            Input: Stream<Item = Message> + Send + 'static,
-            Output: Sink<Message, Error = SectionError> + Send + 'static,
-            SectionChan: SectionChannel + Send + 'static,
+    where
+        Input: Stream<Item = Message> + Send + 'static,
+        Output: Sink<Message, Error = SectionError> + Send + 'static,
+        SectionChan: SectionChannel + Send + 'static,
     {
         // todo: move this before the loop to make it fail early? or verify configuration somehow
         let mut api = SnowflakeApi::with_password_auth(
@@ -100,21 +100,22 @@ impl SnowflakeSource {
 }
 
 impl<Input, Output, SectionChan> Section<Input, Output, SectionChan> for SnowflakeSource
-    where
-        Input: Stream<Item = Message> + Send + 'static,
-        Output: Sink<Message, Error = SectionError> + Send + 'static,
-        SectionChan: SectionChannel + Send + 'static,
+where
+    Input: Stream<Item = Message> + Send + 'static,
+    Output: Sink<Message, Error = SectionError> + Send + 'static,
+    SectionChan: SectionChannel + Send + 'static,
 {
     type Error = SectionError;
     type Future = SectionFuture;
 
-    fn start(self: Self, input: Input, output: Output, section_chan: SectionChan) -> Self::Future {
+    fn start(self, input: Input, output: Output, section_chan: SectionChan) -> Self::Future {
         Box::pin(async move { self.enter_loop(input, output, section_chan).await })
     }
 }
 
-
-pub fn constructor<S: SectionChannel>(config: &Map) -> Result<Box<dyn DynSection<S>>, SectionError> {
+pub fn constructor<S: SectionChannel>(
+    config: &Map,
+) -> Result<Box<dyn DynSection<S>>, SectionError> {
     let username = config
         .get("username")
         .ok_or("username required")?
@@ -161,15 +162,14 @@ pub fn constructor<S: SectionChannel>(config: &Map) -> Result<Box<dyn DynSection
         .as_int()
         .ok_or("'delay' should be an int")?;
     Ok(Box::new(SnowflakeSource::new(
-            username,
-            password,
-            role,
-            account_identifier,
-            warehouse,
-            database,
-            schema,
-            query,
-            Duration::from_secs(delay as u64),
-        )
-    ))
+        username,
+        password,
+        role,
+        account_identifier,
+        warehouse,
+        database,
+        schema,
+        query,
+        Duration::from_secs(delay as u64),
+    )))
 }

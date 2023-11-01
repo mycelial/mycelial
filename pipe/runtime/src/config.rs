@@ -142,7 +142,9 @@ impl TryFrom<Value> for Config {
                 section_cfg
                     .as_map()
                     .map(Clone::clone)
-                    .ok_or::<SectionError>("pipe section configuration should be of map type".into())
+                    .ok_or::<SectionError>(
+                        "pipe section configuration should be of map type".into(),
+                    )
             })
             .collect::<Result<_, _>>()?;
         Ok(Self { sections })
@@ -164,13 +166,11 @@ impl Config {
         let value: toml::Value = s.parse()?;
         let value: Value = Value::try_from(value)?;
         let value = match value {
-            Value::Map(mut map) => {
-                match map.remove("section") {
-                    Some(v) => v,
-                    None => Value::Array(vec![])
-                }
+            Value::Map(mut map) => match map.remove("section") {
+                Some(v) => v,
+                None => Value::Array(vec![]),
             },
-            _ => Err(format!("unsupported value: {:?}", value))?
+            _ => Err(format!("unsupported value: {:?}", value))?,
         };
         Self::try_from(value)
     }

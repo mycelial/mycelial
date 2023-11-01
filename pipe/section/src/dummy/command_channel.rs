@@ -1,7 +1,11 @@
-use crate::{async_trait, Command, RootChannel, SectionChannel, WeakSectionChannel, ReplyTo, SectionRequest as _SectionRequest};
+use crate::{
+    async_trait, Command, ReplyTo, RootChannel, SectionChannel, SectionRequest as _SectionRequest,
+    WeakSectionChannel,
+};
 use std::{
     any::Any,
-    future::{pending, ready}, marker::PhantomData,
+    future::{pending, ready},
+    marker::PhantomData,
 };
 
 use super::DummyState;

@@ -2,7 +2,7 @@
 //!
 //! Upon receipt of a message, this section will log "Hello, World!" + the message received. It
 //! then forwards the message on to the next section.
-use futures::{FutureExt, Sink, Stream, StreamExt, SinkExt};
+use futures::{FutureExt, Sink, SinkExt, Stream, StreamExt};
 use section::{Command, Section, SectionChannel};
 use std::future::Future;
 
@@ -79,6 +79,8 @@ where
     }
 }
 
-pub fn constructor<S: SectionChannel>(_config: &Map) -> Result<Box<dyn DynSection<S>>, SectionError> {
+pub fn constructor<S: SectionChannel>(
+    _config: &Map,
+) -> Result<Box<dyn DynSection<S>>, SectionError> {
     Ok(Box::new(HelloWorld::new()))
 }

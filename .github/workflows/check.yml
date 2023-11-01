@@ -1,0 +1,88 @@
+name: Check
+
+on:
+  push
+
+jobs:
+  lints:
+    name: lints
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+          components: rustfmt, clippy
+
+      # FIXME: hack to allow server to compile
+      - name: out folder
+        run: mkdir -p console/out/
+
+      - name: cargo fmt
+        uses: actions-rs/cargo@v1
+        with:
+          command: fmt
+          args: --all -- --check
+
+      - name: cargo clippy
+        uses: actions-rs/cargo@v1
+        with:
+          command: clippy
+          args: -- -D warnings
+
+  tests:
+    name: tests
+    needs: lints
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      matrix:
+        include:
+          - build: linux
+            os: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+
+          - build: macos
+            os: macos-12
+            target: x86_64-apple-darwin
+
+          - build: windows
+            os: windows-2022
+            target: x86_64-pc-windows-msvc
+
+    steps:
+      - name: checkout
+        uses: actions/checkout@v3
+
+      - name: install packages (linux)
+        if: matrix.build == 'linux'
+        run: |
+          sudo apt update
+          sudo apt install pkg-config libssl-dev -qy
+
+      - name: install packages (macos)
+        if: matrix.build == 'macos'
+        run: |
+          brew install openssl
+      
+      - name: install packages (windows)
+        if: matrix.build == 'windows'
+        run: |
+          choco install cmake.portable
+
+      - name: setup rust
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: stable
+          target: ${{ matrix.target }}
+
+      # FIXME: hacks for embedded assets
+      - name: create node out dir
+        run: mkdir -p console/out/
+
+      - name: run tests
+        run: |
+          cargo test --target ${{ matrix.target }}
+          cargo test --release --target ${{ matrix.target }}

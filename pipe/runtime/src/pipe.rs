@@ -44,10 +44,14 @@ impl<R: RootChannel + Send + 'static> Pipe<R> {
     }
 }
 
-impl<R: RootChannel + Send + 'static> TryFrom<(&'_ Config, &'_ Registry<R::SectionChannel>)> for Pipe<R> {
+impl<R: RootChannel + Send + 'static> TryFrom<(&'_ Config, &'_ Registry<R::SectionChannel>)>
+    for Pipe<R>
+{
     type Error = SectionError;
 
-    fn try_from((config, registry): (&Config, &Registry<R::SectionChannel>)) -> Result<Self, Self::Error> {
+    fn try_from(
+        (config, registry): (&Config, &Registry<R::SectionChannel>),
+    ) -> Result<Self, Self::Error> {
         let sections = config
             .get_sections()
             .iter()
@@ -69,7 +73,8 @@ impl<R: RootChannel + Send + 'static> TryFrom<(&'_ Config, &'_ Registry<R::Secti
     }
 }
 
-impl<Input, Output, RootChan> Section<Input, Output, <RootChan as RootChannel>::SectionChannel> for Pipe<RootChan>
+impl<Input, Output, RootChan> Section<Input, Output, <RootChan as RootChannel>::SectionChannel>
+    for Pipe<RootChan>
 where
     Input: Stream<Item = Message> + Send + 'static,
     Output: Sink<Message, Error = SectionError> + Send + 'static,
@@ -113,10 +118,9 @@ where
         );
 
         let future = async move {
-            let mut state = section_chan
-                .retrieve_state()
-                .await?
-                .unwrap_or(<<RootChan as RootChannel>::SectionChannel as SectionChannel>::State::new());
+            let mut state = section_chan.retrieve_state().await?.unwrap_or(
+                <<RootChan as RootChannel>::SectionChannel as SectionChannel>::State::new(),
+            );
             let mut handles = handles;
             loop {
                 futures::select! {

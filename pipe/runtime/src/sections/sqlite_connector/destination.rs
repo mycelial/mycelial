@@ -19,7 +19,9 @@ pub struct SqliteAdapter {
     inner: Sqlite,
 }
 
-impl<SectionChan: SectionChannel + Send + 'static> Section<DynStream, DynSink, SectionChan> for SqliteAdapter {
+impl<SectionChan: SectionChannel + Send + 'static> Section<DynStream, DynSink, SectionChan>
+    for SqliteAdapter
+{
     type Future = SectionFuture;
     type Error = SectionError;
 
@@ -48,7 +50,9 @@ impl<SectionChan: SectionChannel + Send + 'static> Section<DynStream, DynSink, S
 /// name = "sqlite_destination"
 /// path = ":memory:"
 /// ```
-pub fn constructor<S: SectionChannel>(config: &Map) -> Result<Box<dyn DynSection<S>>, SectionError> {
+pub fn constructor<S: SectionChannel>(
+    config: &Map,
+) -> Result<Box<dyn DynSection<S>>, SectionError> {
     let path = config
         .get("path")
         .ok_or("sqlite section requires 'path'")?

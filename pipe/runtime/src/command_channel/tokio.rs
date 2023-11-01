@@ -150,7 +150,7 @@ impl<S: StateTrait> SectionChannelTrait for SectionChannel<S> {
     type State = S;
     type Error = ChanError;
     type WeakChannel = WeakSectionChannel;
-    type ReplyStoreState = OneshotReply<()>; 
+    type ReplyStoreState = OneshotReply<()>;
     type ReplyRetrieveState = OneshotReply<Option<Self::State>>;
 
     // request to runtime
