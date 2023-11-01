@@ -4,33 +4,33 @@ on:
   push
 
 jobs:
-# lints:
-#   name: Rust Lints
-#   runs-on: ubuntu-latest
-#   steps:
-#     - uses: actions/checkout@v3
-#     - uses: actions-rs/toolchain@v1
-#       with:
-#         profile: minimal
-#         toolchain: stable
-#         override: true
-#         components: rustfmt, clippy
+  lints:
+    name: Rust Lints
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+          components: rustfmt, clippy
 
-#     # FIXME: hack to allow server to compile
-#     - name: out folder
-#       run: mkdir -p console/out/
+      # FIXME: hack to allow server to compile
+      - name: out folder
+        run: mkdir -p console/out/
 
-#     - name: cargo fmt
-#       uses: actions-rs/cargo@v1
-#       with:
-#         command: fmt
-#         args: --all -- --check
+      - name: cargo fmt
+        uses: actions-rs/cargo@v1
+        with:
+          command: fmt
+          args: --all -- --check
 
-#     - name: cargo clippy
-#       uses: actions-rs/cargo@v1
-#       with:
-#         command: clippy
-#         args: -- -D warnings
+      - name: cargo clippy
+        uses: actions-rs/cargo@v1
+        with:
+          command: clippy
+          args: -- -D warnings
 
   tests:
     runs-on: ${{ matrix.os }}
