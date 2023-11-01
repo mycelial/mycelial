@@ -88,6 +88,7 @@ jobs:
       - name: install packages (macos)
         if: matrix.build == 'macos'
         run: |
+          softwareupdate --install-rosetta
           brew install openssl
       
       - name: build openssl 
