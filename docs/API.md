@@ -41,7 +41,7 @@
           "label": "mycelial_server node",
           "type": "mycelial_server",
           "display_name": "Mycelial Server",
-          "endpoint": "http://{host or ip}:8080/ingestion",
+          "endpoint": "http://{host or ip}:7777/ingestion",
           "token": "{security token}",
           "topic": "{unique topic id}"
         }
@@ -67,7 +67,7 @@
           "label": "mycelial_server node",
           "type": "mycelial_server",
           "display_name": "Mycelial Server",
-          "endpoint": "http://{host or ip}:8080/ingestion",
+          "endpoint": "http://{host or ip}:7777/ingestion",
           "token": "token",
           "topic": "{topic id}"
         },
@@ -98,7 +98,7 @@
 ### Example cURL
 
 > ```bash
->  curl -X POST 'http://{server}:8080/api/pipe' -H 'Authorization: Basic {base 64 token:}' --data @post.json'
+>  curl -X POST 'http://{server}:7777/api/pipe' -H 'Authorization: Basic {base 64 token:}' --data @post.json'
 > ```
 
 </details>
@@ -142,7 +142,7 @@
           "label": "mycelial_server node",
           "type": "mycelial_server",
           "display_name": "Mycelial Server",
-          "endpoint": "http://{host or ip}:8080/ingestion",
+          "endpoint": "http://{host or ip}:7777/ingestion",
           "token": "{security token}",
           "topic": "{unique topic id}"
         }
@@ -168,7 +168,7 @@
           "label": "mycelial_server node",
           "type": "mycelial_server",
           "display_name": "Mycelial Server",
-          "endpoint": "http://{host or ip}:8080/ingestion",
+          "endpoint": "http://{host or ip}:7777/ingestion",
           "token": "token",
           "topic": "{topic id}"
         },
@@ -199,7 +199,7 @@
 ### Example cURL
 
 > ```bash
->  curl -X POST 'http://{server}:8080/api/pipe/1' -H 'Authorization: Basic {base 64 token:}' --data @post.json'
+>  curl -X POST 'http://{server}:7777/api/pipe/1' -H 'Authorization: Basic {base 64 token:}' --data @post.json'
 > ```
 
 </details>
@@ -220,7 +220,7 @@
 ##### Example cURL
 
 > ```bash
->  curl 'http://localhost:8080/api/pipe/{id}' -X 'DELETE' -H 'Authorization: Basic {base 64 token:}' \
+>  curl 'http://localhost:7777/api/pipe/{id}' -X 'DELETE' -H 'Authorization: Basic {base 64 token:}' \
 > ```
 
 </details>
@@ -241,7 +241,7 @@
 ##### Example cURL
 
 > ```bash
->  curl 'http://{server}:8080/api/pipe/{id}' -H 'Authorization: Basic {base 64 token:}'
+>  curl 'http://{server}:7777/api/pipe/{id}' -H 'Authorization: Basic {base 64 token:}'
 > ```
 
 </details>
@@ -262,7 +262,7 @@
 ##### Example cURL
 
 > ```bash
->  curl 'http://{server}:8080/api/pipe' -H 'Authorization: Basic {base 64 token:}'
+>  curl 'http://{server}:7777/api/pipe' -H 'Authorization: Basic {base 64 token:}'
 > ```
 
 </details>
@@ -330,7 +330,7 @@
 ### Example cURL
 
 > ```bash
->  curl 'http://{server}:8080/api/clients' -H 'Authorization: Basic {base 64 token:}'
+>  curl 'http://{server}:7777/api/clients' -H 'Authorization: Basic {base 64 token:}'
 > ```
 
 </details>
@@ -371,7 +371,7 @@
 ### Example cURL
 
 > ```bash
->  curl 'http://{server}:8080/api/workspaces' -H 'Authorization: Basic {base 64 token:}'
+>  curl 'http://{server}:7777/api/workspaces' -H 'Authorization: Basic {base 64 token:}'
 > ```
 
 </details>
@@ -432,7 +432,7 @@
 ### Example cURL
 
 > ```bash
->  curl 'http://{server}:8080/api/workspaces/1' -H 'Authorization: Basic {base 64 token:}'
+>  curl 'http://{server}:7777/api/workspaces/1' -H 'Authorization: Basic {base 64 token:}'
 > ```
 
 </details>
@@ -462,7 +462,7 @@
 ### Example cURL
 
 > ```bash
->  curl -X POST 'http://{server}:8080/api/workspaces/1' -H 'Authorization: Basic {base 64 token:}' --data-raw $'{"name":"new"}'
+>  curl -X POST 'http://{server}:7777/api/workspaces/1' -H 'Authorization: Basic {base 64 token:}' --data-raw $'{"name":"new"}'
 > ```
 
 ```json
@@ -496,7 +496,7 @@
 ### Example cURL
 
 > ```bash
->  curl -X PUT 'http://{server}:8080/api/workspaces/1' -H 'Authorization: Basic {base 64 token:}' --data-raw $'{"name":"rename"}'
+>  curl -X PUT 'http://{server}:7777/api/workspaces/1' -H 'Authorization: Basic {base 64 token:}' --data-raw $'{"name":"rename"}'
 > ```
 
 ```json
@@ -527,5 +527,5 @@
 
 ### Example cURL
 > ```bash
->  curl -X DELETE 'http://{server}:8080/api/workspaces/1' -H 'Authorization: Basic {base 64 token:}''
+>  curl -X DELETE 'http://{server}:7777/api/workspaces/1' -H 'Authorization: Basic {base 64 token:}''
 > ```

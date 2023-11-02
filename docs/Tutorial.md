@@ -228,7 +228,7 @@ INSERT INTO users(name) VALUES ('John');
 
 ## Create a data pipeline
 
-Open your web browser and navigate to `http://localhost:8080`. When prompted for
+Open your web browser and navigate to `http://localhost:7777`. When prompted for
 a username and password, enter the security token you previously created into
 the username field, leaving the password field blank.
 

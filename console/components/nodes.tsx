@@ -670,7 +670,7 @@ const MycelialServerNode: FC<NodeProps> = memo(({ id, data, selected }) => {
     return {
       endpoint: data.endpoint
         ? data.endpoint
-        : "http://localhost:8080/ingestion",
+        : "http://localhost:7777/ingestion",
       token: data.token ? data.token : "...",
       topic: data.topic ? data.topic : "...",
     };

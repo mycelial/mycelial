@@ -21,5 +21,5 @@ RUN apk add --no-cache libgcc
 COPY --from=build_server /app/target/release/server /app/server
 
 WORKDIR /app
-EXPOSE 8080
+EXPOSE 7777
 ENTRYPOINT /app/server

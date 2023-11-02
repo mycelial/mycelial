@@ -41,7 +41,7 @@ specified on the server.
 
 ```toml
 [server]
-endpoint = "http://localhost:8080"
+endpoint = "http://localhost:7777"
 token = "my security token"
 ```
 </details>
