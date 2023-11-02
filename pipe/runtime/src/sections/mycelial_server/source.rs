@@ -209,7 +209,7 @@ where
 /// ```toml
 /// [[section]]
 /// name = "mycelial_net"
-/// endpoint = "http://localhost:8080/ingestion"
+/// endpoint = "http://localhost:7777/ingestion"
 /// token = "token"
 /// topic = "some_topic"
 /// ```

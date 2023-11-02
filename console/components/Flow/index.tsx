@@ -266,7 +266,7 @@ function NavbarSearch(props: NavbarSearchProps) {
     let source = {
       type: "mycelial_server",
       display_name: "Mycelial Server",
-      endpoint: "http://localhost:8080/ingestion",
+      endpoint: "http://localhost:7777/ingestion",
       token: "token",
       topic: getRandomString(),
     };

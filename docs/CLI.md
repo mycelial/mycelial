@@ -104,7 +104,7 @@ mycelial start
 When prompted for a token, use the one you used in the `init` step.
 
 After completing this step, you should be able to open the web interface 
-`http://localhost:8080`.
+`http://localhost:7777`.
 
 ## Shutdown
 

@@ -22,7 +22,7 @@ The following instructions will start Mycelial in development mode.
 1. Navigate to `mycelial/myceliald`
 5. Run `make dev` to start the client
 
-At this point you should be able to open the web [interface](http://localhost:8080)
+At this point you should be able to open the web [interface](http://localhost:7777)
 
 **NOTE**: You can stop the server and client by pressing `ctrl-c` in the
 associated terminals.

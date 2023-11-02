@@ -164,7 +164,7 @@ configuring the client.
 ### Create a SQLite to SQLite data pipeline specification in the web interface
 
 After configuring the Mycelial client, open the [server
-console](http://localhost:8080) and perform the following steps.
+console](http://localhost:7777) and perform the following steps.
 
 1. Drag and drop your source node onto the canvas.
 2. Drag and drop the Mycelial Server node onto the canvas.
@@ -204,7 +204,7 @@ Create the pipeline by making a `POST` specification API calls to
           "label": "mycelial_server node",
           "type": "mycelial_server",
           "display_name": "Mycelial Server",
-          "endpoint": "http://{host or ip}:8080/ingestion",
+          "endpoint": "http://{host or ip}:7777/ingestion",
           "token": "{security token}",
           "topic": "{unique topic id}"
         }
@@ -227,7 +227,7 @@ Create the pipeline by making a `POST` specification API calls to
           "label": "mycelial_server node",
           "type": "mycelial_server",
           "display_name": "Mycelial Server",
-          "endpoint": "http://{host or ip}:8080/ingestion",
+          "endpoint": "http://{host or ip}:7777/ingestion",
           "token": "token",
           "topic": "{topic id}"
         },

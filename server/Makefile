@@ -29,7 +29,7 @@ dockerize_vendored:
 
 .PHONY: run_docker
 run_docker:
-	docker run -d --rm --name $(TAG) -p 0.0.0.0:8080:8080 $(TAG) 
+	docker run -d --rm --name $(TAG) -p 0.0.0.0:7777:7777 $(TAG) 
 
 
 .PHONY: stop_docker

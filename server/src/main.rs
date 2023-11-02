@@ -57,7 +57,7 @@ impl FromRow<'_, SqliteRow> for Workspace {
 
 #[derive(Parser)]
 struct Cli {
-    #[clap(short, long, env = "LISTEN_ADDR", default_value = "0.0.0.0:8080")]
+    #[clap(short, long, env = "LISTEN_ADDR", default_value = "0.0.0.0:7777")]
     listen_addr: String,
 
     /// Server authorization token
