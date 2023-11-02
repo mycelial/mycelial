@@ -1,7 +1,7 @@
 use crate::message::Message;
 use futures::StreamExt;
-use section::Section;
 use postgres_connector::destination::Postgres;
+use section::Section;
 use stub::Stub;
 
 use crate::types::SectionFuture;
@@ -10,8 +10,8 @@ use crate::{
     types::{DynSection, DynSink, DynStream, SectionError},
 };
 
-use section::SectionChannel;
 use super::PostgresPayloadNewType;
+use section::SectionChannel;
 
 #[allow(dead_code)]
 pub struct PostgresAdapter {

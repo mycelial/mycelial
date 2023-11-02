@@ -123,7 +123,7 @@ pub struct SqlitePhysicalReplicationDestinationConfig {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct PostgresConnectorDestinationConfig{
+pub struct PostgresConnectorDestinationConfig {
     #[serde(flatten)]
     pub common_attrs: CommonAttrs,
     pub url: String,
