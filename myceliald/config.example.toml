@@ -87,3 +87,8 @@ warehouse = "warehouse"
 database = "database"
 schema = "schema"
 table = "table"
+
+[[destinations]]
+type = "postgres_connector"
+display_name = "postgres destination"
+url = "postgres://user:password@127.0.0.1:5432/test"

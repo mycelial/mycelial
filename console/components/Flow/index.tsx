@@ -40,10 +40,10 @@ import {
   KafkaSourceNode,
   SnowflakeSourceNode,
   SnowflakeDestinationNode,
-  PostgresSourceNode,
   HelloWorldSourceNode,
   HelloWorldDestinationNode,
   ExcelSourceNode,
+  PostgresConnectorDestinationNode,
 } from "@/components/nodes";
 
 import { Grid, Group } from "@/components/layout";
@@ -180,9 +180,9 @@ const nodeTypes = {
   kafka_destination: KafkaDestination,
   snowflake_source: SnowflakeSourceNode,
   snowflake_destination: SnowflakeDestinationNode,
-  postgres_source: PostgresSourceNode,
   hello_world_source: HelloWorldSourceNode,
   hello_world_destination: HelloWorldDestinationNode,
+  postgres_connector_destination: PostgresConnectorDestinationNode,
 };
 
 const defaultEdgeOptions = {

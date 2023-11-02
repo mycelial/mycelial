@@ -40,7 +40,6 @@ pub struct Node {
 pub enum Source {
     Sqlite_Connector(SqliteConnectorConfig),
     Kafka(KafkaConfig),
-    Postgres(PostgresConfig),
     Snowflake(SnowflakeConfig),
     Sqlite_Physical_Replication(SqlitePhysicalReplicationSourceConfig),
     Hello_World(HelloWorldConfig),
@@ -56,6 +55,7 @@ pub enum Destination {
     Sqlite_Physical_Replication(SqlitePhysicalReplicationDestinationConfig),
     Hello_World(HelloWorldConfig),
     Kafka(KafkaDestinationConfig),
+    Postgres_Connector(PostgresConnectorDestinationConfig),
 }
 
 // Shared between all source definitions
@@ -78,17 +78,6 @@ pub struct KafkaConfig {
     pub common_attrs: CommonAttrs,
     // comma-separated
     pub brokers: String,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct PostgresConfig {
-    #[serde(flatten)]
-    pub common_attrs: CommonAttrs,
-    pub host: String,
-    pub port: u16,
-    pub user: String,
-    pub password: String,
-    pub database: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -131,6 +120,13 @@ pub struct SqlitePhysicalReplicationDestinationConfig {
     pub common_attrs: CommonAttrs,
     pub journal_path: String,
     pub database_path: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct PostgresConnectorDestinationConfig{
+    #[serde(flatten)]
+    pub common_attrs: CommonAttrs,
+    pub url: String,
 }
 
 // requests and responses

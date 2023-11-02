@@ -36,6 +36,7 @@ chrono = "0.4.31"
 ## sections
 stub = { path = "../section/section_impls/stub/" }
 sqlite_connector = { path = "../section/section_impls/sqlite_connector/" }
+postgres_connector = { path = "../section/section_impls/postgres_connector/" }
 excel_connector = { path = "../section/section_impls/excel_connector/" }
 kafka = { path = "../section/section_impls/kafka/" }
 sqlite_physical_replication = { path = "../section/section_impls/sqlite_physical_replication/" }

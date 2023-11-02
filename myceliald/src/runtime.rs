@@ -8,7 +8,7 @@ use pipe::{
     scheduler::{Scheduler, SchedulerHandle},
     sections::{
         excel_connector, hello_world, kafka, mycelial_server, snowflake, sqlite_connector,
-        sqlite_physical_replication,
+        sqlite_physical_replication, postgres_connector,
     },
 };
 use section::SectionChannel;
@@ -52,6 +52,7 @@ fn setup_registry<S: SectionChannel>() -> Registry<S> {
         ("kafka_destination", kafka::destination::constructor),
         ("snowflake_source", snowflake::source::constructor),
         ("snowflake_destination", snowflake::destination::constructor),
+        ("postgres_connector_destination", postgres_connector::destination::constructor),
     ];
     arr.iter()
         .fold(Registry::new(), |mut acc, &(section_name, constructor)| {

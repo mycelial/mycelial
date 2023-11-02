@@ -8,7 +8,6 @@ export interface IClient {
 type ISource =
   | ISqlite
   | IKafka
-  | IPostgres
   | IHelloWorld
   | ISnowflake
   | IMyceliteSource
@@ -18,7 +17,8 @@ type IDestination =
   | IHelloWorld
   | ISnowflake
   | IMyceliteDestination
-  | IMycelialNetwork;
+  | IMycelialNetwork
+  | IPostgres;
 
 type IMycelialNetwork = {
   type: string;
@@ -48,11 +48,7 @@ type IKafka = {
 type IPostgres = {
   type: string;
   display_name: string;
-  host: string;
-  port: number;
-  user: string;
-  password: string;
-  database: string;
+  url: string;
 };
 
 type ISnowflake = {
