@@ -43,6 +43,7 @@ pub enum Source {
     Snowflake(SnowflakeConfig),
     Sqlite_Physical_Replication(SqlitePhysicalReplicationSourceConfig),
     Hello_World(HelloWorldConfig),
+    Excel_Connector(ExcelConfig),
 }
 
 /// Internally-tagged type of a source needs to match the variant name
@@ -67,6 +68,13 @@ pub struct CommonAttrs {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct SqliteConnectorConfig {
+    #[serde(flatten)]
+    pub common_attrs: CommonAttrs,
+    pub path: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct ExcelConfig {
     #[serde(flatten)]
     pub common_attrs: CommonAttrs,
     pub path: String,

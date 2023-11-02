@@ -20,6 +20,11 @@ token = "token"                    # Default token for Sqlite Physical Replicati
 # display_name = "Sqlite Source"
 # path = "test.sqlite"
 
+[[sources]]
+type = "excel_connector"
+display_name = "Excel Source"
+path = "test.xlsx"
+
 # SOURCES
 # Define all data sources (data stores and directory paths)
 # accessible by the Node that should be exposed as SOURCES to Sqlite Physical Replication Server
