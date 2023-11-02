@@ -49,8 +49,7 @@ fn read_config(path: &str) -> Result<ClientConfig> {
     Ok(toml::from_str(&config)?)
 }
 
-#[tokio::main]
-async fn main() -> Result<()> {
+async fn run() -> Result<()> {
     pretty_env_logger::init_timed();
     let cli = Cli::try_parse()?;
     let config = read_config(&cli.config)?;
@@ -60,4 +59,11 @@ async fn main() -> Result<()> {
     let client_handle = http_client::new(config, runtime_handle);
     client_handle.await??;
     Ok(())
+}
+
+#[tokio::main]
+async fn main() {
+    if let Err(e) = run().await {
+        eprintln!("{}", e);
+    }
 }
