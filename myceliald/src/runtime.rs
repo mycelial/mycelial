@@ -7,8 +7,8 @@ use pipe::{
     registry::{Constructor, Registry},
     scheduler::{Scheduler, SchedulerHandle},
     sections::{
-        excel_connector, hello_world, kafka, mycelial_server, postgres_connector, snowflake,
-        sqlite_connector, sqlite_physical_replication,
+        excel_connector, hello_world, kafka, mycelial_server, mysql_connector, postgres_connector,
+        snowflake, sqlite_connector, sqlite_physical_replication,
     },
 };
 use section::SectionChannel;
@@ -55,6 +55,10 @@ fn setup_registry<S: SectionChannel>() -> Registry<S> {
         (
             "postgres_connector_destination",
             postgres_connector::destination::constructor,
+        ),
+        (
+            "mysql_connector_destination",
+            mysql_connector::destination::constructor,
         ),
     ];
     arr.iter()

@@ -97,3 +97,8 @@ table = "table"
 type = "postgres_connector"
 display_name = "postgres destination"
 url = "postgres://user:password@127.0.0.1:5432/test"
+
+[[destinations]]
+type = "mysql_connector"
+display_name = "mysql destination"
+url = "mysql://user:password@127.0.0.1:3306/test"
