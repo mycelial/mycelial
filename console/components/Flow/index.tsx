@@ -44,6 +44,7 @@ import {
   HelloWorldDestinationNode,
   ExcelSourceNode,
   PostgresConnectorDestinationNode,
+  MysqlConnectorDestinationNode,
 } from "@/components/nodes";
 
 import { Grid, Group } from "@/components/layout";
@@ -183,6 +184,7 @@ const nodeTypes = {
   hello_world_source: HelloWorldSourceNode,
   hello_world_destination: HelloWorldDestinationNode,
   postgres_connector_destination: PostgresConnectorDestinationNode,
+  mysql_connector_destination: MysqlConnectorDestinationNode,
 };
 
 const defaultEdgeOptions = {

@@ -57,6 +57,7 @@ pub enum Destination {
     Hello_World(HelloWorldConfig),
     Kafka(KafkaDestinationConfig),
     Postgres_Connector(PostgresConnectorDestinationConfig),
+    Mysql_Connector(MysqlConnectorDestinationConfig),
 }
 
 // Shared between all source definitions
@@ -137,6 +138,12 @@ pub struct PostgresConnectorDestinationConfig {
     pub url: String,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct MysqlConnectorDestinationConfig {
+    #[serde(flatten)]
+    pub common_attrs: CommonAttrs,
+    pub url: String,
+}
 // requests and responses
 // todo: move to a module
 

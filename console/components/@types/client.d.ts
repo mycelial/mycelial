@@ -18,7 +18,8 @@ type IDestination =
   | ISnowflake
   | IMyceliteDestination
   | IMycelialNetwork
-  | IPostgres;
+  | IPostgres
+  | IMysql;
 
 type IMycelialNetwork = {
   type: string;
@@ -46,6 +47,12 @@ type IKafka = {
 };
 
 type IPostgres = {
+  type: string;
+  display_name: string;
+  url: string;
+};
+
+type IMysql = {
   type: string;
   display_name: string;
   url: string;
