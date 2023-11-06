@@ -50,7 +50,7 @@ impl Mysql {
                     let name = escape_table_name(&message.origin);
                     let schema = generate_schema(&message);
                     sqlx::query(&schema).execute(&mut *connection).await?;
-                    let values_placeholder = (0..payload.values.len()).map(|_| format!("?") ).collect::<Vec<_>>().join(",");
+                    let values_placeholder = (0..payload.values.len()).map(|_| "?").collect::<Vec<_>>().join(",");
                     let query = format!("INSERT INTO `{name}` VALUES({values_placeholder})");
                     let mut transaction = connection.begin().await?;
                     for row in 0..payload.values[0].len() {
