@@ -59,7 +59,7 @@ async fn source_stream() -> Result<(), StdError> {
 
     let section_chan = DummySectionChannel::new();
 
-    let sqlite_source = source::new(db_path.as_str(), &["*"], false);
+    let sqlite_source = source::new(db_path.as_str(), &["*"], false, true);
     let (output, mut rx) = channel(1);
     let output = output.sink_map_err(|_| "chan closed".into());
     let input = Stub::<Message, StdError>::new();
@@ -153,13 +153,113 @@ async fn source_stream() -> Result<(), StdError> {
 }
 
 #[tokio::test]
+async fn source_stream_not_strict() -> Result<(), StdError> {
+    let db_path = NamedTempFile::new()?.path().to_string_lossy().to_string();
+    let mut conn = init_sqlite(db_path.as_str()).await?;
+
+    let section_chan = DummySectionChannel::new();
+
+    let sqlite_source = source::new(db_path.as_str(), &["*"], false, false);
+    let (output, mut rx) = channel(1);
+    let output = output.sink_map_err(|_| "chan closed".into());
+    let input = Stub::<Message, StdError>::new();
+
+    // cleanup file on exit
+    let _drop_file = DropFile { path: db_path };
+
+    let section = sqlite_source.start(input, output, section_chan);
+    let handle = tokio::spawn(section);
+
+    let out = rx.next().await.unwrap();
+    assert_eq!(out.origin, "test");
+    assert_eq!(
+        out.payload,
+        SqlitePayload {
+            columns: vec![
+                "id".to_string(),
+                "text".to_string(),
+                "bin".to_string(),
+                "float".to_string()
+            ]
+            .into(),
+            column_types: vec![
+                ColumnType::Any,
+                ColumnType::Any,
+                ColumnType::Any,
+                ColumnType::Any,
+            ]
+            .into(),
+            values: vec![
+                vec![Value::Int(1), Value::Int(2), Value::Int(3), Value::Int(4),],
+                vec![
+                    Value::Text("foo".to_string()),
+                    Value::Text("bar".to_string()),
+                    Value::Text("".to_string()),
+                    Value::Null,
+                ],
+                vec![
+                    Value::Text("foo".to_string()),
+                    Value::Text("bar".to_string()),
+                    Value::Text("".to_string()),
+                    Value::Null,
+                ],
+                vec![
+                    Value::Real(1.0),
+                    Value::Real(0.2),
+                    Value::Real(30.0),
+                    Value::Real(40.0),
+                ],
+            ],
+            offset: 4,
+        }
+    );
+
+    sqlx::query("INSERT OR IGNORE INTO test VALUES(5, 'foo', 'foo', 1)")
+        .execute(&mut conn)
+        .await
+        .unwrap();
+
+    let out = rx.next().await.unwrap();
+    assert_eq!(out.origin, "test");
+    assert_eq!(
+        out.payload,
+        SqlitePayload {
+            columns: vec![
+                "id".to_string(),
+                "text".to_string(),
+                "bin".to_string(),
+                "float".to_string()
+            ]
+            .into(),
+            column_types: vec![
+                ColumnType::Any,
+                ColumnType::Any,
+                ColumnType::Any,
+                ColumnType::Any,
+            ]
+            .into(),
+            values: vec![
+                vec![Value::Int(5)],
+                vec![Value::Text("foo".to_string())],
+                vec![Value::Text("foo".to_string())],
+                vec![Value::Real(1.0)],
+            ],
+            offset: 5,
+        }
+    );
+
+    handle.abort();
+    Ok(())
+}
+
+#[tokio::test]
 async fn source_once() -> Result<(), StdError> {
     let db_path = NamedTempFile::new()?.path().to_string_lossy().to_string();
     let mut conn = init_sqlite(db_path.as_str()).await?;
 
     let section_chan = DummySectionChannel::new();
 
-    let sqlite_source = source::new(db_path.as_str(), &["*"], true);
+    let sqlite_source = source::new(db_path.as_str(), &["*"], true, true);
     let (output, mut rx) = channel(1);
     let output = output.sink_map_err(|_| "chan closed".into());
     let input = Stub::<Message, StdError>::new();
