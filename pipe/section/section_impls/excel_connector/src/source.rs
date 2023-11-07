@@ -49,7 +49,7 @@ impl TryFrom<(ColumnType, usize, &[DataType], bool)> for Value {
                 DataType::Error(e) => e.to_string(),
                 DataType::Empty => "".to_string(),
             };
-            let v = Value::Text(v.into());
+            let v = Value::Text(v);
             return Ok(v);
         }
 
