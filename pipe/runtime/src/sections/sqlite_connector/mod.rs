@@ -112,7 +112,6 @@ impl TryInto<RecordBatch> for &SqlitePayload {
                                 Value::Blob(b) => Some(String::from_utf8(b.to_vec()).unwrap()),
                                 Value::Real(r) => Some(r.to_string()),
                                 Value::Bool(b) => Some(b.to_string()),
-
                             })
                             .collect::<StringArray>();
                         Arc::new(arrow_column) as Arc<dyn Array>
