@@ -21,13 +21,32 @@ fn err_msg(msg: impl Into<String>) -> StdError {
 pub struct Excel {
     path: String,
     sheets: Vec<String>,
+    strict: bool,
 }
 
-impl TryFrom<(ColumnType, usize, &[DataType])> for Value {
+impl TryFrom<(ColumnType, usize, &[DataType], bool)> for Value {
     // FIXME: specific error instead of Box<dyn Error>
     type Error = StdError;
 
-    fn try_from((col, index, row): (ColumnType, usize, &[DataType])) -> Result<Self, Self::Error> {
+    fn try_from((col, index, row, strict): (ColumnType, usize, &[DataType], bool)) -> Result<Self, Self::Error> {
+        if !strict {
+            let v2 = row.get(index).unwrap();
+            let v = match v2 {
+                DataType::Int(v) => v.to_string(),
+                DataType::Float(f) => f.to_string(),
+                DataType::String(s) => s.to_string(),
+                DataType::Bool(b) => b.to_string(),
+                DataType::DateTime(_) => v2.as_datetime().unwrap().format("%Y-%m-%d %H:%M:%S").to_string(),
+                DataType::Duration(d) => d.to_string(),
+                DataType::DateTimeIso(d) => d.to_string(),
+                DataType::DurationIso(d) => d.to_string(),
+                DataType::Error(e) => e.to_string(),
+                DataType::Empty => "".to_string(),
+            };
+            let v = Value::Text(v.into());
+            return Ok(v);
+        }
+
         let value = match col {
             ColumnType::Int => row
                 .get(index)
@@ -85,10 +104,11 @@ enum InnerEvent {
 }
 
 impl Excel {
-    pub fn new(path: impl Into<String>, sheets: &[&str]) -> Self {
+    pub fn new(path: impl Into<String>, sheets: &[&str], strict: bool) -> Self {
         Self {
             path: path.into(),
             sheets: sheets.iter().map(|&x| x.into()).collect(),
+            strict,
         }
     }
 
@@ -147,7 +167,7 @@ impl Excel {
                         open_workbook_auto(path).expect("Cannot open file");
 
                     let mut sheets = self
-                        .init_schema::<SectionChan>(&mut workbook, &state)
+                        .init_schema::<SectionChan>(&mut workbook, &state, self.strict)
                         .await?;
 
                     for sheet in sheets.iter_mut() {
@@ -155,7 +175,7 @@ impl Excel {
                             let mut rows = range.rows();
                             // the first is the header, so don't send it in the data payload since it's already part of the schema
                             let _ = rows.next();
-                            let excel_payload = self.build_excel_payload(sheet, rows)?;
+                            let excel_payload = self.build_excel_payload(sheet, rows, self.strict)?;
 
                             let message = Message::new(
                                 sheet.name.to_string(),
@@ -175,6 +195,7 @@ impl Excel {
         &self,
         sheet: &Sheet,
         rows: Rows<calamine::DataType>,
+        strict: bool,
     ) -> Result<ExcelPayload, StdError> {
         let mut values: Vec<Vec<Value>> = vec![];
         let cap = rows.len();
@@ -183,7 +204,7 @@ impl Excel {
                 values = row.iter().map(|_| Vec::with_capacity(cap)).collect();
             }
             for (index, column) in sheet.column_types.iter().enumerate() {
-                let value = Value::try_from((*column, index, row))?;
+                let value = Value::try_from((*column, index, row, strict))?;
                 values[index].push(value);
             }
         }
@@ -200,6 +221,7 @@ impl Excel {
         &self,
         workbook: &mut calamine::Sheets<std::io::BufReader<std::fs::File>>,
         _state: &<C as SectionChannel>::State,
+        strict: bool,
     ) -> Result<Vec<Sheet>, StdError> {
         let mut sheets = Vec::with_capacity(self.sheets.len());
         let all_sheets: Vec<String>;
@@ -227,19 +249,22 @@ impl Excel {
                         _ => Err(err_msg("column name is not a string")),
                     })
                     .collect::<Result<Vec<String>, StdError>>()?;
-                // get the data types from teh second row
+                // get the data types from the second row
                 let col_types: Vec<ColumnType> = second_row
                     .iter()
-                    .map(|cell| match cell {
-                        DataType::String(_) => ColumnType::Text,
-                        DataType::Int(_) => ColumnType::Int,
-                        DataType::Float(_) => ColumnType::Real,
-                        DataType::Bool(_) => ColumnType::Bool,
-                        DataType::DateTime(_) => ColumnType::DateTime,
-                        DataType::Duration(_) => ColumnType::Duration,
-                        DataType::DateTimeIso(_) => ColumnType::DateTimeIso,
-                        DataType::DurationIso(_) => ColumnType::DurationIso,
-                        _ => ColumnType::Text,
+                    .map(|cell| match strict {
+                        true => match cell {
+                            DataType::String(_) => ColumnType::Text,
+                            DataType::Int(_) => ColumnType::Int,
+                            DataType::Float(_) => ColumnType::Real,
+                            DataType::Bool(_) => ColumnType::Bool,
+                            DataType::DateTime(_) => ColumnType::DateTime,
+                            DataType::Duration(_) => ColumnType::Duration,
+                            DataType::DateTimeIso(_) => ColumnType::DateTimeIso,
+                            DataType::DurationIso(_) => ColumnType::DurationIso,
+                            _ => ColumnType::Text,
+                        },
+                        false => ColumnType::Text,
                     })
                     .collect();
 
@@ -298,6 +323,6 @@ where
     }
 }
 
-pub fn new(path: impl Into<String>, sheets: &[&str]) -> Excel {
-    Excel::new(path, sheets)
+pub fn new(path: impl Into<String>, sheets: &[&str], strict: bool) -> Excel {
+    Excel::new(path, sheets, strict)
 }

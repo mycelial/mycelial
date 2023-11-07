@@ -42,23 +42,28 @@ impl<SectionChan: SectionChannel + Send + 'static> Section<DynStream, DynSink, S
 pub fn constructor<S: SectionChannel>(
     config: &Map,
 ) -> Result<Box<dyn DynSection<S>>, SectionError> {
-    // FIXME: Use correct input config values for excel
     let sheets = config
         .get("sheets")
         .ok_or("excel section requires 'sheets'")?
         .as_str()
         .ok_or("'sheets' should be string")?;
-    let path = config
-        .get("path")
-        .ok_or("excel section requires 'path'")?
-        .as_str()
-        .ok_or("path should be string")?;
     let sheets = sheets
         .split(',')
         .map(|x| x.trim())
         .filter(|x| !x.is_empty())
         .collect::<Vec<&str>>();
+    let path = config
+        .get("path")
+        .ok_or("excel section requires 'path'")?
+        .as_str()
+        .ok_or("path should be string")?;
+    let strict: bool = config
+        .get("strict")
+        .ok_or("excel section requires 'strict'")?
+        .as_str()
+        .ok_or("strict should be string")?
+        .parse()?;
     Ok(Box::new(ExcelAdapter {
-        inner: Excel::new(path, sheets.as_slice()),
+        inner: Excel::new(path, sheets.as_slice(), strict),
     }))
 }
