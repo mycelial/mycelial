@@ -201,6 +201,7 @@ const SqliteConnectorSourceNode: FC<NodeProps> = memo(({ id, data, selected }) =
       database_path: data.path ? data.path : "/tmp/test.sqlite",
       tables: data.tables ? data.tables : "*",
       client: data.client ? data.client : "-",
+      strict: data.strict ? data.strict : "true",
     };
   }, []);
 
@@ -223,6 +224,7 @@ const SqliteConnectorSourceNode: FC<NodeProps> = memo(({ id, data, selected }) =
     handleChange("path", initialValues.database_path);
     handleChange("tables", initialValues.tables);
     handleChange("client", initialValues.client);
+    handleChange("strict", initialValues.strict);
   }, []);
 
   let classNames = `${styles.customNode} `;
@@ -281,6 +283,16 @@ const SqliteConnectorSourceNode: FC<NodeProps> = memo(({ id, data, selected }) =
           options={(clients || []).map((c) => c.id)}
           onChange={(value) => {
             handleChange("client", value || "");
+          }}
+        />
+        <Select
+          name="strict"
+          label="Strict"
+          placeholder="Pick one"
+          defaultValue={initialValues.strict}
+          options={["true", "false"]}
+          onChange={(value) => {
+            handleChange("strict", value || "");
           }}
         />
         <Handle type="source" position={Position.Right} id={id} />
