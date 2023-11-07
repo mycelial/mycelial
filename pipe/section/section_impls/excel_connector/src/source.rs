@@ -28,7 +28,9 @@ impl TryFrom<(ColumnType, usize, &[DataType], bool)> for Value {
     // FIXME: specific error instead of Box<dyn Error>
     type Error = StdError;
 
-    fn try_from((col, index, row, strict): (ColumnType, usize, &[DataType], bool)) -> Result<Self, Self::Error> {
+    fn try_from(
+        (col, index, row, strict): (ColumnType, usize, &[DataType], bool),
+    ) -> Result<Self, Self::Error> {
         if !strict {
             let v2 = row.get(index).unwrap();
             let v = match v2 {
@@ -36,7 +38,11 @@ impl TryFrom<(ColumnType, usize, &[DataType], bool)> for Value {
                 DataType::Float(f) => f.to_string(),
                 DataType::String(s) => s.to_string(),
                 DataType::Bool(b) => b.to_string(),
-                DataType::DateTime(_) => v2.as_datetime().unwrap().format("%Y-%m-%d %H:%M:%S").to_string(),
+                DataType::DateTime(_) => v2
+                    .as_datetime()
+                    .unwrap()
+                    .format("%Y-%m-%d %H:%M:%S")
+                    .to_string(),
                 DataType::Duration(d) => d.to_string(),
                 DataType::DateTimeIso(d) => d.to_string(),
                 DataType::DurationIso(d) => d.to_string(),
