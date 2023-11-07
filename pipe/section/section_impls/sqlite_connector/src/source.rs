@@ -53,7 +53,9 @@ impl TryFrom<(ColumnType, usize, &SqliteRow, bool)> for Value {
     // FIXME: specific error instead of Box<dyn Error>
     type Error = StdError;
 
-    fn try_from((col, index, row, strict): (ColumnType, usize, &SqliteRow, bool)) -> Result<Self, Self::Error> {
+    fn try_from(
+        (col, index, row, strict): (ColumnType, usize, &SqliteRow, bool),
+    ) -> Result<Self, Self::Error> {
         // FIXME: handle sqlite type affinities properly:
         // sqlite> create table t(id);
         // sqlite> insert into t values(1), ('1'), (NULL), ("string");
@@ -82,28 +84,26 @@ impl TryFrom<(ColumnType, usize, &SqliteRow, bool)> for Value {
         } else {
             let v = row.try_get::<Option<i64>, _>(index);
             match v {
-                Ok(v) => {
-                    match v {
-                        Some(v) => return Ok(Value::Int(v)),
-                        None => return Ok(Value::Null),
-                    }
+                Ok(v) => match v {
+                    Some(v) => return Ok(Value::Int(v)),
+                    None => return Ok(Value::Null),
                 },
-                Err(_e) => {},
+                Err(_e) => {}
             };
             let v = row.try_get::<Option<String>, _>(index);
             match v {
                 Ok(v) => return Ok(Value::Text(v.unwrap())),
-                Err(_e) => {},
+                Err(_e) => {}
             };
             let v = row.try_get::<Option<Vec<u8>>, _>(index);
             match v {
                 Ok(v) => return Ok(Value::Blob(v.unwrap())),
-                Err(_e) => {},
+                Err(_e) => {}
             };
             let v = row.try_get::<Option<f64>, _>(index);
             match v {
                 Ok(v) => return Ok(Value::Real(v.unwrap())),
-                Err(_e) => {},
+                Err(_e) => {}
             };
             return Err(format!("unimplemented: {:?}", col).into());
         }
@@ -169,7 +169,7 @@ impl Sqlite {
             .unwrap_or(<<SectionChan as SectionChannel>::State>::new());
 
         let mut tables = self
-            .init_tables::<SectionChan>(&mut connection, &state)
+            .init_tables::<SectionChan>(&mut connection, &state, self.strict)
             .await?;
 
         let rx = ReceiverStream::new(rx);
@@ -246,6 +246,7 @@ impl Sqlite {
         &self,
         connection: &mut SqliteConnection,
         state: &<C as SectionChannel>::State,
+        strict: bool,
     ) -> Result<Vec<Table>, StdError> {
         let mut tables = Vec::with_capacity(self.tables.len());
 
@@ -279,7 +280,10 @@ impl Sqlite {
             };
             let mut cols = Vec::with_capacity(columns.len());
             let mut col_types = Vec::with_capacity(columns.len());
-            let t = &Type{name: "none".to_string(), size: None};
+            let t = &Type {
+                name: "none".to_string(),
+                size: None,
+            };
             for column in columns {
                 let col_name = column
                     .col_name
@@ -308,7 +312,11 @@ impl Sqlite {
                     }
                     _ => ColumnType::Any,
                 };
-                col_types.push(ty);
+                if strict {
+                    col_types.push(ty);
+                } else {
+                    col_types.push(ColumnType::Any);
+                }
             }
             let offset = state.get::<i64>(&name)?.unwrap_or(0);
             let table = Table {
