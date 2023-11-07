@@ -42,6 +42,7 @@ pub enum ColumnType {
     Real,
     Numeric,
     Bool,
+    Any,
 }
 
 impl Display for ColumnType {
@@ -53,6 +54,7 @@ impl Display for ColumnType {
             ColumnType::Real => "DOUBLE",
             ColumnType::Numeric => "NUMERIC",
             ColumnType::Bool => "BOOLEAN",
+            ColumnType::Any => "TEXT", // casting to text for now, FIXME?
         };
         write!(f, "{}", ty)
     }

@@ -22,12 +22,12 @@ use futures::{FutureExt, Sink, SinkExt, Stream, StreamExt};
 use notify::{Event, RecursiveMode, Watcher};
 use section::{Command, Section, SectionChannel, State, WeakSectionChannel};
 use sqlite3_parser::{
-    ast::{Cmd, CreateTableBody, Stmt},
+    ast::{Cmd, CreateTableBody, Stmt, Type},
     lexer::sql::Parser,
 };
 use sqlx::{
     sqlite::{SqliteConnectOptions, SqliteRow},
-    ConnectOptions, Row, SqliteConnection,
+    ConnectOptions, Row, SqliteConnection, ValueRef,
 };
 
 // FIXME: drop direct dependency
@@ -46,13 +46,14 @@ pub struct Sqlite {
     path: String,
     tables: Vec<String>,
     once: bool,
+    strict: bool,
 }
 
-impl TryFrom<(ColumnType, usize, &SqliteRow)> for Value {
+impl TryFrom<(ColumnType, usize, &SqliteRow, bool)> for Value {
     // FIXME: specific error instead of Box<dyn Error>
     type Error = StdError;
 
-    fn try_from((col, index, row): (ColumnType, usize, &SqliteRow)) -> Result<Self, Self::Error> {
+    fn try_from((col, index, row, strict): (ColumnType, usize, &SqliteRow, bool)) -> Result<Self, Self::Error> {
         // FIXME: handle sqlite type affinities properly:
         // sqlite> create table t(id);
         // sqlite> insert into t values(1), ('1'), (NULL), ("string");
@@ -68,15 +69,44 @@ impl TryFrom<(ColumnType, usize, &SqliteRow)> for Value {
         // obvisouly such table will break following code
         //
         // more info: https://www.sqlite.org/datatype3.html
-        let value = match col {
-            ColumnType::Int => row.try_get::<Option<i64>, _>(index)?.map(Value::Int),
-            ColumnType::Text => row.try_get::<Option<String>, _>(index)?.map(Value::Text),
-            ColumnType::Blob => row.try_get::<Option<Vec<u8>>, _>(index)?.map(Value::Blob),
-            ColumnType::Real => row.try_get::<Option<f64>, _>(index)?.map(Value::Real),
-            _ => return Err(format!("unimplemented: {:?}", col).into()),
+        if strict {
+            let value = match col {
+                ColumnType::Int => row.try_get::<Option<i64>, _>(index)?.map(Value::Int),
+                ColumnType::Text => row.try_get::<Option<String>, _>(index)?.map(Value::Text),
+                ColumnType::Blob => row.try_get::<Option<Vec<u8>>, _>(index)?.map(Value::Blob),
+                ColumnType::Real => row.try_get::<Option<f64>, _>(index)?.map(Value::Real),
+                _ => return Err(format!("unimplemented: {:?}", col).into()),
+            }
+            .unwrap_or(Value::Null);
+            return Ok(value);
+        } else {
+            let v = row.try_get::<Option<i64>, _>(index);
+            match v {
+                Ok(v) => {
+                    match v {
+                        Some(v) => return Ok(Value::Int(v)),
+                        None => return Ok(Value::Null),
+                    }
+                },
+                Err(_e) => {},
+            };
+            let v = row.try_get::<Option<String>, _>(index);
+            match v {
+                Ok(v) => return Ok(Value::Text(v.unwrap())),
+                Err(_e) => {},
+            };
+            let v = row.try_get::<Option<Vec<u8>>, _>(index);
+            match v {
+                Ok(v) => return Ok(Value::Blob(v.unwrap())),
+                Err(_e) => {},
+            };
+            let v = row.try_get::<Option<f64>, _>(index);
+            match v {
+                Ok(v) => return Ok(Value::Real(v.unwrap())),
+                Err(_e) => {},
+            };
+            return Err(format!("unimplemented: {:?}", col).into());
         }
-        .unwrap_or(Value::Null);
-        Ok(value)
     }
 }
 
@@ -98,11 +128,12 @@ enum InnerEvent {
 }
 
 impl Sqlite {
-    pub fn new(path: impl Into<String>, tables: &[&str], once: bool) -> Self {
+    pub fn new(path: impl Into<String>, tables: &[&str], once: bool, strict: bool) -> Self {
         Self {
             path: path.into(),
             tables: tables.iter().map(|&x| x.into()).collect(),
             once,
+            strict,
         }
     }
 
@@ -182,7 +213,7 @@ impl Sqlite {
                         }
                         table.offset += rows.len() as i64;
 
-                        let sqlite_payload = self.build_sqlite_payload(table, rows)?;
+                        let sqlite_payload = self.build_sqlite_payload(table, rows, self.strict)?;
                         let weak_chan = section_channel.weak_chan();
                         let ack_message = Box::new(AckMessage {
                             table: Arc::clone(&table.name),
@@ -248,6 +279,7 @@ impl Sqlite {
             };
             let mut cols = Vec::with_capacity(columns.len());
             let mut col_types = Vec::with_capacity(columns.len());
+            let t = &Type{name: "none".to_string(), size: None};
             for column in columns {
                 let col_name = column
                     .col_name
@@ -258,7 +290,7 @@ impl Sqlite {
                 cols.push(col_name);
                 let ty = match column.col_type {
                     Some(ref ty) => ty,
-                    None => Err("untyped column")?,
+                    None => t,
                 };
                 // FIXME: Numeric type as a wildcard match
                 let ty = match &ty.name.to_lowercase() {
@@ -274,7 +306,7 @@ impl Sqlite {
                     ty if ty.contains("real") || ty.contains("double") || ty.contains("real") => {
                         ColumnType::Real
                     }
-                    _ => ColumnType::Numeric,
+                    _ => ColumnType::Any,
                 };
                 col_types.push(ty);
             }
@@ -296,6 +328,7 @@ impl Sqlite {
         &self,
         table: &Table,
         rows: Vec<SqliteRow>,
+        strict: bool,
     ) -> Result<SqlitePayload, StdError> {
         let mut values: Vec<Vec<Value>> = vec![];
         for row in rows.iter() {
@@ -307,7 +340,7 @@ impl Sqlite {
                     .collect();
             }
             for (index, &column) in table.column_types.iter().enumerate() {
-                let value = Value::try_from((column, index, row))?;
+                let value = Value::try_from((column, index, row, strict))?;
                 values[index].push(value);
             }
         }
@@ -366,6 +399,6 @@ where
     }
 }
 
-pub fn new(path: impl Into<String>, tables: &[&str], once: bool) -> Sqlite {
-    Sqlite::new(path, tables, once)
+pub fn new(path: impl Into<String>, tables: &[&str], once: bool, strict: bool) -> Sqlite {
+    Sqlite::new(path, tables, once, strict)
 }
