@@ -27,7 +27,7 @@ use sqlite3_parser::{
 };
 use sqlx::{
     sqlite::{SqliteConnectOptions, SqliteRow},
-    ConnectOptions, Row, SqliteConnection, ValueRef,
+    ConnectOptions, Row, SqliteConnection,
 };
 
 // FIXME: drop direct dependency
@@ -80,7 +80,7 @@ impl TryFrom<(ColumnType, usize, &SqliteRow, bool)> for Value {
                 _ => return Err(format!("unimplemented: {:?}", col).into()),
             }
             .unwrap_or(Value::Null);
-            return Ok(value);
+            Ok(value)
         } else {
             let v = row.try_get::<Option<i64>, _>(index);
             match v {
@@ -105,7 +105,7 @@ impl TryFrom<(ColumnType, usize, &SqliteRow, bool)> for Value {
                 Ok(v) => return Ok(Value::Real(v.unwrap())),
                 Err(_e) => {}
             };
-            return Err(format!("unimplemented: {:?}", col).into());
+            Err(format!("unimplemented: {:?}", col).into())
         }
     }
 }
