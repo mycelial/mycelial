@@ -24,6 +24,7 @@ token = "token"                    # Default token for Sqlite Physical Replicati
 type = "excel_connector"
 display_name = "Excel Source"
 path = "test.xlsx"
+strict = false
 
 # SOURCES
 # Define all data sources (data stores and directory paths)
@@ -97,3 +98,8 @@ table = "table"
 type = "postgres_connector"
 display_name = "postgres destination"
 url = "postgres://user:password@127.0.0.1:5432/test"
+
+[[destinations]]
+type = "mysql_connector"
+display_name = "mysql destination"
+url = "mysql://user:password@127.0.0.1:3306/test"

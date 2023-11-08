@@ -1,5 +1,4 @@
 pub mod destination;
-pub mod source;
 
 use std::sync::Arc;
 
@@ -13,17 +12,15 @@ use arrow::{
     error::ArrowError,
     record_batch::RecordBatch as _RecordBatch,
 };
-use sqlite_connector::{ColumnType, SqlitePayload, Value};
+use mysql_connector::{ColumnType, MysqlPayload, Value};
 
-fn to_datatype(sqlite_coltype: ColumnType) -> DataType {
-    // FIXME: make use of int32/f32 where possible?
-    match sqlite_coltype {
+fn to_datatype(mysql_coltype: ColumnType) -> DataType {
+    match mysql_coltype {
         ColumnType::Int => DataType::Int64,
         ColumnType::Blob => DataType::Binary,
         ColumnType::Text => DataType::Utf8,
         ColumnType::Real => DataType::Float64,
-        ColumnType::Any => DataType::Utf8,
-        _ => panic!("unexpected sqlite type: {:?}", sqlite_coltype),
+        _ => panic!("unexpected mysql type: {:?}", mysql_coltype),
     }
 }
 
@@ -38,7 +35,7 @@ fn to_coltype(datatype: &DataType) -> ColumnType {
     }
 }
 
-impl TryInto<RecordBatch> for &SqlitePayload {
+impl TryInto<RecordBatch> for &MysqlPayload {
     // FIXME: proper conv error type
     type Error = ArrowError;
 
@@ -102,20 +99,6 @@ impl TryInto<RecordBatch> for &SqlitePayload {
                             .collect::<Float64Array>();
                         Arc::new(arrow_column)
                     }
-                    ColumnType::Any => {
-                        let arrow_column = column
-                            .iter()
-                            .map(|col| match col {
-                                Value::Text(s) => Some(s.clone()),
-                                Value::Null => None,
-                                Value::Int(i) => Some(i.to_string()),
-                                Value::Blob(b) => Some(String::from_utf8(b.to_vec()).unwrap()),
-                                Value::Real(r) => Some(r.to_string()),
-                                Value::Bool(b) => Some(b.to_string()),
-                            })
-                            .collect::<StringArray>();
-                        Arc::new(arrow_column) as Arc<dyn Array>
-                    }
                     // FIXME:
                     _ => unreachable!(),
                 }
@@ -125,7 +108,7 @@ impl TryInto<RecordBatch> for &SqlitePayload {
     }
 }
 
-impl TryInto<RecordBatch> for SqlitePayload {
+impl TryInto<RecordBatch> for MysqlPayload {
     // FIXME: proper conv error type
     type Error = ArrowError;
 
@@ -136,9 +119,9 @@ impl TryInto<RecordBatch> for SqlitePayload {
 
 #[derive(Debug)]
 #[repr(transparent)]
-pub struct SqlitePayloadNewType(SqlitePayload);
+pub struct MysqlPayloadNewType(MysqlPayload);
 
-impl From<&RecordBatch> for SqlitePayloadNewType {
+impl From<&RecordBatch> for MysqlPayloadNewType {
     fn from(arrow_rb: &RecordBatch) -> Self {
         let (columns, column_types) = arrow_rb.schema().fields.into_iter().fold(
             (vec![], vec![]),
@@ -209,13 +192,13 @@ impl From<&RecordBatch> for SqlitePayloadNewType {
                 }
             })
             .collect();
-        let payload = SqlitePayload {
+        let payload = MysqlPayload {
             columns: Arc::from(columns),
             column_types: Arc::from(column_types),
             values,
             // FIXME:
             offset: 0,
         };
-        SqlitePayloadNewType(payload)
+        MysqlPayloadNewType(payload)
     }
 }

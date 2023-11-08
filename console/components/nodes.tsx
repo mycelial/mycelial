@@ -201,6 +201,7 @@ const SqliteConnectorSourceNode: FC<NodeProps> = memo(({ id, data, selected }) =
       database_path: data.path ? data.path : "/tmp/test.sqlite",
       tables: data.tables ? data.tables : "*",
       client: data.client ? data.client : "-",
+      strict: data.strict ? data.strict : "true",
     };
   }, []);
 
@@ -223,6 +224,7 @@ const SqliteConnectorSourceNode: FC<NodeProps> = memo(({ id, data, selected }) =
     handleChange("path", initialValues.database_path);
     handleChange("tables", initialValues.tables);
     handleChange("client", initialValues.client);
+    handleChange("strict", initialValues.strict);
   }, []);
 
   let classNames = `${styles.customNode} `;
@@ -281,6 +283,16 @@ const SqliteConnectorSourceNode: FC<NodeProps> = memo(({ id, data, selected }) =
           options={(clients || []).map((c) => c.id)}
           onChange={(value) => {
             handleChange("client", value || "");
+          }}
+        />
+        <Select
+          name="strict"
+          label="Strict"
+          placeholder="Pick one"
+          defaultValue={initialValues.strict}
+          options={["true", "false"]}
+          onChange={(value) => {
+            handleChange("strict", value || "");
           }}
         />
         <Handle type="source" position={Position.Right} id={id} />
@@ -382,6 +394,7 @@ const ExcelSourceNode: FC<NodeProps> = memo(({ id, data, selected }) => {
       path: data.path ? data.path : "/tmp/test.xlsx",
       client: data.client ? data.client : "-",
       sheets: data.sheets ? data.sheets : "*",
+      strict: data.strict ? data.strict : "true",
     };
   }, []);
 
@@ -404,6 +417,7 @@ const ExcelSourceNode: FC<NodeProps> = memo(({ id, data, selected }) => {
     handleChange("journal_path", initialValues.path);
     handleChange("sheets", initialValues.sheets);
     handleChange("client", initialValues.client);
+    handleChange("strict", initialValues.strict);
   }, []);
 
   let classNames = `${styles.customNode} `;
@@ -464,6 +478,16 @@ const ExcelSourceNode: FC<NodeProps> = memo(({ id, data, selected }) => {
           options={(clients || []).map((c) => c.id)}
           onChange={(value) => {
             handleChange("client", value || "");
+          }}
+        />
+        <Select
+          name="strict"
+          label="Strict"
+          placeholder="Pick one"
+          defaultValue={initialValues.strict}
+          options={["true", "false"]}
+          onChange={(value) => {
+            handleChange("strict", value || "");
           }}
         />
         <Handle type="source" position={Position.Right} id={id} />
@@ -1340,7 +1364,91 @@ const PostgresConnectorDestinationNode: FC<NodeProps> = memo(({ id, data, select
         </button>
         <TextInput
           name="url"
-          label="PostgresConnector Database Url"
+          label="Postgres Connector Database Url"
+          placeholder={initialValues.url}
+          defaultValue={initialValues.url}
+          onChange={(event) => handleChange("url", event.currentTarget.value)}
+        />
+        <Select
+          name="client"
+          label="Client"
+          placeholder="Pick one"
+          defaultValue={initialValues.client}
+          options={(clients || []).map((c) => c.id)}
+          onChange={(value) => {
+            handleChange("client", value || "");
+          }}
+        />
+        <Handle type="target" position={Position.Left} id={id} />
+      </div>
+    </div>
+  );
+});
+
+const MysqlConnectorDestinationNode: FC<NodeProps> = memo(({ id, data, selected }) => {
+  const instance = useReactFlow();
+  const { clients } = useContext(ClientContext) as ClientContextType;
+
+  let initialValues = useMemo(() => {
+    return {
+      url: data.url? data.url: "mysql://root:root@127.0.0.1:3306/test",
+      client: data.client ? data.client : "-",
+    };
+  }, []);
+
+  const handleChange = useCallback((name: string, value: string) => {
+    instance.setNodes((nodes) =>
+      nodes.map((node) => {
+        if (node.id === id) {
+          node.data = {
+            ...node.data,
+            [name]: value,
+          };
+        }
+
+        return node;
+      }),
+    );
+  }, []);
+
+  const removeNode = useCallback((id: string) => {
+    let node = instance.getNode(id);
+    if (node === undefined) {
+      return;
+    }
+    let edges = getConnectedEdges([node], []);
+    instance.deleteElements({ edges, nodes: [node] });
+  }, []);
+
+  useEffect(() => {
+    handleChange("url", initialValues.url);
+    handleChange("client", initialValues.client);
+  }, []);
+
+  let classNames = `${styles.customNode} `;
+  if (selected) {
+    classNames = classNames + `${styles.selected}`;
+  }
+
+  return (
+    <div className={classNames}>
+      <div className=" grid grid-cols-1 gap-x-6 gap-y-2">
+        <h2 className="text-slate-400 font-normal">Postgres Destination</h2>
+        <button
+          onClick={() => {
+            if (confirm("Are you sure you want to delete this node?")) {
+              removeNode(id);
+            }
+          }}
+          type="button"
+          className="absolute right-1 top-1 rounded bg-red-200 text-white shadow-sm hover:bg-red-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-800"
+          title="delete"
+        >
+          <XMarkIcon className="h-5 w-5" aria-hidden="true" />
+        </button>
+        <TextInput
+          name="url"
+          label="Mysql Connector Database Url"
           placeholder={initialValues.url}
           defaultValue={initialValues.url}
           onChange={(event) => handleChange("url", event.currentTarget.value)}
@@ -1374,5 +1482,6 @@ export {
   SnowflakeDestinationNode,
   HelloWorldSourceNode,
   HelloWorldDestinationNode,
-  PostgresConnectorDestinationNode
+  PostgresConnectorDestinationNode,
+  MysqlConnectorDestinationNode
 };

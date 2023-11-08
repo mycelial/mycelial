@@ -70,7 +70,14 @@ pub fn constructor<S: SectionChannel>(
         Some(val) => val.as_bool().ok_or("once should be bool")?,
         None => false,
     };
+    let strict: bool = config
+        .get("strict")
+        .ok_or("excel section requires 'strict'")?
+        .as_str()
+        .ok_or("strict should be string")?
+        .parse()?;
+
     Ok(Box::new(SqliteAdapter {
-        inner: Sqlite::new(path, tables.as_slice(), once),
+        inner: Sqlite::new(path, tables.as_slice(), once, strict),
     }))
 }

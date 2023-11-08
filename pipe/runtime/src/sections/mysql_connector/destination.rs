@@ -1,6 +1,6 @@
 use crate::message::Message;
 use futures::StreamExt;
-use postgres_connector::destination::Postgres;
+use mysql_connector::destination::Mysql;
 use section::Section;
 use stub::Stub;
 
@@ -10,16 +10,16 @@ use crate::{
     types::{DynSection, DynSink, DynStream, SectionError},
 };
 
-use super::PostgresPayloadNewType;
+use super::MysqlPayloadNewType;
 use section::SectionChannel;
 
 #[allow(dead_code)]
-pub struct PostgresAdapter {
-    inner: Postgres,
+pub struct MysqlAdapter {
+    inner: Mysql,
 }
 
 impl<SectionChan: SectionChannel + Send + 'static> Section<DynStream, DynSink, SectionChan>
-    for PostgresAdapter
+    for MysqlAdapter
 {
     type Future = SectionFuture;
     type Error = SectionError;
@@ -32,31 +32,31 @@ impl<SectionChan: SectionChannel + Send + 'static> Section<DynStream, DynSink, S
     ) -> Self::Future {
         Box::pin(async move {
             let input = input.map(|message: Message| {
-                let postgres_payload: PostgresPayloadNewType = (&message.payload).into();
-                postgres_connector::Message::new(message.origin, postgres_payload.0, message.ack)
+                let mysql_payload: MysqlPayloadNewType = (&message.payload).into();
+                mysql_connector::Message::new(message.origin, mysql_payload.0, message.ack)
             });
-            let output = Stub::<postgres_connector::Message, SectionError>::new();
+            let output = Stub::<mysql_connector::Message, SectionError>::new();
             self.inner.start(input, output, section_channel).await
         })
     }
 }
 
-/// constructor for postgres destination
+/// constructor for mysql destination
 ///
 /// # Config example:
 /// ```toml
 /// [[section]]
-/// url = "postgres://user:password@host:port/database
+/// url = "mysql://user:password@host:port/database
 /// ```
 pub fn constructor<S: SectionChannel>(
     config: &Map,
 ) -> Result<Box<dyn DynSection<S>>, SectionError> {
     let url = config
         .get("url")
-        .ok_or("postgres destination section requires 'url'")?
+        .ok_or("mysql destination section requires 'url'")?
         .as_str()
         .ok_or("path should be string")?;
-    Ok(Box::new(PostgresAdapter {
-        inner: Postgres::new(url),
+    Ok(Box::new(MysqlAdapter {
+        inner: Mysql::new(url),
     }))
 }

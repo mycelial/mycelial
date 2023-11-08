@@ -1832,6 +1832,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "mysql_connector"
+version = "0.1.0"
+dependencies = [
+ "futures",
+ "section",
+ "sqlx",
+]
+
+[[package]]
 name = "native-tls"
 version = "0.2.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2666,6 +2675,7 @@ dependencies = [
  "futures",
  "kafka",
  "log",
+ "mysql_connector",
  "parquet",
  "postgres_connector",
  "rdkafka",

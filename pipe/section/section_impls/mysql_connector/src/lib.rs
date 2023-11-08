@@ -2,13 +2,12 @@ use section::Message as _Message;
 use std::{fmt::Display, sync::Arc};
 
 pub mod destination;
-pub mod source;
 
 type StdError = Box<dyn std::error::Error + Send + Sync + 'static>;
-pub type Message = _Message<SqlitePayload>;
+pub type Message = _Message<MysqlPayload>;
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct SqlitePayload {
+pub struct MysqlPayload {
     /// column names
     pub columns: Arc<[String]>,
 
@@ -42,7 +41,6 @@ pub enum ColumnType {
     Real,
     Numeric,
     Bool,
-    Any,
 }
 
 impl Display for ColumnType {
@@ -54,7 +52,6 @@ impl Display for ColumnType {
             ColumnType::Real => "DOUBLE",
             ColumnType::Numeric => "NUMERIC",
             ColumnType::Bool => "BOOLEAN",
-            ColumnType::Any => "TEXT", // casting to text for now, FIXME?
         };
         write!(f, "{}", ty)
     }
@@ -85,5 +82,5 @@ pub fn generate_schema(message: &Message) -> String {
         .map(|(name, ty)| format!("{name} {ty}"))
         .collect::<Vec<_>>()
         .join(",");
-    format!("CREATE TABLE IF NOT EXISTS \"{name}\" ({columns})",)
+    format!("CREATE TABLE IF NOT EXISTS `{name}` ({columns})",)
 }
