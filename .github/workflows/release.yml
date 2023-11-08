@@ -151,5 +151,4 @@ jobs:
           artifacts: "${{ env.MYCELIALD_NAME }}, ${{ env.SERVER_NAME }}"
           artifactErrorsFailBuild: true
           allowUpdates: true
-          prerelease: true
 
