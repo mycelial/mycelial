@@ -49,7 +49,7 @@ impl Display for ColumnType {
             ColumnType::Int => "INTEGER",
             ColumnType::Text => "TEXT",
             ColumnType::Blob => "BLOB",
-            ColumnType::Real => "DOUBLE",
+            ColumnType::Real => "DOUBLE PRECISION",
             ColumnType::Numeric => "NUMERIC",
             ColumnType::Bool => "BOOLEAN",
         };
