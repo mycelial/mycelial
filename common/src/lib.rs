@@ -79,6 +79,7 @@ pub struct ExcelConfig {
     #[serde(flatten)]
     pub common_attrs: CommonAttrs,
     pub path: String,
+    pub strict: bool,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

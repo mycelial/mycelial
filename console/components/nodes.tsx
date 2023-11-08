@@ -382,6 +382,7 @@ const ExcelSourceNode: FC<NodeProps> = memo(({ id, data, selected }) => {
       path: data.path ? data.path : "/tmp/test.xlsx",
       client: data.client ? data.client : "-",
       sheets: data.sheets ? data.sheets : "*",
+      strict: data.strict ? data.strict : "true",
     };
   }, []);
 
@@ -404,6 +405,7 @@ const ExcelSourceNode: FC<NodeProps> = memo(({ id, data, selected }) => {
     handleChange("journal_path", initialValues.path);
     handleChange("sheets", initialValues.sheets);
     handleChange("client", initialValues.client);
+    handleChange("strict", initialValues.strict);
   }, []);
 
   let classNames = `${styles.customNode} `;
@@ -464,6 +466,16 @@ const ExcelSourceNode: FC<NodeProps> = memo(({ id, data, selected }) => {
           options={(clients || []).map((c) => c.id)}
           onChange={(value) => {
             handleChange("client", value || "");
+          }}
+        />
+        <Select
+          name="strict"
+          label="Strict"
+          placeholder="Pick one"
+          defaultValue={initialValues.strict}
+          options={["true", "false"]}
+          onChange={(value) => {
+            handleChange("strict", value || "");
           }}
         />
         <Handle type="source" position={Position.Right} id={id} />
