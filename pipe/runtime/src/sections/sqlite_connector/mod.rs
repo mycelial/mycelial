@@ -22,6 +22,7 @@ fn to_datatype(sqlite_coltype: ColumnType) -> DataType {
         ColumnType::Blob => DataType::Binary,
         ColumnType::Text => DataType::Utf8,
         ColumnType::Real => DataType::Float64,
+        ColumnType::Any => DataType::Utf8,
         _ => panic!("unexpected sqlite type: {:?}", sqlite_coltype),
     }
 }
@@ -100,6 +101,20 @@ impl TryInto<RecordBatch> for &SqlitePayload {
                             })
                             .collect::<Float64Array>();
                         Arc::new(arrow_column)
+                    }
+                    ColumnType::Any => {
+                        let arrow_column = column
+                            .iter()
+                            .map(|col| match col {
+                                Value::Text(s) => Some(s.clone()),
+                                Value::Null => None,
+                                Value::Int(i) => Some(i.to_string()),
+                                Value::Blob(b) => Some(String::from_utf8(b.to_vec()).unwrap()),
+                                Value::Real(r) => Some(r.to_string()),
+                                Value::Bool(b) => Some(b.to_string()),
+                            })
+                            .collect::<StringArray>();
+                        Arc::new(arrow_column) as Arc<dyn Array>
                     }
                     // FIXME:
                     _ => unreachable!(),
