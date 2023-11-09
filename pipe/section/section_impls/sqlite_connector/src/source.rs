@@ -209,7 +209,7 @@ impl Sqlite {
 
                         if rows.is_empty() {
                             empty_count += 1;
-                            break
+                            continue
                         }
                         table.offset += rows.len() as i64;
 
