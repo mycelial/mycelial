@@ -74,6 +74,27 @@ journal_path = "/tmp/objects_source.sqlite.mycelial"
 ```
 </details>
 
+#### Append only SQLite data source
+
+To define a **SQLite** data source, you'll first specify a `type` property with
+a value of `sqlite_connector`. The next property you'll define is the
+`display_name` which is where you'll specify a human-readable name for this
+datasource. The display name is used and displayed in the server UI. The last 
+property you'll define is the `path`, the value you assign to it is the full
+path and file name to the SQLite database.
+
+<details>
+  <summary>Example Append only SQLite Source Section</summary>
+
+```toml
+[[sources]]
+type = "sqlite_connector"
+display_name = "Detections database"
+path = "/tmp/test.sqlite"
+```
+
+</details>
+
 ### Destination Sections
 
 You can have zero or more `destination` sections, which define which data
@@ -101,5 +122,46 @@ type = "sqlite_physical_replication"
 display_name = "Objects Detected"
 journal_path = "/tmp/objects_dest.sqlite.mycelial"
 database_path = "/tmp/hydrated_db.sqlite"
+```
+</details>
+
+#### Append only SQLite data destination
+
+To define an append only **SQLite** data destination, you'll first specify a
+`type` property with a value of `sqlite_connector`. The next property you'll 
+define is the `display_name` which is where you'll specify a human-readable name
+for this data destination. The display name is used and displayed in the server
+UI. The last property you'll define is the `path` which you'll set to the full
+path and filename of the destination SQLite database.
+
+<details>
+  <summary>Example Append Only SQLite Destination Section</summary>
+
+```toml
+[[destinations]]
+type = "sqlite_connector"
+display_name = "Detections destination"
+path = "/tmp/destination.sqlite"
+```
+</details>
+
+#### Append only Postgres data destination
+
+To define an append only **Postgres** data destination, you'll first specify a
+`type` property with a vaule of `postgres_connector`. The next property you'll
+define is the `display_name` which is where you'll specify a human-readable name
+for this data destination. The display name is used and displayed in the server
+UI. The last property you'll define is the `url` which you'll set to be a valid
+Postgres connection string in the format
+`postgres://user:password@127.0.0.1:5432/database_name`
+
+<details>
+  <summary>Example Append Only Postgres Destination Section</summary>
+
+```toml
+[[destinations]]
+type = "postgres_connector"
+display_name = "postgres destination"
+url = "postgres://user:password@127.0.0.1:5432/test"
 ```
 </details>
