@@ -253,7 +253,7 @@ impl Sqlite {
         let all_tables: Vec<String>;
         let table_names = match self.tables.iter().any(|table| table == "*") {
             true => {
-                all_tables = sqlx::query("SELECT name FROM sqlite_master WHERE type='table'")
+                all_tables = sqlx::query("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'")
                     .map(|row: SqliteRow| row.get::<String, _>(0))
                     .fetch_all(&mut *connection)
                     .await?;
