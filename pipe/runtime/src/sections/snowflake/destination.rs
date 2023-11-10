@@ -37,7 +37,6 @@ pub struct SnowflakeDestination {
     database: String,
     schema: String,
     // destination
-    table: String,
 }
 
 impl SnowflakeDestination {
@@ -50,7 +49,6 @@ impl SnowflakeDestination {
         warehouse: impl Into<String>,
         database: impl Into<String>,
         schema: impl Into<String>,
-        table: impl Into<String>,
     ) -> Self {
         Self {
             username: username.into(),
@@ -60,7 +58,6 @@ impl SnowflakeDestination {
             warehouse: warehouse.into(),
             database: database.into(),
             schema: schema.into(),
-            table: table.into(),
         }
     }
 
@@ -98,7 +95,7 @@ impl SnowflakeDestination {
                         return Ok(())
                     }
                     let mut msg = msg.unwrap();
-                    self.destructive_load_batch(&mut api, &msg.payload).await?;
+                    self.destructive_load_batch(&mut api, &msg.payload, &msg.origin).await?;
                     msg.ack().await;
                 }
             }
@@ -109,6 +106,7 @@ impl SnowflakeDestination {
         &self,
         api: &mut SnowflakeApi,
         batch: &arrow::record_batch::RecordBatch,
+        origin: &str,
     ) -> Result<(), SnowflakeDestinationError> {
         // fixme: race condition on multiple batches in succession, disambiguate file names?
         let tmp_dir = tempdir()?;
@@ -124,7 +122,7 @@ impl SnowflakeDestination {
         writer.close().await?;
 
         // todo: use load and select into custom stage
-        let table_name = self.table.as_str();
+        let table_name = origin.replace(" ", "_");
         let schema = self.arrow_schema_to_snowflake_schema(batch.schema());
         api.exec(&format!(
             "CREATE TABLE IF NOT EXISTS {}({});",
@@ -239,11 +237,6 @@ pub fn constructor<S: SectionChannel>(
         .ok_or("schema required")?
         .as_str()
         .ok_or("'schema' should be a string")?;
-    let table = config
-        .get("table")
-        .ok_or("table required")?
-        .as_str()
-        .ok_or("'table' should be a string")?;
     Ok(Box::new(SnowflakeDestination::new(
         username,
         password,
@@ -252,6 +245,5 @@ pub fn constructor<S: SectionChannel>(
         warehouse,
         database,
         schema,
-        table,
     )))
 }
