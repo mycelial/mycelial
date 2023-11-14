@@ -92,7 +92,6 @@ account_identifier = "account_identifier"
 warehouse = "warehouse"
 database = "database"
 schema = "schema"
-table = "table"
 
 [[destinations]]
 type = "postgres_connector"
