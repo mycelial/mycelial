@@ -796,7 +796,6 @@ const SnowflakeDestinationNode: FC<NodeProps> = memo(
         warehouse: data.warehouse ? data.warehouse : "warehouse",
         database: data.database ? data.database : "database",
         schema: data.schema ? data.schema : "schema",
-        table: data.table ? data.table : "table",
       };
     }, []);
 
@@ -823,7 +822,6 @@ const SnowflakeDestinationNode: FC<NodeProps> = memo(
       handleChange("warehouse", initialValues.warehouse);
       handleChange("database", initialValues.database);
       handleChange("schema", initialValues.schema);
-      handleChange("table", initialValues.table);
     }, []);
 
     let classNames = `${styles.customNode} `;
@@ -917,15 +915,6 @@ const SnowflakeDestinationNode: FC<NodeProps> = memo(
             defaultValue={initialValues.schema}
             onChange={(event) =>
               handleChange("schema", event.currentTarget.value)
-            }
-          />
-          <TextInput
-            name="table"
-            label="Table"
-            placeholder={initialValues.table}
-            defaultValue={initialValues.table}
-            onChange={(event) =>
-              handleChange("table", event.currentTarget.value)
             }
           />
           <Handle type="target" position={Position.Left} id={id} />
