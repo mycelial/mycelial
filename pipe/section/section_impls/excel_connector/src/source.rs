@@ -13,6 +13,8 @@ use std::pin::{pin, Pin};
 use std::time::Duration;
 use std::{future::Future, sync::Arc};
 
+use glob::glob;
+
 fn err_msg(msg: impl Into<String>) -> StdError {
     msg.into().into()
 }
@@ -106,7 +108,8 @@ pub struct Sheet {
 
 #[derive(Debug)]
 enum InnerEvent {
-    NewChange,
+    Init,
+    NewChange(String),
 }
 
 impl Excel {
@@ -129,12 +132,11 @@ impl Excel {
         Output: Sink<Message, Error = StdError> + Send,
         SectionChan: SectionChannel + Send + Sync,
     {
-        // TOOD: get this from config//self
         let path = &self.path;
         let (tx, rx) = tokio::sync::mpsc::channel(4);
-        tx.send(InnerEvent::NewChange).await?;
+        tx.send(InnerEvent::Init).await?;
 
-        let _watcher = self.watch_excel_path(self.path.as_str(), tx);
+        let _watcher = self.watch_excel_paths(self.path.as_str(), tx);
 
         let mut _input = pin!(input.fuse());
         let mut output = pin!(output);
@@ -166,32 +168,79 @@ impl Excel {
                 },
                 msg = rx.next() => {
                     match msg {
-                        Some(_) => {},
+                        Some(event) => {
+                            match event {
+                                // on init, sync all the files.
+                                InnerEvent::Init => {
+                                    for entry in glob(path).expect("Failed to read glob pattern") {
+                                        match entry {
+                                            Ok(path) => {
+                                                let p = path.display().to_string();
+                                                // ignore temp files
+                                                if !p.contains("~") {
+                                                    let mut workbook: calamine::Sheets<std::io::BufReader<std::fs::File>> =
+                                                        open_workbook_auto(path).expect("Cannot open file");
+
+                                                    let mut sheets = self
+                                                        .init_schema::<SectionChan>(&mut workbook, &state, self.strict)
+                                                        .await?;
+
+                                                    for sheet in sheets.iter_mut() {
+                                                        if let Some(Ok(range)) = workbook.worksheet_range(&sheet.name) {
+                                                            let mut rows = range.rows();
+                                                            // the first is the header, so don't send it in the data payload since it's already part of the schema
+                                                            let _ = rows.next();
+                                                            let excel_payload = self.build_excel_payload(sheet, rows, self.strict)?;
+
+                                                            let message = Message::new(
+                                                                format!("{}:{}", p, sheet.name.to_string()),
+                                                                excel_payload,
+                                                                None,
+                                                            );
+                                                            output.send(message).await.map_err(|e| format!("failed to send data to sink {:?}", e))?;
+                                                        }
+
+                                                    }
+                                                }
+                                            },
+                                            Err(e) => println!("{:?}", e),
+                                        }
+                                    }
+                                }
+                                // When there's a change to a file, sync that file
+                                InnerEvent::NewChange(path) => {
+                                    // ignore temp files
+                                    if !path.contains("~") {
+                                        let mut workbook: calamine::Sheets<std::io::BufReader<std::fs::File>> =
+                                            open_workbook_auto(path).expect("Cannot open file");
+
+                                        let mut sheets = self
+                                            .init_schema::<SectionChan>(&mut workbook, &state, self.strict)
+                                            .await?;
+
+                                        for sheet in sheets.iter_mut() {
+                                            if let Some(Ok(range)) = workbook.worksheet_range(&sheet.name) {
+                                                let mut rows = range.rows();
+                                                // the first is the header, so don't send it in the data payload since it's already part of the schema
+                                                let _ = rows.next();
+                                                let excel_payload = self.build_excel_payload(sheet, rows, self.strict)?;
+
+                                                let message = Message::new(
+                                                    sheet.name.to_string(),
+                                                    excel_payload,
+                                                    None,
+                                                );
+                                                output.send(message).await.map_err(|e| format!("failed to send data to sink {:?}", e))?;
+                                            }
+
+                                        }
+                                    }
+                                },
+                            }
+                        },
                         None => Err("excel file watched exited")?
                     };
-                    let mut workbook: calamine::Sheets<std::io::BufReader<std::fs::File>> =
-                        open_workbook_auto(path).expect("Cannot open file");
 
-                    let mut sheets = self
-                        .init_schema::<SectionChan>(&mut workbook, &state, self.strict)
-                        .await?;
-
-                    for sheet in sheets.iter_mut() {
-                        if let Some(Ok(range)) = workbook.worksheet_range(&sheet.name) {
-                            let mut rows = range.rows();
-                            // the first is the header, so don't send it in the data payload since it's already part of the schema
-                            let _ = rows.next();
-                            let excel_payload = self.build_excel_payload(sheet, rows, self.strict)?;
-
-                            let message = Message::new(
-                                sheet.name.to_string(),
-                                excel_payload,
-                                None,
-                            );
-                            output.send(message).await.map_err(|e| format!("failed to send data to sink {:?}", e))?;
-                        }
-
-                    }
                 }
             }
         }
@@ -285,7 +334,7 @@ impl Excel {
         Ok(sheets)
     }
 
-    fn watch_excel_path(
+    fn watch_excel_paths(
         &self,
         excel_path: &str,
         tx: Sender<InnerEvent>,
@@ -294,18 +343,31 @@ impl Excel {
         let mut watcher = notify::PollWatcher::new(
             move |res: Result<Event, _>| match res {
                 Ok(event) if event.kind.is_modify() || event.kind.is_create() => {
-                    tx.blocking_send(InnerEvent::NewChange).ok();
+                    // FIXME: unwrap
+                    tx.blocking_send(InnerEvent::NewChange(
+                        event.paths[0].to_str().unwrap().into(),
+                    ))
+                    .ok();
                 }
                 Ok(_) => (),
                 Err(_e) => (),
             },
             notify::Config::default().with_poll_interval(Duration::from_secs(1)),
         )?;
-        // watch excel file
-        let _ = &[Path::new(excel_path)]
-            .into_iter()
-            .filter(|path| path.exists())
-            .try_for_each(|path| watcher.watch(path, RecursiveMode::NonRecursive))?;
+
+        // todo: it'd be nice to be able to watch a directory for new files too.
+        for entry in glob(excel_path).expect("Failed to read glob pattern") {
+            match entry {
+                Ok(path) => {
+                    let p = path.display().to_string();
+                    // ignore temp files
+                    if !p.contains("~") {
+                        let _ = watcher.watch(Path::new(&p), RecursiveMode::NonRecursive);
+                    }
+                }
+                Err(e) => println!("{:?}", e),
+            }
+        }
         Ok(watcher)
     }
 }
