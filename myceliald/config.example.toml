@@ -12,7 +12,7 @@ storage_path = "myceliald_state.sqlite" # Path and name of SQLite database to st
 # Replace with the endpoint and token for your Sqlite Physical Replication Server
 [server]
 endpoint = "http://localhost:7777" # Default Sqlite Physical Replication Server endpoint
-token = "token"                    # Default token for Sqlite Physical Replication Server and Clietns
+token = "token"                    # Default token for Sqlite Physical Replication Server and Clients
 
 # This sqlite connector is a work in progress alpha version. Uncomment to use.
 # [[sources]]
