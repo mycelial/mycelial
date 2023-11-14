@@ -124,11 +124,7 @@ impl SnowflakeDestination {
         // todo: use load and select into custom stage
 
         // todo: this table name substitution is not smart.
-        let table_name = origin
-            .replace(" ", "_")
-            .replace("/", "_")
-            .replace(":", "_")
-            .replace(".", "_");
+        let table_name = origin.replace([' ', '/', ':', '.'], "_");
         let schema = self.arrow_schema_to_snowflake_schema(batch.schema());
         api.exec(&format!(
             "CREATE TABLE IF NOT EXISTS {}({});",
