@@ -177,7 +177,7 @@ impl Excel {
                                             Ok(path) => {
                                                 let p = path.display().to_string();
                                                 // ignore temp files
-                                                if !p.contains("~") {
+                                                if !p.contains('~') {
                                                     let mut workbook: calamine::Sheets<std::io::BufReader<std::fs::File>> =
                                                         open_workbook_auto(path).expect("Cannot open file");
 
@@ -193,7 +193,7 @@ impl Excel {
                                                             let excel_payload = self.build_excel_payload(sheet, rows, self.strict)?;
 
                                                             let message = Message::new(
-                                                                format!("{}:{}", p, sheet.name.to_string()),
+                                                                format!("{}:{}", p, sheet.name),
                                                                 excel_payload,
                                                                 None,
                                                             );
@@ -210,7 +210,7 @@ impl Excel {
                                 // When there's a change to a file, sync that file
                                 InnerEvent::NewChange(path) => {
                                     // ignore temp files
-                                    if !path.contains("~") {
+                                    if !path.contains('~') {
                                         let mut workbook: calamine::Sheets<std::io::BufReader<std::fs::File>> =
                                             open_workbook_auto(path).expect("Cannot open file");
 
@@ -361,7 +361,7 @@ impl Excel {
                 Ok(path) => {
                     let p = path.display().to_string();
                     // ignore temp files
-                    if !p.contains("~") {
+                    if !p.contains('~') {
                         let _ = watcher.watch(Path::new(&p), RecursiveMode::NonRecursive);
                     }
                 }
