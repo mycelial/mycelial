@@ -165,3 +165,24 @@ display_name = "postgres destination"
 url = "postgres://user:password@127.0.0.1:5432/test"
 ```
 </details>
+
+#### Kafka destination
+
+To define a Kafka destination, you'll first specify a `type` property with a 
+value of `kafka`. The next property you'll define is the `display_name` which is
+where you'll specify a human-readable name for this destination. The display
+name is displayed in the server UI. The next property you'll define is the
+`broker`, which you'll set to the address and port number of the Kafka broker.
+The final property you'll define is the `topic`.
+
+<details>
+  <summary>Example Kafka Destination Section</summary>
+
+```toml
+[[destinations]]
+type = "kafka"
+display_name = "Kafka Destination"
+broker = "localhost:9092"
+topic = "test"
+```
+</details>
