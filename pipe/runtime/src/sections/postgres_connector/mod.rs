@@ -64,7 +64,6 @@ impl TryInto<RecordBatch> for &PostgresPayload {
             .iter()
             .zip(self.column_types.iter())
             .map(|(column, column_type)| {
-                // FIXME proper conversion: replace this match
                 match column_type {
                     ColumnType::I16 => {
                         let arrow_column = column
@@ -159,7 +158,7 @@ impl TryInto<RecordBatch> for &PostgresPayload {
                 }
             })
             .collect();
-        _RecordBatch::try_new(schema, columns).map(RecordBatch)
+        _RecordBatch::try_new(schema, columns).map_err(|e| { println!("failing here"); e}).map(RecordBatch)
     }
 }
 

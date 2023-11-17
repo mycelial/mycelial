@@ -119,10 +119,9 @@ impl Postgres {
                             .fetch_all(&mut connection)
                             .await?;
 
-                      //FIXME: empty tables allowed
-                      //if rows.len() == 0 {
-                      //    continue
-                      //}
+                        if rows.len() == 0 {
+                            continue
+                        }
 
                         let payload = self.build_payload(table, rows)?;
                         let message = Message::new(table.name.as_ref().to_string(), payload, None);
