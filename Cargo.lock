@@ -2323,6 +2323,8 @@ dependencies = [
  "futures",
  "section",
  "sqlx",
+ "stub",
+ "tokio",
 ]
 
 [[package]]
