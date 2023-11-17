@@ -43,6 +43,7 @@ import {
   HelloWorldSourceNode,
   HelloWorldDestinationNode,
   ExcelSourceNode,
+  PostgresConnectorSourceNode,
   PostgresConnectorDestinationNode,
   MysqlConnectorDestinationNode,
 } from "@/components/nodes";
@@ -183,6 +184,7 @@ const nodeTypes = {
   snowflake_destination: SnowflakeDestinationNode,
   hello_world_source: HelloWorldSourceNode,
   hello_world_destination: HelloWorldDestinationNode,
+  postgres_connector_source: PostgresConnectorSourceNode,
   postgres_connector_destination: PostgresConnectorDestinationNode,
   mysql_connector_destination: MysqlConnectorDestinationNode,
 };

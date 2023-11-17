@@ -1301,6 +1301,123 @@ const KafkaSourceNode: FC<NodeProps> = memo(({ id, data, selected }) => {
   );
 });
 
+const PostgresConnectorSourceNode: FC<NodeProps> = memo(({ id, data, selected }) => {
+  const instance = useReactFlow();
+  const { clients } = useContext(ClientContext) as ClientContextType;
+
+  let initialValues = useMemo(() => {
+    return {
+      url: data.url ? data.url : "postgres://user:password@localhost:5432/test",
+      schema: data.schema ? data.schema : "public",
+      tables: data.tables ? data.tables : "*",
+      client: data.client ? data.client : "-",
+      poll_interval: data.poll_interval ? data.poll_interval : 5,
+    };
+  }, []);
+
+  const handleChange = useCallback((name: string, value: string) => {
+    instance.setNodes((nodes) =>
+      nodes.map((node) => {
+        if (node.id === id) {
+          node.data = {
+            ...node.data,
+            [name]: value,
+          };
+        }
+
+        return node;
+      }),
+    );
+  }, []);
+
+  useEffect(() => {
+    handleChange("url", initialValues.url);
+    handleChange("schema", initialValues.schema);
+    handleChange("tables", initialValues.tables);
+    handleChange("client", initialValues.client);
+    handleChange("poll_interval", initialValues.poll_interval);
+  }, []);
+
+  let classNames = `${styles.customNode} `;
+  if (selected) {
+    classNames = classNames + `${styles.selected}`;
+  }
+
+  const removeNode = useCallback((id: string) => {
+    const node = instance.getNode(id);
+    if (node === undefined) {
+      return;
+    }
+    instance.deleteElements({
+      edges: getConnectedEdges([node], []),
+      nodes: [node],
+    });
+  }, []);
+
+  return (
+    <div className={classNames}>
+      <div className=" grid grid-cols-1 gap-x-6 gap-y-2">
+        <h2 className="text-slate-400 font-normal">SQLite Source</h2>
+        <button
+          onClick={() => {
+            if (confirm("Are you sure you want to delete this node?")) {
+              removeNode(id);
+            }
+          }}
+          type="button"
+          className="absolute right-1 top-1 rounded bg-red-200 text-white shadow-sm hover:bg-red-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-800"
+          title="delete"
+        >
+          <XMarkIcon className="h-5 w-5" aria-hidden="true" />
+        </button>
+        <TextInput
+          name="url"
+          label="Url"
+          placeholder={initialValues.url}
+          defaultValue={initialValues.url}
+          onChange={(event) => handleChange("url", event.currentTarget.value)}
+        />
+        <TextInput
+          name="Schema"
+          label="Schema"
+          placeholder={initialValues.schema}
+          defaultValue={initialValues.schema}
+          onChange={(event) => handleChange("schema", event.currentTarget.value)}
+        />
+        <TextInput
+          name="tables"
+          label="Tables"
+          placeholder={initialValues.tables}
+          defaultValue={initialValues.tables}
+          onChange={(event) =>
+            handleChange("tables", event.currentTarget.value)
+          }
+        />
+        <TextInput
+          name="poll_interval"
+          label="Poll Interval"
+          placeholder={initialValues.poll_interval}
+          defaultValue={initialValues.poll_interval}
+          onChange={(event) => {
+            handleChange("poll_interval", event.currentTarget.value);
+          }}
+        />
+        <Select
+          name="client"
+          label="Client"
+          placeholder="Pick one"
+          defaultValue={initialValues.client}
+          options={(clients || []).map((c) => c.id)}
+          onChange={(value) => {
+            handleChange("client", value || "");
+          }}
+        />
+        <Handle type="source" position={Position.Right} id={id} />
+      </div>
+    </div>
+  );
+});
+
 const PostgresConnectorDestinationNode: FC<NodeProps> = memo(({ id, data, selected }) => {
   const instance = useReactFlow();
   const { clients } = useContext(ClientContext) as ClientContextType;
@@ -1482,6 +1599,7 @@ export {
   SnowflakeDestinationNode,
   HelloWorldSourceNode,
   HelloWorldDestinationNode,
+  PostgresConnectorSourceNode,
   PostgresConnectorDestinationNode,
   MysqlConnectorDestinationNode
 };

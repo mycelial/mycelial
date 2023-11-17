@@ -90,10 +90,8 @@ impl Postgres {
         let mut tables = self
             .init_tables::<SectionChan>(&mut connection, &state)
             .await?;
-        println!("tables: {:#?}", tables);
 
         let mut interval = tokio::time::interval(self.poll_interval);
-
         loop {
             futures::select! {
                 cmd = section_channel.recv().fuse() => {
