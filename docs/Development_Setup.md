@@ -12,7 +12,7 @@ The following instructions will start Mycelial in development mode.
 
 ### Mycelial Server
 
-1. Navigate to `mycelial/myceliald`
+1. Navigate to `mycelial/console`
 2. Build the frontend with `make build`
 3. Navigate to `mycelial/server`
 4. Start the server with `make dev`
