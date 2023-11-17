@@ -81,7 +81,6 @@ pub struct PostgresConnectorConfig {
     pub common_attrs: CommonAttrs,
 }
 
-
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ExcelConfig {
     #[serde(flatten)]

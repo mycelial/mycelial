@@ -158,7 +158,12 @@ impl TryInto<RecordBatch> for &PostgresPayload {
                 }
             })
             .collect();
-        _RecordBatch::try_new(schema, columns).map_err(|e| { println!("failing here"); e}).map(RecordBatch)
+        _RecordBatch::try_new(schema, columns)
+            .map_err(|e| {
+                println!("failing here");
+                e
+            })
+            .map(RecordBatch)
     }
 }
 

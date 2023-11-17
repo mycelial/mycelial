@@ -1,6 +1,5 @@
 use std::time::Duration;
 
-
 use crate::message::{Message, RecordBatch};
 use futures::SinkExt;
 use postgres_connector::source::Postgres;
