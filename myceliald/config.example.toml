@@ -4,9 +4,9 @@
 # "Node" refers to the container, VM, or bare metal machine where this
 # Sqlite Physical Replication Client is installed.
 [node]
-display_name = "Dev"                    # Human-readable Name for this Sqlite Physical Replication Client
-unique_id = "dev"                       # Unique ID for this Sqlite Physical Replication Client
-storage_path = "myceliald_state.sqlite" # Path and name of SQLite database to store this Sqlite Physical Replication Client's state
+display_name = "Dev"       # Human-readable Name for this Sqlite Physical Replication Client
+unique_id = "dev"          # Unique ID for this Sqlite Physical Replication Client
+storage_path = "client.db" # Path and name of SQLite database to store this Sqlite Physical Replication Client's state
 
 # MYCELIAL SERVER
 # Replace with the endpoint and token for your Sqlite Physical Replication Server
