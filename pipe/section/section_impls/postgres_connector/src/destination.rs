@@ -60,8 +60,11 @@ impl Postgres {
                         let mut q = sqlx::query(&query);
                         for col in 0..payload.values.len() {
                             q = match &payload.values[col][row] {
-                                Value::Int(i) => q.bind(i),
-                                Value::Real(f) => q.bind(f),
+                                Value::I16(i) => q.bind(i),
+                                Value::I32(i) => q.bind(i),
+                                Value::I64(i) => q.bind(i),
+                                Value::F32(f) => q.bind(f),
+                                Value::F64(f) => q.bind(f),
                                 Value::Text(t) => q.bind(t),
                                 Value::Blob(b) => q.bind(b),
                                 Value::Bool(b) => q.bind(b),

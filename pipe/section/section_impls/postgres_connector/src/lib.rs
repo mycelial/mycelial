@@ -2,6 +2,7 @@ use section::Message as _Message;
 use std::{fmt::Display, sync::Arc};
 
 pub mod destination;
+pub mod source;
 
 type StdError = Box<dyn std::error::Error + Send + Sync + 'static>;
 pub type Message = _Message<PostgresPayload>;
@@ -21,24 +22,28 @@ pub struct PostgresPayload {
     pub offset: i64,
 }
 
-// FIXME: numeric?
-// redo whole value enum?
 #[derive(Debug, Clone, PartialEq)]
 pub enum Value {
-    Int(i64),
+    Null,
+    I16(i16),
+    I32(i32),
+    I64(i64),
+    F32(f32),
+    F64(f64),
     Text(String),
     Blob(Vec<u8>),
-    Real(f64),
-    Null,
     Bool(bool),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum ColumnType {
-    Int,
+    I16,
+    I32,
+    I64,
+    F32,
+    F64,
     Text,
     Blob,
-    Real,
     Numeric,
     Bool,
 }
@@ -46,10 +51,13 @@ pub enum ColumnType {
 impl Display for ColumnType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let ty = match self {
-            ColumnType::Int => "INTEGER",
+            ColumnType::I16 => "SMALLINT",
+            ColumnType::I32 => "INTEGER",
+            ColumnType::I64 => "BIGINT",
+            ColumnType::F32 => "REAL",
+            ColumnType::F64 => "DOUBLE PRECISION",
             ColumnType::Text => "TEXT",
             ColumnType::Blob => "BLOB",
-            ColumnType::Real => "DOUBLE PRECISION",
             ColumnType::Numeric => "NUMERIC",
             ColumnType::Bool => "BOOLEAN",
         };

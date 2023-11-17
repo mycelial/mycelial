@@ -44,6 +44,7 @@ pub enum Source {
     Sqlite_Physical_Replication(SqlitePhysicalReplicationSourceConfig),
     Hello_World(HelloWorldConfig),
     Excel_Connector(ExcelConfig),
+    Postgres_Connector(PostgresConnectorConfig),
 }
 
 /// Internally-tagged type of a source needs to match the variant name
@@ -72,6 +73,12 @@ pub struct SqliteConnectorConfig {
     #[serde(flatten)]
     pub common_attrs: CommonAttrs,
     pub path: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct PostgresConnectorConfig {
+    #[serde(flatten)]
+    pub common_attrs: CommonAttrs,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

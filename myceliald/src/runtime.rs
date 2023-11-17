@@ -53,6 +53,10 @@ fn setup_registry<S: SectionChannel>() -> Registry<S> {
         ("snowflake_source", snowflake::source::constructor),
         ("snowflake_destination", snowflake::destination::constructor),
         (
+            "postgres_connector_source",
+            postgres_connector::source::constructor,
+        ),
+        (
             "postgres_connector_destination",
             postgres_connector::destination::constructor,
         ),

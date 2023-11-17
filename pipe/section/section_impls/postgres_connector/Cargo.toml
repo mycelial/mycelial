@@ -8,4 +8,9 @@ edition = "2021"
 [dependencies]
 sqlx = { version = "0.7", features = ["postgres", "runtime-tokio"] }
 section = { path = "../../../section/" }
+tokio = { version = "1", features = ["full"] }
 futures = "0.3"
+
+[dev-dependencies]
+stub = {path = "../stub/" }
+section = { path = "../../../section/", features=["dummy"] }
