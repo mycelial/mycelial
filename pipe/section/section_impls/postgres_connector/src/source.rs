@@ -119,7 +119,7 @@ impl Postgres {
                             .fetch_all(&mut connection)
                             .await?;
 
-                        if rows.len() == 0 {
+                        if rows.is_empty() {
                             continue
                         }
 
