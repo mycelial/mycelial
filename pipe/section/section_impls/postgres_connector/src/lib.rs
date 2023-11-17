@@ -24,11 +24,14 @@ pub struct PostgresPayload {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Value {
-    Int(i64),
+    Null,
+    I16(i16),
+    I32(i32),
+    I64(i64),
+    F32(f32),
+    F64(f64),
     Text(String),
     Blob(Vec<u8>),
-    Real(f64),
-    Null,
     Bool(bool),
 }
 
@@ -51,8 +54,8 @@ impl Display for ColumnType {
             ColumnType::I16 => "SMALLINT",
             ColumnType::I32 => "INTEGER",
             ColumnType::I64 => "BIGINT",
-            ColumnType::F32=> "REAL",
-            ColumnType::F64=> "DOUBLE PRECISION",
+            ColumnType::F32 => "REAL",
+            ColumnType::F64 => "DOUBLE PRECISION",
             ColumnType::Text => "TEXT",
             ColumnType::Blob => "BLOB",
             ColumnType::Numeric => "NUMERIC",

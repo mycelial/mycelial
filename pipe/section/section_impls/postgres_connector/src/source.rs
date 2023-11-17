@@ -1,14 +1,12 @@
-use crate::{escape_table_name, ColumnType, Message, PostgresPayload, StdError, Value};
+use crate::{ColumnType, Message, PostgresPayload, StdError, Value};
 use futures::{FutureExt, Sink, SinkExt, Stream, StreamExt};
-use section::{Command, Section, SectionChannel, State, WeakSectionChannel};
+use section::{Command, Section, SectionChannel, State};
 use sqlx::{
-    postgres::{PgConnectOptions, PgRow, PgConnection},
-    ConnectOptions, 
-    Row, ValueRef, Type, Decode,
+    postgres::{PgConnectOptions, PgConnection, PgRow},
+    ConnectOptions, Row,
 };
 
-
-use std::{path::Path, time::Duration};
+use std::time::Duration;
 use std::{future::Future, sync::Arc};
 use std::{
     pin::{pin, Pin},
@@ -26,19 +24,17 @@ pub struct Postgres {
 impl TryFrom<(ColumnType, usize, &PgRow)> for Value {
     type Error = StdError;
 
-    fn try_from(
-        (col, index, row): (ColumnType, usize, &PgRow),
-    ) -> Result<Self, Self::Error> {
+    fn try_from((col, index, row): (ColumnType, usize, &PgRow)) -> Result<Self, Self::Error> {
         let value = match col {
-            ColumnType::I16 => Value::Int(row.get::<i16, _>(index) as i64),
-            ColumnType::I32 => Value::Int(row.get::<i32, _>(index) as i64),
-            ColumnType::I64 => Value::Int(row.get::<i64, _>(index)),
-            ColumnType::F32 => Value::Real(row.get::<f32, _>(index) as f64),
-            ColumnType::F64 => Value::Real(row.get::<f64, _>(index)),
+            ColumnType::I16 => Value::I16(row.get::<i16, _>(index)),
+            ColumnType::I32 => Value::I32(row.get::<i32, _>(index)),
+            ColumnType::I64 => Value::I64(row.get::<i64, _>(index)),
+            ColumnType::F32 => Value::F32(row.get::<f32, _>(index)),
+            ColumnType::F64 => Value::F64(row.get::<f64, _>(index)),
             ColumnType::Blob => Value::Blob(row.get::<Vec<u8>, _>(index)),
             ColumnType::Text => Value::Text(row.get::<String, _>(index)),
             ColumnType::Bool => Value::Bool(row.get::<bool, _>(index)),
-            _ => Err(format!("unsupported type {}", col))?
+            _ => Err(format!("unsupported type {}", col))?,
         };
         Ok(value)
     }
@@ -55,12 +51,17 @@ pub struct Table {
 }
 
 impl Postgres {
-    pub fn new(url: impl Into<String>, schema: impl Into<String>, tables: &[&str], poll_interval: Duration) -> Self {
+    pub fn new(
+        url: impl Into<String>,
+        schema: impl Into<String>,
+        tables: &[&str],
+        poll_interval: Duration,
+    ) -> Self {
         Self {
             url: url.into(),
             schema: schema.into(),
             tables: tables.iter().map(|&x| x.into()).collect(),
-            poll_interval
+            poll_interval,
         }
     }
 
@@ -119,13 +120,13 @@ impl Postgres {
                           //.bind(table.offset)
                             .fetch_all(&mut connection)
                             .await?;
-                      
+
                       //FIXME: empty tables allowed
                       //if rows.len() == 0 {
                       //    continue
                       //}
 
-                        let payload = self.build_payload(&table, rows)?;
+                        let payload = self.build_payload(table, rows)?;
                         let message = Message::new(table.name.as_ref().to_string(), payload, None);
                         output.send(message).await?;
                     }
@@ -140,15 +141,14 @@ impl Postgres {
         _state: &<C as SectionChannel>::State,
     ) -> Result<Vec<Table>, StdError> {
         let all = self.tables.iter().any(|t| t == "*");
-        let names = sqlx::query(
-            "SELECT table_name FROM information_schema.tables WHERE table_schema=$1"
-        )
-            .bind(self.schema.as_str())
-            .fetch_all(&mut *connection)
-            .await?
-            .into_iter()
-            .map(|row| row.get::<String, _>(0))
-            .filter(|table_name| all || self.tables.contains(table_name));
+        let names =
+            sqlx::query("SELECT table_name FROM information_schema.tables WHERE table_schema=$1")
+                .bind(self.schema.as_str())
+                .fetch_all(&mut *connection)
+                .await?
+                .into_iter()
+                .map(|row| row.get::<String, _>(0))
+                .filter(|table_name| all || self.tables.contains(table_name));
 
         let mut tables = vec![];
         for name in names {
@@ -173,7 +173,6 @@ impl Postgres {
                         "bytea" => ColumnType::Blob,
                         "boolean" => ColumnType::Bool,
                         _ => unimplemented!("unsupported column type '{}' in table '{}'", ty, name)
-                        
                     };
                     col_names.push(name);
                     col_types.push(ty);
@@ -195,11 +194,7 @@ impl Postgres {
         Ok(tables)
     }
 
-    fn build_payload(
-        &self,
-        table: &Table,
-        rows: Vec<PgRow>,
-    ) -> Result<PostgresPayload, StdError> {
+    fn build_payload(&self, table: &Table, rows: Vec<PgRow>) -> Result<PostgresPayload, StdError> {
         let mut values: Vec<Vec<Value>> = vec![];
         for row in rows.iter() {
             if values.len() != row.columns().len() {

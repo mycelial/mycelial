@@ -1,10 +1,14 @@
 pub mod destination;
+pub mod source;
 
 use std::sync::Arc;
 
 use crate::message::RecordBatch;
 use arrow::{
-    array::{Array, ArrayRef, AsArray, BinaryArray, Float64Array, Int64Array, StringArray},
+    array::{
+        Array, ArrayRef, AsArray, BinaryArray, BooleanArray, Float32Array, Float64Array,
+        Int16Array, Int32Array, Int64Array, StringArray,
+    },
     datatypes::{
         DataType, Field, Float16Type, Float32Type, Float64Type, Int16Type, Int32Type, Int64Type,
         Int8Type, Schema,
@@ -16,19 +20,26 @@ use postgres_connector::{ColumnType, PostgresPayload, Value};
 
 fn to_datatype(postgres_coltype: ColumnType) -> DataType {
     match postgres_coltype {
-        ColumnType::Int => DataType::Int64,
-        ColumnType::Blob => DataType::Binary,
+        ColumnType::I16 => DataType::Int16,
+        ColumnType::I32 => DataType::Int32,
+        ColumnType::I64 => DataType::Int64,
+        ColumnType::F32 => DataType::Float32,
+        ColumnType::F64 => DataType::Float64,
+        ColumnType::Bool => DataType::Boolean,
         ColumnType::Text => DataType::Utf8,
-        ColumnType::Real => DataType::Float64,
+        ColumnType::Blob => DataType::Binary,
         _ => panic!("unexpected postgres type: {:?}", postgres_coltype),
     }
 }
 
 fn to_coltype(datatype: &DataType) -> ColumnType {
     match datatype {
-        DataType::Int8 | DataType::Int16 | DataType::Int32 | DataType::Int64 => ColumnType::Int,
+        DataType::Int8 | DataType::Int16 => ColumnType::I16,
+        DataType::Int32 => ColumnType::I32,
+        DataType::Int64 => ColumnType::I64,
         DataType::Binary | DataType::LargeBinary => ColumnType::Blob,
-        DataType::Float16 | DataType::Float32 | DataType::Float64 => ColumnType::Real,
+        DataType::Float16 | DataType::Float32 => ColumnType::F32,
+        DataType::Float64 => ColumnType::F64,
         DataType::Utf8 | DataType::LargeUtf8 => ColumnType::Text,
         DataType::Boolean => ColumnType::Bool,
         _ => unimplemented!("Arrow DataType '{}'", datatype),
@@ -55,11 +66,33 @@ impl TryInto<RecordBatch> for &PostgresPayload {
             .map(|(column, column_type)| {
                 // FIXME proper conversion: replace this match
                 match column_type {
-                    ColumnType::Int => {
+                    ColumnType::I16 => {
                         let arrow_column = column
                             .iter()
                             .map(|col| match col {
-                                Value::Int(v) => Some(*v),
+                                Value::I16(v) => Some(*v),
+                                Value::Null => None,
+                                _ => unreachable!(),
+                            })
+                            .collect::<Int16Array>();
+                        Arc::new(arrow_column) as Arc<dyn Array>
+                    }
+                    ColumnType::I32 => {
+                        let arrow_column = column
+                            .iter()
+                            .map(|col| match col {
+                                Value::I32(v) => Some(*v),
+                                Value::Null => None,
+                                _ => unreachable!(),
+                            })
+                            .collect::<Int32Array>();
+                        Arc::new(arrow_column) as Arc<dyn Array>
+                    }
+                    ColumnType::I64 => {
+                        let arrow_column = column
+                            .iter()
+                            .map(|col| match col {
+                                Value::I64(v) => Some(*v),
                                 Value::Null => None,
                                 _ => unreachable!(),
                             })
@@ -88,15 +121,37 @@ impl TryInto<RecordBatch> for &PostgresPayload {
                             .collect::<StringArray>();
                         Arc::new(arrow_column) as Arc<dyn Array>
                     }
-                    ColumnType::Real => {
+                    ColumnType::F32 => {
                         let arrow_column = column
                             .iter()
                             .map(|col| match col {
-                                Value::Real(f) => Some(*f),
+                                Value::F32(f) => Some(*f),
+                                Value::Null => None,
+                                _ => unreachable!(),
+                            })
+                            .collect::<Float32Array>();
+                        Arc::new(arrow_column)
+                    }
+                    ColumnType::F64 => {
+                        let arrow_column = column
+                            .iter()
+                            .map(|col| match col {
+                                Value::F64(f) => Some(*f),
                                 Value::Null => None,
                                 _ => unreachable!(),
                             })
                             .collect::<Float64Array>();
+                        Arc::new(arrow_column)
+                    }
+                    ColumnType::Bool => {
+                        let arrow_column = column
+                            .iter()
+                            .map(|col| match col {
+                                Value::Bool(b) => Some(*b),
+                                Value::Null => None,
+                                _ => unreachable!(),
+                            })
+                            .collect::<BooleanArray>();
                         Arc::new(arrow_column)
                     }
                     // FIXME:
@@ -141,37 +196,37 @@ impl From<&RecordBatch> for PostgresPayloadNewType {
                     DataType::Int8 => array
                         .as_primitive::<Int8Type>()
                         .into_iter()
-                        .map(|x| x.map(|x| x as i64).map(Value::Int).unwrap_or(Value::Null))
+                        .map(|x| x.map(|x| x as i16).map(Value::I16).unwrap_or(Value::Null))
                         .collect(),
                     DataType::Int16 => array
                         .as_primitive::<Int16Type>()
                         .into_iter()
-                        .map(|x| x.map(|x| x as i64).map(Value::Int).unwrap_or(Value::Null))
+                        .map(|x| x.map(Value::I16).unwrap_or(Value::Null))
                         .collect(),
                     DataType::Int32 => array
                         .as_primitive::<Int32Type>()
                         .into_iter()
-                        .map(|x| x.map(|x| x as i64).map(Value::Int).unwrap_or(Value::Null))
+                        .map(|x| x.map(Value::I32).unwrap_or(Value::Null))
                         .collect(),
                     DataType::Int64 => array
                         .as_primitive::<Int64Type>()
                         .into_iter()
-                        .map(|x| x.map(Value::Int).unwrap_or(Value::Null))
+                        .map(|x| x.map(Value::I64).unwrap_or(Value::Null))
                         .collect(),
                     DataType::Float16 => array
                         .as_primitive::<Float16Type>()
                         .into_iter()
-                        .map(|x| x.map(|x| x.into()).map(Value::Real).unwrap_or(Value::Null))
+                        .map(|x| x.map(|x| x.into()).map(Value::F32).unwrap_or(Value::Null))
                         .collect(),
                     DataType::Float32 => array
                         .as_primitive::<Float32Type>()
                         .into_iter()
-                        .map(|x| x.map(|x| x.into()).map(Value::Real).unwrap_or(Value::Null))
+                        .map(|x| x.map(Value::F32).unwrap_or(Value::Null))
                         .collect(),
                     DataType::Float64 => array
                         .as_primitive::<Float64Type>()
                         .into_iter()
-                        .map(|x| x.map(Value::Real).unwrap_or(Value::Null))
+                        .map(|x| x.map(Value::F64).unwrap_or(Value::Null))
                         .collect(),
                     DataType::Binary => array
                         .as_binary::<i32>()

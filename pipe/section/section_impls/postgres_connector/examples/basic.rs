@@ -1,9 +1,8 @@
 use std::time::Duration;
 
 use futures::{SinkExt, StreamExt};
-use section::{Section, dummy::DummySectionChannel};
+use section::{dummy::DummySectionChannel, Section};
 use stub::Stub;
-
 
 #[tokio::main]
 async fn main() {
@@ -17,7 +16,7 @@ async fn main() {
     let tx = tx.sink_map_err(|_| "send error".into());
     let handle = tokio::spawn(pg_src.start(Stub::<()>::new(), tx, DummySectionChannel::new()));
     while let Some(msg) = rx.next().await {
-        println!("got message: {:?}", msg);
+        println!("got message: {:#?}", msg);
     }
     println!("{:?}", handle.await);
 }
