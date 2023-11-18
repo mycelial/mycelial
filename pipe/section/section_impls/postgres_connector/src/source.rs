@@ -77,6 +77,7 @@ impl Postgres {
         SectionChan: SectionChannel + Send + Sync,
     {
         let mut connection = PgConnectOptions::from_str(self.url.as_str())?
+            .extra_float_digits(2)
             .connect()
             .await?;
 

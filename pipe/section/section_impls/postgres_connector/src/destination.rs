@@ -33,6 +33,7 @@ impl Postgres {
         let mut _output = pin!(output);
 
         let connection = &mut PgConnectOptions::from_str(self.url.as_str())?
+            .extra_float_digits(2)
             .connect()
             .await?;
 
