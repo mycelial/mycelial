@@ -5,6 +5,12 @@ use crate::state::State;
 #[derive(Debug, Clone)]
 pub struct DummyState {}
 
+impl Default for DummyState {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl DummyState {
     pub fn new() -> Self {
         Self {}

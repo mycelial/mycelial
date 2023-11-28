@@ -20,6 +20,7 @@ use section::{
 pub struct HelloWorld {}
 
 impl HelloWorld {
+    #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
         Self {}
     }

@@ -25,11 +25,9 @@ fn format_row<T: AsRef<str>>(lens: &[usize], values: &[T]) -> String {
 fn format_header<T: AsRef<str>>(lens: &[usize], values: &[T]) -> String {
     let frame = format_frame(lens);
     let row = format_row(lens, values);
-    vec![
-        frame.as_str(),
+    [frame.as_str(),
         row.as_str(),
-        frame.as_str()
-    ].join("\n")
+        frame.as_str()].join("\n")
 }
 
 fn format_values<T: AsRef<str>>(lens: &[usize], values: &[Vec<T>]) -> Vec<String> {
@@ -38,10 +36,8 @@ fn format_values<T: AsRef<str>>(lens: &[usize], values: &[Vec<T>]) -> Vec<String
     (0..values[0].len()).map(|row| {
         let values = values.iter().map(|val| &val[row]).collect::<Vec<_>>();
         let row = format_row(lens, values.as_slice());
-        vec![
-            row.as_str(),
-            frame,
-        ].join("\n")
+        [row.as_str(),
+            frame].join("\n")
     })
         .collect::<Vec<_>>()
 
@@ -49,7 +45,7 @@ fn format_values<T: AsRef<str>>(lens: &[usize], values: &[Vec<T>]) -> Vec<String
 
 pub fn pretty_print(df: &dyn DataFrame) -> String {
     let columns = df.columns();
-    if columns.len() == 0 {
+    if columns.is_empty() {
         return "".into()
     }
     let col_names = columns.iter().map(|col| col.name().to_string()).collect::<Vec<_>>();
@@ -62,7 +58,7 @@ pub fn pretty_print(df: &dyn DataFrame) -> String {
     let header = format_header(max_lens, col_names.as_slice());
     std::iter::once(header)
         .chain(
-            format_values(max_lens, values.as_slice()).into_iter()
+            format_values(max_lens, values.as_slice())
         )
         .collect::<Vec<String>>()
         .join("\n")

@@ -31,6 +31,12 @@ impl std::error::Error for DummyError {}
 #[derive(Debug)]
 pub struct DummyRootChannel {}
 
+impl Default for DummyRootChannel {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl DummyRootChannel {
     pub fn new() -> Self {
         Self {}
@@ -67,6 +73,12 @@ impl RootChannel for DummyRootChannel {
 
 #[derive(Debug)]
 pub struct DummySectionChannel {}
+
+impl Default for DummySectionChannel {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 impl DummySectionChannel {
     pub fn new() -> Self {

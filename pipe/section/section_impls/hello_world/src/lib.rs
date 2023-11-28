@@ -37,8 +37,8 @@ impl Message for Once {
     }
 }
 
-impl Into<SectionMessage> for HelloWorldPayload {
-    fn into(self) -> SectionMessage {
-        Box::new(Once{ inner: Some(Box::new(self)) })
+impl From<HelloWorldPayload> for SectionMessage {
+    fn from(val: HelloWorldPayload) -> Self {
+        Box::new(Once{ inner: Some(Box::new(val)) })
     }
 }
