@@ -1,6 +1,6 @@
 use std::convert::Infallible;
 
-use crate::State;
+use crate::state::State;
 
 #[derive(Debug, Clone)]
 pub struct DummyState {}

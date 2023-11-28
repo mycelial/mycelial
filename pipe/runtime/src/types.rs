@@ -1,13 +1,14 @@
-use crate::message::Message;
-use futures::{Future, Sink, Stream};
-use section::Section;
-use section::SectionChannel;
+use section::{
+    section::Section,
+    command_channel::SectionChannel,
+    SectionMessage,
+    SectionError,
+    futures::{Future, Sink, Stream},
+};
 use std::pin::Pin;
 
-pub type SectionError = Box<dyn std::error::Error + Send + Sync + 'static>;
-
-pub type DynStream = Pin<Box<dyn Stream<Item = Message> + Send + 'static>>;
-pub type DynSink = Pin<Box<dyn Sink<Message, Error = SectionError> + Send + 'static>>;
+pub type DynStream = Pin<Box<dyn Stream<Item = SectionMessage> + Send + 'static>>;
+pub type DynSink = Pin<Box<dyn Sink<SectionMessage, Error = SectionError> + Send + 'static>>;
 pub type SectionFuture = Pin<Box<dyn Future<Output = Result<(), SectionError>> + Send + 'static>>;
 
 pub trait DynSection<SectionChan: SectionChannel + Send + 'static>:

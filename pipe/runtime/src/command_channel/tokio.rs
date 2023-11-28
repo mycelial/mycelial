@@ -8,9 +8,16 @@ use tokio::sync::oneshot::{
 };
 
 use section::{
-    async_trait, Command, ReplyTo, RootChannel as RootChannelTrait,
-    SectionChannel as SectionChannelTrait, SectionRequest as _SectionRequest, State as StateTrait,
-    WeakSectionChannel as WeakSectionChannelTrait,
+    async_trait, 
+    command_channel::{
+        Command,
+        ReplyTo,
+        RootChannel as RootChannelTrait,
+        SectionChannel as SectionChannelTrait,
+        SectionRequest as _SectionRequest,
+        WeakSectionChannel as WeakSectionChannelTrait,
+    },
+    state::State as StateTrait,
 };
 use std::any::Any;
 use std::collections::BTreeMap;

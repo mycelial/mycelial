@@ -3,7 +3,7 @@
 use async_trait::async_trait;
 use std::any::Any;
 
-use crate::State;
+use crate::state::State;
 
 #[async_trait]
 pub trait RootChannel: Send + Sync + 'static {

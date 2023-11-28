@@ -1,9 +1,13 @@
 //! Pipe scheduler
 
 use crate::storage::Storage;
-use crate::{config::Config, pipe::Pipe, registry::Registry, types::SectionError};
+use crate::{config::Config, pipe::Pipe, registry::Registry};
 
-use section::{Command, ReplyTo, RootChannel, Section, SectionChannel, SectionRequest};
+use section::{
+    command_channel::{Command, ReplyTo, RootChannel, SectionChannel, SectionRequest},
+    SectionError,
+    section::Section,
+};
 use std::collections::HashMap;
 use std::time::Duration;
 use stub::Stub;

@@ -2,68 +2,40 @@
 //!
 //! Pipe scheduling and peristance
 
-use crate::storage::{SqliteState, SqliteStorageHandle};
+use crate::{storage::{SqliteState, SqliteStorageHandle}, constructors};
 use pipe::{
     registry::{Constructor, Registry},
     scheduler::{Scheduler, SchedulerHandle},
-    sections::{
-        excel_connector, hello_world, kafka, mycelial_server, mysql_connector, postgres_connector,
-        snowflake, sqlite_connector, sqlite_physical_replication,
-    },
 };
-use section::SectionChannel;
+use section::command_channel::SectionChannel;
+//use excel_connector;
+//use kafka;
+//use mycelial_server;
+//use mysql_connector;
+//use postgres_connector;
+//use snowflake;
+//use sqlite_connector;
+//use sqlite_physical_replication;
+//use section::SectionChannel;
 
 /// Setup & populate registry
 fn setup_registry<S: SectionChannel>() -> Registry<S> {
     let arr: &[(&str, Constructor<S>)] = &[
-        (
-            "sqlite_connector_source",
-            sqlite_connector::source::constructor,
-        ),
-        (
-            "sqlite_connector_destination",
-            sqlite_connector::destination::constructor,
-        ),
-        (
-            "sqlite_physical_replication_source",
-            sqlite_physical_replication::source::constructor,
-        ),
-        (
-            "sqlite_physical_replication_destination",
-            sqlite_physical_replication::destination::constructor,
-        ),
-        (
-            "mycelial_server_source",
-            mycelial_server::source::constructor,
-        ),
-        (
-            "mycelial_server_destination",
-            mycelial_server::destination::constructor,
-        ),
-        ("hello_world_source", hello_world::source::constructor),
-        (
-            "hello_world_destination",
-            hello_world::destination::constructor,
-        ),
-        (
-            "excel_connector_source",
-            excel_connector::source::constructor,
-        ),
-        ("kafka_destination", kafka::destination::constructor),
-        ("snowflake_source", snowflake::source::constructor),
-        ("snowflake_destination", snowflake::destination::constructor),
-        (
-            "postgres_connector_source",
-            postgres_connector::source::constructor,
-        ),
-        (
-            "postgres_connector_destination",
-            postgres_connector::destination::constructor,
-        ),
-        (
-            "mysql_connector_destination",
-            mysql_connector::destination::constructor,
-        ),
+      //("excel_connector_source", excel_connector::source::constructor),
+        ("hello_world_destination", constructors::hello_world::destination_ctor),
+        ("hello_world_source", constructors::hello_world::source_ctor),
+      //("kafka_destination", kafka::destination::constructor),
+      //("mycelial_server_destination", mycelial_server::destination::constructor),
+      //("mycelial_server_source", mycelial_server::source::constructor),
+      //("mysql_connector_destination", mysql_connector::destination::constructor),
+      //("postgres_connector_destination", postgres_connector::destination::constructor),
+      //("postgres_connector_source", postgres_connector::source::constructor),
+      //("snowflake_destination", snowflake::destination::constructor),
+      //("snowflake_source", snowflake::source::constructor),
+      //("sqlite_connector_destination", sqlite_connector::destination::constructor),
+      //("sqlite_connector_source", sqlite_connector::source::constructor),
+      //("sqlite_physical_replication_destination", sqlite_physical_replication::destination::constructor),
+      //("sqlite_physical_replication_source", sqlite_physical_replication::source::constructor),
     ];
     arr.iter()
         .fold(Registry::new(), |mut acc, &(section_name, constructor)| {

@@ -5,8 +5,7 @@ use std::{
     pin::Pin,
     task::{Context, Poll},
 };
-
-use futures::Sink;
+use section::futures::Sink;
 use tokio::sync::mpsc::{
     channel as _channel, error::SendError, unbounded_channel as _unbounded_channel, Receiver,
     Sender, UnboundedSender,

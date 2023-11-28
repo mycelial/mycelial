@@ -1,6 +1,13 @@
 use crate::{
-    async_trait, Command, ReplyTo, RootChannel, SectionChannel, SectionRequest as _SectionRequest,
-    WeakSectionChannel,
+    async_trait,
+    command_channel::{
+        Command, 
+        RootChannel,
+        SectionChannel,
+        SectionRequest as _SectionRequest,
+        WeakSectionChannel,
+        ReplyTo,
+    }
 };
 use std::{
     any::Any,

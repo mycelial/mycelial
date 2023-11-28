@@ -12,9 +12,9 @@ use common::{
 use pipe::{
     config::{Config, Value},
     scheduler::SchedulerHandle,
-    types::SectionError,
 };
 use tokio::task::JoinHandle;
+use section::SectionError;
 
 /// Http Client
 #[derive(Debug)]

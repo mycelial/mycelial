@@ -6,10 +6,11 @@
 mod http_client;
 mod runtime;
 mod storage;
+mod constructors;
 
 use clap::Parser;
 use common::ClientConfig;
-use pipe::types::SectionError;
+use section::SectionError;
 use std::fs::File;
 use std::io::Read;
 use std::{io, result};
