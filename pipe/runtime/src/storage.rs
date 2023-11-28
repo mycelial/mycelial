@@ -1,10 +1,7 @@
 use std::future::Future;
 use std::pin::Pin;
 
-use section::{
-    state::State,
-    SectionError,
-};
+use section::{state::State, SectionError};
 
 pub trait Storage<S: State + Send + 'static>: Send + Sync + 'static {
     fn store_state(

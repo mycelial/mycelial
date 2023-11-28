@@ -1,8 +1,6 @@
-use pipe::{
-    config::{Config as DynamicPipeConfig, Value as DynamicPipeValue},
-};
-use serde::{Deserialize, Serialize};
+use pipe::config::{Config as DynamicPipeConfig, Value as DynamicPipeValue};
 use section::SectionError;
+use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
 
 /// Top level configuration object

@@ -5,8 +5,8 @@ use crate::{config::Config, pipe::Pipe, registry::Registry};
 
 use section::{
     command_channel::{Command, ReplyTo, RootChannel, SectionChannel, SectionRequest},
-    SectionError,
     section::Section,
+    SectionError,
 };
 use std::collections::HashMap;
 use std::time::Duration;

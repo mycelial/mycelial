@@ -3,28 +3,19 @@
 use tokio::task::JoinHandle;
 
 use crate::{
+    channel::channel,
     config::Config,
     registry::Registry,
-    channel::channel,
-    types::{DynSection, DynSink, DynStream}
+    types::{DynSection, DynSink, DynStream},
 };
 use section::{
-    command_channel::{
-        Command, 
-        RootChannel,
-        SectionChannel,
-        ReplyTo as _, 
-        SectionRequest,
-    },
+    command_channel::{Command, ReplyTo as _, RootChannel, SectionChannel, SectionRequest},
+    futures::{self, FutureExt, Sink, SinkExt, Stream},
     section::Section,
     state::State,
-    SectionMessage,
-    SectionError,
-    SectionFuture,
-    futures::{self, FutureExt, Sink, SinkExt, Stream},
+    SectionError, SectionFuture, SectionMessage,
 };
 use stub::Stub;
-
 
 #[allow(dead_code)]
 pub struct Pipe<R: RootChannel + Send + 'static> {

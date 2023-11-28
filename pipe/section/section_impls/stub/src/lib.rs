@@ -1,11 +1,11 @@
-use std::future::Future;
-use std::marker::PhantomData;
-use std::task::{Context, Poll};
-use std::{convert::Infallible, future::pending, pin::Pin};
 use section::{
     futures::{Sink, Stream},
     section::Section,
 };
+use std::future::Future;
+use std::marker::PhantomData;
+use std::task::{Context, Poll};
+use std::{convert::Infallible, future::pending, pin::Pin};
 
 #[derive(Debug)]
 pub struct Stub<T, E = Infallible> {

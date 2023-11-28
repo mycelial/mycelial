@@ -8,14 +8,10 @@ use tokio::sync::oneshot::{
 };
 
 use section::{
-    async_trait, 
+    async_trait,
     command_channel::{
-        Command,
-        ReplyTo,
-        RootChannel as RootChannelTrait,
-        SectionChannel as SectionChannelTrait,
-        SectionRequest as _SectionRequest,
-        WeakSectionChannel as WeakSectionChannelTrait,
+        Command, ReplyTo, RootChannel as RootChannelTrait, SectionChannel as SectionChannelTrait,
+        SectionRequest as _SectionRequest, WeakSectionChannel as WeakSectionChannelTrait,
     },
     state::State as StateTrait,
 };

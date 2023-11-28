@@ -1,11 +1,12 @@
 //! Section messaging
 
+use crate::SectionError;
 use std::future::Future;
 use std::pin::Pin;
-use crate::SectionError;
 
-pub type Ack = Pin<Box<dyn Future<Output=()> + Send + Sync>>;
-pub type Next<'a> = Pin<Box<dyn Future<Output=Result<Option<Chunk>, SectionError>> + Send + Sync>>;
+pub type Ack = Pin<Box<dyn Future<Output = ()> + Send + Sync>>;
+pub type Next<'a> =
+    Pin<Box<dyn Future<Output = Result<Option<Chunk>, SectionError>> + Send + Sync>>;
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 #[non_exhaustive]
@@ -21,7 +22,7 @@ pub enum DataType {
     F32,
     F64,
     Str,
-    Bin
+    Bin,
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -75,7 +76,7 @@ impl<'a> From<&'a Value> for ValueView<'a> {
             Value::F32(v) => Self::F32(*v),
             Value::F64(v) => Self::F64(*v),
             Value::String(v) => Self::Str(v),
-            Value::Bin(v) => Self::Bin(v)
+            Value::Bin(v) => Self::Bin(v),
         }
     }
 }
@@ -106,23 +107,18 @@ pub enum Chunk {
     DataFrame(Box<dyn DataFrame>),
 }
 
-
 pub trait DataFrame: std::fmt::Debug + Send + Sync {
     fn columns(&self) -> Vec<Column<'_>>;
 }
 
-
 pub struct Column<'a> {
     name: &'a str,
-    iter: Box<dyn Iterator<Item = ValueView<'a>> + 'a>
+    iter: Box<dyn Iterator<Item = ValueView<'a>> + 'a>,
 }
 
 impl<'a> std::fmt::Debug for Column<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f
-            .debug_struct("Column")
-            .field("name", &self.name)
-            .finish()
+        f.debug_struct("Column").field("name", &self.name).finish()
     }
 }
 

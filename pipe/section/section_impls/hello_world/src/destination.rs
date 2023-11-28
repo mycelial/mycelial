@@ -8,12 +8,10 @@ use section::futures::StreamExt;
 use section::message::Chunk;
 use section::pretty_print::pretty_print;
 use section::{
-    SectionMessage,
-    SectionError,
-    SectionFuture,
     command_channel::{Command, SectionChannel},
+    futures::{self, FutureExt, Sink, Stream},
     section::Section,
-    futures::{Stream, Sink, FutureExt, self},
+    SectionError, SectionFuture, SectionMessage,
 };
 
 #[derive(Debug)]

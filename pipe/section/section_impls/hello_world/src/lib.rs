@@ -1,7 +1,10 @@
-use section::{message::{Message, DataFrame, Column, ValueView, Chunk}, SectionMessage};
+use section::{
+    message::{Chunk, Column, DataFrame, Message, ValueView},
+    SectionMessage,
+};
 
-pub mod source;
 pub mod destination;
+pub mod source;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct HelloWorldPayload {
@@ -11,15 +14,16 @@ pub struct HelloWorldPayload {
 
 impl DataFrame for HelloWorldPayload {
     fn columns(&self) -> Vec<section::message::Column<'_>> {
-        vec![
-            Column::new("message", Box::new(std::iter::once(ValueView::from(&self.message))))
-        ]
+        vec![Column::new(
+            "message",
+            Box::new(std::iter::once(ValueView::from(&self.message))),
+        )]
     }
 }
 
 #[derive(Debug)]
 struct Once {
-    inner: Option<Box<dyn DataFrame>>
+    inner: Option<Box<dyn DataFrame>>,
 }
 
 impl Message for Once {
@@ -33,12 +37,14 @@ impl Message for Once {
     }
 
     fn ack(&mut self) -> section::message::Ack {
-        Box::pin(async {} )
+        Box::pin(async {})
     }
 }
 
 impl From<HelloWorldPayload> for SectionMessage {
     fn from(val: HelloWorldPayload) -> Self {
-        Box::new(Once{ inner: Some(Box::new(val)) })
+        Box::new(Once {
+            inner: Some(Box::new(val)),
+        })
     }
 }

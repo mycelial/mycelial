@@ -4,16 +4,11 @@
 //! Since it is a source, this section ignores the input stream, and writes its message to the output stream.
 use super::HelloWorldPayload;
 use section::{
-    command_channel::{
-        SectionChannel,
-        Command,
-    },
-    futures::{Sink, Stream, SinkExt, FutureExt},
-    SectionError,
-    SectionFuture,
-    futures, 
+    command_channel::{Command, SectionChannel},
+    futures,
+    futures::{FutureExt, Sink, SinkExt, Stream},
     section::Section,
-    SectionMessage,
+    SectionError, SectionFuture, SectionMessage,
 };
 use tokio::time;
 
@@ -54,7 +49,9 @@ where
     fn start(self, _input: Input, output: Output, mut section_chan: SectionChan) -> Self::Future {
         Box::pin(async move {
             let mut output = pin!(output);
-            let mut interval = pin!(time::interval(Duration::from_millis(self.interval_milis as u64)));
+            let mut interval = pin!(time::interval(Duration::from_millis(
+                self.interval_milis as u64
+            )));
             let mut counter = 0;
 
             loop {
@@ -77,13 +74,12 @@ where
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use section::dummy::DummySectionChannel;
     use section::message::ValueView;
     use section::{futures::StreamExt, message::Chunk};
-    use section::dummy::DummySectionChannel;
     use stub::Stub;
     use tokio::sync::mpsc::{Receiver, Sender};
     use tokio_stream::wrappers::ReceiverStream;
@@ -118,7 +114,7 @@ mod tests {
 
         let msg = out.next().await;
         assert!(msg.is_ok());
-        
+
         let msg = msg.unwrap();
         assert!(msg.is_some());
 
@@ -135,11 +131,13 @@ mod tests {
 
         assert_eq!(
             vec![vec![ValueView::Str("Hello, World! 1")]],
-            df.columns().into_iter().map(|c| c.collect::<Vec<_>>()).collect::<Vec<_>>()
+            df.columns()
+                .into_iter()
+                .map(|c| c.collect::<Vec<_>>())
+                .collect::<Vec<_>>()
         );
 
         handle.abort();
         Ok(())
     }
 }
-

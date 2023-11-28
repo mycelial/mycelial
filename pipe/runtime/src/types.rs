@@ -1,9 +1,8 @@
 use section::{
-    section::Section,
     command_channel::SectionChannel,
-    SectionMessage,
-    SectionError,
     futures::{Future, Sink, Stream},
+    section::Section,
+    SectionError, SectionMessage,
 };
 use std::pin::Pin;
 
