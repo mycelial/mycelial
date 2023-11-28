@@ -3,10 +3,10 @@
 //!     - dumb server endpoint polling
 //!     - server dumbly returns all existing pipes
 //! - schedules and runs pipes
+mod constructors;
 mod http_client;
 mod runtime;
 mod storage;
-mod constructors;
 
 use clap::Parser;
 use common::ClientConfig;

@@ -13,8 +13,8 @@ use pipe::{
     config::{Config, Value},
     scheduler::SchedulerHandle,
 };
-use tokio::task::JoinHandle;
 use section::SectionError;
+use tokio::task::JoinHandle;
 
 /// Http Client
 #[derive(Debug)]
