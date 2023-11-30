@@ -11,7 +11,7 @@
 //! - query
 //! - limit and offset
 #![allow(unused)]
-use crate::{escape_table_name, SqlitePayload, SqliteMessage};
+use crate::{escape_table_name, SqliteMessage, SqlitePayload};
 use futures::{FutureExt, Sink, SinkExt, Stream, StreamExt};
 use notify::{Event, RecursiveMode, Watcher};
 use section::{

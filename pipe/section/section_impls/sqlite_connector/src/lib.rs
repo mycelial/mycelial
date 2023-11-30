@@ -1,4 +1,4 @@
-use section::message::{DataFrame, DataType, Value, Ack, Message, Chunk, Column};
+use section::message::{Ack, Chunk, Column, DataFrame, DataType, Message, Value};
 
 //pub mod destination;
 pub mod source;
@@ -17,9 +17,12 @@ pub struct SqlitePayload {
 
 impl DataFrame for SqlitePayload {
     fn columns(&self) -> Vec<section::message::Column<'_>> {
-        self.columns.iter().zip(self.values.iter()).map(|(col_name, column)| {
-            Column::new(col_name.as_str(), Box::new(column.iter().map(Into::into)))
-        })
+        self.columns
+            .iter()
+            .zip(self.values.iter())
+            .map(|(col_name, column)| {
+                Column::new(col_name.as_str(), Box::new(column.iter().map(Into::into)))
+            })
             .collect()
     }
 }
@@ -27,7 +30,7 @@ impl DataFrame for SqlitePayload {
 pub struct SqliteMessage {
     origin: String,
     payload: Option<Box<dyn DataFrame>>,
-    ack: Option<Ack>
+    ack: Option<Ack>,
 }
 
 impl SqliteMessage {
@@ -35,15 +38,14 @@ impl SqliteMessage {
         Self {
             origin: origin.into(),
             payload: Some(Box::new(payload)),
-            ack
+            ack,
         }
     }
 }
 
 impl std::fmt::Debug for SqliteMessage {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f
-            .debug_struct("SqliteMessage")
+        f.debug_struct("SqliteMessage")
             .field("origin", &self.origin)
             .field("payload", &self.payload)
             .finish()

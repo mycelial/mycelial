@@ -6,6 +6,7 @@ members = [
     "pipe/runtime",
     "pipe/section",
     #"pipe/section/section_impls/*"
-    "pipe/section/section_impls/hello_world"
+    "pipe/section/section_impls/hello_world",
+    "pipe/section/section_impls/sqlite_connector",
 ]
 resolver = "2"
