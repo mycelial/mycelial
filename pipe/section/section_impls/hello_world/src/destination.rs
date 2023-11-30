@@ -48,7 +48,7 @@ where
                             Some(stream) => stream,
                             None => Err("input stream closed")?
                         };
-                        'inner: loop {
+                        loop {
                             futures::select! {
                                 msg = stream.next().fuse() => {
                                     match msg? {
@@ -56,7 +56,7 @@ where
                                             section_chan.log(format!("got dataframe chunk from {}:\n{}", stream.origin(), pretty_print(&*df))).await?;
                                         },
                                         Some(_) => {Err("unsupported stream type, dataframe expected")?},
-                                        None => break 'inner,
+                                        None => break,
                                     }
                                 },
                                 cmd = section_chan.recv().fuse() => {

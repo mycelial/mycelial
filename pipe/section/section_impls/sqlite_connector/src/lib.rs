@@ -1,62 +1,67 @@
-use section::Message as _Message;
-use std::{fmt::Display, sync::Arc};
+use section::message::{DataFrame, DataType, Value, Ack, Message, Chunk, Column};
 
-pub mod destination;
+//pub mod destination;
 pub mod source;
 
-type StdError = Box<dyn std::error::Error + Send + Sync + 'static>;
-pub type Message = _Message<SqlitePayload>;
-
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, PartialEq)]
 pub struct SqlitePayload {
     /// column names
-    pub columns: Arc<[String]>,
+    pub columns: Vec<String>,
 
     /// column types
-    pub column_types: Arc<[ColumnType]>,
+    pub column_types: Vec<DataType>,
 
     /// values
     pub values: Vec<Vec<Value>>,
-
-    /// offset
-    pub offset: i64,
 }
 
-// FIXME: numeric?
-// redo whole value enum?
-#[derive(Debug, Clone, PartialEq)]
-pub enum Value {
-    Int(i64),
-    Text(String),
-    Blob(Vec<u8>),
-    Real(f64),
-    Null,
-    Bool(bool),
+impl DataFrame for SqlitePayload {
+    fn columns(&self) -> Vec<section::message::Column<'_>> {
+        self.columns.iter().zip(self.values.iter()).map(|(col_name, column)| {
+            Column::new(col_name.as_str(), Box::new(column.iter().map(Into::into)))
+        })
+            .collect()
+    }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum ColumnType {
-    Int,
-    Text,
-    Blob,
-    Real,
-    Numeric,
-    Bool,
-    Any,
+pub struct SqliteMessage {
+    origin: String,
+    payload: Option<Box<dyn DataFrame>>,
+    ack: Option<Ack>
 }
 
-impl Display for ColumnType {
+impl SqliteMessage {
+    fn new(origin: impl Into<String>, payload: SqlitePayload, ack: Option<Ack>) -> Self {
+        Self {
+            origin: origin.into(),
+            payload: Some(Box::new(payload)),
+            ack
+        }
+    }
+}
+
+impl std::fmt::Debug for SqliteMessage {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let ty = match self {
-            ColumnType::Int => "INTEGER",
-            ColumnType::Text => "TEXT",
-            ColumnType::Blob => "BLOB",
-            ColumnType::Real => "DOUBLE",
-            ColumnType::Numeric => "NUMERIC",
-            ColumnType::Bool => "BOOLEAN",
-            ColumnType::Any => "TEXT", // casting to text for now, FIXME?
-        };
-        write!(f, "{}", ty)
+        f
+            .debug_struct("SqliteMessage")
+            .field("origin", &self.origin)
+            .field("payload", &self.payload)
+            .finish()
+    }
+}
+
+impl Message for SqliteMessage {
+    fn origin(&self) -> &str {
+        self.origin.as_str()
+    }
+
+    fn next(&mut self) -> section::message::Next<'_> {
+        let v = self.payload.take().map(Chunk::DataFrame);
+        Box::pin(async move { Ok(v) })
+    }
+
+    fn ack(&mut self) -> Ack {
+        self.ack.take().unwrap_or(Box::pin(async {}))
     }
 }
 
@@ -75,14 +80,12 @@ pub fn escape_table_name(name: impl AsRef<str>) -> String {
 }
 
 /// generate create table command for provided record batch
-pub fn generate_schema(message: &Message) -> String {
-    let name = escape_table_name(message.origin.as_str());
-    let payload = &message.payload;
-    let columns = payload
-        .columns
+pub fn generate_schema(table_name: &str, df: &dyn DataFrame) -> String {
+    let name = escape_table_name(table_name);
+    let columns = df
+        .columns()
         .iter()
-        .zip(payload.column_types.iter())
-        .map(|(name, ty)| format!("{name} {ty}"))
+        .map(|col| col.name())
         .collect::<Vec<_>>()
         .join(",");
     format!("CREATE TABLE IF NOT EXISTS \"{name}\" ({columns})",)

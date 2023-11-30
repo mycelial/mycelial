@@ -59,7 +59,7 @@ pub trait SectionChannel: Send + Sync + 'static {
 }
 
 #[async_trait]
-pub trait WeakSectionChannel: Send + 'static {
+pub trait WeakSectionChannel: Send + Sync + 'static {
     async fn ack(self, ack: Box<dyn Any + Send + Sync + 'static>);
 }
 

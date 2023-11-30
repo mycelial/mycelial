@@ -11,6 +11,7 @@ pub type Next<'a> =
 #[derive(Debug, PartialEq, Clone, Copy)]
 #[non_exhaustive]
 pub enum DataType {
+    Bool,
     I8,
     I16,
     I32,
@@ -23,12 +24,14 @@ pub enum DataType {
     F64,
     Str,
     Bin,
+    Any,
 }
 
 #[derive(Debug, PartialEq, Clone)]
 #[non_exhaustive]
 pub enum Value {
     Null,
+    Bool(bool),
     I8(i8),
     I16(i16),
     I32(i32),
@@ -39,7 +42,7 @@ pub enum Value {
     U64(u64),
     F32(f32),
     F64(f64),
-    String(String),
+    Str(String),
     Bin(Vec<u8>),
 }
 
@@ -47,6 +50,7 @@ pub enum Value {
 #[non_exhaustive]
 pub enum ValueView<'a> {
     Null,
+    Bool(bool),
     I8(i8),
     I16(i16),
     I32(i32),
@@ -65,6 +69,7 @@ impl<'a> From<&'a Value> for ValueView<'a> {
     fn from(value: &'a Value) -> Self {
         match value {
             Value::Null => Self::Null,
+            Value::Bool(v) => Self::Bool(*v),
             Value::I8(v) => Self::I8(*v),
             Value::I16(v) => Self::I16(*v),
             Value::I32(v) => Self::I32(*v),
@@ -75,7 +80,7 @@ impl<'a> From<&'a Value> for ValueView<'a> {
             Value::U64(v) => Self::U64(*v),
             Value::F32(v) => Self::F32(*v),
             Value::F64(v) => Self::F64(*v),
-            Value::String(v) => Self::Str(v),
+            Value::Str(v) => Self::Str(v),
             Value::Bin(v) => Self::Bin(v),
         }
     }
@@ -108,6 +113,7 @@ pub enum Chunk {
 }
 
 pub trait DataFrame: std::fmt::Debug + Send + Sync {
+    //fn schema(&self) -> 
     fn columns(&self) -> Vec<Column<'_>>;
 }
 
