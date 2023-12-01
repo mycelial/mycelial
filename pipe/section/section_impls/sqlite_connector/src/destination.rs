@@ -2,7 +2,6 @@ use section::{
     command_channel::{Command, SectionChannel},
     futures::{self, FutureExt, Sink, Stream, StreamExt},
     message::{Chunk, ValueView},
-    pretty_print::pretty_print,
     section::Section,
     SectionError, SectionMessage,
 };

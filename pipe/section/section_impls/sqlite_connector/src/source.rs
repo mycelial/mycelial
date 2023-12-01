@@ -30,7 +30,7 @@ use tokio::sync::mpsc::Sender;
 use tokio_stream::wrappers::ReceiverStream;
 
 use std::sync::Arc;
-use std::{path::Path, time::Instant};
+use std::{path::Path};
 use std::{pin::pin, str::FromStr};
 
 #[derive(Debug)]
@@ -219,7 +219,6 @@ impl Sqlite {
 
                     while !queue.is_empty() {
                         let table = &mut tables[*queue.last().unwrap()];
-                        let start = Instant::now();
                         let rows = match table.without_rowid {
                             false =>
                                 sqlx::query(&table.query)
@@ -234,7 +233,6 @@ impl Sqlite {
                                     .fetch_all(&mut connection)
                                     .await?,
                         };
-                        let end = start.elapsed();
                         if rows.is_empty() {
                             queue.pop();
                             continue
