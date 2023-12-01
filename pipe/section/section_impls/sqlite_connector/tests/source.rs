@@ -1,7 +1,7 @@
 use std::str::FromStr;
 
 use futures::{SinkExt, StreamExt};
-use section::message::Chunk;
+use section::message::{Chunk, Value};
 use section::pretty_print::pretty_print;
 use section::section::Section as _;
 use section::{dummy::*, SectionMessage};
@@ -61,7 +61,7 @@ impl Drop for DropFile {
 #[tokio::test]
 async fn source_stream() -> Result<(), StdError> {
     let db_path = NamedTempFile::new()?.path().to_string_lossy().to_string();
-    let _conn = init_sqlite(db_path.as_str()).await?;
+    let mut conn = init_sqlite(db_path.as_str()).await?;
 
     let section_chan = DummySectionChannel::new();
 
@@ -77,90 +77,90 @@ async fn source_stream() -> Result<(), StdError> {
     let handle = tokio::spawn(section);
 
     let mut out = rx.next().await.unwrap();
-    if let Ok(Some(Chunk::DataFrame(df))) = out.next().await {
-        println!("{}", pretty_print(&*df));
-    }
-    println!("{:?}", handle.await);
+    assert_eq!(out.origin(), "test");
+
+    let chunk = out.next().await;
+    assert!(matches!(chunk, Ok(Some(_))));
+    assert!(matches!(out.next().await, Ok(None)));
+
+    let df = match chunk.unwrap().unwrap() {
+        Chunk::DataFrame(df) => df,
+        other => panic!("unexpected chunk type: {:?}", other),
+    };
+
+    let columns = df.columns();
+    assert_eq!(
+        vec!["id", "text", "bin", "float"],
+        columns.iter().map(|col| col.name()).collect::<Vec<_>>()
+    );
+
+    let payload = columns
+        .into_iter()
+        .map(|col| col.collect::<Vec<_>>())
+        .collect::<Vec<_>>();
+
+    assert_eq!(
+        payload,
+        vec![
+            vec![Value::I64(1), Value::I64(2), Value::Str("this".into()), Value::Str("".into())],
+            vec![
+                Value::Str("foo".into()),
+                Value::Str("bar".into()),
+                Value::Str("is".into()),
+                Value::Str("bin".into()),
+            ],
+            vec![
+                Value::Str("foo".into()),
+                Value::Null,
+                Value::Str("not".into()),
+                Value::Str("incoming".into()),
+            ],
+            vec![
+                Value::F64(1.0),
+                Value::F64(0.2),
+                Value::Str("strict".into()),
+                Value::Bin(vec![b'b', b'i', b'n']),
+            ],
+        ]
+    );
+
+    sqlx::query("INSERT OR IGNORE INTO test VALUES(5, 'foo', ?, 1)")
+        .bind("foo".as_bytes())
+        .execute(&mut conn)
+        .await
+        .unwrap();
+
+    let mut out = rx.next().await.unwrap();
+    let chunk = out.next().await;
+    assert!(matches!(chunk, Ok(Some(_))));
+    assert!(matches!(out.next().await, Ok(None)));
+    let df = match chunk.unwrap().unwrap() {
+        Chunk::DataFrame(df) => df,
+        other => panic!("unexpected chunk type: {:?}", other),
+    };
+
+    let columns = df.columns();
+    assert_eq!(
+        vec!["id", "text", "bin", "float"],
+        columns.iter().map(|col| col.name()).collect::<Vec<_>>()
+    );
+
+    let payload = columns
+        .into_iter()
+        .map(|col| col.collect::<Vec<_>>())
+        .collect::<Vec<_>>();
+
+    assert_eq!(
+        payload,
+        vec![
+            vec![Value::I64(5)],
+            vec![Value::Str("foo".to_string())],
+            vec![Value::Bin("foo".as_bytes().into())],
+            vec![Value::F64(1.0)],
+        ]
+    );
+    handle.abort();
     Ok(())
-    //  assert_eq!(out.origin, "test");
-    //  assert_eq!(
-    //      out.payload,
-    //      SqlitePayload {
-    //          columns: vec![
-    //              "id".to_string(),
-    //              "text".to_string(),
-    //              "bin".to_string(),
-    //              "float".to_string()
-    //          ]
-    //          .into(),
-    //          column_types: vec![
-    //              ColumnType::Int,
-    //              ColumnType::Text,
-    //              ColumnType::Blob,
-    //              ColumnType::Real,
-    //          ]
-    //          .into(),
-    //          values: vec![
-    //              vec![Value::Int(1), Value::Int(2), Value::Int(3), Value::Int(4),],
-    //              vec![
-    //                  Value::Text("foo".to_string()),
-    //                  Value::Text("bar".to_string()),
-    //                  Value::Text("".to_string()),
-    //                  Value::Null,
-    //              ],
-    //              vec![
-    //                  Value::Blob(vec![102, 111, 111]),
-    //                  Value::Blob(vec![98, 97, 114]),
-    //                  Value::Blob(vec![]),
-    //                  Value::Null,
-    //              ],
-    //              vec![
-    //                  Value::Real(1.0),
-    //                  Value::Real(0.2),
-    //                  Value::Real(30.0),
-    //                  Value::Real(40.0),
-    //              ],
-    //          ],
-    //          offset: 4,
-    //      }
-    //  );
-
-    //  sqlx::query("INSERT OR IGNORE INTO test VALUES(5, 'foo', 'foo', 1)")
-    //      .execute(&mut conn)
-    //      .await
-    //      .unwrap();
-
-    //  let out = rx.next().await.unwrap();
-    //  assert_eq!(out.origin, "test");
-    //  assert_eq!(
-    //      out.payload,
-    //      SqlitePayload {
-    //          columns: vec![
-    //              "id".to_string(),
-    //              "text".to_string(),
-    //              "bin".to_string(),
-    //              "float".to_string()
-    //          ]
-    //          .into(),
-    //          column_types: vec![
-    //              ColumnType::Int,
-    //              ColumnType::Text,
-    //              ColumnType::Blob,
-    //              ColumnType::Real,
-    //          ]
-    //          .into(),
-    //          values: vec![
-    //              vec![Value::Int(5)],
-    //              vec![Value::Text("foo".to_string())],
-    //              vec![Value::Blob(vec![102, 111, 111])],
-    //              vec![Value::Real(1.0)],
-    //          ],
-    //          offset: 5,
-    //      }
-    //  );
-
-    //  handle.abort();
-    //  Ok(())
 }
 
 //#[tokio::test]

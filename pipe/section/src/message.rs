@@ -65,6 +65,28 @@ pub enum ValueView<'a> {
     Bin(&'a [u8]),
 }
 
+impl<'a> PartialEq<Value> for ValueView<'a>{
+    fn eq(&self, other: &Value) -> bool {
+        match (self, other) {
+            (Self::Null, Value::Null) => true,
+            (&Self::Bool(l), &Value::Bool(r)) => l == r,
+            (&Self::I8(l), &Value::I8(r)) => l == r,
+            (&Self::I16(l), &Value::I16(r)) => l == r,
+            (&Self::I32(l), &Value::I32(r)) => l == r,
+            (&Self::I64(l), &Value::I64(r)) => l == r,
+            (&Self::U8(l), &Value::U8(r)) => l == r,
+            (&Self::U16(l), &Value::U16(r)) => l == r,
+            (&Self::U32(l), &Value::U32(r)) => l == r,
+            (&Self::U64(l), &Value::U64(r)) => l == r,
+            (&Self::F32(l), &Value::F32(r)) => l == r,
+            (&Self::F64(l), &Value::F64(r)) => l == r,
+            (&Self::Str(l), Value::Str(r)) => l == r.as_str(),
+            (&Self::Bin(l), Value::Bin(r)) => l == r.as_slice(),
+            _ => false,
+        }
+    }
+}
+
 impl<'a> From<&'a Value> for ValueView<'a> {
     fn from(value: &'a Value) -> Self {
         match value {
@@ -113,7 +135,6 @@ pub enum Chunk {
 }
 
 pub trait DataFrame: std::fmt::Debug + Send + Sync {
-    //fn schema(&self) -> 
     fn columns(&self) -> Vec<Column<'_>>;
 }
 
