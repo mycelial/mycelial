@@ -6,9 +6,9 @@ use std::any::Any;
 use crate::state::State;
 
 #[async_trait]
-pub trait RootChannel: Send + Sync + 'static {
+pub trait RootChannel: Send + 'static {
     type SectionChannel: SectionChannel + Send;
-    type Error: std::error::Error + Send + Sync + 'static;
+    type Error: std::error::Error + Send + 'static;
 
     fn new() -> Self;
 
@@ -35,7 +35,7 @@ pub trait RootChannel: Send + Sync + 'static {
 }
 
 #[async_trait]
-pub trait SectionChannel: Send + Sync + 'static {
+pub trait SectionChannel: Send + 'static {
     type Error: std::error::Error + Send + Sync + 'static;
     type State: State;
     type WeakChannel: WeakSectionChannel;
@@ -60,14 +60,14 @@ pub trait SectionChannel: Send + Sync + 'static {
 
 #[async_trait]
 pub trait WeakSectionChannel: Send + Sync + 'static {
-    async fn ack(self, ack: Box<dyn Any + Send + Sync + 'static>);
+    async fn ack(self, ack: Box<dyn Any + Send + 'static>);
 }
 
 #[non_exhaustive]
 #[derive(Debug)]
 pub enum Command {
     // Message Acknowledgement
-    Ack(Box<dyn Any + Send + Sync + 'static>),
+    Ack(Box<dyn Any + Send + 'static>),
 
     // Signal for section to stop
     Stop,
@@ -112,7 +112,7 @@ impl<S: State, Rs: ReplyTo<With = Option<S>>, Ss: ReplyTo<With = ()>> std::fmt::
 
 #[async_trait]
 pub trait ReplyTo: Send {
-    type Error: std::error::Error + Send + Sync + 'static;
+    type Error: std::error::Error + Send + 'static;
     type With;
 
     async fn reply(self, with: Self::With) -> Result<(), Self::Error>;

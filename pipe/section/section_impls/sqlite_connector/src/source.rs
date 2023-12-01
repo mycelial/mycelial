@@ -10,8 +10,7 @@
 //! - column types
 //! - query
 //! - limit and offset
-#![allow(unused)]
-use crate::{escape_table_name, SqliteMessage, SqlitePayload};
+use crate::{SqliteMessage, SqlitePayload, Table, TableColumn};
 use futures::{FutureExt, Sink, SinkExt, Stream, StreamExt};
 use notify::{Event, RecursiveMode, Watcher};
 use section::{
@@ -31,34 +30,16 @@ use tokio::sync::mpsc::Sender;
 use tokio_stream::wrappers::ReceiverStream;
 
 use std::path::Path;
-use std::{future::Future, sync::Arc};
+use std::sync::Arc;
 use std::{
-    pin::{pin, Pin},
+    pin::pin,
     str::FromStr,
 };
-
-#[derive(Debug)]
-struct Table {
-    name: String,
-    strict: bool,
-    columns: Vec<Column>,
-    query: String,
-    offset: i64,
-    limit: i64,
-}
-
-#[derive(Debug)]
-struct Column {
-    name: String,
-    data_type: DataType,
-    nullable: bool,
-}
 
 #[derive(Debug)]
 pub struct Sqlite {
     path: String,
     tables: Vec<String>,
-    once: bool,
 }
 
 async fn get_table_list(conn: &mut SqliteConnection) -> Result<Vec<(String, bool)>, SectionError> {
@@ -107,8 +88,8 @@ async fn describe_table<S: State>(
                 (_, u) => unimplemented!("unsupported column data type: {}", u),
             };
             let nullable = row.get::<i64, _>(3) == 0;
-            Column {
-                name,
+            TableColumn {
+                name: name.into(),
                 data_type,
                 nullable,
             }
@@ -122,16 +103,16 @@ async fn describe_table<S: State>(
         "SELECT {} FROM {} limit ? offset ?",
         columns
             .iter()
-            .map(|col| col.name.as_str())
+            .map(|col| col.name.as_ref())
             .collect::<Vec<_>>()
             .join(", "),
         name
     );
     let offset = state.get::<i64>(&name)?.unwrap_or(0);
     Ok(Table {
-        name,
+        name: name.into(),
         strict,
-        columns,
+        columns: columns.into(),
         query,
         offset,
         limit: 2048,
@@ -150,11 +131,10 @@ async fn get_tables<S: State>(
 }
 
 impl Sqlite {
-    pub fn new(path: impl Into<String>, tables: &[&str], once: bool) -> Self {
+    pub fn new(path: impl Into<String>, tables: &[&str]) -> Self {
         Self {
             path: path.into(),
             tables: tables.iter().map(|&x| x.into()).collect(),
-            once,
         }
     }
 
@@ -178,7 +158,7 @@ impl Sqlite {
 
         // keep weak ref to be able to send messages to ourselfs
         let weak_tx = tx.clone().downgrade();
-        tx.send(()).await;
+        tx.send(()).await.ok();
 
         let _watcher = self.watch_sqlite_paths(self.path.as_str(), tx);
 
@@ -213,7 +193,7 @@ impl Sqlite {
                 },
                 msg = rx.next() => {
                     if msg.is_none() {
-                        Err("sqlite file watched exited")?
+                        Err("file watcher exited")?
                     };
 
                     let mut empty_count = 0;
@@ -233,9 +213,9 @@ impl Sqlite {
                         let sqlite_payload = self.build_sqlite_payload(table, rows)?;
                         let weak_chan = section_channel.weak_chan();
 
-                        let ack_msg = AckMessage{ table: table.name.clone(), offset: table.offset };
-                        let ack = Box::pin(async move { weak_chan.ack(Box::new(ack_msg)); });
-                        let message = Box::new(SqliteMessage::new(table.name.as_str(), sqlite_payload, Some(ack)));
+                        let ack_msg = AckMessage{ table: Arc::clone(&table.name), offset: table.offset };
+                        let ack = Box::pin(async move { weak_chan.ack(Box::new(ack_msg)).await; });
+                        let message = Box::new(SqliteMessage::new(Arc::clone(&table.name), sqlite_payload, Some(ack)));
                         output.send(message).await.map_err(|_| "failed to send data to sink")?;
                     }
                     // if empty count is less than table count - we didn't reach ends of table on
@@ -275,8 +255,7 @@ impl Sqlite {
         }
         // FIXME: use Arc
         let batch = SqlitePayload {
-            columns: table.columns.iter().map(|col| col.name.clone()).collect(),
-            column_types: table.columns.iter().map(|col| col.data_type).collect(),
+            columns: Arc::clone(&table.columns),
             values,
         };
         Ok(batch)
@@ -310,7 +289,7 @@ impl Sqlite {
 }
 
 struct AckMessage {
-    table: String,
+    table: Arc<str>,
     offset: i64,
 }
 

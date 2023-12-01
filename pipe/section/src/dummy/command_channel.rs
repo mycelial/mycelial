@@ -130,7 +130,7 @@ pub struct DummyWeakChannel {}
 
 #[async_trait]
 impl WeakSectionChannel for DummyWeakChannel {
-    async fn ack(self, _ack: Box<dyn Any + Send + Sync + 'static>) {
+    async fn ack(self, _ack: Box<dyn Any + Send + 'static>) {
         ready(()).await
     }
 }

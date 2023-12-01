@@ -4,9 +4,9 @@ use crate::SectionError;
 use std::future::Future;
 use std::pin::Pin;
 
-pub type Ack = Pin<Box<dyn Future<Output = ()> + Send + Sync>>;
+pub type Ack = Pin<Box<dyn Future<Output = ()> + Send>>;
 pub type Next<'a> =
-    Pin<Box<dyn Future<Output = Result<Option<Chunk>, SectionError>> + Send + Sync>>;
+    Pin<Box<dyn Future<Output = Result<Option<Chunk>, SectionError>> + Send>>;
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 #[non_exhaustive]
@@ -120,7 +120,7 @@ impl<'a> From<&'a str> for ValueView<'a> {
     }
 }
 
-pub trait Message: Send + Sync + std::fmt::Debug {
+pub trait Message: Send + std::fmt::Debug {
     fn origin(&self) -> &str;
 
     fn next(&mut self) -> Next<'_>;
@@ -134,7 +134,7 @@ pub enum Chunk {
     DataFrame(Box<dyn DataFrame>),
 }
 
-pub trait DataFrame: std::fmt::Debug + Send + Sync {
+pub trait DataFrame: std::fmt::Debug + Send {
     fn columns(&self) -> Vec<Column<'_>>;
 }
 

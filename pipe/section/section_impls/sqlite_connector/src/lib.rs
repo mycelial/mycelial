@@ -1,18 +1,34 @@
+use std::sync::Arc;
+
 use section::message::{Ack, Chunk, Column, DataFrame, DataType, Message, Value};
 
 //pub mod destination;
 pub mod source;
 
-#[derive(Debug, PartialEq)]
-pub struct SqlitePayload {
-    /// column names
-    pub columns: Vec<String>,
+#[derive(Debug)]
+pub(crate) struct Table {
+    name: Arc<str>,
+    strict: bool,
+    columns: Arc<[TableColumn]>,
+    query: String,
+    offset: i64,
+    limit: i64,
+}
 
-    /// column types
-    pub column_types: Vec<DataType>,
+#[derive(Debug)]
+pub(crate) struct TableColumn {
+    name: Arc<str>,
+    data_type: DataType,
+    nullable: bool,
+}
+
+#[derive(Debug)]
+pub(crate) struct SqlitePayload {
+    /// column names
+    columns: Arc<[TableColumn]>,
 
     /// values
-    pub values: Vec<Vec<Value>>,
+    values: Vec<Vec<Value>>,
 }
 
 impl DataFrame for SqlitePayload {
@@ -20,23 +36,23 @@ impl DataFrame for SqlitePayload {
         self.columns
             .iter()
             .zip(self.values.iter())
-            .map(|(col_name, column)| {
-                Column::new(col_name.as_str(), Box::new(column.iter().map(Into::into)))
+            .map(|(col, column)| {
+                Column::new(col.name.as_ref(), Box::new(column.iter().map(Into::into)))
             })
             .collect()
     }
 }
 
 pub struct SqliteMessage {
-    origin: String,
+    origin: Arc<str>,
     payload: Option<Box<dyn DataFrame>>,
     ack: Option<Ack>,
 }
 
 impl SqliteMessage {
-    fn new(origin: impl Into<String>, payload: SqlitePayload, ack: Option<Ack>) -> Self {
+    fn new(origin: Arc<str>, payload: SqlitePayload, ack: Option<Ack>) -> Self {
         Self {
-            origin: origin.into(),
+            origin,
             payload: Some(Box::new(payload)),
             ack,
         }
@@ -54,7 +70,7 @@ impl std::fmt::Debug for SqliteMessage {
 
 impl Message for SqliteMessage {
     fn origin(&self) -> &str {
-        self.origin.as_str()
+        self.origin.as_ref()
     }
 
     fn next(&mut self) -> section::message::Next<'_> {
