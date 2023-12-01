@@ -10,15 +10,15 @@
 //! - column types
 //! - query
 //! - limit and offset
-use crate::{SqliteMessage, SqlitePayload, Table, TableColumn};
-use futures::{FutureExt, Sink, SinkExt, Stream, StreamExt};
+use crate::{SqlitePayload, Table, TableColumn, SqliteMessage};
 use notify::{Event, RecursiveMode, Watcher};
 use section::{
-    command_channel::{Command, SectionChannel, WeakSectionChannel},
+    command_channel::{SectionChannel, WeakSectionChannel, Command},
     message::{DataType, Value},
     section::Section,
     state::State,
     SectionError, SectionFuture, SectionMessage,
+    futures::{self, Sink, Stream, StreamExt, FutureExt, SinkExt},
 };
 use sqlx::{
     sqlite::{SqliteConnectOptions, SqliteRow},
@@ -31,10 +31,7 @@ use tokio_stream::wrappers::ReceiverStream;
 
 use std::path::Path;
 use std::sync::Arc;
-use std::{
-    pin::pin,
-    str::FromStr,
-};
+use std::{pin::pin, str::FromStr};
 
 #[derive(Debug)]
 pub struct Sqlite {

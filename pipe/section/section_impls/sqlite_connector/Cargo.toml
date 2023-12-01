@@ -9,7 +9,6 @@ edition = "2021"
 section = { version = "0.2", path = "../../" }
 sqlx = { version = "0.7", features = ["sqlite"] }
 notify = { version = "6", default-features = false, features = ["macos_kqueue"] }
-futures = "0.3"
 tokio = { version = "1", features=["full"] }
 tokio-stream = "0.1"
 thiserror = "1"

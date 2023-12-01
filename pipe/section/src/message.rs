@@ -140,7 +140,7 @@ pub trait DataFrame: std::fmt::Debug + Send {
 
 pub struct Column<'a> {
     name: &'a str,
-    iter: Box<dyn Iterator<Item = ValueView<'a>> + 'a>,
+    iter: Box<dyn Iterator<Item = ValueView<'a>> + 'a + Send>,
 }
 
 impl<'a> std::fmt::Debug for Column<'a> {
@@ -150,7 +150,7 @@ impl<'a> std::fmt::Debug for Column<'a> {
 }
 
 impl<'a> Column<'a> {
-    pub fn new(name: &'a str, iter: Box<dyn Iterator<Item = ValueView<'a>> + 'a>) -> Self {
+    pub fn new(name: &'a str, iter: Box<dyn Iterator<Item = ValueView<'a>> + 'a + Send>) -> Self {
         Self { name, iter }
     }
 

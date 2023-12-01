@@ -1,8 +1,8 @@
 use std::str::FromStr;
 
-use futures::{SinkExt, StreamExt};
+use section::futures::{SinkExt, StreamExt};
 use section::message::{Chunk, Value};
-use section::pretty_print::pretty_print;
+
 use section::section::Section as _;
 use section::{dummy::*, SectionMessage};
 use sqlite_connector::source;
@@ -102,7 +102,12 @@ async fn source_stream() -> Result<(), StdError> {
     assert_eq!(
         payload,
         vec![
-            vec![Value::I64(1), Value::I64(2), Value::Str("this".into()), Value::Str("".into())],
+            vec![
+                Value::I64(1),
+                Value::I64(2),
+                Value::Str("this".into()),
+                Value::Str("".into())
+            ],
             vec![
                 Value::Str("foo".into()),
                 Value::Str("bar".into()),

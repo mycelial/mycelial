@@ -2383,7 +2383,6 @@ dependencies = [
 name = "sqlite_connector"
 version = "0.1.0"
 dependencies = [
- "futures",
  "notify",
  "section",
  "sqlx",

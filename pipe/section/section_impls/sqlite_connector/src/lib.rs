@@ -2,10 +2,11 @@ use std::sync::Arc;
 
 use section::message::{Ack, Chunk, Column, DataFrame, DataType, Message, Value};
 
-//pub mod destination;
+pub mod destination;
 pub mod source;
 
 #[derive(Debug)]
+#[allow(unused)]
 pub(crate) struct Table {
     name: Arc<str>,
     strict: bool,
@@ -16,6 +17,7 @@ pub(crate) struct Table {
 }
 
 #[derive(Debug)]
+#[allow(unused)]
 pub(crate) struct TableColumn {
     name: Arc<str>,
     data_type: DataType,
