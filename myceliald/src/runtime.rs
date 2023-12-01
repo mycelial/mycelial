@@ -24,12 +24,14 @@ use section::command_channel::SectionChannel;
 /// Setup & populate registry
 fn setup_registry<S: SectionChannel>() -> Registry<S> {
     let arr: &[(&str, Constructor<S>)] = &[
-        //("excel_connector_source", excel_connector::source::constructor),
         (
             "hello_world_destination",
             constructors::hello_world::destination_ctor,
         ),
         ("hello_world_source", constructors::hello_world::source_ctor),
+        ("sqlite_connector_destination", constructors::sqlite_connector::destination_ctor),
+        ("sqlite_connector_source", constructors::sqlite_connector::source_ctor),
+        //("excel_connector_source", excel_connector::source::constructor),
         //("kafka_destination", kafka::destination::constructor),
         //("mycelial_server_destination", mycelial_server::destination::constructor),
         //("mycelial_server_source", mycelial_server::source::constructor),
@@ -38,8 +40,6 @@ fn setup_registry<S: SectionChannel>() -> Registry<S> {
         //("postgres_connector_source", postgres_connector::source::constructor),
         //("snowflake_destination", snowflake::destination::constructor),
         //("snowflake_source", snowflake::source::constructor),
-        //("sqlite_connector_destination", sqlite_connector::destination::constructor),
-        //("sqlite_connector_source", sqlite_connector::source::constructor),
         //("sqlite_physical_replication_destination", sqlite_physical_replication::destination::constructor),
         //("sqlite_physical_replication_source", sqlite_physical_replication::source::constructor),
     ];

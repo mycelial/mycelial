@@ -1,9 +1,10 @@
 use section::{
     command_channel::{Command, SectionChannel},
+    futures::{self, FutureExt, Sink, Stream, StreamExt},
+    message::{Chunk, ValueView},
+    pretty_print::pretty_print,
     section::Section,
-    SectionError,
-    SectionMessage,
-    futures::{FutureExt, Sink, Stream, StreamExt, self}, message::{Chunk, ValueView},
+    SectionError, SectionMessage,
 };
 use std::pin::{pin, Pin};
 
@@ -62,13 +63,14 @@ impl Sqlite {
                                     Some(Chunk::DataFrame(df)) => df,
                                     Some(ch) => Err(format!("unexpected chunk type: {:?}", ch))?,
                                 };
+                                //println!("{}\n{}", name, pretty_print(&*df));
                                 let schema = generate_schema(&name, df.as_ref());
                                 sqlx::query(&schema).execute(&mut *transaction).await?;
                                 let columns = &mut df.columns();
                                 let values_placeholder = (0..columns.len()).map(|_| "?").collect::<Vec<_>>().join(",");
                                 let insert = format!("INSERT OR IGNORE INTO \"{name}\" VALUES({values_placeholder})");
-                                let mut query = sqlx::query(&insert);
                                 'outer: loop {
+                                    let mut query = sqlx::query(&insert);
                                     for col in columns.iter_mut() {
                                         let next = col.next();
                                         if next.is_none() {
@@ -83,15 +85,17 @@ impl Sqlite {
                                             ValueView::U16(i) => query.bind(i as i64),
                                             ValueView::U32(i) => query.bind(i as i64),
                                             ValueView::U64(i) => query.bind(i as i64),
+                                            ValueView::F32(f) => query.bind(f),
+                                            ValueView::F64(f) => query.bind(f),
                                             ValueView::Str(s) => query.bind(s),
                                             ValueView::Bin(b) => query.bind(b),
                                             ValueView::Bool(b) => query.bind(b),
                                             ValueView::Null => query.bind(Option::<&str>::None),
-                                            _ => unimplemented!(),
+                                            unimplemented => unimplemented!("unimplemented value: {:?}", unimplemented),
                                         };
                                     }
+                                    query.execute(&mut *transaction).await?;
                                 }
-                                query.execute(&mut *transaction).await?;
                             },
                             cmd = section_chan.recv().fuse() => {
                                 if let Command::Stop = cmd? { return Ok(()) }

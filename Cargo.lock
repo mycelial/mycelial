@@ -1539,6 +1539,7 @@ dependencies = [
  "section",
  "serde",
  "serde_json",
+ "sqlite_connector",
  "sqlx",
  "thiserror",
  "tokio",

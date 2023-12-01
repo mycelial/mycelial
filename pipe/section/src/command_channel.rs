@@ -8,7 +8,7 @@ use crate::state::State;
 #[async_trait]
 pub trait RootChannel: Send + 'static {
     type SectionChannel: SectionChannel + Send;
-    type Error: std::error::Error + Send + 'static;
+    type Error: std::error::Error + Send + Sync + 'static;
 
     fn new() -> Self;
 
@@ -35,7 +35,7 @@ pub trait RootChannel: Send + 'static {
 }
 
 #[async_trait]
-pub trait SectionChannel: Send + 'static {
+pub trait SectionChannel: Send + Sync + 'static {
     type Error: std::error::Error + Send + Sync + 'static;
     type State: State;
     type WeakChannel: WeakSectionChannel;
@@ -112,7 +112,7 @@ impl<S: State, Rs: ReplyTo<With = Option<S>>, Ss: ReplyTo<With = ()>> std::fmt::
 
 #[async_trait]
 pub trait ReplyTo: Send {
-    type Error: std::error::Error + Send + 'static;
+    type Error: std::error::Error + Send + Sync + 'static;
     type With;
 
     async fn reply(self, with: Self::With) -> Result<(), Self::Error>;

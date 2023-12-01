@@ -221,7 +221,7 @@ pub struct WeakSectionChannel {
 
 #[async_trait]
 impl WeakSectionChannelTrait for WeakSectionChannel {
-    async fn ack(self, payload: Box<dyn Any + Send + Sync + 'static>) {
+    async fn ack(self, payload: Box<dyn Any + Send + 'static>) {
         if let Some(tx) = self.weak_tx.upgrade() {
             tx.send(Command::Ack(payload)).ok();
         }

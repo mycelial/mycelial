@@ -10,6 +10,7 @@ pub mod source;
 pub(crate) struct Table {
     name: Arc<str>,
     strict: bool,
+    without_rowid: bool,
     columns: Arc<[TableColumn]>,
     query: String,
     offset: i64,

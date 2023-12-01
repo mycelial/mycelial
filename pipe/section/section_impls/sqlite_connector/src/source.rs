@@ -10,15 +10,15 @@
 //! - column types
 //! - query
 //! - limit and offset
-use crate::{SqlitePayload, Table, TableColumn, SqliteMessage};
+use crate::{SqliteMessage, SqlitePayload, Table, TableColumn};
 use notify::{Event, RecursiveMode, Watcher};
 use section::{
-    command_channel::{SectionChannel, WeakSectionChannel, Command},
+    command_channel::{Command, SectionChannel, WeakSectionChannel},
+    futures::{self, FutureExt, Sink, SinkExt, Stream, StreamExt},
     message::{DataType, Value},
     section::Section,
     state::State,
     SectionError, SectionFuture, SectionMessage,
-    futures::{self, Sink, Stream, StreamExt, FutureExt, SinkExt},
 };
 use sqlx::{
     sqlite::{SqliteConnectOptions, SqliteRow},
@@ -29,8 +29,8 @@ use sqlx::{
 use tokio::sync::mpsc::Sender;
 use tokio_stream::wrappers::ReceiverStream;
 
-use std::path::Path;
 use std::sync::Arc;
+use std::{path::Path, time::Instant};
 use std::{pin::pin, str::FromStr};
 
 #[derive(Debug)]
@@ -39,22 +39,25 @@ pub struct Sqlite {
     tables: Vec<String>,
 }
 
-async fn get_table_list(conn: &mut SqliteConnection) -> Result<Vec<(String, bool)>, SectionError> {
+async fn get_table_list(
+    conn: &mut SqliteConnection,
+) -> Result<Vec<(String, bool, bool)>, SectionError> {
     let tables_list = sqlx::query("PRAGMA table_list")
         .map(|row: SqliteRow| {
             let schema = row.get::<String, _>(0);
             let name = row.get::<String, _>(1);
             let ttype = row.get::<String, _>(2);
+            let without_rowid = row.get::<i64, _>(4) == 1;
             let strict = row.get::<i64, _>(5) != 0;
-            (schema, name, ttype, strict)
+            (schema, name, ttype, without_rowid, strict)
         })
         .fetch_all(&mut *conn)
         .await?
         .into_iter()
-        .filter_map(|(schema, name, ttype, strict)| {
+        .filter_map(|(schema, name, ttype, without_rowid, strict)| {
             match (schema.as_str(), name.as_str(), ttype.as_str()) {
                 ("main", name_str, "table") if !name_str.starts_with("sqlite_") => {
-                    Some((name, strict))
+                    Some((name, without_rowid, strict))
                 }
                 _ => None,
             }
@@ -66,6 +69,7 @@ async fn get_table_list(conn: &mut SqliteConnection) -> Result<Vec<(String, bool
 async fn describe_table<S: State>(
     conn: &mut SqliteConnection,
     name: String,
+    without_rowid: bool,
     strict: bool,
     state: &S,
 ) -> Result<Table, SectionError> {
@@ -96,33 +100,49 @@ async fn describe_table<S: State>(
     if columns.is_empty() {
         unreachable!()
     }
-    let query = format!(
-        "SELECT {} FROM {} limit ? offset ?",
-        columns
-            .iter()
-            .map(|col| col.name.as_ref())
-            .collect::<Vec<_>>()
-            .join(", "),
-        name
-    );
+    let query = match without_rowid {
+        false => format!(
+            "SELECT {} FROM {} WHERE rowid > ? AND rowid <= ? ORDER BY rowid",
+            columns
+                .iter()
+                .map(|col| col.name.as_ref())
+                .collect::<Vec<_>>()
+                .join(", "),
+            name
+        ),
+        true => format!(
+            "SELECT {} FROM {} limit ? offset ?",
+            columns
+                .iter()
+                .map(|col| col.name.as_ref())
+                .collect::<Vec<_>>()
+                .join(", "),
+            name
+        ),
+    };
     let offset = state.get::<i64>(&name)?.unwrap_or(0);
     Ok(Table {
         name: name.into(),
+        without_rowid,
         strict,
         columns: columns.into(),
         query,
         offset,
-        limit: 2048,
+        limit: 4096,
     })
 }
 
 async fn get_tables<S: State>(
     conn: &mut SqliteConnection,
     state: &S,
+    filter_tables: &[String],
 ) -> Result<Vec<Table>, SectionError> {
     let mut tables = vec![];
-    for (table_name, strict) in get_table_list(conn).await? {
-        tables.push(describe_table(conn, table_name, strict, state).await?);
+    let all_tables = filter_tables.iter().any(|name| name == "*");
+    for (table_name, without_rowid, strict) in get_table_list(conn).await? {
+        if all_tables || filter_tables.contains(&table_name) {
+            tables.push(describe_table(conn, table_name, without_rowid, strict, state).await?);
+        }
     }
     Ok(tables)
 }
@@ -166,7 +186,8 @@ impl Sqlite {
             .await?
             .unwrap_or(SectionChan::State::new());
 
-        let mut tables = get_tables(&mut connection, &state).await?;
+        let mut tables = get_tables(&mut connection, &state, &self.tables).await?;
+        let mut queue: Vec<usize> = vec![];
 
         let rx = ReceiverStream::new(rx);
         let mut rx = pin!(rx.fuse());
@@ -192,17 +213,30 @@ impl Sqlite {
                     if msg.is_none() {
                         Err("file watcher exited")?
                     };
+                    if queue.is_empty() {
+                        queue = (0..tables.len()).rev().collect();
+                    }
 
-                    let mut empty_count = 0;
-                    for table in tables.iter_mut() {
-                        let rows = sqlx::query(&table.query)
-                            .bind(table.limit)
-                            .bind(table.offset)
-                            .fetch_all(&mut connection)
-                            .await?;
-
+                    while !queue.is_empty() {
+                        let table = &mut tables[*queue.last().unwrap()];
+                        let start = Instant::now();
+                        let rows = match table.without_rowid {
+                            false =>
+                                sqlx::query(&table.query)
+                                    .bind(table.offset)
+                                    .bind(table.offset + table.limit)
+                                    .fetch_all(&mut connection)
+                                    .await?,
+                            true =>
+                                sqlx::query(&table.query)
+                                    .bind(table.limit)
+                                    .bind(table.offset)
+                                    .fetch_all(&mut connection)
+                                    .await?,
+                        };
+                        let end = start.elapsed();
                         if rows.is_empty() {
-                            empty_count += 1;
+                            queue.pop();
                             continue
                         }
                         table.offset += rows.len() as i64;
@@ -214,11 +248,12 @@ impl Sqlite {
                         let ack = Box::pin(async move { weak_chan.ack(Box::new(ack_msg)).await; });
                         let message = Box::new(SqliteMessage::new(Arc::clone(&table.name), sqlite_payload, Some(ack)));
                         output.send(message).await.map_err(|_| "failed to send data to sink")?;
+                        break
                     }
                     // if empty count is less than table count - we didn't reach ends of table on
                     // whole dataset
-                    if let Some(tx) = weak_tx.clone().upgrade() {
-                        if empty_count < self.tables.len() {
+                    if !queue.is_empty() {
+                        if let Some(tx) = weak_tx.clone().upgrade() {
                             tx.try_send(()).ok();
                         }
                     }
