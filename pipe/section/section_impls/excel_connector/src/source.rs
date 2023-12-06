@@ -14,6 +14,7 @@ use std::time::Duration;
 use std::{future::Future, sync::Arc};
 
 use glob::glob;
+use globset::Glob;
 
 fn err_msg(msg: impl Into<String>) -> StdError {
     msg.into().into()
@@ -339,36 +340,23 @@ impl Excel {
         excel_path: &str,
         tx: Sender<InnerEvent>,
     ) -> notify::Result<impl Watcher> {
-        // initiate first check on startup
-        let mut watcher = notify::PollWatcher::new(
+        let pattern = Glob::new(excel_path).unwrap().compile_matcher();
+        let mut file_watcher = notify::PollWatcher::new(
             move |res: Result<Event, _>| match res {
                 Ok(event) if event.kind.is_modify() || event.kind.is_create() => {
-                    // FIXME: unwrap
-                    tx.blocking_send(InnerEvent::NewChange(
-                        event.paths[0].to_str().unwrap().into(),
-                    ))
-                    .ok();
+                    let path: String = event.paths[0].to_str().unwrap().into();
+                    if pattern.is_match(path.as_str()) {
+                        tx.blocking_send(InnerEvent::NewChange(path)).ok();
+                    }
                 }
                 Ok(_) => (),
-                Err(_e) => (),
+                Err(_) => (),
             },
             notify::Config::default().with_poll_interval(Duration::from_secs(1)),
         )?;
-
-        // todo: it'd be nice to be able to watch a directory for new files too.
-        for entry in glob(excel_path).expect("Failed to read glob pattern") {
-            match entry {
-                Ok(path) => {
-                    let p = path.display().to_string();
-                    // ignore temp files
-                    if !p.contains('~') {
-                        let _ = watcher.watch(Path::new(&p), RecursiveMode::NonRecursive);
-                    }
-                }
-                Err(e) => println!("{:?}", e),
-            }
-        }
-        Ok(watcher)
+        let path_to_watch = get_directory_or_filepath(excel_path);
+        let _ = file_watcher.watch(Path::new(&path_to_watch), RecursiveMode::Recursive);
+        Ok(file_watcher)
     }
 }
 
@@ -393,4 +381,58 @@ where
 
 pub fn new(path: impl Into<String>, sheets: &[&str], strict: bool) -> Excel {
     Excel::new(path, sheets, strict)
+}
+
+// gets the root directory of the path to watch, or the path itself if there are no wildcards
+fn get_directory_or_filepath(path: &str) -> String {
+    let path = path.to_string();
+    let split_path = path.split('/').collect::<Vec<&str>>();
+    let mut directory_to_watch = String::new();
+    let mut found = false;
+    for (_i, part) in split_path.iter().enumerate() {
+        if part.contains('*') || part.contains("**") {
+            found = true;
+            break;
+        }
+        directory_to_watch.push_str(part);
+        directory_to_watch.push('/');
+    }
+    if found {
+        directory_to_watch
+    } else {
+        path
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_get_directory_or_filepath_with_single_star() {
+        let path = "path/to/*/file.txt";
+        let result = get_directory_or_filepath(path);
+        assert_eq!(result, "path/to/");
+    }
+
+    #[test]
+    fn test_get_directory_or_filepath_with_double_star() {
+        let path = "path/to/**/file.txt";
+        let result = get_directory_or_filepath(path);
+        assert_eq!(result, "path/to/");
+    }
+
+    #[test]
+    fn test_get_directory_or_filepath_with_star_in_filename() {
+        let path = "path/to/file_*.txt";
+        let result = get_directory_or_filepath(path);
+        assert_eq!(result, "path/to/");
+    }
+
+    #[test]
+    fn test_get_directory_or_filepath_without_star() {
+        let path = "path/to/file.txt";
+        let result = get_directory_or_filepath(path);
+        assert_eq!(result, "path/to/file.txt");
+    }
 }
