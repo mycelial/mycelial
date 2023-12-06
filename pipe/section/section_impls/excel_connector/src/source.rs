@@ -213,7 +213,7 @@ impl Excel {
                                     // ignore temp files
                                     if !path.contains('~') {
                                         let mut workbook: calamine::Sheets<std::io::BufReader<std::fs::File>> =
-                                            open_workbook_auto(path).expect("Cannot open file");
+                                            open_workbook_auto(path.clone()).expect("Cannot open file");
 
                                         let mut sheets = self
                                             .init_schema::<SectionChan>(&mut workbook, &state, self.strict)
@@ -227,7 +227,7 @@ impl Excel {
                                                 let excel_payload = self.build_excel_payload(sheet, rows, self.strict)?;
 
                                                 let message = Message::new(
-                                                    sheet.name.to_string(),
+                                                    format!("{}:{}", path, sheet.name.to_string()),
                                                     excel_payload,
                                                     None,
                                                 );
