@@ -227,7 +227,7 @@ impl Excel {
                                                 let excel_payload = self.build_excel_payload(sheet, rows, self.strict)?;
 
                                                 let message = Message::new(
-                                                    format!("{}:{}", path, sheet.name.to_string()),
+                                                    format!("{}:{}", path, sheet.name),
                                                     excel_payload,
                                                     None,
                                                 );
