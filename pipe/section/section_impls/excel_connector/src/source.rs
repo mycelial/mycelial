@@ -1,13 +1,19 @@
-use crate::{ColumnType, ExcelPayload, Message, StdError, Value};
-use futures::{FutureExt, Sink, SinkExt, Stream, StreamExt};
+use crate::{ColumnType, ExcelPayload, Sheet, TableColumn, NewExcelPayload, ExcelMessage};
 use notify::{Event, RecursiveMode, Watcher};
-use section::{Command, Section, SectionChannel, State};
+use section::{
+    command_channel::{Command, SectionChannel, WeakSectionChannel},
+    futures::{self, FutureExt, Sink, SinkExt, Stream, StreamExt},
+    message::{DataType, Value},
+    section::Section,
+    state::State,
+    SectionError, SectionFuture, SectionMessage,
+};
 
 // FIXME: drop direct dependency
 use tokio::sync::mpsc::Sender;
 use tokio_stream::wrappers::ReceiverStream;
 
-use calamine::{open_workbook_auto, DataType, Reader, Rows};
+use calamine::{open_workbook_auto, DataType as ExcelDataType, Reader, Rows};
 use std::path::Path;
 use std::pin::{pin, Pin};
 use std::time::Duration;
@@ -16,7 +22,7 @@ use std::{future::Future, sync::Arc};
 use glob::glob;
 use globset::Glob;
 
-fn err_msg(msg: impl Into<String>) -> StdError {
+fn err_msg(msg: impl Into<String>) -> SectionError {
     msg.into().into()
 }
 
@@ -27,85 +33,85 @@ pub struct Excel {
     strict: bool,
 }
 
-impl TryFrom<(ColumnType, usize, &[DataType], bool)> for Value {
-    // FIXME: specific error instead of Box<dyn Error>
-    type Error = StdError;
+// impl TryFrom<(ColumnType, usize, &[ExcelDataType], bool)> for Value {
+//     // FIXME: specific error instead of Box<dyn Error>
+//     type Error = SectionError;
 
-    fn try_from(
-        (col, index, row, strict): (ColumnType, usize, &[DataType], bool),
-    ) -> Result<Self, Self::Error> {
-        if !strict {
-            let v2 = row.get(index).unwrap();
-            let v = match v2 {
-                DataType::Int(v) => v.to_string(),
-                DataType::Float(f) => f.to_string(),
-                DataType::String(s) => s.to_string(),
-                DataType::Bool(b) => b.to_string(),
-                DataType::DateTime(_) => v2
-                    .as_datetime()
-                    .unwrap()
-                    .format("%Y-%m-%d %H:%M:%S")
-                    .to_string(),
-                DataType::Duration(d) => d.to_string(),
-                DataType::DateTimeIso(d) => d.to_string(),
-                DataType::DurationIso(d) => d.to_string(),
-                DataType::Error(e) => e.to_string(),
-                DataType::Empty => "".to_string(),
-            };
-            let v = Value::Text(v);
-            return Ok(v);
-        }
+//     fn try_from(
+//         (col, index, row, strict): (ColumnType, usize, &[ExcelDataType], bool),
+//     ) -> Result<Self, Self::Error> {
+//         if !strict {
+//             let v2 = row.get(index).unwrap();
+//             let v = match v2 {
+//                 ExcelDataType::Int(v) => v.to_string(),
+//                 ExcelDataType::Float(f) => f.to_string(),
+//                 ExcelDataType::String(s) => s.to_string(),
+//                 ExcelDataType::Bool(b) => b.to_string(),
+//                 ExcelDataType::DateTime(_) => v2
+//                     .as_datetime()
+//                     .unwrap()
+//                     .format("%Y-%m-%d %H:%M:%S")
+//                     .to_string(),
+//                 ExcelDataType::Duration(d) => d.to_string(),
+//                 ExcelDataType::DateTimeIso(d) => d.to_string(),
+//                 ExcelDataType::DurationIso(d) => d.to_string(),
+//                 ExcelDataType::Error(e) => e.to_string(),
+//                 ExcelDataType::Empty => "".to_string(),
+//             };
+//             let v = Value::Text(v);
+//             return Ok(v);
+//         }
 
-        let value = match col {
-            ColumnType::Int => row
-                .get(index)
-                .ok_or(err_msg("oh no"))
-                .unwrap()
-                .get_int()
-                .map(Value::Int), //FIXME: unwrap
-            ColumnType::Text => row
-                .get(index)
-                .ok_or(err_msg("oh no"))
-                .unwrap()
-                .get_string()
-                .map(|s| Value::Text(s.into())), //FIXME: unwrap
-            ColumnType::Real => row
-                .get(index)
-                .ok_or(err_msg("oh no"))
-                .unwrap()
-                .get_float()
-                .map(Value::Real),
-            ColumnType::Bool => row
-                .get(index)
-                .ok_or(err_msg("oh no"))
-                .unwrap()
-                .get_bool()
-                .map(Value::Bool), //FIXME: unwrap
-            ColumnType::DateTime => row
-                .get(index)
-                .ok_or(err_msg("oh no"))
-                .unwrap()
-                .as_datetime()
-                .map(Value::DateTime), //FIXME: unwrap;
-            _ => {
-                return Err(format!(
-                    "TryFrom<(ColumnType, usize, &[DataType])> for Value - unimplemented: {:?}",
-                    col
-                )
-                .into())
-            }
-        };
-        let v = value.unwrap_or(Value::Null); // FIXME? Here's where we're ignoring errors
-        Ok(v)
-    }
-}
+//         let value = match col {
+//             ColumnType::Int => row
+//                 .get(index)
+//                 .ok_or(err_msg("oh no"))
+//                 .unwrap()
+//                 .get_int()
+//                 .map(Value::Int), //FIXME: unwrap
+//             ColumnType::Text => row
+//                 .get(index)
+//                 .ok_or(err_msg("oh no"))
+//                 .unwrap()
+//                 .get_string()
+//                 .map(|s| Value::Text(s.into())), //FIXME: unwrap
+//             ColumnType::Real => row
+//                 .get(index)
+//                 .ok_or(err_msg("oh no"))
+//                 .unwrap()
+//                 .get_float()
+//                 .map(Value::Real),
+//             ColumnType::Bool => row
+//                 .get(index)
+//                 .ok_or(err_msg("oh no"))
+//                 .unwrap()
+//                 .get_bool()
+//                 .map(Value::Bool), //FIXME: unwrap
+//             ColumnType::DateTime => row
+//                 .get(index)
+//                 .ok_or(err_msg("oh no"))
+//                 .unwrap()
+//                 .as_datetime()
+//                 .map(Value::DateTime), //FIXME: unwrap;
+//             _ => {
+//                 return Err(format!(
+//                     "TryFrom<(ColumnType, usize, &[ExcelDataType])> for Value - unimplemented: {:?}",
+//                     col
+//                 )
+//                 .into())
+//             }
+//         };
+//         let v = value.unwrap_or(Value::Null); // FIXME? Here's where we're ignoring errors
+//         Ok(v)
+//     }
+// }
 
-#[derive(Debug)]
-pub struct Sheet {
-    pub name: Arc<str>,
-    pub columns: Arc<[String]>,
-    pub column_types: Arc<[ColumnType]>,
-}
+// #[derive(Debug)]
+// pub struct Sheet {
+//     pub name: Arc<str>,
+//     pub columns: Arc<[String]>,
+//     pub column_types: Arc<[ColumnType]>,
+// }
 
 #[derive(Debug)]
 enum InnerEvent {
@@ -127,10 +133,10 @@ impl Excel {
         input: Input,
         output: Output,
         mut section_channel: SectionChan,
-    ) -> Result<(), StdError>
+    ) -> Result<(), SectionError>
     where
         Input: Stream + Send,
-        Output: Sink<Message, Error = StdError> + Send,
+        Output: Sink<SectionMessage, Error = SectionError> + Send,
         SectionChan: SectionChannel + Send + Sync,
     {
         let path = &self.path;
@@ -226,10 +232,19 @@ impl Excel {
                                                 let _ = rows.next();
                                                 let excel_payload = self.build_excel_payload(sheet, rows, self.strict)?;
 
-                                                let message = Message::new(
-                                                    sheet.name.to_string(),
-                                                    excel_payload,
-                                                    None,
+                                                // let message = Message::new(
+                                                //     sheet.name.to_string(),
+                                                //     excel_payload,
+                                                //     None,
+                                                // );
+
+                                                let origin = format!("{}:{}", path, &sheet.name);
+                                                let message = Box::new(
+                                                    ExcelMessage::new(
+                                                        Arc::new(origin.as_str()),
+                                                        excel_payload,
+                                                        None,
+                                                    )
                                                 );
                                                 output.send(message).await.map_err(|e| format!("failed to send data to sink {:?}", e))?;
                                             }
@@ -250,9 +265,9 @@ impl Excel {
     fn build_excel_payload(
         &self,
         sheet: &Sheet,
-        rows: Rows<calamine::DataType>,
+        rows: Rows<ExcelDataType>,
         strict: bool,
-    ) -> Result<ExcelPayload, StdError> {
+    ) -> Result<ExcelPayload, SectionError> {
         let mut values: Vec<Vec<Value>> = vec![];
         let cap = rows.len();
         for row in rows {
@@ -278,7 +293,7 @@ impl Excel {
         workbook: &mut calamine::Sheets<std::io::BufReader<std::fs::File>>,
         _state: &<C as SectionChannel>::State,
         strict: bool,
-    ) -> Result<Vec<Sheet>, StdError> {
+    ) -> Result<Vec<Sheet>, SectionError> {
         let mut sheets = Vec::with_capacity(self.sheets.len());
         let all_sheets: Vec<String>;
         let sheet_names = match self.sheets.iter().any(|sheet| sheet == "*") {
@@ -301,23 +316,23 @@ impl Excel {
                 let cols = first_row
                     .iter()
                     .map(|cell| match cell {
-                        DataType::String(s) => Ok(s.to_string()),
+                        ExcelDataType::String(s) => Ok(s.to_string()),
                         _ => Err(err_msg("column name is not a string")),
                     })
-                    .collect::<Result<Vec<String>, StdError>>()?;
+                    .collect::<Result<Vec<String>, SectionError>>()?;
                 // get the data types from the second row
                 let col_types: Vec<ColumnType> = second_row
                     .iter()
                     .map(|cell| match strict {
                         true => match cell {
-                            DataType::String(_) => ColumnType::Text,
-                            DataType::Int(_) => ColumnType::Int,
-                            DataType::Float(_) => ColumnType::Real,
-                            DataType::Bool(_) => ColumnType::Bool,
-                            DataType::DateTime(_) => ColumnType::DateTime,
-                            DataType::Duration(_) => ColumnType::Duration,
-                            DataType::DateTimeIso(_) => ColumnType::DateTimeIso,
-                            DataType::DurationIso(_) => ColumnType::DurationIso,
+                            ExcelDataType::String(_) => ColumnType::Text,
+                            ExcelDataType::Int(_) => ColumnType::Int,
+                            ExcelDataType::Float(_) => ColumnType::Real,
+                            ExcelDataType::Bool(_) => ColumnType::Bool,
+                            ExcelDataType::DateTime(_) => ColumnType::DateTime,
+                            ExcelDataType::Duration(_) => ColumnType::Duration,
+                            ExcelDataType::DateTimeIso(_) => ColumnType::DateTimeIso,
+                            ExcelDataType::DurationIso(_) => ColumnType::DurationIso,
                             _ => ColumnType::Text,
                         },
                         false => ColumnType::Text,
@@ -368,10 +383,10 @@ struct AckMessage {
 impl<Input, Output, SectionChan> Section<Input, Output, SectionChan> for Excel
 where
     Input: Stream + Send + 'static,
-    Output: Sink<Message, Error = StdError> + Send + 'static,
+    Output: Sink<SectionMessage, Error = SectionError> + Send + 'static,
     SectionChan: SectionChannel + Send + Sync + 'static,
 {
-    type Error = StdError;
+    type Error = SectionError;
     type Future = Pin<Box<dyn Future<Output = Result<(), Self::Error>> + Send + 'static>>;
 
     fn start(self, input: Input, output: Output, command: SectionChan) -> Self::Future {

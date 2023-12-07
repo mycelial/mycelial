@@ -22,11 +22,21 @@ pub struct ExcelPayload {
     pub offset: i64,
 }
 
+#[derive(Debug)]
+pub(crate) struct Sheet {
+    pub name: Arc<str>,
+    pub columns: Arc<[String]>,
+    pub column_types: Arc<[ColumnType]>,
+}
+
+#[derive(Debug)]
 pub(crate) struct TableColumn {
     name: Arc<str>,
     data_type: DataType,
     nullable: bool,
 }
+
+#[derive(Debug)]
 pub(crate) struct NewExcelPayload {
     columns: Arc<[TableColumn]>,
     values: Vec<Vec<Value>>,
@@ -75,18 +85,13 @@ impl Message for ExcelMessage {
     }
 }
 
-// FIXME: numeric?
-// redo whole value enum?
-#[derive(Debug, Clone, PartialEq, Default)]
-pub enum Value {
-    Int(i64),
-    Text(String),
-    Blob(Vec<u8>),
-    Real(f64),
-    Bool(bool),
-    DateTime(NaiveDateTime),
-    #[default]
-    Null,
+impl std::fmt::Debug for ExcelMessage {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ExcelMessage")
+            .field("origin", &self.origin)
+            .field("payload", &self.payload)
+            .finish()
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
