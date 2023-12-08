@@ -13,7 +13,7 @@ use section::{
 use tokio::sync::mpsc::Sender;
 use tokio_stream::wrappers::ReceiverStream;
 
-use calamine::{open_workbook_auto, DataType as ExcelDataType, Reader, Rows};
+use calamine::{open_workbook_auto, DataType as ExcelDataType, Reader, Rows, Table};
 use std::path::Path;
 use std::pin::{pin, Pin};
 use std::time::Duration;
@@ -199,11 +199,12 @@ impl Excel {
                                                             let _ = rows.next();
                                                             let excel_payload = self.build_excel_payload(sheet, rows, self.strict)?;
 
-                                                            let message = Message::new(
-                                                                format!("{}:{}", p, sheet.name),
+                                                            let message = Box::new(ExcelMessage::new(
+                                                                // format!("{}:{}", p, sheet.name),
+                                                                Arc::clone(&sheet.name), // todo: add filepath
                                                                 excel_payload,
                                                                 None,
-                                                            );
+                                                            ));
                                                             output.send(message).await.map_err(|e| format!("failed to send data to sink {:?}", e))?;
                                                         }
 
@@ -238,10 +239,10 @@ impl Excel {
                                                 //     None,
                                                 // );
 
-                                                let origin = format!("{}:{}", path, &sheet.name);
+                                                // let origin = format!("{}:{}", path, &sheet.name);
                                                 let message = Box::new(
                                                     ExcelMessage::new(
-                                                        Arc::new(origin.as_str()),
+                                                        Arc::clone(&sheet.name), // todo: add filepath
                                                         excel_payload,
                                                         None,
                                                     )
@@ -267,23 +268,38 @@ impl Excel {
         sheet: &Sheet,
         rows: Rows<ExcelDataType>,
         strict: bool,
-    ) -> Result<ExcelPayload, SectionError> {
+    ) -> Result<NewExcelPayload, SectionError> {
         let mut values: Vec<Vec<Value>> = vec![];
         let cap = rows.len();
         for row in rows {
             if values.len() != row.len() {
                 values = row.iter().map(|_| Vec::with_capacity(cap)).collect();
             }
-            for (index, column) in sheet.column_types.iter().enumerate() {
-                let value = Value::try_from((*column, index, row, strict))?;
-                values[index].push(value);
+            for (index, column) in sheet.columns.iter().enumerate() {
+                let x = row.get(index).ok_or(err_msg("oh no"))?; //FIXME: unwrap
+                let y = match x {
+                    // TODO: Not all of these should be Str -- map to the correct Value type
+                    ExcelDataType::Int(v) => Value::Str(v.to_string()),
+                    ExcelDataType::Float(f) => Value::Str(f.to_string()),
+                    ExcelDataType::String(s) => Value::Str(s.to_string()),
+                    ExcelDataType::Bool(b) => Value::Str(b.to_string()),
+                    ExcelDataType::DateTime(_) => Value::Str(x
+                        .as_datetime()
+                        .unwrap()
+                        .format("%Y-%m-%d %H:%M:%S")
+                        .to_string()),
+                    ExcelDataType::Duration(d) => Value::Str(d.to_string()),
+                    ExcelDataType::DateTimeIso(d) => Value::Str(d.to_string()),
+                    ExcelDataType::DurationIso(d) => Value::Str(d.to_string()),
+                    ExcelDataType::Error(e) => Value::Str(e.to_string()),
+                    ExcelDataType::Empty => Value::Str("".to_string()),
+                };
+                values[index].push(y);
             }
         }
-        let batch = ExcelPayload {
+        let batch = NewExcelPayload {
             columns: Arc::clone(&sheet.columns),
-            column_types: Arc::clone(&sheet.column_types),
             values,
-            offset: 0,
         };
         Ok(batch)
     }
@@ -315,34 +331,42 @@ impl Excel {
                 // the column names are in the first row, which we want to put into `cols`
                 let cols = first_row
                     .iter()
-                    .map(|cell| match cell {
-                        ExcelDataType::String(s) => Ok(s.to_string()),
-                        _ => Err(err_msg("column name is not a string")),
+                    .map(|cell| {
+                        let name = match cell {
+                            ExcelDataType::String(s) => Ok(s.to_string()),
+                            _ => Err(err_msg("column name is not a string")),
+                        }.unwrap();
+                        TableColumn {
+                            name: Arc::from(name.to_owned()),
+                            data_type: DataType::Str,
+                            nullable: true,
+                        }
                     })
-                    .collect::<Result<Vec<String>, SectionError>>()?;
+                    .collect::<Vec<TableColumn>>();
+                    // .collect::()?;
                 // get the data types from the second row
-                let col_types: Vec<ColumnType> = second_row
-                    .iter()
-                    .map(|cell| match strict {
-                        true => match cell {
-                            ExcelDataType::String(_) => ColumnType::Text,
-                            ExcelDataType::Int(_) => ColumnType::Int,
-                            ExcelDataType::Float(_) => ColumnType::Real,
-                            ExcelDataType::Bool(_) => ColumnType::Bool,
-                            ExcelDataType::DateTime(_) => ColumnType::DateTime,
-                            ExcelDataType::Duration(_) => ColumnType::Duration,
-                            ExcelDataType::DateTimeIso(_) => ColumnType::DateTimeIso,
-                            ExcelDataType::DurationIso(_) => ColumnType::DurationIso,
-                            _ => ColumnType::Text,
-                        },
-                        false => ColumnType::Text,
-                    })
-                    .collect();
+                // let col_types: Vec<ColumnType> = second_row
+                //     .iter()
+                //     .map(|cell| match strict {
+                //         true => match cell {
+                //             ExcelDataType::String(_) => ColumnType::Text,
+                //             ExcelDataType::Int(_) => ColumnType::Int,
+                //             ExcelDataType::Float(_) => ColumnType::Real,
+                //             ExcelDataType::Bool(_) => ColumnType::Bool,
+                //             ExcelDataType::DateTime(_) => ColumnType::DateTime,
+                //             ExcelDataType::Duration(_) => ColumnType::Duration,
+                //             ExcelDataType::DateTimeIso(_) => ColumnType::DateTimeIso,
+                //             ExcelDataType::DurationIso(_) => ColumnType::DurationIso,
+                //             _ => ColumnType::Text,
+                //         },
+                //         false => ColumnType::Text,
+                //     })
+                //     .collect();
 
                 let sheet = Sheet {
                     name: Arc::from(name),
                     columns: Arc::from(cols),
-                    column_types: Arc::from(col_types),
+                    // column_types: Arc::from(col_types),
                 };
                 sheets.push(sheet);
             }

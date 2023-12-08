@@ -25,8 +25,8 @@ pub struct ExcelPayload {
 #[derive(Debug)]
 pub(crate) struct Sheet {
     pub name: Arc<str>,
-    pub columns: Arc<[String]>,
-    pub column_types: Arc<[ColumnType]>,
+    pub columns: Arc<[TableColumn]>,
+    // pub column_types: Arc<[ColumnType]>,
 }
 
 #[derive(Debug)]

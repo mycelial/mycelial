@@ -1,32 +1,29 @@
 use pipe::{config::Map, types::DynSection};
 use section::{command_channel::SectionChannel, SectionError};
 
-/// constructor for sqlite
-///
-/// # Config example:
-/// ```toml
-/// [[section]]
-/// name = "sqlite"
-/// path = ":memory:"
-/// tables = "foo,bar,baz"
-/// ```
-pub fn source_ctor<S: SectionChannel>(
-    config: &Map,
-) -> Result<Box<dyn DynSection<S>>, SectionError> {
-    let tables = config
-        .get("tables")
-        .ok_or("sqlite section requires 'tables'")?
-        .as_str()
-        .ok_or("'tables' should be string")?;
-    let path = config
-        .get("path")
-        .ok_or("sqlite section requires 'path'")?
-        .as_str()
-        .ok_or("path should be string")?;
-    let tables = tables
-        .split(',')
-        .map(|x| x.trim())
-        .filter(|x| !x.is_empty())
-        .collect::<Vec<&str>>();
-    Ok(Box::new(excel_connector::source::Excel::new(path, tables.as_slice())))
-}
+pub fn source_ctor<S: SectionChannel>(	
+    config: &Map,	
+) -> Result<Box<dyn DynSection<S>>, SectionError> {	
+    let sheets = config	
+        .get("sheets")	
+        .ok_or("excel section requires 'sheets'")?	
+        .as_str()	
+        .ok_or("'sheets' should be string")?;	
+    let sheets = sheets	
+        .split(',')	
+        .map(|x| x.trim())	
+        .filter(|x| !x.is_empty())	
+        .collect::<Vec<&str>>();	
+    let path = config	
+        .get("path")	
+        .ok_or("excel section requires 'path'")?	
+        .as_str()	
+        .ok_or("path should be string")?;	
+    let strict: bool = config	
+        .get("strict")	
+        .ok_or("excel section requires 'strict'")?	
+        .as_str()	
+        .ok_or("strict should be string")?	
+        .parse()?;	
+    Ok(Box::new(excel_connector::source::Excel::new(path, sheets.as_slice(), strict)))	
+}	
