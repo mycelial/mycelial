@@ -1,6 +1,9 @@
 use std::sync::Arc;
 
-use section::{message::{Ack, Chunk, Column, DataFrame, DataType, Message, Value}, SectionError};
+use section::{
+    message::{Ack, Chunk, Column, DataFrame, DataType, Message, Value},
+    SectionError,
+};
 
 pub mod destination;
 pub mod source;

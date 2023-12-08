@@ -1,20 +1,16 @@
 use section::{
     command_channel::{Command, SectionChannel},
-    section::Section,
-    message::{Chunk, ValueView, DataType},
     futures::{self, FutureExt, Sink, Stream, StreamExt},
-    SectionError,
-    SectionMessage,
-    SectionFuture,
+    message::{Chunk, DataType, ValueView},
+    section::Section,
+    SectionError, SectionFuture, SectionMessage,
 };
 use std::pin::pin;
 
 use crate::{escape_table_name, generate_schema};
 use sqlx::{
-    Connection,
     postgres::PgConnectOptions,
-    ConnectOptions,
-    types::{Json, JsonRawValue},
+    ConnectOptions, Connection,
 };
 use std::str::FromStr;
 
@@ -62,7 +58,7 @@ impl Postgres {
                     while let Some(chunk) = message.next().await? {
                         let df = match chunk{
                             Chunk::DataFrame(df) => df,
-                            _ => Err(format!("expected dataframe chunk"))?
+                            _ => Err("expected dataframe chunk".to_string())?
                         };
                         let schema = generate_schema(name.as_str(), df.as_ref())?;
                         let mut columns = df.columns();

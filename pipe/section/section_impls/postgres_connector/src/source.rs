@@ -11,8 +11,8 @@ use sqlx::{
         types::{PgMoney, PgTimeTz},
         PgConnectOptions, PgConnection, PgRow, PgValue,
     },
-    Column, ConnectOptions, Row, TypeInfo, Value as _, ValueRef,
     types::{Json, JsonRawValue},
+    Column, ConnectOptions, Row, TypeInfo, Value as _, ValueRef,
 };
 
 use std::sync::Arc;
@@ -215,8 +215,12 @@ impl Postgres {
                                 .map(Value::TimeStampTz),
                             "FLOAT4" => pg_value.try_decode::<Option<f32>>()?.map(Value::F32),
                             "FLOAT8" => pg_value.try_decode::<Option<f64>>()?.map(Value::F64),
-                            "JSON" => pg_value.try_decode::<Option<Json<Box<JsonRawValue>>>>()?.map(|v| Value::Str(v.0.into())),
-                            "JSONB" => pg_value.try_decode::<Option<Json<Box<JsonRawValue>>>>()?.map(|v| Value::Str(v.0.into())),
+                            "JSON" => pg_value
+                                .try_decode::<Option<Json<Box<JsonRawValue>>>>()?
+                                .map(|v| Value::Str(v.0.into())),
+                            "JSONB" => pg_value
+                                .try_decode::<Option<Json<Box<JsonRawValue>>>>()?
+                                .map(|v| Value::Str(v.0.into())),
                             "MONEY" => pg_value
                                 .try_decode::<Option<PgMoney>>()?
                                 .map(|v| Value::Decimal(v.to_decimal(2))),
