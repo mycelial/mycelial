@@ -1,67 +1,89 @@
-use section::Message as _Message;
-use std::{fmt::Display, sync::Arc};
+use std::sync::Arc;
+
+use section::{message::{Ack, Chunk, Column, DataFrame, DataType, Message, Value}, SectionError};
 
 pub mod destination;
 pub mod source;
 
-type StdError = Box<dyn std::error::Error + Send + Sync + 'static>;
-pub type Message = _Message<PostgresPayload>;
+#[derive(Debug)]
+#[allow(unused)]
+pub(crate) struct Table {
+    name: Arc<str>,
+    columns: Arc<[TableColumn]>,
+    query: String,
+    offset: i64,
+    limit: i64,
+}
 
-#[derive(Debug, Clone, PartialEq)]
-pub struct PostgresPayload {
+#[derive(Debug)]
+#[allow(unused)]
+pub(crate) struct TableColumn {
+    name: Arc<str>,
+    data_type: DataType,
+}
+
+#[derive(Debug)]
+pub(crate) struct PostgresPayload {
     /// column names
-    pub columns: Arc<[String]>,
-
-    /// column types
-    pub column_types: Arc<[ColumnType]>,
+    columns: Arc<[TableColumn]>,
 
     /// values
-    pub values: Vec<Vec<Value>>,
-
-    /// offset
-    pub offset: i64,
+    values: Vec<Vec<Value>>,
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub enum Value {
-    Null,
-    I16(i16),
-    I32(i32),
-    I64(i64),
-    F32(f32),
-    F64(f64),
-    Text(String),
-    Blob(Vec<u8>),
-    Bool(bool),
+impl DataFrame for PostgresPayload {
+    fn columns(&self) -> Vec<section::message::Column<'_>> {
+        self.columns
+            .iter()
+            .zip(self.values.iter())
+            .map(|(col, column)| {
+                Column::new(
+                    col.name.as_ref(),
+                    col.data_type,
+                    Box::new(column.iter().map(Into::into)),
+                )
+            })
+            .collect()
+    }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum ColumnType {
-    I16,
-    I32,
-    I64,
-    F32,
-    F64,
-    Text,
-    Blob,
-    Numeric,
-    Bool,
+pub struct PostgresMessage {
+    origin: Arc<str>,
+    payload: Option<Box<dyn DataFrame>>,
+    ack: Option<Ack>,
 }
 
-impl Display for ColumnType {
+impl PostgresMessage {
+    fn new(origin: Arc<str>, payload: impl DataFrame, ack: Option<Ack>) -> Self {
+        Self {
+            origin,
+            payload: Some(Box::new(payload)),
+            ack,
+        }
+    }
+}
+
+impl std::fmt::Debug for PostgresMessage {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let ty = match self {
-            ColumnType::I16 => "SMALLINT",
-            ColumnType::I32 => "INTEGER",
-            ColumnType::I64 => "BIGINT",
-            ColumnType::F32 => "REAL",
-            ColumnType::F64 => "DOUBLE PRECISION",
-            ColumnType::Text => "TEXT",
-            ColumnType::Blob => "BLOB",
-            ColumnType::Numeric => "NUMERIC",
-            ColumnType::Bool => "BOOLEAN",
-        };
-        write!(f, "{}", ty)
+        f.debug_struct("PostgresMessage")
+            .field("origin", &self.origin)
+            .field("payload", &self.payload)
+            .finish()
+    }
+}
+
+impl Message for PostgresMessage {
+    fn origin(&self) -> &str {
+        self.origin.as_ref()
+    }
+
+    fn next(&mut self) -> section::message::Next<'_> {
+        let v = self.payload.take().map(Chunk::DataFrame);
+        Box::pin(async move { Ok(v) })
+    }
+
+    fn ack(&mut self) -> Ack {
+        self.ack.take().unwrap_or(Box::pin(async {}))
     }
 }
 
@@ -80,15 +102,34 @@ pub fn escape_table_name(name: impl AsRef<str>) -> String {
 }
 
 /// generate create table command for provided record batch
-pub fn generate_schema(message: &Message) -> String {
-    let name = escape_table_name(message.origin.as_str());
-    let payload = &message.payload;
-    let columns = payload
-        .columns
+pub fn generate_schema(table_name: &str, df: &dyn DataFrame) -> Result<String, SectionError> {
+    let name = escape_table_name(table_name);
+    let columns = df
+        .columns()
         .iter()
-        .zip(payload.column_types.iter())
-        .map(|(name, ty)| format!("{name} {ty}"))
-        .collect::<Vec<_>>()
+        .map(|col| {
+            let dtype = match col.data_type() {
+                DataType::I8 | DataType::I16 => "SMALLINT",
+                DataType::I32 => "INTEGER",
+                DataType::I64 => "BIGINT",
+                DataType::F32 => "REAL",
+                DataType::F64 => "DOUBLE PRECISION",
+                DataType::Decimal => "NUMERIC",
+                DataType::RawJson => "JSON",
+                DataType::RawJsonB => "JSONB",
+                DataType::Str => "TEXT",
+                DataType::Bin => "BYTEA",
+                DataType::Time => "TIME",
+                DataType::TimeTz => "TIMETZ",
+                DataType::Date => "DATE",
+                DataType::TimeStamp => "TIMESTAMP",
+                DataType::TimeStampTz => "TIMESTAMPTZ",
+                DataType::Uuid => "UUID",
+                v => return Err(format!("unsupported type {v:?}")),
+            };
+            Ok(format!("{} {}", col.name(), dtype))
+        })
+        .collect::<Result<Vec<_>, _>>()?
         .join(",");
-    format!("CREATE TABLE IF NOT EXISTS \"{name}\" ({columns})",)
+    Ok(format!("CREATE TABLE IF NOT EXISTS \"{name}\" ({columns})"))
 }

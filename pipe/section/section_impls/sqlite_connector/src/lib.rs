@@ -40,7 +40,11 @@ impl DataFrame for SqlitePayload {
             .iter()
             .zip(self.values.iter())
             .map(|(col, column)| {
-                Column::new(col.name.as_ref(), Box::new(column.iter().map(Into::into)))
+                Column::new(
+                    col.name.as_ref(),
+                    DataType::Any,
+                    Box::new(column.iter().map(Into::into)),
+                )
             })
             .collect()
     }

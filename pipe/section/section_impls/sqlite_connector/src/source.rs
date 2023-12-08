@@ -29,8 +29,8 @@ use sqlx::{
 use tokio::sync::mpsc::Sender;
 use tokio_stream::wrappers::ReceiverStream;
 
+use std::path::Path;
 use std::sync::Arc;
-use std::{path::Path};
 use std::{pin::pin, str::FromStr};
 
 #[derive(Debug)]
@@ -252,6 +252,8 @@ impl Sqlite {
                     // whole dataset
                     if !queue.is_empty() {
                         if let Some(tx) = weak_tx.clone().upgrade() {
+                            // try send instead of send, since channel is bufferized and we don't
+                            // want to deadlock ourselfs there
                             tx.try_send(()).ok();
                         }
                     }
@@ -273,10 +275,10 @@ impl Sqlite {
                 let pos = column.ordinal();
                 let raw_value = row.try_get_raw(pos)?;
                 let value = match raw_value.type_info().name() {
-                    "TEXT" => row.get::<Option<String>, _>(pos).map(Value::Str),
+                    "TEXT" => row.get::<Option<String>, _>(pos).map(Value::from),
                     "REAL" => row.get::<Option<f64>, _>(pos).map(Value::F64),
                     "INTEGER" => row.get::<Option<i64>, _>(pos).map(Value::I64),
-                    "BLOB" => row.get::<Option<Vec<u8>>, _>(pos).map(Value::Bin),
+                    "BLOB" => row.get::<Option<Vec<u8>>, _>(pos).map(Value::from),
                     _ => unreachable!(),
                 }
                 .unwrap_or(Value::Null);

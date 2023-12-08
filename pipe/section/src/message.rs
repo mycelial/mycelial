@@ -5,8 +5,7 @@ use std::future::Future;
 use std::pin::Pin;
 
 pub type Ack = Pin<Box<dyn Future<Output = ()> + Send>>;
-pub type Next<'a> =
-    Pin<Box<dyn Future<Output = Result<Option<Chunk>, SectionError>> + Send>>;
+pub type Next<'a> = Pin<Box<dyn Future<Output = Result<Option<Chunk>, SectionError>> + Send>>;
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 #[non_exhaustive]
@@ -24,6 +23,15 @@ pub enum DataType {
     F64,
     Str,
     Bin,
+    Time,
+    TimeTz,
+    Date,
+    TimeStamp,
+    TimeStampTz,
+    Decimal,
+    Uuid,
+    RawJson,
+    RawJsonB,
     Any,
 }
 
@@ -42,8 +50,26 @@ pub enum Value {
     U64(u64),
     F32(f32),
     F64(f64),
-    Str(String),
-    Bin(Vec<u8>),
+    Str(Box<str>),
+    Bin(Box<[u8]>),
+    Time(crate::time::Time),
+    Date(crate::time::Date),
+    TimeStamp(crate::time::PrimitiveDateTime),
+    TimeStampTz(crate::time::OffsetDateTime),
+    Decimal(crate::decimal::Decimal),
+    Uuid(crate::uuid::Uuid),
+}
+
+impl From<String> for Value {
+    fn from(value: String) -> Self {
+        Value::Str(value.into())
+    }
+}
+
+impl From<Vec<u8>> for Value {
+    fn from(value: Vec<u8>) -> Self {
+        Value::Bin(value.into())
+    }
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
@@ -63,9 +89,15 @@ pub enum ValueView<'a> {
     F64(f64),
     Str(&'a str),
     Bin(&'a [u8]),
+    Time(&'a time::Time),
+    Date(&'a time::Date),
+    TimeStamp(&'a time::PrimitiveDateTime),
+    TimeStampTz(&'a time::OffsetDateTime),
+    Decimal(&'a rust_decimal::Decimal),
+    Uuid(&'a uuid::Uuid),
 }
 
-impl<'a> PartialEq<Value> for ValueView<'a>{
+impl<'a> PartialEq<Value> for ValueView<'a> {
     fn eq(&self, other: &Value) -> bool {
         match (self, other) {
             (Self::Null, Value::Null) => true,
@@ -80,8 +112,14 @@ impl<'a> PartialEq<Value> for ValueView<'a>{
             (&Self::U64(l), &Value::U64(r)) => l == r,
             (&Self::F32(l), &Value::F32(r)) => l == r,
             (&Self::F64(l), &Value::F64(r)) => l == r,
-            (&Self::Str(l), Value::Str(r)) => l == r.as_str(),
-            (&Self::Bin(l), Value::Bin(r)) => l == r.as_slice(),
+            (&Self::Str(l), Value::Str(r)) => l == r.as_ref(),
+            (&Self::Bin(l), Value::Bin(r)) => l == r.as_ref(),
+            (&Self::Time(l), Value::Time(r)) => l == r,
+            (&Self::Date(l), Value::Date(r)) => l == r,
+            (&Self::TimeStamp(l), Value::TimeStamp(r)) => l == r,
+            (&Self::TimeStampTz(l), Value::TimeStampTz(r)) => l == r,
+            (&Self::Decimal(l), Value::Decimal(r)) => l == r,
+            (&Self::Uuid(l), Value::Uuid(r)) => l == r,
             _ => false,
         }
     }
@@ -104,6 +142,12 @@ impl<'a> From<&'a Value> for ValueView<'a> {
             Value::F64(v) => Self::F64(*v),
             Value::Str(v) => Self::Str(v),
             Value::Bin(v) => Self::Bin(v),
+            Value::Time(v) => Self::Time(v),
+            Value::Date(v) => Self::Date(v),
+            Value::TimeStamp(v) => Self::TimeStamp(v),
+            Value::TimeStampTz(v) => Self::TimeStampTz(v),
+            Value::Decimal(v) => Self::Decimal(v),
+            Value::Uuid(v) => Self::Uuid(v),
         }
     }
 }
@@ -134,28 +178,44 @@ pub enum Chunk {
     DataFrame(Box<dyn DataFrame>),
 }
 
-pub trait DataFrame: std::fmt::Debug + Send {
+pub trait DataFrame: std::fmt::Debug + Send + 'static {
     fn columns(&self) -> Vec<Column<'_>>;
 }
 
 pub struct Column<'a> {
     name: &'a str,
+    data_type: DataType,
     iter: Box<dyn Iterator<Item = ValueView<'a>> + 'a + Send>,
 }
 
 impl<'a> std::fmt::Debug for Column<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("Column").field("name", &self.name).finish()
+        f.debug_struct("Column")
+            .field("name", &self.name)
+            .field("data_type", &self.data_type)
+            .finish()
     }
 }
 
 impl<'a> Column<'a> {
-    pub fn new(name: &'a str, iter: Box<dyn Iterator<Item = ValueView<'a>> + 'a + Send>) -> Self {
-        Self { name, iter }
+    pub fn new(
+        name: &'a str,
+        data_type: DataType,
+        iter: Box<dyn Iterator<Item = ValueView<'a>> + 'a + Send>,
+    ) -> Self {
+        Self {
+            name,
+            data_type,
+            iter,
+        }
     }
 
     pub fn name(&self) -> &str {
         self.name
+    }
+
+    pub fn data_type(&self) -> DataType {
+        self.data_type
     }
 }
 
@@ -165,5 +225,20 @@ impl<'a> Iterator for Column<'a> {
     #[inline(always)]
     fn next(&mut self) -> Option<Self::Item> {
         self.iter.next()
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn size_of_value() {
+        assert!(24 >= std::mem::size_of::<Value>());
+    }
+
+    #[test]
+    fn size_of_value_view() {
+        assert!(24 >= std::mem::size_of::<ValueView>());
     }
 }

@@ -62,7 +62,6 @@ impl Sqlite {
                                     Some(Chunk::DataFrame(df)) => df,
                                     Some(ch) => Err(format!("unexpected chunk type: {:?}", ch))?,
                                 };
-                                //println!("{}\n{}", name, pretty_print(&*df));
                                 let schema = generate_schema(&name, df.as_ref());
                                 sqlx::query(&schema).execute(&mut *transaction).await?;
                                 let columns = &mut df.columns();
@@ -89,6 +88,11 @@ impl Sqlite {
                                             ValueView::Str(s) => query.bind(s),
                                             ValueView::Bin(b) => query.bind(b),
                                             ValueView::Bool(b) => query.bind(b),
+                                            ValueView::Time(t) => query.bind(t.to_string()),
+                                            ValueView::Date(t) => query.bind(t.to_string()),
+                                            ValueView::TimeStamp(t) => query.bind(t.to_string()),
+                                            ValueView::TimeStampTz(t) => query.bind(t.to_string()),
+                                            ValueView::Decimal(d) => query.bind(d.to_string()),
                                             ValueView::Null => query.bind(Option::<&str>::None),
                                             unimplemented => unimplemented!("unimplemented value: {:?}", unimplemented),
                                         };

@@ -1,11 +1,21 @@
-use futures::{FutureExt, Sink, Stream, StreamExt};
-use section::{Command, Section, SectionChannel};
-use std::pin::{pin, Pin};
+use section::{
+    command_channel::{Command, SectionChannel},
+    section::Section,
+    message::{Chunk, ValueView, DataType},
+    futures::{self, FutureExt, Sink, Stream, StreamExt},
+    SectionError,
+    SectionMessage,
+    SectionFuture,
+};
+use std::pin::pin;
 
-use crate::{escape_table_name, generate_schema, Message, StdError, Value};
-use sqlx::Connection;
-use sqlx::{postgres::PgConnectOptions, ConnectOptions};
-use std::future::Future;
+use crate::{escape_table_name, generate_schema};
+use sqlx::{
+    Connection,
+    postgres::PgConnectOptions,
+    ConnectOptions,
+    types::{Json, JsonRawValue},
+};
 use std::str::FromStr;
 
 #[derive(Debug)]
@@ -23,10 +33,10 @@ impl Postgres {
         input: Input,
         output: Output,
         mut section_chan: SectionChan,
-    ) -> Result<(), StdError>
+    ) -> Result<(), SectionError>
     where
-        Input: Stream<Item = Message> + Send + 'static,
-        Output: Sink<Message, Error = StdError> + Send + 'static,
+        Input: Stream<Item = SectionMessage> + Send + 'static,
+        Output: Sink<SectionMessage, Error = SectionError> + Send + 'static,
         SectionChan: SectionChannel + Send + 'static,
     {
         let mut input = pin!(input.fuse());
@@ -47,33 +57,57 @@ impl Postgres {
                         None => Err("input closed")?,
                         Some(message) => message,
                     };
-                    let payload = &message.payload;
-                    let name = escape_table_name(&message.origin);
-                    let schema = generate_schema(&message);
-                    sqlx::query(&schema).execute(&mut *connection).await?;
-                    let values_placeholder = (0..payload.values.len()).map(|x| {
-                        let x = x + 1;
-                        format!("${x}")
-                    }).collect::<Vec<_>>().join(",");
-                    let query = format!("INSERT INTO \"{name}\" VALUES({values_placeholder})");
+                    let name = escape_table_name(message.origin());
                     let mut transaction = connection.begin().await?;
-                    for row in 0..payload.values[0].len() {
-                        let mut q = sqlx::query(&query);
-                        for col in 0..payload.values.len() {
-                            q = match &payload.values[col][row] {
-                                Value::I16(i) => q.bind(i),
-                                Value::I32(i) => q.bind(i),
-                                Value::I64(i) => q.bind(i),
-                                Value::F32(f) => q.bind(f),
-                                Value::F64(f) => q.bind(f),
-                                Value::Text(t) => q.bind(t),
-                                Value::Blob(b) => q.bind(b),
-                                Value::Bool(b) => q.bind(b),
-                                // FIXME: oof, to insert NULL we need to bind None
-                                Value::Null => q.bind(Option::<i64>::None)
-                            };
+                    while let Some(chunk) = message.next().await? {
+                        let df = match chunk{
+                            Chunk::DataFrame(df) => df,
+                            _ => Err(format!("expected dataframe chunk"))?
                         };
-                        q.execute(&mut *transaction).await?;
+                        let schema = generate_schema(name.as_str(), df.as_ref())?;
+                        let mut columns = df.columns();
+                        sqlx::query(&schema).execute(&mut *transaction).await?;
+                        let values_placeholder = columns.iter().enumerate()
+                            .map(|(pos, col)|  {
+                                let suffix = match col.data_type() {
+                                    DataType::RawJson => "::json",
+                                    DataType::RawJsonB => "::jsonb",
+                                    _ => "",
+                                };
+                                format!("${}{}", pos + 1, suffix)
+                            })
+                            .collect::<Vec<_>>()
+                            .join(",");
+                        let insert = format!("INSERT INTO \"{name}\" VALUES({values_placeholder})");
+                        'outer: loop {
+                            let mut query = sqlx::query(&insert);
+                            for col in columns.iter_mut() {
+                                let next = col.next();
+                                if next.is_none() {
+                                    break 'outer;
+                                }
+                                query = match next.unwrap() {
+                                    ValueView::I8(i) => query.bind(i as i64),
+                                    ValueView::I16(i) => query.bind(i as i64),
+                                    ValueView::I32(i) => query.bind(i as i64),
+                                    ValueView::I64(i) => query.bind(i),
+                                    ValueView::F32(f) => query.bind(f),
+                                    ValueView::F64(f) => query.bind(f),
+                                    ValueView::Str(s) => query.bind(s),
+                                    ValueView::Bin(b) => query.bind(b),
+                                    ValueView::Bool(b) => query.bind(b),
+                                    ValueView::Time(t) => query.bind(t),
+                                    ValueView::Date(t) => query.bind(t),
+                                    ValueView::TimeStamp(t) => query.bind(t),
+                                    ValueView::TimeStampTz(t) => query.bind(t),
+                                    ValueView::Decimal(d) => query.bind(d),
+                                    ValueView::Uuid(u) => query.bind(u),
+                                    ValueView::Null => query.bind(Option::<&str>::None),
+                                    unimplemented => unimplemented!("unimplemented value: {:?}", unimplemented),
+                                }
+                            }
+                            query.execute(&mut *transaction).await?;
+                        }
                     }
                     transaction.commit().await?;
                     message.ack().await;
@@ -85,12 +119,12 @@ impl Postgres {
 
 impl<Input, Output, SectionChan> Section<Input, Output, SectionChan> for Postgres
 where
-    Input: Stream<Item = Message> + Send + 'static,
-    Output: Sink<Message, Error = StdError> + Send + 'static,
+    Input: Stream<Item = SectionMessage> + Send + 'static,
+    Output: Sink<SectionMessage, Error = SectionError> + Send + 'static,
     SectionChan: SectionChannel + Send + 'static,
 {
-    type Error = StdError;
-    type Future = Pin<Box<dyn Future<Output = Result<(), Self::Error>> + Send + 'static>>;
+    type Error = SectionError;
+    type Future = SectionFuture;
 
     fn start(self, input: Input, output: Output, command: SectionChan) -> Self::Future {
         Box::pin(async move { self.enter_loop(input, output, command).await })

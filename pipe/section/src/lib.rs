@@ -10,6 +10,9 @@ use std::pin::Pin;
 // re-export
 pub use async_trait::async_trait;
 pub use futures;
+pub use rust_decimal as decimal;
+pub use time;
+pub use uuid;
 
 pub type SectionError = Box<dyn std::error::Error + Send + Sync + 'static>;
 pub type SectionFuture =
