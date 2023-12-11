@@ -1,6 +1,13 @@
 # Mycelial Command Line Interface (CLI)
 
-The CLI bootstraps the Mycelial server and client setup process.
+The CLI application is designed to ease the process of setting up and using
+Mycelial, the edge data movement platform. At it's core, the CLI application
+enables users to download and configure a dual-component system, comprising both
+a client and server. After downloading the client and server applications, the
+CLI application provides a wizard like interface that walks the user through 
+the client configuration process. After downloading and configuring the client,
+the CLI can start both the client and server processes. Additionally, you can 
+use the CLI application to install the client as a service.
 
 ## Installation
 
