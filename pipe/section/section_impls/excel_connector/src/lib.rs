@@ -1,32 +1,12 @@
-use chrono::NaiveDateTime;
 use section::message::{Ack, Chunk, Column, DataFrame, DataType, Message, Value};
 use std::{fmt::Display, sync::Arc};
 
 pub mod source;
 
-type StdError = Box<dyn std::error::Error + Send + Sync + 'static>;
-// pub type Message = _Message<ExcelPayload>;
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct ExcelPayload {
-    /// column names
-    pub columns: Arc<[String]>,
-
-    /// column types
-    pub column_types: Arc<[ColumnType]>,
-
-    /// values
-    pub values: Vec<Vec<Value>>,
-
-    /// offset
-    pub offset: i64,
-}
-
 #[derive(Debug)]
 pub(crate) struct Sheet {
     pub name: Arc<str>,
     pub columns: Arc<[TableColumn]>,
-    // pub column_types: Arc<[ColumnType]>,
 }
 
 #[derive(Debug)]
