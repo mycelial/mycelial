@@ -8,10 +8,7 @@ use section::{
 use std::pin::pin;
 
 use crate::{escape_table_name, generate_schema};
-use sqlx::{
-    postgres::PgConnectOptions,
-    ConnectOptions, Connection,
-};
+use sqlx::{postgres::PgConnectOptions, ConnectOptions, Connection};
 use std::str::FromStr;
 
 #[derive(Debug)]
