@@ -1,4 +1,4 @@
-use section::message::{Ack, Chunk, Column, DataFrame, DataType, Message, Value};
+use section::message::{Ack, Chunk, Column, DataFrame, Message, Value};
 use std::{fmt::Display, sync::Arc};
 
 pub mod source;
@@ -12,8 +12,6 @@ pub(crate) struct Sheet {
 #[derive(Debug)]
 pub(crate) struct TableColumn {
     name: Arc<str>,
-    data_type: DataType,
-    nullable: bool,
 }
 
 #[derive(Debug)]
@@ -52,7 +50,7 @@ impl ExcelMessage {
 
 impl Message for ExcelMessage {
     fn origin(&self) -> &str {
-        &self.origin.as_ref()
+        self.origin.as_ref()
     }
 
     fn next(&mut self) -> section::message::Next<'_> {

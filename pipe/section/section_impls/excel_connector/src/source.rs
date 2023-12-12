@@ -11,7 +11,7 @@ use notify::{Event, RecursiveMode, Watcher};
 use section::{
     command_channel::{Command, SectionChannel},
     futures::{self, FutureExt, Sink, SinkExt, Stream, StreamExt},
-    message::{DataType, Value},
+    message::Value,
     section::Section,
     state::State,
     SectionError, SectionMessage,
@@ -165,7 +165,7 @@ impl Excel {
             if values.len() != row.len() {
                 values = row.iter().map(|_| Vec::with_capacity(cap)).collect();
             }
-            for (index, column) in sheet.columns.iter().enumerate() {
+            for (index, _column) in sheet.columns.iter().enumerate() {
                 let x = row.get(index).ok_or(err_msg("oh no"))?; //FIXME: unwrap
                 let y = match x {
                     ExcelDataType::Int(v) => Value::I64(*v),
@@ -215,13 +215,12 @@ impl Excel {
 
                 let mut rows = range.rows();
                 let first_row = rows.next().ok_or(err_msg("no rows"))?;
-                let second_row = rows.next().ok_or(err_msg("no rows"))?;
 
                 // get the column names from the first row
                 let cols = first_row
                     .iter()
                     .enumerate()
-                    .map(|(i, cell)| {
+                    .map(|(_i, cell)| {
                         let name = match cell {
                             ExcelDataType::String(s) => s.to_string(),
                             ExcelDataType::Int(i) => i.to_string(),
@@ -243,24 +242,8 @@ impl Excel {
                             ExcelDataType::Empty => "".to_string(),
                         };
 
-                        // and get the data types from the second row.
-                        let column_type = match second_row.get(i).unwrap() {
-                            ExcelDataType::Int(_) => DataType::I64,
-                            ExcelDataType::Float(_) => DataType::F64,
-                            ExcelDataType::String(_) => DataType::Str,
-                            ExcelDataType::Bool(_) => DataType::Bool,
-                            ExcelDataType::DateTime(_) => DataType::Str,
-                            ExcelDataType::Duration(_) => DataType::Str,
-                            ExcelDataType::DateTimeIso(_) => DataType::Str,
-                            ExcelDataType::DurationIso(_) => DataType::Str,
-                            ExcelDataType::Error(_) => DataType::Str,
-                            ExcelDataType::Empty => DataType::Str,
-                        };
-
                         TableColumn {
                             name: Arc::from(name.to_owned()),
-                            data_type: column_type,
-                            nullable: true,
                         }
                     })
                     .collect::<Vec<TableColumn>>();
