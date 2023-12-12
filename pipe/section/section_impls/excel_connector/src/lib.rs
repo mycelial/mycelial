@@ -15,12 +15,12 @@ pub(crate) struct TableColumn {
 }
 
 #[derive(Debug)]
-pub(crate) struct NewExcelPayload {
+pub(crate) struct ExcelPayload {
     columns: Arc<[TableColumn]>,
     values: Vec<Vec<Value>>,
 }
 
-impl DataFrame for NewExcelPayload {
+impl DataFrame for ExcelPayload {
     fn columns(&self) -> Vec<Column<'_>> {
         self.columns
             .iter()
@@ -39,7 +39,7 @@ pub struct ExcelMessage {
 }
 
 impl ExcelMessage {
-    fn new(origin: Arc<str>, payload: NewExcelPayload, ack: Option<Ack>) -> Self {
+    fn new(origin: Arc<str>, payload: ExcelPayload, ack: Option<Ack>) -> Self {
         Self {
             origin,
             payload: Some(Box::new(payload)),

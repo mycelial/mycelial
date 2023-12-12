@@ -6,7 +6,7 @@
 //! - Uses glob pattern for matching filepaths / directories. (e.g. ** for recursive, * for all files)
 //! - For sheets, use * to sync all sheets, otherwise a list of strings.
 
-use crate::{ExcelMessage, NewExcelPayload, Sheet, TableColumn};
+use crate::{ExcelMessage, ExcelPayload, Sheet, TableColumn};
 use notify::{Event, RecursiveMode, Watcher};
 use section::{
     command_channel::{Command, SectionChannel},
@@ -158,7 +158,7 @@ impl Excel {
         &self,
         sheet: &Sheet,
         rows: Rows<ExcelDataType>,
-    ) -> Result<NewExcelPayload, SectionError> {
+    ) -> Result<ExcelPayload, SectionError> {
         let mut values: Vec<Vec<Value>> = vec![];
         let cap = rows.len();
         for row in rows {
@@ -172,7 +172,7 @@ impl Excel {
                     ExcelDataType::Float(f) => Value::F64(*f),
                     ExcelDataType::String(s) => Value::Str(s.to_string()),
                     ExcelDataType::Bool(b) => Value::Bool(*b),
-                    ExcelDataType::DateTime(_) => Value::Str(
+                    ExcelDataType::DateTime(_) => Value::Str( // todo: do we have a datetime format rather than string?
                         x.as_datetime()
                             .unwrap()
                             .format("%Y-%m-%d %H:%M:%S")
@@ -187,7 +187,7 @@ impl Excel {
                 values[index].push(y);
             }
         }
-        let batch = NewExcelPayload {
+        let batch = ExcelPayload {
             columns: Arc::clone(&sheet.columns),
             values,
         };
