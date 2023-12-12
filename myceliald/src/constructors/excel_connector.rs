@@ -19,15 +19,8 @@ pub fn source_ctor<S: SectionChannel>(
         .ok_or("excel section requires 'path'")?
         .as_str()
         .ok_or("path should be string")?;
-    let strict: bool = config
-        .get("strict")
-        .ok_or("excel section requires 'strict'")?
-        .as_str()
-        .ok_or("strict should be string")?
-        .parse()?;
     Ok(Box::new(excel_connector::source::Excel::new(
         path,
         sheets.as_slice(),
-        strict,
     )))
 }

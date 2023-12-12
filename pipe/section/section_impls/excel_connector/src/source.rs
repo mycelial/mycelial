@@ -38,7 +38,6 @@ fn err_msg(msg: impl Into<String>) -> SectionError {
 pub struct Excel {
     path: String,
     sheets: Vec<String>,
-    strict: bool,
 }
 
 #[derive(Debug)]
@@ -47,11 +46,10 @@ enum InnerEvent {
 }
 
 impl Excel {
-    pub fn new(path: impl Into<String>, sheets: &[&str], strict: bool) -> Self {
+    pub fn new(path: impl Into<String>, sheets: &[&str]) -> Self {
         Self {
             path: path.into(),
             sheets: sheets.iter().map(|&x| x.into()).collect(),
-            strict,
         }
     }
 
@@ -130,7 +128,7 @@ impl Excel {
                                                 let mut rows = range.rows();
                                                 // the first is the header, so don't send it in the data payload since it's already part of the schema
                                                 let _ = rows.next();
-                                                let excel_payload = self.build_excel_payload(sheet, rows, self.strict)?;
+                                                let excel_payload = self.build_excel_payload(sheet, rows)?;
 
                                                 let origin: Arc<str> = Arc::from(format!("{}:{}", path, sheet.name));
                                                 let message = Box::new(
@@ -160,7 +158,6 @@ impl Excel {
         &self,
         sheet: &Sheet,
         rows: Rows<ExcelDataType>,
-        strict: bool,
     ) -> Result<NewExcelPayload, SectionError> {
         let mut values: Vec<Vec<Value>> = vec![];
         let cap = rows.len();
@@ -169,134 +166,25 @@ impl Excel {
                 values = row.iter().map(|_| Vec::with_capacity(cap)).collect();
             }
             for (index, column) in sheet.columns.iter().enumerate() {
-                match strict {
-                    true => {
-                        let x = row.get(index).ok_or(err_msg("oh no"))?; //FIXME: unwrap
-                        let y = match column.data_type {
-                            DataType::Bool => {
-                                let b = match x {
-                                    ExcelDataType::Bool(b) => *b,
-                                    _ => false,
-                                };
-                                Value::Bool(b)
-                            }
-                            DataType::I8 => {
-                                let i = match x {
-                                    ExcelDataType::Int(i) => *i as i8,
-                                    _ => 0,
-                                };
-                                Value::I64(i as i64)
-                            }
-                            DataType::I16 => {
-                                let i = match x {
-                                    ExcelDataType::Int(i) => *i as i16,
-                                    _ => 0,
-                                };
-                                Value::I64(i as i64)
-                            }
-                            DataType::I32 => {
-                                let i = match x {
-                                    ExcelDataType::Int(i) => *i as i32,
-                                    _ => 0,
-                                };
-                                Value::I64(i as i64)
-                            }
-                            DataType::I64 => {
-                                let i = match x {
-                                    ExcelDataType::Int(i) => *i as i64,
-                                    _ => 0,
-                                };
-                                Value::I64(i as i64)
-                            }
-                            DataType::U8 => {
-                                let i = match x {
-                                    ExcelDataType::Int(i) => *i as u8,
-                                    _ => 0,
-                                };
-                                Value::I64(i as i64)
-                            }
-                            DataType::U16 => {
-                                let i = match x {
-                                    ExcelDataType::Int(i) => *i as u16,
-                                    _ => 0,
-                                };
-                                Value::I64(i as i64)
-                            }
-                            DataType::U32 => {
-                                let i = match x {
-                                    ExcelDataType::Int(i) => *i as u32,
-                                    _ => 0,
-                                };
-                                Value::I64(i as i64)
-                            }
-                            DataType::U64 => {
-                                let i = match x {
-                                    ExcelDataType::Int(i) => *i as u64,
-                                    _ => 0,
-                                };
-                                Value::I64(i as i64)
-                            }
-                            DataType::F32 => {
-                                let f = match x {
-                                    ExcelDataType::Float(f) => *f as f32,
-                                    _ => 0.0,
-                                };
-                                Value::F64(f as f64)
-                            }
-                            DataType::F64 => {
-                                let f = match x {
-                                    ExcelDataType::Float(f) => *f as f64,
-                                    _ => 0.0,
-                                };
-                                Value::F64(f as f64)
-                            }
-                            DataType::Str => {
-                                let s = match x {
-                                    ExcelDataType::String(s) => s.to_string(),
-                                    _ => "".to_string(),
-                                };
-                                Value::Str(s)
-                            }
-                            DataType::Bin => {
-                                let s = match x {
-                                    ExcelDataType::String(s) => s.to_string(),
-                                    _ => "".to_string(),
-                                };
-                                Value::Str(s)
-                            }
-                            DataType::Any => {
-                                let s = match x {
-                                    ExcelDataType::String(s) => s.to_string(),
-                                    _ => "".to_string(),
-                                };
-                                Value::Str(s)
-                            }
-                            _ => Value::Null,
-                        };
-                        values[index].push(y);
-                    }
-                    false => {
-                        let x = row.get(index).ok_or(err_msg("oh no"))?; //FIXME: unwrap
-                        let y = match x {
-                            ExcelDataType::Int(v) => Value::I64(*v),
-                            ExcelDataType::Float(f) => Value::F64(*f),
-                            ExcelDataType::String(s) => Value::Str(s.to_string()),
-                            ExcelDataType::Bool(b) => Value::Bool(*b),
-                            ExcelDataType::DateTime(_) => Value::Str(
-                                x.as_datetime()
-                                    .unwrap()
-                                    .format("%Y-%m-%d %H:%M:%S")
-                                    .to_string(),
-                            ),
-                            ExcelDataType::Duration(f) => Value::F64(*f),
-                            ExcelDataType::DateTimeIso(d) => Value::Str(d.to_string()),
-                            ExcelDataType::DurationIso(d) => Value::Str(d.to_string()),
-                            ExcelDataType::Error(e) => Value::Str(e.to_string()),
-                            ExcelDataType::Empty => Value::Str("".to_string()),
-                        };
-                        values[index].push(y);
-                    }
-                }
+                let x = row.get(index).ok_or(err_msg("oh no"))?; //FIXME: unwrap
+                let y = match x {
+                    ExcelDataType::Int(v) => Value::I64(*v),
+                    ExcelDataType::Float(f) => Value::F64(*f),
+                    ExcelDataType::String(s) => Value::Str(s.to_string()),
+                    ExcelDataType::Bool(b) => Value::Bool(*b),
+                    ExcelDataType::DateTime(_) => Value::Str(
+                        x.as_datetime()
+                            .unwrap()
+                            .format("%Y-%m-%d %H:%M:%S")
+                            .to_string(),
+                    ),
+                    ExcelDataType::Duration(f) => Value::F64(*f),
+                    ExcelDataType::DateTimeIso(d) => Value::Str(d.to_string()),
+                    ExcelDataType::DurationIso(d) => Value::Str(d.to_string()),
+                    ExcelDataType::Error(e) => Value::Str(e.to_string()),
+                    ExcelDataType::Empty => Value::Str("".to_string()),
+                };
+                values[index].push(y);
             }
         }
         let batch = NewExcelPayload {
@@ -430,8 +318,8 @@ where
     }
 }
 
-pub fn new(path: impl Into<String>, sheets: &[&str], strict: bool) -> Excel {
-    Excel::new(path, sheets, strict)
+pub fn new(path: impl Into<String>, sheets: &[&str]) -> Excel {
+    Excel::new(path, sheets)
 }
 
 // gets the root directory of the path to watch, or the path itself if there are no wildcards
