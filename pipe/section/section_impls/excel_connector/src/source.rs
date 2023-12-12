@@ -43,7 +43,6 @@ pub struct Excel {
 
 #[derive(Debug)]
 enum InnerEvent {
-    Init,
     NewChange(String),
 }
 
@@ -69,7 +68,17 @@ impl Excel {
     {
         let path = &self.path;
         let (tx, rx) = tokio::sync::mpsc::channel(4);
-        tx.send(InnerEvent::Init).await?;
+
+        // on init, sync all the files.
+        for entry in glob(path).expect("Failed to read glob pattern") {
+            match entry {
+                Ok(path) => {
+                    tx.send(InnerEvent::NewChange(path.display().to_string()))
+                        .await?
+                }
+                Err(_) => todo!(),
+            }
+        }
 
         let _watcher = self.watch_excel_paths(self.path.as_str(), tx);
 
@@ -105,45 +114,6 @@ impl Excel {
                     match msg {
                         Some(event) => {
                             match event {
-                                // on init, sync all the files.
-                                InnerEvent::Init => {
-                                    for entry in glob(path).expect("Failed to read glob pattern") {
-                                        match entry {
-                                            Ok(path) => {
-                                                let p = path.display().to_string();
-                                                // ignore temp files
-                                                if !p.contains('~') {
-                                                    let mut workbook: calamine::Sheets<std::io::BufReader<std::fs::File>> =
-                                                        open_workbook_auto(path).expect("Cannot open file");
-
-                                                    let mut sheets = self
-                                                        .init_schema::<SectionChan>(&mut workbook, &state)
-                                                        .await?;
-
-                                                    for sheet in sheets.iter_mut() {
-                                                        if let Some(Ok(range)) = workbook.worksheet_range(&sheet.name) {
-                                                            let mut rows = range.rows();
-                                                            // the first is the header, so don't send it in the data payload since it's already part of the schema
-                                                            let _ = rows.next();
-                                                            let excel_payload = self.build_excel_payload(sheet, rows, self.strict)?;
-
-                                                            let origin: Arc<str> = Arc::from(format!("{}:{}", p, sheet.name));
-
-                                                            let message = Box::new(ExcelMessage::new(
-                                                                origin,
-                                                                excel_payload,
-                                                                None,
-                                                            ));
-                                                            output.send(message).await.map_err(|e| format!("failed to send data to sink {:?}", e))?;
-                                                        }
-
-                                                    }
-                                                }
-                                            },
-                                            Err(e) => println!("{:?}", e),
-                                        }
-                                    }
-                                }
                                 // When there's a change to a file, sync that file
                                 InnerEvent::NewChange(path) => {
                                     // ignore temp files
