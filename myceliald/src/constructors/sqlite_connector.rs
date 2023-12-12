@@ -28,14 +28,16 @@ pub fn source_ctor<S: SectionChannel>(
         .map(|x| x.trim())
         .filter(|x| !x.is_empty())
         .collect::<Vec<&str>>();
-    Ok(Box::new(sqlite_connector::source::Sqlite::new(path, tables.as_slice())))
+    Ok(Box::new(sqlite_connector::source::Sqlite::new(
+        path,
+        tables.as_slice(),
+    )))
 }
-
 
 pub fn destination_ctor<S: SectionChannel>(
     config: &Map,
 ) -> Result<Box<dyn DynSection<S>>, SectionError> {
-        let path = config
+    let path = config
         .get("path")
         .ok_or("sqlite section requires 'path'")?
         .as_str()

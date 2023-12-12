@@ -29,8 +29,8 @@ use sqlx::{
 use tokio::sync::mpsc::Sender;
 use tokio_stream::wrappers::ReceiverStream;
 
+use std::path::Path;
 use std::sync::Arc;
-use std::{path::Path};
 use std::{pin::pin, str::FromStr};
 
 #[derive(Debug)]

@@ -5,8 +5,7 @@ use std::future::Future;
 use std::pin::Pin;
 
 pub type Ack = Pin<Box<dyn Future<Output = ()> + Send>>;
-pub type Next<'a> =
-    Pin<Box<dyn Future<Output = Result<Option<Chunk>, SectionError>> + Send>>;
+pub type Next<'a> = Pin<Box<dyn Future<Output = Result<Option<Chunk>, SectionError>> + Send>>;
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 #[non_exhaustive]
@@ -65,7 +64,7 @@ pub enum ValueView<'a> {
     Bin(&'a [u8]),
 }
 
-impl<'a> PartialEq<Value> for ValueView<'a>{
+impl<'a> PartialEq<Value> for ValueView<'a> {
     fn eq(&self, other: &Value) -> bool {
         match (self, other) {
             (Self::Null, Value::Null) => true,
