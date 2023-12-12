@@ -127,9 +127,10 @@ impl Excel {
                                                             let _ = rows.next();
                                                             let excel_payload = self.build_excel_payload(sheet, rows, self.strict)?;
 
+                                                            let origin: Arc<str> = Arc::from(format!("{}:{}", p, sheet.name));
+
                                                             let message = Box::new(ExcelMessage::new(
-                                                                // format!("{}:{}", p, sheet.name),
-                                                                Arc::clone(&sheet.name), // todo: add filepath
+                                                                origin,
                                                                 excel_payload,
                                                                 None,
                                                             ));
@@ -148,7 +149,7 @@ impl Excel {
                                     // ignore temp files
                                     if !path.contains('~') {
                                         let mut workbook: calamine::Sheets<std::io::BufReader<std::fs::File>> =
-                                            open_workbook_auto(path).expect("Cannot open file");
+                                            open_workbook_auto(path.clone()).expect("Cannot open file");
 
                                         let mut sheets = self
                                             .init_schema::<SectionChan>(&mut workbook, &state)
@@ -161,10 +162,10 @@ impl Excel {
                                                 let _ = rows.next();
                                                 let excel_payload = self.build_excel_payload(sheet, rows, self.strict)?;
 
-                                                // let origin = format!("{}:{}", path, &sheet.name);
+                                                let origin: Arc<str> = Arc::from(format!("{}:{}", path, sheet.name));
                                                 let message = Box::new(
                                                     ExcelMessage::new(
-                                                        Arc::clone(&sheet.name), // todo: add filepath
+                                                        origin,
                                                         excel_payload,
                                                         None,
                                                     )
