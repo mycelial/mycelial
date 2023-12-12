@@ -182,7 +182,7 @@ impl Excel {
                     ExcelDataType::DateTimeIso(d) => Value::Str(d.to_string()),
                     ExcelDataType::DurationIso(d) => Value::Str(d.to_string()),
                     ExcelDataType::Error(e) => Value::Str(e.to_string()),
-                    ExcelDataType::Empty => Value::Str("".to_string()),
+                    ExcelDataType::Empty => Value::Null,
                 };
                 values[index].push(y);
             }
