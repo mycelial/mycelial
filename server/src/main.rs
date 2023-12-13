@@ -191,6 +191,7 @@ async fn post_pipe_config(
     Json(configs): Json<PipeConfigs>,
 ) -> Result<impl IntoResponse, error::Error> {
     log::trace!("Configs in: {:?}", &configs);
+    app.validate_configs(&configs)?;
     let ids = app.set_configs(&configs).await?;
     Ok(Json(
         ids.iter()
@@ -209,6 +210,7 @@ async fn put_pipe_configs(
     State(app): State<Arc<App>>,
     Json(configs): Json<PipeConfigs>,
 ) -> Result<impl IntoResponse, error::Error> {
+    app.validate_configs(&configs)?;
     app.update_configs(configs).await.map(Json)
 }
 
@@ -611,6 +613,21 @@ pub struct Assets;
 impl App {
     async fn delete_config(&self, id: u64) -> Result<(), error::Error> {
         self.database.delete_config(id).await?;
+        Ok(())
+    }
+
+    fn validate_configs(&self, new_configs: &PipeConfigs) -> Result<(), error::Error> {
+        for config in new_configs.configs.iter() {
+            let pipe: Vec<serde_json::Value> = serde_json::from_value(config.pipe.clone())?;
+            for p in pipe {
+                // all sections need a name because we use that to identify which type of section to construct
+                let name = p.get("name").ok_or(error::Error::Str("section is missing 'name' field"))?;
+                if name != "mycelial_server_source" && name != "mycelial_server_destination" {
+                    let _client = p.get("client").ok_or(error::Error::Str("section is missing 'client' field"))?;
+                }
+                // Should we try to construct the section here to make sure it's valid? Can we?
+            }
+        }
         Ok(())
     }
 
