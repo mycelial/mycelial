@@ -621,9 +621,13 @@ impl App {
             let pipe: Vec<serde_json::Value> = serde_json::from_value(config.pipe.clone())?;
             for p in pipe {
                 // all sections need a name because we use that to identify which type of section to construct
-                let name = p.get("name").ok_or(error::Error::Str("section is missing 'name' field"))?;
+                let name = p
+                    .get("name")
+                    .ok_or(error::Error::Str("section is missing 'name' field"))?;
                 if name != "mycelial_server_source" && name != "mycelial_server_destination" {
-                    let _client = p.get("client").ok_or(error::Error::Str("section is missing 'client' field"))?;
+                    let _client = p
+                        .get("client")
+                        .ok_or(error::Error::Str("section is missing 'client' field"))?;
                 }
                 // Should we try to construct the section here to make sure it's valid? Can we?
             }
