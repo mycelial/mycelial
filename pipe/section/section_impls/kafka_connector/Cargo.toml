@@ -1,17 +1,16 @@
 [package]
-name = "kafka"
+name = "kafka_connector"
 version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-section = { path = "../../" }
+section = { version = "0.2", path = "../../" }
 futures = "0.3"
 rdkafka = { version = "0.34.0", features = ["cmake-build"] }
 
 [dev-dependencies]
 tempfile = "3.8"
 stub = { path = "../stub/" }
-section = { path = "../../", features=["dummy"] }
 tokio-util = "0.7"

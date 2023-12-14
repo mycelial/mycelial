@@ -27,7 +27,7 @@ hello_world = { path = "../pipe/section/section_impls/hello_world/" }
 sqlite_connector = { path = "../pipe/section/section_impls/sqlite_connector/" }
 excel_connector = { path = "../pipe/section/section_impls/excel_connector/" }
 postgres_connector = { path = "../pipe/section/section_impls/postgres_connector/" }
-#kafka = { path = "../pipe/section/section_impls/kafka/" }
+kafka_connector = { path = "../pipe/section/section_impls/kafka_connector/" }
 #mycelial_server = { path = "../pipe/section/section_impls/mycelial_server/" }
 #mysql_connector = { path = "../pipe/section/section_impls/mysql_connector/" }
 #snowflake = { path = "../pipe/section/section_impls/snowflake/" }
