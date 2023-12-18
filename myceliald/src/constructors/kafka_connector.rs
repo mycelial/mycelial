@@ -15,6 +15,7 @@ pub fn destination_ctor<S: SectionChannel>(
         .ok_or("kafka destination section requires 'topic'")?
         .as_str()
         .ok_or("topic should be string")?;
+    // todo: Add an option to represent how the data should be serialized (e.g. json, avro, etc.)
     Ok(Box::new(kafka_connector::destination::Kafka::new(
         brokers,
         topic,

@@ -1751,6 +1751,7 @@ dependencies = [
  "futures",
  "rdkafka",
  "section",
+ "serde_json",
  "stub",
  "tempfile",
  "tokio-util",

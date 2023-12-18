@@ -40,7 +40,7 @@ pub enum Source {
     Kafka(KafkaConfig),
     Snowflake(SnowflakeConfig),
     Sqlite_Physical_Replication(SqlitePhysicalReplicationSourceConfig),
-    Hello_World(HelloWorldConfig),
+    Hello_World(HelloWorldSourceConfig),
     Excel_Connector(ExcelConfig),
     Postgres_Connector(PostgresConnectorConfig),
 }
@@ -53,7 +53,7 @@ pub enum Destination {
     Sqlite_Connector(SqliteConnectorConfig),
     Snowflake(SnowflakeConfig),
     Sqlite_Physical_Replication(SqlitePhysicalReplicationDestinationConfig),
-    Hello_World(HelloWorldConfig),
+    Hello_World(HelloWorldDestinationConfig),
     Kafka(KafkaDestinationConfig),
     Postgres_Connector(PostgresConnectorDestinationConfig),
     Mysql_Connector(MysqlConnectorDestinationConfig),
@@ -114,6 +114,22 @@ pub struct SqlitePhysicalReplicationSourceConfig {
     pub journal_path: String,
     // database path
 }
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct HelloWorldSourceConfig {
+    #[serde(flatten)]
+    pub common_attrs: CommonAttrs,
+    pub message: String,
+    pub interval_milis: u64,
+}
+
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct HelloWorldDestinationConfig {
+    #[serde(flatten)]
+    pub common_attrs: CommonAttrs,
+}
+
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct HelloWorldConfig {
