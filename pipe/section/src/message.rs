@@ -1,15 +1,20 @@
 //! Section messaging
 
+use futures::{Stream, FutureExt};
+
 use crate::SectionError;
 use std::future::Future;
+use std::marker::PhantomData;
 use std::pin::Pin;
+use std::task::{Context, Poll};
 
 pub type Ack = Pin<Box<dyn Future<Output = ()> + Send>>;
 pub type Next<'a> = Pin<Box<dyn Future<Output = Result<Option<Chunk>, SectionError>> + Send>>;
 
-#[derive(Debug, PartialEq, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
 #[non_exhaustive]
 pub enum DataType {
+    Null,
     Bool,
     I8,
     I16,
@@ -32,7 +37,70 @@ pub enum DataType {
     Uuid,
     RawJson,
     RawJsonB,
-    Any,
+    Any, // any of above
+}
+
+impl Into<i8> for DataType {
+    fn into(self) -> i8 {
+        match self {
+            Self::Null => 0,
+            Self::Bool => 1,
+            Self::I8 => 2,
+            Self::I16 => 3,
+            Self::I32 => 4,
+            Self::I64 => 5,
+            Self::U8 => 6,
+            Self::U16 => 7,
+            Self::U32 => 8,
+            Self::U64 => 9,
+            Self::F32 => 10,
+            Self::F64 => 11,
+            Self::Str => 12,
+            Self::Bin => 13,
+            Self::Time => 14,
+            Self::TimeTz => 15,
+            Self::Date => 16,
+            Self::TimeStamp => 17,
+            Self::TimeStampTz => 18,
+            Self::Decimal => 19,
+            Self::Uuid => 20,
+            Self::RawJson => 21,
+            Self::RawJsonB => 22,
+            Self::Any => 127,
+        }
+    }
+}
+
+impl From<i8> for DataType {
+    fn from(value: i8) -> Self {
+        match value {
+            0 => Self::Null,
+            1 => Self::Bool,
+            2 => Self::I8,
+            3 => Self::I16,
+            4 => Self::I32,
+            5 => Self::I64,
+            6 => Self::U8,
+            7 => Self::U16,
+            8 => Self::U32,
+            9 => Self::U64,
+            10 => Self::F32,
+            11 => Self::F64,
+            12 => Self::Str,
+            13 => Self::Bin,
+            14 => Self::Time,
+            15 => Self::TimeTz,
+            16 => Self::Date,
+            17 => Self::TimeStamp,
+            18 => Self::TimeStampTz,
+            19 => Self::Decimal,
+            20 => Self::Uuid,
+            21 => Self::RawJson,
+            22 => Self::RawJsonB,
+            127 => Self::Any,
+            value => panic!("unexpected value: {}", value),
+        }
+    }
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -53,6 +121,7 @@ pub enum Value {
     Str(Box<str>),
     Bin(Box<[u8]>),
     Time(crate::time::Time),
+    TimeTz(Box<str>),
     Date(crate::time::Date),
     TimeStamp(crate::time::PrimitiveDateTime),
     TimeStampTz(crate::time::OffsetDateTime),
@@ -90,11 +159,40 @@ pub enum ValueView<'a> {
     Str(&'a str),
     Bin(&'a [u8]),
     Time(&'a time::Time),
+    TimeTz(&'a str),
     Date(&'a time::Date),
     TimeStamp(&'a time::PrimitiveDateTime),
     TimeStampTz(&'a time::OffsetDateTime),
     Decimal(&'a rust_decimal::Decimal),
     Uuid(&'a uuid::Uuid),
+}
+
+impl ValueView<'_> {
+    pub fn data_type(&self) -> DataType {
+        match self {
+            Self::Null => DataType::Null,
+            Self::Bool(_) => DataType::Bool,
+            Self::I8(_) => DataType::I8,
+            Self::I16(_) => DataType::I16,
+            Self::I32(_) => DataType::I32,
+            Self::I64(_) => DataType::I64,
+            Self::U8(_) => DataType::U8,
+            Self::U16(_) => DataType::U16,
+            Self::U32(_) => DataType::U32,
+            Self::U64(_) => DataType::U64,
+            Self::F32(_) => DataType::F32,
+            Self::F64(_) => DataType::F64,
+            Self::Str(_) => DataType::Str,
+            Self::Bin(_) => DataType::Bin,
+            Self::Time(_) => DataType::Time,
+            Self::TimeTz(_) => DataType::TimeTz,
+            Self::Date(_) => DataType::Date,
+            Self::TimeStamp(_) => DataType::TimeStamp,
+            Self::TimeStampTz(_) => DataType::TimeStampTz,
+            Self::Decimal(_) => DataType::Decimal,
+            Self::Uuid(_) => DataType::Uuid,
+        }
+    }
 }
 
 impl<'a> PartialEq<Value> for ValueView<'a> {
@@ -115,6 +213,7 @@ impl<'a> PartialEq<Value> for ValueView<'a> {
             (&Self::Str(l), Value::Str(r)) => l == r.as_ref(),
             (&Self::Bin(l), Value::Bin(r)) => l == r.as_ref(),
             (&Self::Time(l), Value::Time(r)) => l == r,
+            (&Self::TimeTz(l), Value::TimeTz(r)) => l == r.as_ref(),
             (&Self::Date(l), Value::Date(r)) => l == r,
             (&Self::TimeStamp(l), Value::TimeStamp(r)) => l == r,
             (&Self::TimeStampTz(l), Value::TimeStampTz(r)) => l == r,
@@ -143,6 +242,7 @@ impl<'a> From<&'a Value> for ValueView<'a> {
             Value::Str(v) => Self::Str(v),
             Value::Bin(v) => Self::Bin(v),
             Value::Time(v) => Self::Time(v),
+            Value::TimeTz(v) => Self::TimeTz(v),
             Value::Date(v) => Self::Date(v),
             Value::TimeStamp(v) => Self::TimeStamp(v),
             Value::TimeStampTz(v) => Self::TimeStampTz(v),
@@ -170,6 +270,43 @@ pub trait Message: Send + std::fmt::Debug {
     fn next(&mut self) -> Next<'_>;
 
     fn ack(&mut self) -> Ack;
+}
+
+pub struct MessageStream<'a> {
+    inner: Box<dyn Message>,
+    future: Option<Next<'a>>,
+    _marker: PhantomData<&'a ()>,
+}
+
+unsafe impl Sync for MessageStream<'_>{}
+
+impl<'a> Stream for MessageStream<'a> {
+    type Item = Result<Chunk, SectionError>;
+
+    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+        let mut this = self.as_mut();
+        let mut future = match this.future.take() {
+            None => this.inner.next(),
+            Some(f) => f,
+        };
+        match future.poll_unpin(cx) {
+            Poll::Pending => {
+                this.future = Some(future);
+                Poll::Pending
+            }
+            Poll::Ready(Ok(None)) => {
+                Poll::Ready(None)
+            },
+            Poll::Ready(Ok(Some(chunk))) => Poll::Ready(Some(Ok(chunk))),
+            Poll::Ready(Err(e)) => Poll::Ready(Some(Err(e))),
+        }
+    }
+}
+
+impl From<Box<dyn Message>> for MessageStream<'_> {
+    fn from(inner: Box<dyn Message>) -> Self {
+        Self { inner, future: None, _marker: PhantomData } 
+    }
 }
 
 #[derive(Debug)]
@@ -230,6 +367,10 @@ impl<'a> Iterator for Column<'a> {
 
 #[cfg(test)]
 mod test {
+    use std::collections::HashSet;
+
+    use futures::TryStream;
+
     use super::*;
 
     #[test]
@@ -240,5 +381,67 @@ mod test {
     #[test]
     fn size_of_value_view() {
         assert!(24 >= std::mem::size_of::<ValueView>());
+    }
+
+    #[test]
+    fn size_datatype_converts() {
+        let mut set = HashSet::new();
+        let len = 23;
+        for x in (0..len).chain(std::iter::once(127)) {
+            let x = x as i8;
+            let dt: DataType = x.into();
+            set.insert(dt);
+            assert_eq!(<DataType as Into<i8>>::into(dt), x);
+        };
+        assert_eq!(set.len(), len + 1);
+    }
+
+    #[tokio::test]
+    async fn test_message_stream() {
+        #[derive(Debug)]
+        struct Test {
+            inner: Vec<i32>,
+        }
+
+        impl DataFrame for Test {
+            fn columns(&self) -> Vec<Column<'_>> {
+                vec![
+                    Column::new("inner", DataType::I32, Box::new(self.inner.iter().copied().map(ValueView::I32)))
+                ]
+            }
+
+        }
+
+        #[derive(Debug)]
+        struct TestMsg {
+            inner: Option<Test>
+        }
+        
+        impl Message for TestMsg {
+            fn ack(&mut self) -> Ack {
+                Box::pin(async {})
+            }
+
+            fn origin(&self) -> &str {
+                "test"
+            }
+
+            fn next(&mut self) -> Next<'_> {
+                let v = self.inner.take().map(|v| Chunk::DataFrame(Box::new(v)));
+                Box::pin(async move { Ok(v) })
+            }
+        }
+
+        let msg = TestMsg {
+            inner: Some(Test { inner: vec![1, 2, 3] })
+        };
+
+        let msg_stream: MessageStream = (Box::new(msg) as Box<dyn Message>).into();
+
+        fn try_stream<T: TryStream>(_: &T){}
+        try_stream(&msg_stream);
+
+        fn send_sync<T: Send + Sync + 'static>(_: T){}
+        send_sync(msg_stream);
     }
 }

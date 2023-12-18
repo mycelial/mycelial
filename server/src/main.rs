@@ -1,6 +1,6 @@
 use arrow::{
     ipc::{reader::StreamReader, writer::StreamWriter},
-    record_batch::RecordBatch,
+    record_batch::RecordBatch, util::pretty::pretty_format_batches,
 };
 use axum::{
     extract::{BodyStream, State},
@@ -25,7 +25,7 @@ use serde_json::json;
 use sqlx::{
     sqlite::SqliteConnectOptions, sqlite::SqliteRow, ConnectOptions, FromRow, Row, SqliteConnection,
 };
-use std::{net::SocketAddr, path::Path};
+use std::{net::SocketAddr, path::Path, io::Cursor};
 use std::{str::FromStr, sync::Arc};
 use tokio::sync::Mutex;
 use uuid::Uuid;
@@ -87,12 +87,17 @@ async fn ingestion(
     while let Some(chunk) = body.next().await {
         buf.append(&mut chunk.unwrap().to_vec());
     }
-    let reader = StreamReader::try_new(buf.as_slice(), None).unwrap();
-    for record_batch in reader.flatten() {
-        app.database
-            .store_record(&topic, origin, &record_batch)
-            .await
-            .unwrap()
+    let ln = buf.len() as u64;
+    let mut buf = Cursor::new(buf);
+    while buf.position() < ln {
+        let reader = StreamReader::try_new_unbuffered(&mut buf, None).unwrap();
+        for record_batch in reader {
+            let record_batch = record_batch?;
+            app.database
+                .store_record(&topic, origin, &record_batch)
+                .await?;
+            println!("arrow record batch:\n{}", pretty_format_batches(&[record_batch]).unwrap());
+        }
     }
     Ok(Json("ok"))
 }
