@@ -5,6 +5,7 @@ pub mod destination;
 
 pub struct KafkaMessage {}
 
+#[allow(clippy::new_without_default)]
 impl KafkaMessage {
     pub fn new() -> Self {
         Self {}

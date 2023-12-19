@@ -123,13 +123,11 @@ pub struct HelloWorldSourceConfig {
     pub interval_milis: u64,
 }
 
-
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct HelloWorldDestinationConfig {
     #[serde(flatten)]
     pub common_attrs: CommonAttrs,
 }
-
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct HelloWorldConfig {

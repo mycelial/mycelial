@@ -1,4 +1,4 @@
-use section::message::{Ack, Chunk, Column, DataFrame, Message, Value, DataType};
+use section::message::{Ack, Chunk, Column, DataFrame, DataType, Message, Value};
 use std::{fmt::Display, sync::Arc};
 
 pub mod source;
@@ -26,7 +26,11 @@ impl DataFrame for ExcelPayload {
             .iter()
             .zip(self.values.iter())
             .map(|(col, column)| {
-                Column::new(col.name.as_ref(), DataType::Any, Box::new(column.iter().map(Into::into)))
+                Column::new(
+                    col.name.as_ref(),
+                    DataType::Any,
+                    Box::new(column.iter().map(Into::into)),
+                )
             })
             .collect()
     }

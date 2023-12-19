@@ -82,7 +82,7 @@ pub fn pretty_print(df: &dyn DataFrame) -> String {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::message::{Column, DataFrame, ValueView, DataType};
+    use crate::message::{Column, DataFrame, DataType, ValueView};
 
     #[derive(Debug)]
     pub struct Values {

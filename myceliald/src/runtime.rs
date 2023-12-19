@@ -39,8 +39,14 @@ fn setup_registry<S: SectionChannel>() -> Registry<S> {
             "excel_connector_source",
             constructors::excel_connector::source_ctor,
         ),
-        ("postgres_connector_destination", constructors::postgres_connector::destination_ctor),
-        ("postgres_connector_source", constructors::postgres_connector::source_ctor),
+        (
+            "postgres_connector_destination",
+            constructors::postgres_connector::destination_ctor,
+        ),
+        (
+            "postgres_connector_source",
+            constructors::postgres_connector::source_ctor,
+        ),
         (
             "kafka_destination",
             constructors::kafka_connector::destination_ctor,

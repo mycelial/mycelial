@@ -1,6 +1,6 @@
 //! Section messaging
 
-use futures::{Stream, FutureExt};
+use futures::{FutureExt, Stream};
 
 use crate::SectionError;
 use std::future::Future;
@@ -268,7 +268,7 @@ pub struct MessageStream<'a> {
     _marker: PhantomData<&'a ()>,
 }
 
-unsafe impl Sync for MessageStream<'_>{}
+unsafe impl Sync for MessageStream<'_> {}
 
 impl<'a> Stream for MessageStream<'a> {
     type Item = Result<Chunk, SectionError>;
@@ -284,9 +284,7 @@ impl<'a> Stream for MessageStream<'a> {
                 this.future = Some(future);
                 Poll::Pending
             }
-            Poll::Ready(Ok(None)) => {
-                Poll::Ready(None)
-            },
+            Poll::Ready(Ok(None)) => Poll::Ready(None),
             Poll::Ready(Ok(Some(chunk))) => Poll::Ready(Some(Ok(chunk))),
             Poll::Ready(Err(e)) => Poll::Ready(Some(Err(e))),
         }
@@ -295,7 +293,11 @@ impl<'a> Stream for MessageStream<'a> {
 
 impl From<Box<dyn Message>> for MessageStream<'_> {
     fn from(inner: Box<dyn Message>) -> Self {
-        Self { inner, future: None, _marker: PhantomData } 
+        Self {
+            inner,
+            future: None,
+            _marker: PhantomData,
+        }
     }
 }
 
@@ -382,7 +384,7 @@ mod test {
             let dt: DataType = x.into();
             set.insert(dt);
             assert_eq!(<DataType as Into<i8>>::into(dt), x);
-        };
+        }
         assert_eq!(set.len(), len + 1);
     }
 
@@ -395,18 +397,19 @@ mod test {
 
         impl DataFrame for Test {
             fn columns(&self) -> Vec<Column<'_>> {
-                vec![
-                    Column::new("inner", DataType::I32, Box::new(self.inner.iter().copied().map(ValueView::I32)))
-                ]
+                vec![Column::new(
+                    "inner",
+                    DataType::I32,
+                    Box::new(self.inner.iter().copied().map(ValueView::I32)),
+                )]
             }
-
         }
 
         #[derive(Debug)]
         struct TestMsg {
-            inner: Option<Test>
+            inner: Option<Test>,
         }
-        
+
         impl Message for TestMsg {
             fn ack(&mut self) -> Ack {
                 Box::pin(async {})
@@ -423,15 +426,17 @@ mod test {
         }
 
         let msg = TestMsg {
-            inner: Some(Test { inner: vec![1, 2, 3] })
+            inner: Some(Test {
+                inner: vec![1, 2, 3],
+            }),
         };
 
         let msg_stream: MessageStream = (Box::new(msg) as Box<dyn Message>).into();
 
-        fn try_stream<T: TryStream>(_: &T){}
+        fn try_stream<T: TryStream>(_: &T) {}
         try_stream(&msg_stream);
 
-        fn send_sync<T: Send + Sync + 'static>(_: T){}
+        fn send_sync<T: Send + Sync + 'static>(_: T) {}
         send_sync(msg_stream);
     }
 }
