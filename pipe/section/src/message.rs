@@ -37,6 +37,12 @@ pub enum DataType {
     Any, // any of above
 }
 
+impl std::fmt::Display for DataType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
 impl From<DataType> for i8 {
     fn from(value: DataType) -> i8 {
         match value {
