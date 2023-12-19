@@ -3,29 +3,33 @@
 //! network section, dumps incoming messages to provided http endpoint
 use arrow::{
     array::{
-        ArrayBuilder, ArrayRef, BinaryArray, BinaryBuilder, BooleanBuilder, Float32Array,
+        ArrayBuilder, ArrayRef, BinaryArray, BinaryBuilder, BooleanArray, BooleanBuilder,
+        Date64Array, Date64Builder, Decimal128Array, Decimal128Builder, Float32Array,
         Float32Builder, Float64Array, Float64Builder, Int16Array, Int16Builder, Int32Array,
         Int32Builder, Int64Array, Int64Builder, Int8Array, Int8Builder, NullBuilder, StringArray,
-        StringBuilder, Time64NanosecondBuilder, UInt16Array, UInt16Builder, UInt32Array,
-        UInt32Builder, UInt64Array, UInt64Builder, UInt8Array, UInt8Builder, UnionArray,
+        StringBuilder, Time64MicrosecondArray, Time64MicrosecondBuilder, TimestampMicrosecondArray,
+        TimestampMicrosecondBuilder, UInt16Array, UInt16Builder, UInt32Array, UInt32Builder,
+        UInt64Array, UInt64Builder, UInt8Array, UInt8Builder, UnionArray,
     },
-    datatypes::{DataType as ArrowDataType, Field, Schema, UnionMode, UnionFields},
-    error::ArrowError,
-    record_batch::RecordBatch, 
-    buffer::Buffer, ipc::writer::StreamWriter,
+    buffer::Buffer,
+    datatypes::{
+        DataType as ArrowDataType, Field, Schema, TimeUnit, UnionFields, UnionMode,
+        DECIMAL128_MAX_PRECISION, DECIMAL_DEFAULT_SCALE,
+    },
+    ipc::writer::StreamWriter,
+    record_batch::RecordBatch,
 };
 use base64::engine::{general_purpose::STANDARD as BASE64, Engine};
 use reqwest::Body;
 use section::{
     command_channel::{Command, SectionChannel},
+    decimal::Decimal,
     futures::{self, FutureExt, Sink, Stream, StreamExt, TryStreamExt},
-    message::{Chunk, Column, DataFrame, DataType, ValueView, MessageStream},
-    pretty_print::pretty_print,
+    message::{Chunk, Column, DataFrame, DataType, MessageStream, ValueView},
     section::Section,
-    //time::convert::{Hour, Minute, Nanosecond, Second},
     SectionError, SectionFuture, SectionMessage,
 };
-use std::{pin::pin, sync::Arc};
+use std::{collections::HashMap, pin::pin, sync::Arc};
 
 #[derive(Debug)]
 pub struct Mycelial {
@@ -33,7 +37,6 @@ pub struct Mycelial {
     token: String,
     topic: String,
 }
-
 
 fn into_arrow_datatype(dt: DataType) -> ArrowDataType {
     match dt {
@@ -50,8 +53,22 @@ fn into_arrow_datatype(dt: DataType) -> ArrowDataType {
         DataType::Str => ArrowDataType::Utf8,
         DataType::Bin => ArrowDataType::Binary,
         DataType::Bool => ArrowDataType::Boolean,
+        DataType::Time => ArrowDataType::Time64(TimeUnit::Nanosecond),
+        DataType::Date => ArrowDataType::Date64,
+        DataType::TimeStamp => ArrowDataType::Timestamp(TimeUnit::Millisecond, None),
         DataType::Null => ArrowDataType::Null,
         _ => unimplemented!("{:?}", dt),
+    }
+}
+
+// cast rust decimal to i128 with default arrow scale
+fn rust_decimal_to_i128(decimal: &Decimal) -> i128 {
+    let m = decimal.mantissa();
+    let s = decimal.scale();
+    match DECIMAL_DEFAULT_SCALE as i32 - s as i32 {
+        0 => m,
+        v if v < 0 => m / 10_i128.pow(v.unsigned_abs()),
+        v => m * 10_i128.pow(v as u32),
     }
 }
 
@@ -76,7 +93,7 @@ fn to_union_array(column: Column<'_>) -> Result<(Vec<i8>, Vec<Field>, UnionArray
                     .as_any_mut()
                     .downcast_mut::<NullBuilder>()
                     .unwrap();
-                offsets.push(b.len() as i32 as i32); 
+                offsets.push(b.len() as i32 as i32);
                 b.append_empty_value();
             }
             ValueView::Bool(v) => {
@@ -248,87 +265,94 @@ fn to_union_array(column: Column<'_>) -> Result<(Vec<i8>, Vec<Field>, UnionArray
                 offsets.push(b.len() as i32);
                 b.append_value(v);
             }
-          //ValueView::Time(v) => {
-          //    let (h, m, s, nano) = v.as_hms_nano();
-          //    let v = (h as u64) * Nanosecond::per(Hour)
-          //        + (m as u64) * Nanosecond::per(Minute)
-          //        + ((s as u32) * Nanosecond::per(Second)) as u64
-          //        + nano as u64;
-          //    if builder.is_none() {
-          //        *builder = Some(Box::new(Time64NanosecondBuilder::new()))
-          //    };
-          //    let b = builder
-          //        .as_mut()
-          //        .unwrap()
-          //        .as_any_mut()
-          //        .downcast_mut::<Time64NanosecondBuilder>()
-          //        .unwrap();
-          //    offsets.push(b.len() as i32);
-          //    b.append_value(v as i64);
-          //}
-          //ValueView::TimeTz(v) => {
-          //    if builder.is_none() {
-          //        *builder = Some(Box::new(StringBuilder::new()))
-          //    };
-          //    let b = builder
-          //        .as_mut()
-          //        .unwrap()
-          //        .as_any_mut()
-          //        .downcast_mut::<StringBuilder>()
-          //        .unwrap();
-          //    offsets.push(b.len() as i32);
-          //    b.append_value(v);
-          //}
-            //ValueView::Date(v) => {
-            //    if builder.is_none() { *builder = Some(Box::new(Date64Builder::new())) };
-            //    builder.as_mut().unwrap().as_any_mut().downcast_mut::<Date64Builder>().unwrap().append_value(v);
-            //},
-            //ValueView::TimeStamp(v) => {
-            //    if builder.is_none() { *builder = Some(Box::new(TimestampNanosecondBuilder::new())) };
-            //    builder.as_mut().unwrap().as_any_mut().downcast_mut::<TimestampNanosecondBuilder>().unwrap().append_value(v);
-            //},
-            //ValueView::TimeStampTz(v) => {
-            //    if builder.is_none() { *builder = Some(Box::new(TimestampNanosecondBuilder::new())) };
-            //    builder.as_mut().unwrap().as_any_mut().downcast_mut::<TimestampNanosecondBuilder>().unwrap().append_value(v);
-            //},
-            //ValueView::Decimal(v) => {
-            //    if builder.is_none() { *builder = Some(Box::new(Decimal128Builder::new())) };
-            //    builder.as_mut().unwrap().as_any_mut().downcast_mut::<Decimal128Builder>().unwrap().append_value(v);
-            //},
-            //ValueView::Uuid(v) => {
-            //    if builder.is_none() { *builder = Some(Box::new(StringBuilder::new())) };
-            //    builder.as_mut().unwrap().as_any_mut().downcast_mut::<StringBuilder>().unwrap().append_value(v.to_string());
-            //},
-            //ValueView::RawJson(v) => {
-            //    if builder.is_none() { *builder = Some(Box::new(StringBuilder::new())) };
-            //    builder.as_mut().unwrap().as_any_mut().downcast_mut::<StringBuilder>().unwrap().append_value(v);
-            //},
-            //ValueView::RawJsonB(v) => {
-            //    if builder.is_none() { *builder = Some(Box::new(StringBuilder::new())) };
-            //    builder.as_mut().unwrap().as_any_mut().downcast_mut::<StringBuilder>().unwrap().append_value(v);
-            //},
+            ValueView::Time(v) => {
+                if builder.is_none() {
+                    *builder = Some(Box::new(Time64MicrosecondBuilder::new()))
+                };
+                let b = builder
+                    .as_mut()
+                    .unwrap()
+                    .as_any_mut()
+                    .downcast_mut::<Time64MicrosecondBuilder>()
+                    .unwrap();
+                offsets.push(b.len() as i32);
+                b.append_value(v);
+            }
+            ValueView::Date(v) => {
+                if builder.is_none() {
+                    *builder = Some(Box::new(Date64Builder::new()))
+                };
+                builder
+                    .as_mut()
+                    .unwrap()
+                    .as_any_mut()
+                    .downcast_mut::<Date64Builder>()
+                    .unwrap()
+                    .append_value(v / 1000); // micros to millis
+            }
+            ValueView::TimeStamp(v) => {
+                if builder.is_none() {
+                    *builder = Some(Box::new(TimestampMicrosecondBuilder::new()))
+                };
+                builder
+                    .as_mut()
+                    .unwrap()
+                    .as_any_mut()
+                    .downcast_mut::<TimestampMicrosecondBuilder>()
+                    .unwrap()
+                    .append_value(v);
+            }
+            ValueView::Decimal(v) => {
+                if builder.is_none() {
+                    *builder = Some(Box::new(Decimal128Builder::new()))
+                };
+                builder
+                    .as_mut()
+                    .unwrap()
+                    .as_any_mut()
+                    .downcast_mut::<Decimal128Builder>()
+                    .unwrap()
+                    .append_value(rust_decimal_to_i128(v));
+            }
+            ValueView::Uuid(v) => {
+                if builder.is_none() {
+                    *builder = Some(Box::new(StringBuilder::new()))
+                };
+                builder
+                    .as_mut()
+                    .unwrap()
+                    .as_any_mut()
+                    .downcast_mut::<StringBuilder>()
+                    .unwrap()
+                    .append_value(v.to_string());
+            }
             _ => Err(format!("unsupported data type: {:?}", dt))?,
         }
-    };
-    let (field_type_ids, arrays, fields) = builders
-        .into_iter()
-        .enumerate()
-        .fold((vec![], vec![], vec![]), |(mut field_type_ids, mut arrays, mut fields), (type_id, builder)| {
+    }
+    let (field_type_ids, arrays, fields) = builders.into_iter().enumerate().fold(
+        (vec![], vec![], vec![]),
+        |(mut field_type_ids, mut arrays, mut fields), (type_id, builder)| {
             if builder.is_none() {
-                return (field_type_ids, arrays, fields)
+                return (field_type_ids, arrays, fields);
             };
             let mut builder = builder.unwrap();
             field_type_ids.push(type_id as i8);
             let dt = DataType::from(type_id as i8);
-            let field = Field::new(format!("{:?}", dt), into_arrow_datatype(dt), true);
+            let field = Field::new(dt.to_string(), into_arrow_datatype(dt), true)
+                .with_metadata(HashMap::from([("mycelial_type".into(), dt.to_string())]));
             fields.push(field.clone());
-            println!("field dt: {:?}", field.data_type());
             arrays.push((field, builder.finish()));
             (field_type_ids, arrays, fields)
-        });
+        },
+    );
     let type_ids_buffer = Buffer::from_slice_ref(&type_ids);
     let offsets = Buffer::from_vec(offsets);
-    let union_array = UnionArray::try_new(field_type_ids.as_slice(), type_ids_buffer, Some(offsets), arrays)?;
+    let union_array = UnionArray::try_new(
+        field_type_ids.as_slice(),
+        type_ids_buffer,
+        Some(offsets),
+        arrays,
+    )?;
     Ok((field_type_ids, fields, union_array))
 }
 
@@ -338,74 +362,85 @@ fn df_to_recordbatch(df: Box<dyn DataFrame>) -> Result<RecordBatch, SectionError
     let mut rb_columns = Vec::<ArrayRef>::with_capacity(columns.len());
     for column in df.columns() {
         let name = column.name();
-        let (field, arr): (Field, ArrayRef) = match column.data_type() {
+        let dt = column.data_type();
+        let (field, arr): (Field, ArrayRef) = match dt {
             DataType::I8 => (
                 Field::new(name, ArrowDataType::Int8, true),
                 Arc::new(Int8Array::from_iter(column.map(|val| match val {
-                    ValueView::I8(i) => i,
+                    ValueView::I8(i) => Some(i),
+                    ValueView::Null => None,
                     _ => panic!("expected i8, got: {:?}", val),
                 }))),
             ),
             DataType::I16 => (
                 Field::new(name, ArrowDataType::Int16, true),
                 Arc::new(Int16Array::from_iter(column.map(|val| match val {
-                    ValueView::I16(i) => i,
+                    ValueView::I16(i) => Some(i),
+                    ValueView::Null => None,
                     _ => panic!("expected i16, got: {:?}", val),
                 }))),
             ),
             DataType::I32 => (
                 Field::new(name, ArrowDataType::Int32, true),
                 Arc::new(Int32Array::from_iter(column.map(|val| match val {
-                    ValueView::I32(i) => i,
+                    ValueView::I32(i) => Some(i),
+                    ValueView::Null => None,
                     _ => panic!("expected i32, got: {:?}", val),
                 }))),
             ),
             DataType::I64 => (
                 Field::new(name, ArrowDataType::Int64, true),
                 Arc::new(Int64Array::from_iter(column.map(|val| match val {
-                    ValueView::I64(i) => i,
+                    ValueView::I64(i) => Some(i),
+                    ValueView::Null => None,
                     _ => panic!("expected i64, got: {:?}", val),
                 }))),
             ),
             DataType::U8 => (
                 Field::new(name, ArrowDataType::UInt8, true),
                 Arc::new(UInt8Array::from_iter(column.map(|val| match val {
-                    ValueView::U8(u) => u,
+                    ValueView::U8(u) => Some(u),
+                    ValueView::Null => None,
                     _ => panic!("expected u8, got: {:?}", val),
                 }))),
             ),
             DataType::U16 => (
                 Field::new(name, ArrowDataType::UInt16, true),
                 Arc::new(UInt16Array::from_iter(column.map(|val| match val {
-                    ValueView::U16(u) => u,
+                    ValueView::U16(u) => Some(u),
+                    ValueView::Null => None,
                     _ => panic!("expected u16, got: {:?}", val),
                 }))),
             ),
             DataType::U32 => (
                 Field::new(name, ArrowDataType::UInt32, true),
                 Arc::new(UInt32Array::from_iter(column.map(|val| match val {
-                    ValueView::U32(u) => u,
+                    ValueView::U32(u) => Some(u),
+                    ValueView::Null => None,
                     _ => panic!("expected u32, got: {:?}", val),
                 }))),
             ),
             DataType::U64 => (
                 Field::new(name, ArrowDataType::UInt64, true),
                 Arc::new(UInt64Array::from_iter(column.map(|val| match val {
-                    ValueView::U64(u) => u,
+                    ValueView::U64(u) => Some(u),
+                    ValueView::Null => None,
                     _ => panic!("expected u64, got: {:?}", val),
                 }))),
             ),
             DataType::F32 => (
                 Field::new(name, ArrowDataType::Float32, true),
                 Arc::new(Float32Array::from_iter(column.map(|val| match val {
-                    ValueView::F32(u) => u,
+                    ValueView::F32(u) => Some(u),
+                    ValueView::Null => None,
                     _ => panic!("expected f32, got: {:?}", val),
                 }))),
             ),
             DataType::F64 => (
                 Field::new(name, ArrowDataType::Float64, true),
                 Arc::new(Float64Array::from_iter(column.map(|val| match val {
-                    ValueView::F64(u) => u,
+                    ValueView::F64(u) => Some(u),
+                    ValueView::Null => None,
                     _ => panic!("expected f64, got: {:?}", val),
                 }))),
             ),
@@ -413,6 +448,7 @@ fn df_to_recordbatch(df: Box<dyn DataFrame>) -> Result<RecordBatch, SectionError
                 Field::new(name, ArrowDataType::Utf8, true),
                 Arc::new(StringArray::from_iter(column.map(|val| match val {
                     ValueView::Str(s) => Some(s),
+                    ValueView::Null => None,
                     _ => panic!("expected Str, got: {:?}", val),
                 }))),
             ),
@@ -420,38 +456,95 @@ fn df_to_recordbatch(df: Box<dyn DataFrame>) -> Result<RecordBatch, SectionError
                 Field::new(name, ArrowDataType::Binary, true),
                 Arc::new(BinaryArray::from_iter(column.map(|val| match val {
                     ValueView::Bin(s) => Some(s),
+                    ValueView::Null => None,
                     _ => panic!("expected u64, got: {:?}", val),
                 }))),
             ),
-
-            //    DataType::RawJson => Field::new(name, ArrowDataType::Utf8, true),
-            //    DataType::RawJsonB => Field::new(name, ArrowDataType::Utf8, true),
-            //    DataType::Bool => Field::new(name, ArrowDataType::Boolean, true),
-            //    DataType::Decimal => Field::new(name, ArrowDataType::Decimal128(15, 4), true),
-            //    DataType::Uuid => Field::new(name, ArrowDataType::Utf8, true),
-            //    DataType::Time => Field::new(name, ArrowDataType::Time64(TimeUnit::Nanosecond), true),
-            //    DataType::Date => Field::new(name, ArrowDataType::Date64, true),
-            //    DataType::TimeTz => Field::new(name, ArrowDataType::Utf8, true),
-            //    DataType::TimeStamp => Field::new(name, ArrowDataType::Timestamp(TimeUnit::Nanosecond, None), true),
-            //    DataType::TimeStampTz => Field::new(name, ArrowDataType::Timestamp(TimeUnit::Nanosecond, Some("UTC".into())), true),
+            DataType::RawJson => (
+                Field::new(name, ArrowDataType::Utf8, true),
+                Arc::new(StringArray::from_iter(column.map(|val| match val {
+                    ValueView::Str(s) => Some(s),
+                    ValueView::Null => None,
+                    _ => panic!("expected string, got: {:?}", val),
+                }))),
+            ),
+            DataType::Bool => (
+                Field::new(name, ArrowDataType::Boolean, true),
+                Arc::new(BooleanArray::from_iter(column.map(|val| match val {
+                    ValueView::Bool(b) => Some(b),
+                    ValueView::Null => None,
+                    _ => panic!("expected bool, got: {:?}", val),
+                }))),
+            ),
+            DataType::Decimal => (
+                Field::new(
+                    name,
+                    ArrowDataType::Decimal128(DECIMAL128_MAX_PRECISION, DECIMAL_DEFAULT_SCALE),
+                    true,
+                ),
+                Arc::new(Decimal128Array::from_iter(column.map(|val| match val {
+                    ValueView::Decimal(d) => Some(rust_decimal_to_i128(d)),
+                    ValueView::Null => None,
+                    _ => panic!("expected decimal, got: {:?}", val),
+                }))),
+            ),
+            DataType::Uuid => (
+                Field::new(name, ArrowDataType::Utf8, true),
+                Arc::new(StringArray::from_iter(column.map(|val| match val {
+                    ValueView::Uuid(u) => Some(u.to_string()),
+                    ValueView::Null => None,
+                    _ => panic!("expected uuid, got: {:?}", val),
+                }))),
+            ),
+            DataType::Time => (
+                Field::new(name, ArrowDataType::Time64(TimeUnit::Nanosecond), true),
+                Arc::new(Time64MicrosecondArray::from_iter(column.map(
+                    |val| match val {
+                        ValueView::Time(v) => Some(v),
+                        ValueView::Null => None,
+                        _ => panic!("expected time, got: {:?}", val),
+                    },
+                ))),
+            ),
+            DataType::Date => (
+                Field::new(name, ArrowDataType::Date64, true),
+                Arc::new(Date64Array::from_iter(column.map(|val| match val {
+                    ValueView::Date(d) => Some(d / 1000), // micros to millis
+                    ValueView::Null => None,
+                    _ => panic!("expected date, got: {:?}", val),
+                }))),
+            ),
+            DataType::TimeStamp => (
+                Field::new(
+                    name,
+                    ArrowDataType::Timestamp(TimeUnit::Nanosecond, None),
+                    true,
+                ),
+                Arc::new(TimestampMicrosecondArray::from_iter(column.map(
+                    |val| match val {
+                        ValueView::TimeStamp(v) => Some(v),
+                        ValueView::Null => None,
+                        _ => panic!("expected timestamp, got: {:?}", val),
+                    },
+                ))),
+            ),
             DataType::Any => {
                 let name = name.to_string();
                 let (type_ids, fields, union_array) = to_union_array(column)?;
-                println!("union_array: {:?}", union_array.type_ids());
-                println!("type_ids: {:?}", union_array.type_ids());
-                let dt = ArrowDataType::Union(
-                    UnionFields::new(type_ids, fields),
-                    UnionMode::Dense,
-                );
+                let dt = ArrowDataType::Union(UnionFields::new(type_ids, fields), UnionMode::Dense);
                 (Field::new(name, dt, true), Arc::new(union_array))
-            },
+            }
             dt => unimplemented!("unimplemented dt: {:?}", dt),
         };
+        let field = field.with_metadata(HashMap::from([("mycelial_type".into(), dt.to_string())]));
         schema_columns.push(field);
         rb_columns.push(arr);
     }
 
-    Ok(RecordBatch::try_new(Arc::new(Schema::new(schema_columns)), rb_columns)?)
+    Ok(RecordBatch::try_new(
+        Arc::new(Schema::new(schema_columns)),
+        rb_columns,
+    )?)
 }
 
 impl Mycelial {
@@ -474,9 +567,9 @@ impl Mycelial {
         mut section_chan: SectionChan,
     ) -> Result<(), SectionError>
     where
-        Input: Stream<Item = SectionMessage> + Send + 'static,
-        Output: Sink<SectionMessage, Error = SectionError> + Send + 'static,
-        SectionChan: SectionChannel + Send + Sync + 'static,
+        Input: Stream<Item = SectionMessage> + Send,
+        Output: Sink<SectionMessage, Error = SectionError> + Send,
+        SectionChan: SectionChannel,
     {
         let mut input = pin!(input.fuse());
         let client = &mut reqwest::Client::new();
@@ -497,23 +590,16 @@ impl Mycelial {
                     let ack = msg.ack();
                     let msg_stream: MessageStream = msg.into();
                     let msg_stream = msg_stream
-                        .enumerate()
-                        .map(|(pos, res)| {
-                            match res {
-                                Ok(r) => Ok((pos, r)),
-                                Err(e) => Err(e)
-                            }
-                        })
-                        .map_ok(|(_pos, chunk)| {
+                        .map_ok(|chunk| {
                             match chunk {
                                 Chunk::DataFrame(df) => {
                                     // FIXME: unwrap unwrap unwrap
-                                    let rb = df_to_recordbatch(df).map_err(|e| println!("err: {:#?}", e)).unwrap();
+                                    let rb = df_to_recordbatch(df).unwrap();
                                     let mut stream_writer: StreamWriter<_> = StreamWriter::try_new(vec![], rb.schema().as_ref()).unwrap();
                                     stream_writer.write(&rb).unwrap();
                                     stream_writer.finish().unwrap();
-                                    let buf = stream_writer.into_inner().unwrap();
-                                    buf
+
+                                    stream_writer.into_inner().unwrap()
                                 },
                                 Chunk::Byte(bin) => bin,
                             }
@@ -545,9 +631,8 @@ impl<Input, Output, SectionChan> Section<Input, Output, SectionChan> for Mycelia
 where
     Input: Stream<Item = SectionMessage> + Send + 'static,
     Output: Sink<SectionMessage, Error = SectionError> + Send + 'static,
-    SectionChan: SectionChannel + Send + Sync + 'static,
+    SectionChan: SectionChannel,
 {
-    // FIXME: define proper error
     type Error = SectionError;
     type Future = SectionFuture;
 

@@ -1061,15 +1061,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "deranged"
-version = "0.3.10"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8eb30d70a07a3b04884d2677f06bec33509dc67ca60d92949e5535352d3191dc"
-dependencies = [
- "powerfmt",
-]
-
-[[package]]
 name = "digest"
 version = "0.10.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2357,17 +2348,12 @@ checksum = "26072860ba924cbfa98ea39c8c19b4dd6a4a25423dbdf219c1eca91aa0cf6964"
 name = "postgres_connector"
 version = "0.1.0"
 dependencies = [
+ "chrono",
  "section",
  "sqlx",
  "stub",
  "tokio",
 ]
-
-[[package]]
-name = "powerfmt"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "439ee305def115ba05938db6eb1644ff94165c5ab5e9420d1c1bcedbba909391"
 
 [[package]]
 name = "ppv-lite86"
@@ -2826,7 +2812,6 @@ dependencies = [
  "async-trait",
  "futures",
  "rust_decimal",
- "time",
  "tokio",
  "uuid",
 ]
@@ -3093,6 +3078,7 @@ dependencies = [
  "atoi",
  "byteorder",
  "bytes",
+ "chrono",
  "crc",
  "crossbeam-queue",
  "dotenvy",
@@ -3118,7 +3104,6 @@ dependencies = [
  "smallvec",
  "sqlformat",
  "thiserror",
- "time",
  "tokio",
  "tokio-stream",
  "tracing",
@@ -3177,6 +3162,7 @@ dependencies = [
  "bitflags 2.4.1",
  "byteorder",
  "bytes",
+ "chrono",
  "crc",
  "digest",
  "dotenvy",
@@ -3205,7 +3191,6 @@ dependencies = [
  "sqlx-core",
  "stringprep",
  "thiserror",
- "time",
  "tracing",
  "uuid",
  "whoami",
@@ -3221,6 +3206,7 @@ dependencies = [
  "base64",
  "bitflags 2.4.1",
  "byteorder",
+ "chrono",
  "crc",
  "dotenvy",
  "etcetera",
@@ -3247,7 +3233,6 @@ dependencies = [
  "sqlx-core",
  "stringprep",
  "thiserror",
- "time",
  "tracing",
  "uuid",
  "whoami",
@@ -3260,6 +3245,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "210976b7d948c7ba9fced8ca835b11cbb2d677c59c79de41ac0d397e14547490"
 dependencies = [
  "atoi",
+ "chrono",
  "flume",
  "futures-channel",
  "futures-core",
@@ -3271,7 +3257,6 @@ dependencies = [
  "percent-encoding",
  "serde",
  "sqlx-core",
- "time",
  "tracing",
  "url",
  "urlencoding",
@@ -3441,35 +3426,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.41",
-]
-
-[[package]]
-name = "time"
-version = "0.3.31"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f657ba42c3f86e7680e53c8cd3af8abbe56b5491790b46e22e19c0d57463583e"
-dependencies = [
- "deranged",
- "itoa",
- "powerfmt",
- "serde",
- "time-core",
- "time-macros",
-]
-
-[[package]]
-name = "time-core"
-version = "0.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ef927ca75afb808a4d64dd374f00a2adf8d0fcff8e7b184af886c3c87ec4a3f3"
-
-[[package]]
-name = "time-macros"
-version = "0.2.16"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "26197e33420244aeb70c3e8c78376ca46571bc4e701e4791c2cd9f57dcb3a43f"
-dependencies = [
- "time-core",
 ]
 
 [[package]]

@@ -1,3 +1,4 @@
+use chrono::{DateTime, NaiveDateTime, Utc};
 use section::{
     command_channel::{Command, SectionChannel},
     futures::{self, FutureExt, Sink, Stream, StreamExt},
@@ -64,7 +65,6 @@ impl Postgres {
                             .map(|(pos, col)|  {
                                 let suffix = match col.data_type() {
                                     DataType::RawJson => "::json",
-                                    DataType::RawJsonB => "::jsonb",
                                     _ => "",
                                 };
                                 format!("${}{}", pos + 1, suffix)
@@ -89,10 +89,9 @@ impl Postgres {
                                     ValueView::Str(s) => query.bind(s),
                                     ValueView::Bin(b) => query.bind(b),
                                     ValueView::Bool(b) => query.bind(b),
-                                    ValueView::Time(t) => query.bind(t),
-                                    ValueView::Date(t) => query.bind(t),
-                                    ValueView::TimeStamp(t) => query.bind(t),
-                                    ValueView::TimeStampTz(t) => query.bind(t),
+                                    ValueView::Time(us) => query.bind(NaiveDateTime::from_timestamp_micros(us).unwrap().time()),
+                                    ValueView::Date(us) => query.bind(NaiveDateTime::from_timestamp_micros(us).unwrap().date()),
+                                    ValueView::TimeStamp(us) => query.bind(DateTime::<Utc>::from_timestamp(us / 1_000_000, (us % 1_000_000 * 1000) as _).unwrap()),
                                     ValueView::Decimal(d) => query.bind(d),
                                     ValueView::Uuid(u) => query.bind(u),
                                     ValueView::Null => query.bind(Option::<&str>::None),

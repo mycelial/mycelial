@@ -12,8 +12,6 @@ futures = "0.3"
 async-trait = "0.1"
 uuid = "1.6"
 rust_decimal = "1.33"
-time = "0.3"
-
 
 [dev-dependencies]
 tokio = { version = "1", features = ["full"] }

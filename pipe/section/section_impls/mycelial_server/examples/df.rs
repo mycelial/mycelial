@@ -10,8 +10,8 @@ use stub::Stub;
 
 // stream each value in vector as a separate dataframe
 #[derive(Debug)]
-struct Df{
-    i64s: Vec<i64>,
+struct Df {
+    i64s: Vec<Value>,
     strs: Vec<String>,
     anys: Vec<Value>,
 }
@@ -22,7 +22,7 @@ impl DataFrame for Df {
             Column::new(
                 "i64",
                 DataType::I64,
-                Box::new(self.i64s.iter().copied().map(ValueView::I64)),
+                Box::new(self.i64s.iter().map(ValueView::from)),
             ),
             Column::new(
                 "str",
@@ -68,13 +68,13 @@ async fn main() {
         DummySectionChannel::new(),
     ));
     let df = Df {
-        i64s: vec![1, 2, 3],
+        i64s: vec![Value::I64(1), Value::Null, Value::I64(3)],
         strs: vec!["one", "two", "three"]
             .into_iter()
             .map(Into::into)
             .collect(),
         anys: vec![Value::I64(1), Value::Str("hello".into()), Value::Null],
     };
-    tx.send(Box::new(Msg{ inner: Some(df) })).await.unwrap();
+    tx.send(Box::new(Msg { inner: Some(df) })).await.unwrap();
     handle.await.ok();
 }

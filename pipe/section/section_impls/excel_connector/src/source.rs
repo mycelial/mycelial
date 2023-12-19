@@ -176,12 +176,13 @@ impl Excel {
                         x.as_datetime()
                             .unwrap()
                             .format("%Y-%m-%d %H:%M:%S")
-                            .to_string(),
+                            .to_string()
+                            .into()
                     ),
                     ExcelDataType::Duration(f) => Value::F64(*f),
-                    ExcelDataType::DateTimeIso(d) => Value::from(d.to_string()),
-                    ExcelDataType::DurationIso(d) => Value::from(d.to_string()),
-                    ExcelDataType::Error(e) => Value::from(e.to_string()),
+                    ExcelDataType::DateTimeIso(d) => Value::Str(d.as_str().into()),
+                    ExcelDataType::DurationIso(d) => Value::Str(d.as_str().into()),
+                    ExcelDataType::Error(e) => Value::Str(e.to_string().into()),
                     ExcelDataType::Empty => Value::Null,
                 };
                 values[index].push(y);
