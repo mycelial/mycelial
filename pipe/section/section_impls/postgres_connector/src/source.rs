@@ -139,7 +139,7 @@ impl Postgres {
                         "date" => DataType::Date,
                         "time without time zone" => DataType::Time,
                         "json" => DataType::RawJson,
-                        "jsonb" => DataType::RawJsonB,
+                        "jsonb" => DataType::RawJson,
                         "money" => DataType::Decimal,
                         "numeric" => DataType::Decimal,
                         "time with time zone" => DataType::Str, // legacy type

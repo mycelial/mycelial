@@ -170,18 +170,19 @@ impl Excel {
                 let y = match x {
                     ExcelDataType::Int(v) => Value::I64(*v),
                     ExcelDataType::Float(f) => Value::F64(*f),
-                    ExcelDataType::String(s) => Value::Str(s.to_string()),
+                    ExcelDataType::String(s) => Value::Str(s.as_str().into()),
                     ExcelDataType::Bool(b) => Value::Bool(*b),
                     ExcelDataType::DateTime(_) => Value::Str( // todo: do we have a datetime format rather than string?
                         x.as_datetime()
                             .unwrap()
                             .format("%Y-%m-%d %H:%M:%S")
-                            .to_string(),
+                            .to_string()
+                            .into()
                     ),
                     ExcelDataType::Duration(f) => Value::F64(*f),
-                    ExcelDataType::DateTimeIso(d) => Value::Str(d.to_string()),
-                    ExcelDataType::DurationIso(d) => Value::Str(d.to_string()),
-                    ExcelDataType::Error(e) => Value::Str(e.to_string()),
+                    ExcelDataType::DateTimeIso(d) => Value::Str(d.as_str().into()),
+                    ExcelDataType::DurationIso(d) => Value::Str(d.as_str().into()),
+                    ExcelDataType::Error(e) => Value::Str(e.to_string().into()),
                     ExcelDataType::Empty => Value::Null,
                 };
                 values[index].push(y);

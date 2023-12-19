@@ -36,7 +36,6 @@ pub enum DataType {
     Decimal,
     Uuid,
     RawJson,
-    RawJsonB,
     Any, // any of above
 }
 
@@ -65,7 +64,6 @@ impl Into<i8> for DataType {
             Self::Decimal => 19,
             Self::Uuid => 20,
             Self::RawJson => 21,
-            Self::RawJsonB => 22,
             Self::Any => 127,
         }
     }
@@ -96,7 +94,6 @@ impl From<i8> for DataType {
             19 => Self::Decimal,
             20 => Self::Uuid,
             21 => Self::RawJson,
-            22 => Self::RawJsonB,
             127 => Self::Any,
             value => panic!("unexpected value: {}", value),
         }

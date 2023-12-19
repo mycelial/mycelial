@@ -64,7 +64,6 @@ impl Postgres {
                             .map(|(pos, col)|  {
                                 let suffix = match col.data_type() {
                                     DataType::RawJson => "::json",
-                                    DataType::RawJsonB => "::jsonb",
                                     _ => "",
                                 };
                                 format!("${}{}", pos + 1, suffix)

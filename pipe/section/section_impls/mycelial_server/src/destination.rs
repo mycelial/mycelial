@@ -437,8 +437,6 @@ fn df_to_recordbatch(df: Box<dyn DataFrame>) -> Result<RecordBatch, SectionError
             DataType::Any => {
                 let name = name.to_string();
                 let (type_ids, fields, union_array) = to_union_array(column)?;
-                println!("union_array: {:?}", union_array.type_ids());
-                println!("type_ids: {:?}", union_array.type_ids());
                 let dt = ArrowDataType::Union(
                     UnionFields::new(type_ids, fields),
                     UnionMode::Dense,
@@ -474,9 +472,9 @@ impl Mycelial {
         mut section_chan: SectionChan,
     ) -> Result<(), SectionError>
     where
-        Input: Stream<Item = SectionMessage> + Send + 'static,
-        Output: Sink<SectionMessage, Error = SectionError> + Send + 'static,
-        SectionChan: SectionChannel + Send + Sync + 'static,
+        Input: Stream<Item = SectionMessage> + Send,
+        Output: Sink<SectionMessage, Error = SectionError> + Send,
+        SectionChan: SectionChannel,
     {
         let mut input = pin!(input.fuse());
         let client = &mut reqwest::Client::new();
@@ -497,18 +495,11 @@ impl Mycelial {
                     let ack = msg.ack();
                     let msg_stream: MessageStream = msg.into();
                     let msg_stream = msg_stream
-                        .enumerate()
-                        .map(|(pos, res)| {
-                            match res {
-                                Ok(r) => Ok((pos, r)),
-                                Err(e) => Err(e)
-                            }
-                        })
-                        .map_ok(|(_pos, chunk)| {
+                        .map_ok(|chunk| {
                             match chunk {
                                 Chunk::DataFrame(df) => {
                                     // FIXME: unwrap unwrap unwrap
-                                    let rb = df_to_recordbatch(df).map_err(|e| println!("err: {:#?}", e)).unwrap();
+                                    let rb = df_to_recordbatch(df).unwrap();
                                     let mut stream_writer: StreamWriter<_> = StreamWriter::try_new(vec![], rb.schema().as_ref()).unwrap();
                                     stream_writer.write(&rb).unwrap();
                                     stream_writer.finish().unwrap();
@@ -545,9 +536,8 @@ impl<Input, Output, SectionChan> Section<Input, Output, SectionChan> for Mycelia
 where
     Input: Stream<Item = SectionMessage> + Send + 'static,
     Output: Sink<SectionMessage, Error = SectionError> + Send + 'static,
-    SectionChan: SectionChannel + Send + Sync + 'static,
+    SectionChan: SectionChannel,
 {
-    // FIXME: define proper error
     type Error = SectionError;
     type Future = SectionFuture;
 

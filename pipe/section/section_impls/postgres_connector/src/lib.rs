@@ -119,7 +119,6 @@ pub fn generate_schema(table_name: &str, df: &dyn DataFrame) -> Result<String, S
                 DataType::F64 => "DOUBLE PRECISION",
                 DataType::Decimal => "NUMERIC",
                 DataType::RawJson => "JSON",
-                DataType::RawJsonB => "JSONB",
                 DataType::Str => "TEXT",
                 DataType::Bin => "BYTEA",
                 DataType::Time => "TIME",
