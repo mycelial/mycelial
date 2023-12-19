@@ -1,39 +1,75 @@
-use chrono::NaiveDateTime;
-use section::Message as _Message;
+use section::message::{Ack, Chunk, Column, DataFrame, Message, Value};
 use std::{fmt::Display, sync::Arc};
 
 pub mod source;
 
-type StdError = Box<dyn std::error::Error + Send + Sync + 'static>;
-pub type Message = _Message<ExcelPayload>;
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct ExcelPayload {
-    /// column names
-    pub columns: Arc<[String]>,
-
-    /// column types
-    pub column_types: Arc<[ColumnType]>,
-
-    /// values
-    pub values: Vec<Vec<Value>>,
-
-    /// offset
-    pub offset: i64,
+#[derive(Debug)]
+pub(crate) struct Sheet {
+    pub name: Arc<str>,
+    pub columns: Arc<[TableColumn]>,
 }
 
-// FIXME: numeric?
-// redo whole value enum?
-#[derive(Debug, Clone, PartialEq, Default)]
-pub enum Value {
-    Int(i64),
-    Text(String),
-    Blob(Vec<u8>),
-    Real(f64),
-    Bool(bool),
-    DateTime(NaiveDateTime),
-    #[default]
-    Null,
+#[derive(Debug)]
+pub(crate) struct TableColumn {
+    name: Arc<str>,
+}
+
+#[derive(Debug)]
+pub(crate) struct ExcelPayload {
+    columns: Arc<[TableColumn]>,
+    values: Vec<Vec<Value>>,
+}
+
+impl DataFrame for ExcelPayload {
+    fn columns(&self) -> Vec<Column<'_>> {
+        self.columns
+            .iter()
+            .zip(self.values.iter())
+            .map(|(col, column)| {
+                Column::new(col.name.as_ref(), Box::new(column.iter().map(Into::into)))
+            })
+            .collect()
+    }
+}
+
+pub struct ExcelMessage {
+    origin: Arc<str>,
+    payload: Option<Box<dyn DataFrame>>,
+    ack: Option<Ack>,
+}
+
+impl ExcelMessage {
+    fn new(origin: Arc<str>, payload: ExcelPayload, ack: Option<Ack>) -> Self {
+        Self {
+            origin,
+            payload: Some(Box::new(payload)),
+            ack,
+        }
+    }
+}
+
+impl Message for ExcelMessage {
+    fn origin(&self) -> &str {
+        self.origin.as_ref()
+    }
+
+    fn next(&mut self) -> section::message::Next<'_> {
+        let v = self.payload.take().map(Chunk::DataFrame);
+        Box::pin(async move { Ok(v) })
+    }
+
+    fn ack(&mut self) -> section::message::Ack {
+        self.ack.take().unwrap_or(Box::pin(async {}))
+    }
+}
+
+impl std::fmt::Debug for ExcelMessage {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ExcelMessage")
+            .field("origin", &self.origin)
+            .field("payload", &self.payload)
+            .finish()
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]

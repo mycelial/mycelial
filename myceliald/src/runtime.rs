@@ -37,9 +37,12 @@ fn setup_registry<S: SectionChannel>() -> Registry<S> {
             "sqlite_connector_source",
             constructors::sqlite_connector::source_ctor,
         ),
+        (
+            "excel_connector_source",
+            constructors::excel_connector::source_ctor,
+        ),
         ("postgres_connector_destination", constructors::postgres_connector::destination_ctor),
         ("postgres_connector_source", constructors::postgres_connector::source_ctor),
-        //("excel_connector_source", excel_connector::source::constructor),
         //("kafka_destination", kafka::destination::constructor),
         //("mycelial_server_destination", mycelial_server::destination::constructor),
         //("mycelial_server_source", mycelial_server::source::constructor),

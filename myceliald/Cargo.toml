@@ -25,8 +25,8 @@ section = { version = "0.2", path = "../pipe/section/" }
 ##
 hello_world = { path = "../pipe/section/section_impls/hello_world/" }
 sqlite_connector = { path = "../pipe/section/section_impls/sqlite_connector/" }
+excel_connector = { path = "../pipe/section/section_impls/excel_connector/" }
 postgres_connector = { path = "../pipe/section/section_impls/postgres_connector/" }
-#excel_connector = { path = "../pipe/section/section_impls/excel_connector/" }
 #kafka = { path = "../pipe/section/section_impls/kafka/" }
 #mycelial_server = { path = "../pipe/section/section_impls/mycelial_server/" }
 #mysql_connector = { path = "../pipe/section/section_impls/mysql_connector/" }

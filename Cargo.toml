@@ -8,6 +8,7 @@ members = [
     #"pipe/section/section_impls/*"
     "pipe/section/section_impls/hello_world",
     "pipe/section/section_impls/sqlite_connector",
+    "pipe/section/section_impls/excel_connector",
     "pipe/section/section_impls/postgres_connector",
     "pipe/section/section_impls/mycelial_server",
 ]

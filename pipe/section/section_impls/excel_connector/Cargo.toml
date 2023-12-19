@@ -6,7 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-section = { path = "../../" }
+section = { version = "0.2", path = "../../" }
 notify = { version = "6", default-features = false, features = ["macos_kqueue"] }
 futures = "0.3"
 tokio = { version = "1", features=["full"] }
@@ -14,9 +14,9 @@ tokio-stream = "0.1"
 calamine = {version = "0.22.1", features=["dates"]}
 chrono = "0.4.31"
 glob = "0.3.1"
+globset = "0.4.14"
 
 [dev-dependencies]
 tempfile = "3.8"
 stub = { path = "../stub/" }
-section = { path = "../../", features=["dummy"] }
 tokio-util = "0.7"
