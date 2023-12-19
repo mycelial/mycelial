@@ -1,6 +1,9 @@
 use std::time::Duration;
 
-use pipe::{config::{Map, Value}, types::DynSection};
+use pipe::{
+    config::{Map, Value},
+    types::DynSection,
+};
 use section::{command_channel::SectionChannel, SectionError};
 
 /// constructor for postgres source
@@ -35,10 +38,13 @@ pub fn source_ctor<S: SectionChannel>(
         .map(|x| x.trim())
         .filter(|x| !x.is_empty())
         .collect::<Vec<&str>>();
-    let poll_interval = match config.get("poll_interval").ok_or("postgres source requires poll interval")? {
+    let poll_interval = match config
+        .get("poll_interval")
+        .ok_or("postgres source requires poll interval")?
+    {
         Value::String(v) => v.parse()?,
         Value::Int(i) => (*i) as _,
-        _ => Err("poll_interval should be integer")?
+        _ => Err("poll_interval should be integer")?,
     };
     Ok(Box::new(postgres_connector::source::Postgres::new(
         url,
@@ -63,5 +69,7 @@ pub fn destination_ctor<S: SectionChannel>(
         .ok_or("postgres destination section requires 'url'")?
         .as_str()
         .ok_or("path should be string")?;
-    Ok(Box::new(postgres_connector::destination::Postgres::new(url)))
+    Ok(Box::new(postgres_connector::destination::Postgres::new(
+        url,
+    )))
 }

@@ -1,6 +1,7 @@
 use arrow::{
     ipc::{reader::StreamReader, writer::StreamWriter},
-    record_batch::RecordBatch, util::pretty::pretty_format_batches,
+    record_batch::RecordBatch,
+    util::pretty::pretty_format_batches,
 };
 use axum::{
     extract::{BodyStream, State},
@@ -25,7 +26,7 @@ use serde_json::json;
 use sqlx::{
     sqlite::SqliteConnectOptions, sqlite::SqliteRow, ConnectOptions, FromRow, Row, SqliteConnection,
 };
-use std::{net::SocketAddr, path::Path, io::Cursor};
+use std::{io::Cursor, net::SocketAddr, path::Path};
 use std::{str::FromStr, sync::Arc};
 use tokio::sync::Mutex;
 use uuid::Uuid;
@@ -96,7 +97,10 @@ async fn ingestion(
             app.database
                 .store_record(&topic, origin, &record_batch)
                 .await?;
-            println!("arrow record batch:\n{}", pretty_format_batches(&[record_batch]).unwrap());
+            println!(
+                "arrow record batch:\n{}",
+                pretty_format_batches(&[record_batch]).unwrap()
+            );
         }
     }
     Ok(Json("ok"))

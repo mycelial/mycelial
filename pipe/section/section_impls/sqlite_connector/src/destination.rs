@@ -91,7 +91,6 @@ impl Sqlite {
                                             ValueView::Time(t) => query.bind(t.to_string()),
                                             ValueView::Date(t) => query.bind(t.to_string()),
                                             ValueView::TimeStamp(t) => query.bind(t.to_string()),
-                                            ValueView::TimeStampTz(t) => query.bind(t.to_string()),
                                             ValueView::Decimal(d) => query.bind(d.to_string()),
                                             ValueView::Uuid(u) => query.bind(u.to_string()),
                                             ValueView::Null => query.bind(Option::<&str>::None),
