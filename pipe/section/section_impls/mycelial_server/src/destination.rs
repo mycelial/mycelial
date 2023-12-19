@@ -3,17 +3,18 @@
 //! network section, dumps incoming messages to provided http endpoint
 use arrow::{
     array::{
-        ArrayBuilder, ArrayRef, BinaryArray, BinaryBuilder, BooleanBuilder, Date64Builder,
-        Decimal128Builder, Float32Array, Float32Builder, Float64Array, Float64Builder, Int16Array,
-        Int16Builder, Int32Array, Int32Builder, Int64Array, Int64Builder, Int8Array, Int8Builder,
-        NullBuilder, StringArray, StringBuilder, Time64MicrosecondBuilder,
+        ArrayBuilder, ArrayRef, BinaryArray, BinaryBuilder, BooleanArray, BooleanBuilder,
+        Date64Array, Date64Builder, Decimal128Array, Decimal128Builder, Float32Array,
+        Float32Builder, Float64Array, Float64Builder, Int16Array, Int16Builder, Int32Array,
+        Int32Builder, Int64Array, Int64Builder, Int8Array, Int8Builder, NullBuilder, StringArray,
+        StringBuilder, Time64MicrosecondArray, Time64MicrosecondBuilder, TimestampMicrosecondArray,
         TimestampMicrosecondBuilder, UInt16Array, UInt16Builder, UInt32Array, UInt32Builder,
-        UInt64Array, UInt64Builder, UInt8Array, UInt8Builder, UnionArray, BooleanArray, Decimal128Array, Time64MicrosecondArray, Date64Array, TimestampMicrosecondArray,
+        UInt64Array, UInt64Builder, UInt8Array, UInt8Builder, UnionArray,
     },
     buffer::Buffer,
     datatypes::{
         DataType as ArrowDataType, Field, Schema, TimeUnit, UnionFields, UnionMode,
-        DECIMAL_DEFAULT_SCALE, DECIMAL128_MAX_PRECISION,
+        DECIMAL128_MAX_PRECISION, DECIMAL_DEFAULT_SCALE,
     },
     ipc::writer::StreamWriter,
     record_batch::RecordBatch,
@@ -22,12 +23,13 @@ use base64::engine::{general_purpose::STANDARD as BASE64, Engine};
 use reqwest::Body;
 use section::{
     command_channel::{Command, SectionChannel},
+    decimal::Decimal,
     futures::{self, FutureExt, Sink, Stream, StreamExt, TryStreamExt},
     message::{Chunk, Column, DataFrame, DataType, MessageStream, ValueView},
     section::Section,
-    SectionError, SectionFuture, SectionMessage, decimal::Decimal,
+    SectionError, SectionFuture, SectionMessage,
 };
-use std::{pin::pin, sync::Arc, collections::HashMap};
+use std::{collections::HashMap, pin::pin, sync::Arc};
 
 #[derive(Debug)]
 pub struct Mycelial {
@@ -464,7 +466,7 @@ fn df_to_recordbatch(df: Box<dyn DataFrame>) -> Result<RecordBatch, SectionError
                     ValueView::Str(s) => Some(s),
                     ValueView::Null => None,
                     _ => panic!("expected string, got: {:?}", val),
-                })))
+                }))),
             ),
             DataType::Bool => (
                 Field::new(name, ArrowDataType::Boolean, true),
@@ -472,15 +474,19 @@ fn df_to_recordbatch(df: Box<dyn DataFrame>) -> Result<RecordBatch, SectionError
                     ValueView::Bool(b) => Some(b),
                     ValueView::Null => None,
                     _ => panic!("expected bool, got: {:?}", val),
-                })))
+                }))),
             ),
             DataType::Decimal => (
-                Field::new(name, ArrowDataType::Decimal128(DECIMAL128_MAX_PRECISION, DECIMAL_DEFAULT_SCALE), true),
+                Field::new(
+                    name,
+                    ArrowDataType::Decimal128(DECIMAL128_MAX_PRECISION, DECIMAL_DEFAULT_SCALE),
+                    true,
+                ),
                 Arc::new(Decimal128Array::from_iter(column.map(|val| match val {
                     ValueView::Decimal(d) => Some(rust_decimal_to_i128(d)),
                     ValueView::Null => None,
                     _ => panic!("expected decimal, got: {:?}", val),
-                })))
+                }))),
             ),
             DataType::Uuid => (
                 Field::new(name, ArrowDataType::Utf8, true),
@@ -488,15 +494,17 @@ fn df_to_recordbatch(df: Box<dyn DataFrame>) -> Result<RecordBatch, SectionError
                     ValueView::Uuid(u) => Some(u.to_string()),
                     ValueView::Null => None,
                     _ => panic!("expected uuid, got: {:?}", val),
-                })))
+                }))),
             ),
             DataType::Time => (
                 Field::new(name, ArrowDataType::Time64(TimeUnit::Nanosecond), true),
-                Arc::new(Time64MicrosecondArray::from_iter(column.map(|val| match val {
-                    ValueView::Time(v) => Some(v),
-                    ValueView::Null => None,
-                    _ => panic!("expected time, got: {:?}", val),
-                })))
+                Arc::new(Time64MicrosecondArray::from_iter(column.map(
+                    |val| match val {
+                        ValueView::Time(v) => Some(v),
+                        ValueView::Null => None,
+                        _ => panic!("expected time, got: {:?}", val),
+                    },
+                ))),
             ),
             DataType::Date => (
                 Field::new(name, ArrowDataType::Date64, true),
@@ -504,15 +512,21 @@ fn df_to_recordbatch(df: Box<dyn DataFrame>) -> Result<RecordBatch, SectionError
                     ValueView::Date(d) => Some(d / 1000), // micros to millis
                     ValueView::Null => None,
                     _ => panic!("expected date, got: {:?}", val),
-                })))
+                }))),
             ),
             DataType::TimeStamp => (
-                Field::new(name, ArrowDataType::Timestamp(TimeUnit::Nanosecond, None), true),
-                Arc::new(TimestampMicrosecondArray::from_iter(column.map(|val| match val {
-                    ValueView::TimeStamp(v) => Some(v),
-                    ValueView::Null => None,
-                    _ => panic!("expected timestamp, got: {:?}", val),
-                })))
+                Field::new(
+                    name,
+                    ArrowDataType::Timestamp(TimeUnit::Nanosecond, None),
+                    true,
+                ),
+                Arc::new(TimestampMicrosecondArray::from_iter(column.map(
+                    |val| match val {
+                        ValueView::TimeStamp(v) => Some(v),
+                        ValueView::Null => None,
+                        _ => panic!("expected timestamp, got: {:?}", val),
+                    },
+                ))),
             ),
             DataType::Any => {
                 let name = name.to_string();
