@@ -1,5 +1,5 @@
 use section::{
-    message::{Chunk, Column, DataFrame, Message, ValueView},
+    message::{Chunk, Column, DataFrame, DataType, Message, ValueView},
     SectionMessage,
 };
 
@@ -16,6 +16,7 @@ impl DataFrame for HelloWorldPayload {
     fn columns(&self) -> Vec<section::message::Column<'_>> {
         vec![Column::new(
             "message",
+            DataType::Str,
             Box::new(std::iter::once(ValueView::from(&self.message))),
         )]
     }

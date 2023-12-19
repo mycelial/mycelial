@@ -82,7 +82,7 @@ pub fn pretty_print(df: &dyn DataFrame) -> String {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::message::{Column, DataFrame, ValueView};
+    use crate::message::{Column, DataFrame, ValueView, DataType};
 
     #[derive(Debug)]
     pub struct Values {
@@ -95,10 +95,12 @@ mod test {
             vec![
                 Column::new(
                     "ints",
+                    DataType::I64,
                     Box::new(self.ints.iter().map(|&x| ValueView::I64(x))),
                 ),
                 Column::new(
                     "strings",
+                    DataType::Str,
                     Box::new(self.strings.iter().map(|s| ValueView::Str(s.as_str()))),
                 ),
             ]
