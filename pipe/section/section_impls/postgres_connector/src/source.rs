@@ -1,3 +1,4 @@
+use chrono::{DateTime, NaiveDate, NaiveDateTime, NaiveTime, Timelike, Utc};
 use section::{
     command_channel::{Command, SectionChannel},
     decimal,
@@ -14,7 +15,6 @@ use sqlx::{
     types::{Json, JsonRawValue},
     Column, ConnectOptions, Row, TypeInfo, Value as _, ValueRef,
 };
-use chrono::{NaiveDate, NaiveTime, NaiveDateTime, Utc, DateTime, Timelike};
 use std::sync::Arc;
 use std::time::Duration;
 use std::{pin::pin, str::FromStr};
@@ -198,17 +198,18 @@ impl Postgres {
                             "CHAR" | "VARCHAR" | "TEXT" => {
                                 pg_value.try_decode::<Option<String>>()?.map(Value::from)
                             }
-                            "DATE" => pg_value
-                                .try_decode::<Option<NaiveDate>>()?
-                                .map(|v| Value::Date(v.and_hms_opt(0, 0, 0).unwrap().timestamp_micros())),
-                            "TIME" => pg_value
-                                .try_decode::<Option<NaiveTime>>()?
-                                .map(|v| {
-                                    let micros = NaiveDateTime::from_timestamp_opt(
-                                        v.num_seconds_from_midnight() as _, v.nanosecond()
-                                    ).unwrap().timestamp_micros();
-                                    Value::Time(micros)
-                                }),
+                            "DATE" => pg_value.try_decode::<Option<NaiveDate>>()?.map(|v| {
+                                Value::Date(v.and_hms_opt(0, 0, 0).unwrap().timestamp_micros())
+                            }),
+                            "TIME" => pg_value.try_decode::<Option<NaiveTime>>()?.map(|v| {
+                                let micros = NaiveDateTime::from_timestamp_opt(
+                                    v.num_seconds_from_midnight() as _,
+                                    v.nanosecond(),
+                                )
+                                .unwrap()
+                                .timestamp_micros();
+                                Value::Time(micros)
+                            }),
                             "TIMETZ" => pg_value
                                 .try_decode::<Option<PgTimeTz>>()?
                                 .map(|v| format!("{} {}", v.time, v.offset).into()),

@@ -37,30 +37,30 @@ pub enum DataType {
     Any, // any of above
 }
 
-impl Into<i8> for DataType {
-    fn into(self) -> i8 {
-        match self {
-            Self::Null => 0,
-            Self::Bool => 1,
-            Self::I8 => 2,
-            Self::I16 => 3,
-            Self::I32 => 4,
-            Self::I64 => 5,
-            Self::U8 => 6,
-            Self::U16 => 7,
-            Self::U32 => 8,
-            Self::U64 => 9,
-            Self::F32 => 10,
-            Self::F64 => 11,
-            Self::Str => 12,
-            Self::Bin => 13,
-            Self::Time => 14,
-            Self::Date => 15,
-            Self::TimeStamp => 16,
-            Self::Decimal => 17,
-            Self::Uuid => 18,
-            Self::RawJson => 19,
-            Self::Any => 127,
+impl From<DataType> for i8 {
+    fn from(value: DataType) -> i8 {
+        match value {
+            DataType::Null => 0,
+            DataType::Bool => 1,
+            DataType::I8 => 2,
+            DataType::I16 => 3,
+            DataType::I32 => 4,
+            DataType::I64 => 5,
+            DataType::U8 => 6,
+            DataType::U16 => 7,
+            DataType::U32 => 8,
+            DataType::U64 => 9,
+            DataType::F32 => 10,
+            DataType::F64 => 11,
+            DataType::Str => 12,
+            DataType::Bin => 13,
+            DataType::Time => 14,
+            DataType::Date => 15,
+            DataType::TimeStamp => 16,
+            DataType::Decimal => 17,
+            DataType::Uuid => 18,
+            DataType::RawJson => 19,
+            DataType::Any => 127,
         }
     }
 }

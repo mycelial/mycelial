@@ -1,4 +1,4 @@
-use chrono::{NaiveDate, NaiveTime, DateTime, Utc, NaiveDateTime};
+use chrono::{DateTime, NaiveDateTime, Utc};
 use section::{
     command_channel::{Command, SectionChannel},
     futures::{self, FutureExt, Sink, Stream, StreamExt},
@@ -91,7 +91,7 @@ impl Postgres {
                                     ValueView::Bool(b) => query.bind(b),
                                     ValueView::Time(us) => query.bind(NaiveDateTime::from_timestamp_micros(us).unwrap().time()),
                                     ValueView::Date(us) => query.bind(NaiveDateTime::from_timestamp_micros(us).unwrap().date()),
-                                    ValueView::TimeStamp(us) => query.bind(DateTime::<Utc>::from_timestamp(us / 1000_000, (us % 1000_000 * 1000) as _).unwrap()),
+                                    ValueView::TimeStamp(us) => query.bind(DateTime::<Utc>::from_timestamp(us / 1_000_000, (us % 1_000_000 * 1000) as _).unwrap()),
                                     ValueView::Decimal(d) => query.bind(d),
                                     ValueView::Uuid(u) => query.bind(u),
                                     ValueView::Null => query.bind(Option::<&str>::None),
