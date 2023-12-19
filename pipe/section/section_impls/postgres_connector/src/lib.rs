@@ -122,10 +122,8 @@ pub fn generate_schema(table_name: &str, df: &dyn DataFrame) -> Result<String, S
                 DataType::Str => "TEXT",
                 DataType::Bin => "BYTEA",
                 DataType::Time => "TIME",
-                DataType::TimeTz => "TIMETZ",
                 DataType::Date => "DATE",
-                DataType::TimeStamp => "TIMESTAMP",
-                DataType::TimeStampTz => "TIMESTAMPTZ",
+                DataType::TimeStamp => "TIMESTAMPTZ",
                 DataType::Uuid => "UUID",
                 v => return Err(format!("unsupported type {v:?}")),
             };

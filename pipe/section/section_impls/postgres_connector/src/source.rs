@@ -4,7 +4,7 @@ use section::{
     futures::{self, FutureExt, Sink, SinkExt, Stream, StreamExt},
     message::{DataType, Value},
     section::Section,
-    time, uuid, SectionError, SectionFuture, SectionMessage,
+    uuid, SectionError, SectionFuture, SectionMessage,
 };
 use sqlx::{
     postgres::{
@@ -14,7 +14,7 @@ use sqlx::{
     types::{Json, JsonRawValue},
     Column, ConnectOptions, Row, TypeInfo, Value as _, ValueRef,
 };
-
+use chrono::{NaiveDate, NaiveTime, NaiveDateTime, Utc, DateTime, Timelike};
 use std::sync::Arc;
 use std::time::Duration;
 use std::{pin::pin, str::FromStr};
@@ -144,7 +144,7 @@ impl Postgres {
                         "numeric" => DataType::Decimal,
                         "time with time zone" => DataType::Str, // legacy type
                         "timestamp without time zone" => DataType::TimeStamp,
-                        "timestamp with time zone" => DataType::TimeStampTz,
+                        "timestamp with time zone" => DataType::TimeStamp,
                         "uuid" => DataType::Uuid,
                         ty => unimplemented!("unsupported column type '{}' for column '{}' in table '{}'", ty, col_name, name)
                     };
@@ -199,20 +199,25 @@ impl Postgres {
                                 pg_value.try_decode::<Option<String>>()?.map(Value::from)
                             }
                             "DATE" => pg_value
-                                .try_decode::<Option<time::Date>>()?
-                                .map(Value::Date),
+                                .try_decode::<Option<NaiveDate>>()?
+                                .map(|v| Value::Date(v.and_hms_opt(0, 0, 0).unwrap().timestamp_micros())),
                             "TIME" => pg_value
-                                .try_decode::<Option<time::Time>>()?
-                                .map(Value::Time),
+                                .try_decode::<Option<NaiveTime>>()?
+                                .map(|v| {
+                                    let micros = NaiveDateTime::from_timestamp_opt(
+                                        v.num_seconds_from_midnight() as _, v.nanosecond()
+                                    ).unwrap().timestamp_micros();
+                                    Value::Time(micros)
+                                }),
                             "TIMETZ" => pg_value
                                 .try_decode::<Option<PgTimeTz>>()?
                                 .map(|v| format!("{} {}", v.time, v.offset).into()),
                             "TIMESTAMP" => pg_value
-                                .try_decode::<Option<time::PrimitiveDateTime>>()?
-                                .map(Value::TimeStamp),
+                                .try_decode::<Option<NaiveDateTime>>()?
+                                .map(|v| Value::TimeStamp(v.timestamp_micros())),
                             "TIMESTAMPTZ" => pg_value
-                                .try_decode::<Option<time::OffsetDateTime>>()?
-                                .map(Value::TimeStampTz),
+                                .try_decode::<Option<DateTime<Utc>>>()?
+                                .map(|v| Value::TimeStamp(v.timestamp_micros())),
                             "FLOAT4" => pg_value.try_decode::<Option<f32>>()?.map(Value::F32),
                             "FLOAT8" => pg_value.try_decode::<Option<f64>>()?.map(Value::F64),
                             "JSON" => pg_value

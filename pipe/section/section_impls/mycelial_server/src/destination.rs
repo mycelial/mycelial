@@ -6,10 +6,10 @@ use arrow::{
         ArrayBuilder, ArrayRef, BinaryArray, BinaryBuilder, BooleanBuilder, Float32Array,
         Float32Builder, Float64Array, Float64Builder, Int16Array, Int16Builder, Int32Array,
         Int32Builder, Int64Array, Int64Builder, Int8Array, Int8Builder, NullBuilder, StringArray,
-        StringBuilder, Time64NanosecondBuilder, UInt16Array, UInt16Builder, UInt32Array,
+        StringBuilder, UInt16Array, UInt16Builder, UInt32Array,
         UInt32Builder, UInt64Array, UInt64Builder, UInt8Array, UInt8Builder, UnionArray,
     },
-    datatypes::{DataType as ArrowDataType, Field, Schema, UnionMode, UnionFields},
+    datatypes::{DataType as ArrowDataType, Field, Schema, UnionMode, UnionFields, TimeUnit},
     error::ArrowError,
     record_batch::RecordBatch, 
     buffer::Buffer, ipc::writer::StreamWriter,
@@ -22,7 +22,6 @@ use section::{
     message::{Chunk, Column, DataFrame, DataType, ValueView, MessageStream},
     pretty_print::pretty_print,
     section::Section,
-    //time::convert::{Hour, Minute, Nanosecond, Second},
     SectionError, SectionFuture, SectionMessage,
 };
 use std::{pin::pin, sync::Arc};
@@ -50,6 +49,9 @@ fn into_arrow_datatype(dt: DataType) -> ArrowDataType {
         DataType::Str => ArrowDataType::Utf8,
         DataType::Bin => ArrowDataType::Binary,
         DataType::Bool => ArrowDataType::Boolean,
+        DataType::Time => ArrowDataType::Time64(TimeUnit::Nanosecond),
+        DataType::Date => ArrowDataType::Date64,
+        DataType::TimeStamp => ArrowDataType::Timestamp(TimeUnit::Millisecond, None),
         DataType::Null => ArrowDataType::Null,
         _ => unimplemented!("{:?}", dt),
     }

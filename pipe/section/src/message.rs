@@ -29,10 +29,8 @@ pub enum DataType {
     Str,
     Bin,
     Time,
-    TimeTz,
     Date,
     TimeStamp,
-    TimeStampTz,
     Decimal,
     Uuid,
     RawJson,
@@ -57,13 +55,11 @@ impl Into<i8> for DataType {
             Self::Str => 12,
             Self::Bin => 13,
             Self::Time => 14,
-            Self::TimeTz => 15,
-            Self::Date => 16,
-            Self::TimeStamp => 17,
-            Self::TimeStampTz => 18,
-            Self::Decimal => 19,
-            Self::Uuid => 20,
-            Self::RawJson => 21,
+            Self::Date => 15,
+            Self::TimeStamp => 16,
+            Self::Decimal => 17,
+            Self::Uuid => 18,
+            Self::RawJson => 19,
             Self::Any => 127,
         }
     }
@@ -87,13 +83,11 @@ impl From<i8> for DataType {
             12 => Self::Str,
             13 => Self::Bin,
             14 => Self::Time,
-            15 => Self::TimeTz,
-            16 => Self::Date,
-            17 => Self::TimeStamp,
-            18 => Self::TimeStampTz,
-            19 => Self::Decimal,
-            20 => Self::Uuid,
-            21 => Self::RawJson,
+            15 => Self::Date,
+            16 => Self::TimeStamp,
+            17 => Self::Decimal,
+            18 => Self::Uuid,
+            19 => Self::RawJson,
             127 => Self::Any,
             value => panic!("unexpected value: {}", value),
         }
@@ -117,11 +111,12 @@ pub enum Value {
     F64(f64),
     Str(Box<str>),
     Bin(Box<[u8]>),
-    Time(crate::time::Time),
-    TimeTz(Box<str>),
-    Date(crate::time::Date),
-    TimeStamp(crate::time::PrimitiveDateTime),
-    TimeStampTz(crate::time::OffsetDateTime),
+    // Time since midnight in microseconds
+    Time(i64),
+    // Unix time in microseconds
+    Date(i64),
+    // Unix time in microseconds
+    TimeStamp(i64),
     Decimal(crate::decimal::Decimal),
     Uuid(crate::uuid::Uuid),
 }
@@ -155,11 +150,9 @@ pub enum ValueView<'a> {
     F64(f64),
     Str(&'a str),
     Bin(&'a [u8]),
-    Time(&'a time::Time),
-    TimeTz(&'a str),
-    Date(&'a time::Date),
-    TimeStamp(&'a time::PrimitiveDateTime),
-    TimeStampTz(&'a time::OffsetDateTime),
+    Time(i64),
+    Date(i64),
+    TimeStamp(i64),
     Decimal(&'a rust_decimal::Decimal),
     Uuid(&'a uuid::Uuid),
 }
@@ -182,10 +175,8 @@ impl ValueView<'_> {
             Self::Str(_) => DataType::Str,
             Self::Bin(_) => DataType::Bin,
             Self::Time(_) => DataType::Time,
-            Self::TimeTz(_) => DataType::TimeTz,
             Self::Date(_) => DataType::Date,
             Self::TimeStamp(_) => DataType::TimeStamp,
-            Self::TimeStampTz(_) => DataType::TimeStampTz,
             Self::Decimal(_) => DataType::Decimal,
             Self::Uuid(_) => DataType::Uuid,
         }
@@ -209,11 +200,9 @@ impl<'a> PartialEq<Value> for ValueView<'a> {
             (&Self::F64(l), &Value::F64(r)) => l == r,
             (&Self::Str(l), Value::Str(r)) => l == r.as_ref(),
             (&Self::Bin(l), Value::Bin(r)) => l == r.as_ref(),
-            (&Self::Time(l), Value::Time(r)) => l == r,
-            (&Self::TimeTz(l), Value::TimeTz(r)) => l == r.as_ref(),
-            (&Self::Date(l), Value::Date(r)) => l == r,
-            (&Self::TimeStamp(l), Value::TimeStamp(r)) => l == r,
-            (&Self::TimeStampTz(l), Value::TimeStampTz(r)) => l == r,
+            (&Self::Time(l), &Value::Time(r)) => l == r,
+            (&Self::Date(l), &Value::Date(r)) => l == r,
+            (&Self::TimeStamp(l), &Value::TimeStamp(r)) => l == r,
             (&Self::Decimal(l), Value::Decimal(r)) => l == r,
             (&Self::Uuid(l), Value::Uuid(r)) => l == r,
             _ => false,
@@ -238,11 +227,9 @@ impl<'a> From<&'a Value> for ValueView<'a> {
             Value::F64(v) => Self::F64(*v),
             Value::Str(v) => Self::Str(v),
             Value::Bin(v) => Self::Bin(v),
-            Value::Time(v) => Self::Time(v),
-            Value::TimeTz(v) => Self::TimeTz(v),
-            Value::Date(v) => Self::Date(v),
-            Value::TimeStamp(v) => Self::TimeStamp(v),
-            Value::TimeStampTz(v) => Self::TimeStampTz(v),
+            Value::Time(v) => Self::Time(*v),
+            Value::Date(v) => Self::Date(*v),
+            Value::TimeStamp(v) => Self::TimeStamp(*v),
             Value::Decimal(v) => Self::Decimal(v),
             Value::Uuid(v) => Self::Uuid(v),
         }
@@ -383,7 +370,7 @@ mod test {
     #[test]
     fn size_datatype_converts() {
         let mut set = HashSet::new();
-        let len = 23;
+        let len = 20;
         for x in (0..len).chain(std::iter::once(127)) {
             let x = x as i8;
             let dt: DataType = x.into();
