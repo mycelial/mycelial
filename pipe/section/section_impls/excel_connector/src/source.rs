@@ -177,7 +177,7 @@ impl Excel {
                         x.as_datetime()
                             .unwrap()
                             .format("%Y-%m-%d %H:%M:%S")
-                            .to_string()
+                            .to_string(),
                     ),
                     ExcelDataType::Duration(f) => Value::F64(*f),
                     ExcelDataType::DateTimeIso(d) => Value::Str(d.as_str().into()),
