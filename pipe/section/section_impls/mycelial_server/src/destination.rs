@@ -53,9 +53,9 @@ fn into_arrow_datatype(dt: DataType) -> ArrowDataType {
         DataType::Str => ArrowDataType::Utf8,
         DataType::Bin => ArrowDataType::Binary,
         DataType::Bool => ArrowDataType::Boolean,
-        DataType::Time => ArrowDataType::Time64(TimeUnit::Nanosecond),
+        DataType::Time => ArrowDataType::Time64(TimeUnit::Microsecond),
         DataType::Date => ArrowDataType::Date64,
-        DataType::TimeStamp => ArrowDataType::Timestamp(TimeUnit::Millisecond, None),
+        DataType::TimeStamp => ArrowDataType::Timestamp(TimeUnit::Microsecond, None),
         DataType::Null => ArrowDataType::Null,
         _ => unimplemented!("{:?}", dt),
     }
@@ -497,7 +497,7 @@ fn df_to_recordbatch(df: Box<dyn DataFrame>) -> Result<RecordBatch, SectionError
                 }))),
             ),
             DataType::Time => (
-                Field::new(name, ArrowDataType::Time64(TimeUnit::Nanosecond), true),
+                Field::new(name, ArrowDataType::Time64(TimeUnit::Microsecond), true),
                 Arc::new(Time64MicrosecondArray::from_iter(column.map(
                     |val| match val {
                         ValueView::Time(v) => Some(v),
@@ -517,7 +517,7 @@ fn df_to_recordbatch(df: Box<dyn DataFrame>) -> Result<RecordBatch, SectionError
             DataType::TimeStamp => (
                 Field::new(
                     name,
-                    ArrowDataType::Timestamp(TimeUnit::Nanosecond, None),
+                    ArrowDataType::Timestamp(TimeUnit::Microsecond, None),
                     true,
                 ),
                 Arc::new(TimestampMicrosecondArray::from_iter(column.map(

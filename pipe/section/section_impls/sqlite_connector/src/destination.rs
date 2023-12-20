@@ -75,13 +75,13 @@ impl Sqlite {
                                             break 'outer;
                                         }
                                         query = match next.unwrap() {
-                                            ValueView::I8(i) => query.bind(i as i64),
-                                            ValueView::I16(i) => query.bind(i as i64),
-                                            ValueView::I32(i) => query.bind(i as i64),
+                                            ValueView::I8(i) => query.bind(i),
+                                            ValueView::I16(i) => query.bind(i),
+                                            ValueView::I32(i) => query.bind(i),
                                             ValueView::I64(i) => query.bind(i),
-                                            ValueView::U8(i) => query.bind(i as i64),
-                                            ValueView::U16(i) => query.bind(i as i64),
-                                            ValueView::U32(i) => query.bind(i as i64),
+                                            ValueView::U8(i) => query.bind(i),
+                                            ValueView::U16(i) => query.bind(i),
+                                            ValueView::U32(i) => query.bind(i),
                                             ValueView::U64(i) => query.bind(i as i64),
                                             ValueView::F32(f) => query.bind(f),
                                             ValueView::F64(f) => query.bind(f),

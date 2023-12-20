@@ -1987,6 +1987,7 @@ dependencies = [
  "hello_world",
  "kafka_connector",
  "log",
+ "mycelial_server",
  "postgres_connector",
  "pretty_env_logger",
  "reqwest",
