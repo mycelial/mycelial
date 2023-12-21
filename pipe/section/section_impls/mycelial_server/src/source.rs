@@ -1,11 +1,11 @@
 //! Mycelial Net
 
 use arrow::{
-    array::{AsArray, as_union_array, Array, UnionArray},
+    array::{as_union_array, Array, AsArray, UnionArray},
     datatypes::{
-        DataType as ArrowDataType, Date64Type, Decimal128Type, Float32Type, Float64Type, Int16Type,
-        Int32Type, Int64Type, Int8Type, Schema, Time64MicrosecondType, TimestampMicrosecondType,
-        UInt16Type, UInt32Type, UInt64Type, UInt8Type, Field,
+        DataType as ArrowDataType, Date64Type, Decimal128Type, Field, Float32Type, Float64Type,
+        Int16Type, Int32Type, Int64Type, Int8Type, Schema, Time64MicrosecondType,
+        TimestampMicrosecondType, UInt16Type, UInt32Type, UInt64Type, UInt8Type, UnionFields,
     },
     ipc::reader::StreamReader,
     record_batch::RecordBatch as ArrowRecordBatch,
@@ -23,7 +23,7 @@ use section::{
 use tokio::time::{Instant, Interval};
 
 use base64::engine::{general_purpose::STANDARD as BASE64, Engine};
-use std::{time::Duration, collections::HashMap};
+use std::{collections::HashMap, time::Duration};
 use std::{
     io::Cursor,
     pin::{pin, Pin},
@@ -49,8 +49,12 @@ struct RecordBatch {
     schema: Arc<Schema>,
 }
 
-fn union_array_to_iter<'a>(array: &'a UnionArray) -> Box<dyn Iterator<Item=ValueView> + Send + 'a> {
+fn union_array_to_iter<'a>(
+    union_fields: &'a UnionFields,
+    array: &'a UnionArray,
+) -> Box<dyn Iterator<Item = ValueView<'a>> + Send + 'a> {
     let iter = (0..array.len()).map(|index| {
+        let field_map: HashMap<i8, &Arc<Field>> = union_fields.iter().collect();
         let type_id = array.type_id(index);
         let value_offset = array.value_offset(index);
         let child = array.child(type_id);
@@ -64,9 +68,40 @@ fn union_array_to_iter<'a>(array: &'a UnionArray) -> Box<dyn Iterator<Item=Value
             DataType::U16 => ValueView::U16(child.as_primitive::<UInt16Type>().value(value_offset)),
             DataType::U32 => ValueView::U32(child.as_primitive::<UInt32Type>().value(value_offset)),
             DataType::U64 => ValueView::U64(child.as_primitive::<UInt64Type>().value(value_offset)),
+            DataType::F32 => {
+                ValueView::F32(child.as_primitive::<Float32Type>().value(value_offset))
+            }
+            DataType::F64 => {
+                ValueView::F64(child.as_primitive::<Float64Type>().value(value_offset))
+            }
             DataType::Str => ValueView::Str(child.as_string::<i32>().value(value_offset)),
             DataType::Bin => ValueView::Bin(child.as_binary::<i32>().value(value_offset)),
-            dt => unimplemented!("unimplmented dt: {}", dt)
+            DataType::Decimal => ValueView::Decimal({
+                let d = child.as_primitive::<Decimal128Type>().value(value_offset);
+                let field = *field_map.get(&type_id).unwrap();
+                if let ArrowDataType::Decimal128(_, scale) = field.data_type() {
+                    decimal::Decimal::from_i128_with_scale(d, *scale as _)
+                } else {
+                    panic!(
+                        "expected field data type to be Decimal128, got {:?} instead",
+                        field
+                    )
+                }
+            }),
+            DataType::Time => ValueView::Time(
+                child
+                    .as_primitive::<Time64MicrosecondType>()
+                    .value(value_offset),
+            ),
+            DataType::Date => {
+                ValueView::Time(child.as_primitive::<Date64Type>().value(value_offset))
+            }
+            DataType::TimeStamp => ValueView::TimeStamp(
+                child
+                    .as_primitive::<TimestampMicrosecondType>()
+                    .value(value_offset),
+            ),
+            dt => unimplemented!("unimplemented dt: {}", dt),
         }
     });
     Box::new(iter)
@@ -263,12 +298,10 @@ impl DataFrame for RecordBatch {
                             })),
                         )
                     }
-                    ArrowDataType::Union(_uf, _mode) => {
-                        (
-                            DataType::Any,
-                            union_array_to_iter(as_union_array(column))
-                        )
-                    }
+                    ArrowDataType::Union(uf, _mode) => (
+                        DataType::Any,
+                        union_array_to_iter(uf, as_union_array(column)),
+                    ),
                     dt => panic!("unsupported arrow datatype: {:?}", dt),
                 };
                 Column::new(field.name(), dt, iter)
