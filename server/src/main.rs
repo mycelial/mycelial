@@ -19,7 +19,7 @@ use common::{
     Destination, IssueTokenRequest, IssueTokenResponse, PipeConfig, PipeConfigs,
     ProvisionClientRequest, ProvisionClientResponse, Source,
 };
-use futures::{StreamExt};
+use futures::StreamExt;
 use rust_embed::RustEmbed;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
