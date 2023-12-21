@@ -1,7 +1,6 @@
 use arrow::{
     ipc::{reader::StreamReader, writer::StreamWriter},
     record_batch::RecordBatch,
-    util::pretty::pretty_format_batches,
 };
 use axum::{
     body::StreamBody,
@@ -20,18 +19,15 @@ use common::{
     Destination, IssueTokenRequest, IssueTokenResponse, PipeConfig, PipeConfigs,
     ProvisionClientRequest, ProvisionClientResponse, Source,
 };
-use futures::{stream, StreamExt};
+use futures::{StreamExt};
 use rust_embed::RustEmbed;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use sqlx::{
-    sqlite::SqliteConnectOptions,
-    sqlite::SqliteRow,
-    ConnectOptions, FromRow, Row, SqliteConnection,
-    Sqlite,
-    Transaction, Connection
+    sqlite::SqliteConnectOptions, sqlite::SqliteRow, ConnectOptions, Connection, FromRow, Row,
+    Sqlite, SqliteConnection, Transaction,
 };
-use std::{io::Cursor, net::SocketAddr, path::Path, convert::Infallible};
+use std::{convert::Infallible, io::Cursor, net::SocketAddr, path::Path};
 use std::{str::FromStr, sync::Arc};
 use tokio::sync::{Mutex, MutexGuard};
 use uuid::Uuid;
@@ -97,7 +93,10 @@ async fn ingestion(
     let mut buf = Cursor::new(buf);
     let mut connection = app.database.get_connection().await;
     let mut transaction = connection.begin().await?;
-    let message_id = app.database.new_message(&mut transaction, topic.as_str(), origin).await?;
+    let message_id = app
+        .database
+        .new_message(&mut transaction, topic.as_str(), origin)
+        .await?;
     let mut stored = 0;
     while buf.position() < ln {
         let reader = StreamReader::try_new_unbuffered(&mut buf, None).unwrap();
@@ -122,24 +121,22 @@ async fn get_message(
     axum::extract::Path((topic, offset)): axum::extract::Path<(String, u64)>,
 ) -> Result<impl IntoResponse, error::Error> {
     let response = match app.database.get_message(&topic, offset).await? {
-        batches if batches.is_empty() =>  (
+        batches if batches.is_empty() => (
             [
                 ("x-message-id", offset.to_string()),
                 ("x-message-origin", String::new()),
             ],
-            StreamBody::new(futures::stream::iter(vec![]))
+            StreamBody::new(futures::stream::iter(vec![])),
         ),
         batches => {
             let (id, origin, _) = batches.first().unwrap();
             let id = id.to_string();
             let origin = origin.to_string();
-            let chunks: Vec<Result<_, Infallible>> = batches.into_iter().map(|(_, _, data)| Ok(data)).collect();
+            let chunks: Vec<Result<_, Infallible>> =
+                batches.into_iter().map(|(_, _, data)| Ok(data)).collect();
             (
-                [
-                    ("x-message-id", id),
-                    ("x-message-origin", origin),
-                ],
-                StreamBody::new(futures::stream::iter(chunks))
+                [("x-message-id", id), ("x-message-origin", origin)],
+                StreamBody::new(futures::stream::iter(chunks)),
             )
         }
     };

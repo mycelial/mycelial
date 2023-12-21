@@ -124,7 +124,7 @@ async fn source_stream() -> Result<(), StdError> {
                 Value::F64(1.0),
                 Value::F64(0.2),
                 Value::Str("strict".into()),
-                Value::Bin(vec![b'b', b'i', b'n']),
+                Value::Bin("bin".as_bytes().into()),
             ],
         ]
     );
@@ -159,7 +159,7 @@ async fn source_stream() -> Result<(), StdError> {
         payload,
         vec![
             vec![Value::I64(5)],
-            vec![Value::Str("foo".to_string())],
+            vec![Value::Str("foo".into())],
             vec![Value::Bin("foo".as_bytes().into())],
             vec![Value::F64(1.0)],
         ]

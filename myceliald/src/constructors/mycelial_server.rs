@@ -28,7 +28,9 @@ pub fn source_ctor<S: SectionChannel>(
         .ok_or("mycelian net section requires 'topic'")?
         .as_str()
         .ok_or("token should be string")?;
-    Ok(Box::new(mycelial_server::source::Mycelial::new(endpoint, token, topic)))
+    Ok(Box::new(mycelial_server::source::Mycelial::new(
+        endpoint, token, topic,
+    )))
 }
 
 /// # Config example:
@@ -56,5 +58,7 @@ pub fn destination_ctor<S: SectionChannel>(
         .ok_or("mycelial net section requires 'topic'")?
         .as_str()
         .ok_or("topic should be string")?;
-    Ok(Box::new(mycelial_server::destination::Mycelial::new(endpoint, token, topic)))
+    Ok(Box::new(mycelial_server::destination::Mycelial::new(
+        endpoint, token, topic,
+    )))
 }
