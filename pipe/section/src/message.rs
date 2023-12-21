@@ -159,7 +159,7 @@ pub enum ValueView<'a> {
     Time(i64),
     Date(i64),
     TimeStamp(i64),
-    Decimal(&'a rust_decimal::Decimal),
+    Decimal(rust_decimal::Decimal),
     Uuid(&'a uuid::Uuid),
 }
 
@@ -209,7 +209,7 @@ impl<'a> PartialEq<Value> for ValueView<'a> {
             (&Self::Time(l), &Value::Time(r)) => l == r,
             (&Self::Date(l), &Value::Date(r)) => l == r,
             (&Self::TimeStamp(l), &Value::TimeStamp(r)) => l == r,
-            (&Self::Decimal(l), Value::Decimal(r)) => l == r,
+            (&Self::Decimal(l), Value::Decimal(r)) => l == *r,
             (&Self::Uuid(l), Value::Uuid(r)) => l == r,
             _ => false,
         }
@@ -236,7 +236,7 @@ impl<'a> From<&'a Value> for ValueView<'a> {
             Value::Time(v) => Self::Time(*v),
             Value::Date(v) => Self::Date(*v),
             Value::TimeStamp(v) => Self::TimeStamp(*v),
-            Value::Decimal(v) => Self::Decimal(v),
+            Value::Decimal(v) => Self::Decimal(*v),
             Value::Uuid(v) => Self::Uuid(v),
         }
     }

@@ -52,7 +52,7 @@ fn setup_registry<S: SectionChannel>() -> Registry<S> {
             constructors::kafka_connector::destination_ctor,
         ),
         ("mycelial_server_destination", constructors::mycelial_server::destination_ctor),
-        //("mycelial_server_source", mycelial_server::source::constructor),
+        ("mycelial_server_source", constructors::mycelial_server::source_ctor),
         //("mysql_connector_destination", mysql_connector::destination::constructor),
         //("snowflake_destination", snowflake::destination::constructor),
         //("snowflake_source", snowflake::source::constructor),

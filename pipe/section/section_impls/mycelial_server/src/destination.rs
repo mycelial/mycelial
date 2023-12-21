@@ -62,7 +62,7 @@ fn into_arrow_datatype(dt: DataType) -> ArrowDataType {
 }
 
 // cast rust decimal to i128 with default arrow scale
-fn rust_decimal_to_i128(decimal: &Decimal) -> i128 {
+fn rust_decimal_to_i128(decimal: Decimal) -> i128 {
     let m = decimal.mantissa();
     let s = decimal.scale();
     match DECIMAL_DEFAULT_SCALE as i32 - s as i32 {
