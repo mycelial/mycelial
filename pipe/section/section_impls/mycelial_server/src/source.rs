@@ -1,11 +1,11 @@
 //! Mycelial Net
 
 use arrow::{
-    array::AsArray,
+    array::{AsArray, as_union_array, Array, UnionArray},
     datatypes::{
         DataType as ArrowDataType, Date64Type, Decimal128Type, Float32Type, Float64Type, Int16Type,
         Int32Type, Int64Type, Int8Type, Schema, Time64MicrosecondType, TimestampMicrosecondType,
-        UInt16Type, UInt32Type, UInt64Type, UInt8Type,
+        UInt16Type, UInt32Type, UInt64Type, UInt8Type, Field,
     },
     ipc::reader::StreamReader,
     record_batch::RecordBatch as ArrowRecordBatch,
@@ -23,7 +23,7 @@ use section::{
 use tokio::time::{Instant, Interval};
 
 use base64::engine::{general_purpose::STANDARD as BASE64, Engine};
-use std::time::Duration;
+use std::{time::Duration, collections::HashMap};
 use std::{
     io::Cursor,
     pin::{pin, Pin},
@@ -47,6 +47,29 @@ pub struct Mycelial {
 struct RecordBatch {
     inner: ArrowRecordBatch,
     schema: Arc<Schema>,
+}
+
+fn union_array_to_iter<'a>(array: &'a UnionArray) -> Box<dyn Iterator<Item=ValueView> + Send + 'a> {
+    let iter = (0..array.len()).map(|index| {
+        let type_id = array.type_id(index);
+        let value_offset = array.value_offset(index);
+        let child = array.child(type_id);
+        match DataType::from(type_id) {
+            DataType::Null => ValueView::Null,
+            DataType::I8 => ValueView::I8(child.as_primitive::<Int8Type>().value(value_offset)),
+            DataType::I16 => ValueView::I16(child.as_primitive::<Int16Type>().value(value_offset)),
+            DataType::I32 => ValueView::I32(child.as_primitive::<Int32Type>().value(value_offset)),
+            DataType::I64 => ValueView::I64(child.as_primitive::<Int64Type>().value(value_offset)),
+            DataType::U8 => ValueView::U8(child.as_primitive::<UInt8Type>().value(value_offset)),
+            DataType::U16 => ValueView::U16(child.as_primitive::<UInt16Type>().value(value_offset)),
+            DataType::U32 => ValueView::U32(child.as_primitive::<UInt32Type>().value(value_offset)),
+            DataType::U64 => ValueView::U64(child.as_primitive::<UInt64Type>().value(value_offset)),
+            DataType::Str => ValueView::Str(child.as_string::<i32>().value(value_offset)),
+            DataType::Bin => ValueView::Bin(child.as_binary::<i32>().value(value_offset)),
+            dt => unimplemented!("unimplmented dt: {}", dt)
+        }
+    });
+    Box::new(iter)
 }
 
 impl DataFrame for RecordBatch {
@@ -241,7 +264,10 @@ impl DataFrame for RecordBatch {
                         )
                     }
                     ArrowDataType::Union(_uf, _mode) => {
-                        unimplemented!()
+                        (
+                            DataType::Any,
+                            union_array_to_iter(as_union_array(column))
+                        )
                     }
                     dt => panic!("unsupported arrow datatype: {:?}", dt),
                 };
