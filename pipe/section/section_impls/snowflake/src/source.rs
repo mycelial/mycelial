@@ -1,8 +1,9 @@
 use arrow_msg::ArrowMsg;
 use section::{
-    futures::{self, FutureExt, Sink, SinkExt, Stream, StreamExt},
     command_channel::{Command, SectionChannel},
-    section::Section, SectionError, SectionMessage, SectionFuture,
+    futures::{self, FutureExt, Sink, SinkExt, Stream, StreamExt},
+    section::Section,
+    SectionError, SectionFuture, SectionMessage,
 };
 use snowflake_api::{QueryResult, SnowflakeApi};
 use std::pin::pin;

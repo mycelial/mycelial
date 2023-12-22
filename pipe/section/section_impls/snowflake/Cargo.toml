@@ -10,3 +10,7 @@ snowflake-api = "0.4.0"
 section = { version = "0.2", path = "../.." }
 tokio = { version = "1", features = ["full"] }
 arrow_msg = { path = "../../../arrow_msg" }
+parquet = { version = "49.0.0", features = ["async"] }
+tempfile = "3.8.1"
+thiserror = "1.0.51"
+arrow = "49.0.0"

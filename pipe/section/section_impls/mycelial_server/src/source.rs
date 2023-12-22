@@ -178,8 +178,8 @@ impl Mycelial {
         let o = *offset;
         let msg = ArrowMsg::new(
             origin,
-            batches, 
-            Some(Box::pin(async move { weak_chan.ack(Box::new(o)).await }))
+            batches,
+            Some(Box::pin(async move { weak_chan.ack(Box::new(o)).await })),
         );
         Ok(Some(Box::new(msg)))
     }
