@@ -359,3 +359,57 @@ mod tests {
         assert_eq!(result, "path/to/file.txt");
     }
 }
+
+// gets the root directory of the path to watch, or the path itself if there are no wildcards
+fn get_directory_or_filepath(path: &str) -> String {
+    let path = path.to_string();
+    let split_path = path.split('/').collect::<Vec<&str>>();
+    let mut directory_to_watch = String::new();
+    let mut found = false;
+    for (_i, part) in split_path.iter().enumerate() {
+        if part.contains('*') || part.contains("**") {
+            found = true;
+            break;
+        }
+        directory_to_watch.push_str(part);
+        directory_to_watch.push('/');
+    }
+    if found {
+        directory_to_watch
+    } else {
+        path
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_get_directory_or_filepath_with_single_star() {
+        let path = "path/to/*/file.txt";
+        let result = get_directory_or_filepath(path);
+        assert_eq!(result, "path/to/");
+    }
+
+    #[test]
+    fn test_get_directory_or_filepath_with_double_star() {
+        let path = "path/to/**/file.txt";
+        let result = get_directory_or_filepath(path);
+        assert_eq!(result, "path/to/");
+    }
+
+    #[test]
+    fn test_get_directory_or_filepath_with_star_in_filename() {
+        let path = "path/to/file_*.txt";
+        let result = get_directory_or_filepath(path);
+        assert_eq!(result, "path/to/");
+    }
+
+    #[test]
+    fn test_get_directory_or_filepath_without_star() {
+        let path = "path/to/file.txt";
+        let result = get_directory_or_filepath(path);
+        assert_eq!(result, "path/to/file.txt");
+    }
+}

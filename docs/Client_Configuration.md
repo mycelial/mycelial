@@ -2,7 +2,7 @@
 
 Mycelial clients require a configuration file to function properly.
 
-You can find a [config.example.toml](client/config.example.toml) example file,
+You can find a [config.example.toml](../myceliald/config.example.toml) example file,
 which you can reference when creating your own client configuration files.
 
 The configuration file is passed to the client binary file via the

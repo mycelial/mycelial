@@ -25,7 +25,7 @@ Install the Mycelial CLI for your system.
   <summary>Debian Based Linux x86_64</summary>
 
   ```sh
-  curl -L https://github.com/mycelial/cli/releases/download/v0.3.0/mycelial_0.3.0_amd64.deb --output mycelial_amd64.deb
+  curl -L https://github.com/mycelial/cli/releases/download/v0.5.1/mycelial_0.5.1_amd64.deb --output mycelial_amd64.deb
   dpkg -i ./mycelial_amd64.deb
   ```
 
@@ -35,7 +35,7 @@ Install the Mycelial CLI for your system.
   <summary>Debian Based Linux ARM64</summary>
 
   ```sh
-  curl -L https://github.com/mycelial/cli/releases/download/v0.3.0/mycelial_0.3.0_arm64.deb --output mycelial_arm64.deb
+  curl -L https://github.com/mycelial/cli/releases/download/v0.5.1/mycelial_0.5.1_arm64.deb --output mycelial_arm64.deb
   dpkg -i ./mycelial_arm64.deb
   ```
 
@@ -45,7 +45,7 @@ Install the Mycelial CLI for your system.
   <summary>Debian Based Linux ARM</summary>
 
   ```sh
-  curl -L https://github.com/mycelial/cli/releases/download/v0.3.0/mycelial_0.3.0_armhf.deb --output mycelial_armhf.deb
+  curl -L https://github.com/mycelial/cli/releases/download/v0.5.1/mycelial_0.5.1_armhf.deb --output mycelial_armhf.deb
   dpkg -i ./mycelial_armhf.deb
   ```
 
@@ -55,7 +55,7 @@ Install the Mycelial CLI for your system.
   <summary>Redhat Based Linux x86_64</summary>
 
   ```sh
-  yum install https://github.com/mycelial/cli/releases/download/v0.3.0/mycelial-v0.3.0-1.x86_64.rpm 
+  yum install https://github.com/mycelial/cli/releases/download/v0.5.1/mycelial-v0.5.1-1.x86_64.rpm 
   ```
 
   </details>
@@ -64,7 +64,7 @@ Install the Mycelial CLI for your system.
   <summary>Redhat Based Linux ARM64</summary>
 
   ```sh
-  yum install https://github.com/mycelial/cli/releases/download/v0.3.0/mycelial-v0.3.0-1.arm64.rpm 
+  yum install https://github.com/mycelial/cli/releases/download/v0.5.1/mycelial-v0.5.1-1.arm64.rpm 
   ```
 
   </details>
@@ -73,7 +73,7 @@ Install the Mycelial CLI for your system.
   <summary>Redhat Based Linux ARM</summary>
 
   ```sh
-  yum install https://github.com/mycelial/cli/releases/download/v0.3.0/mycelial-v0.3.0-1.armhf.rpm
+  yum install https://github.com/mycelial/cli/releases/download/v0.5.1/mycelial-v0.5.1-1.armhf.rpm
   ```
 
   </details>
