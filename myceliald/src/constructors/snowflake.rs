@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use pipe::{config::Map, types::DynSection};
+use pipe::{config::{Value, Map}, types::DynSection};
 use section::{command_channel::SectionChannel, SectionError};
 
 pub fn source_ctor<S: SectionChannel>(
@@ -46,11 +46,11 @@ pub fn source_ctor<S: SectionChannel>(
         .ok_or("query required")?
         .as_str()
         .ok_or("'query' should be a string")?;
-    let delay = config
-        .get("delay")
-        .ok_or("snowflake source requires 'delay'")?
-        .as_int()
-        .ok_or("'delay' should be an int")?;
+    let delay = match config.get("delay").ok_or("snowflake source requires 'delay'")? {
+        Value::Int(i) => *i,
+        Value::String(s) => s.parse()?,
+        _ => Err("delay should be int")?,
+    };
     Ok(Box::new(snowflake::source::SnowflakeSource::new(
         username,
         password,
