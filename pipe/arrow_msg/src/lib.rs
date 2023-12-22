@@ -415,7 +415,7 @@ fn to_union_array(column: Column<'_>) -> Result<(Vec<i8>, Vec<Field>, UnionArray
                     .as_any_mut()
                     .downcast_mut::<NullBuilder>()
                     .unwrap();
-                offsets.push(b.len() as i32 as i32);
+                offsets.push(b.len() as _);
                 b.append_empty_value();
             }
             ValueView::Bool(v) => {
