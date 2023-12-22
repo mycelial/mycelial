@@ -8,5 +8,6 @@ edition = "2021"
 [dependencies]
 serde = { version = "1", features = ["derive"]}
 serde_json = "1"
-pipe = { path = "../pipe/runtime/", package="runtime" }
+pipe = { version = "0.2", path = "../pipe/runtime/", package="runtime" }
+section = { version = "0.2", path = "../pipe/section/"}
 sqlx = "0.7"

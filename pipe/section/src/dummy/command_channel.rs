@@ -1,6 +1,9 @@
 use crate::{
-    async_trait, Command, ReplyTo, RootChannel, SectionChannel, SectionRequest as _SectionRequest,
-    WeakSectionChannel,
+    async_trait,
+    command_channel::{
+        Command, ReplyTo, RootChannel, SectionChannel, SectionRequest as _SectionRequest,
+        WeakSectionChannel,
+    },
 };
 use std::{
     any::Any,
@@ -23,6 +26,12 @@ impl std::error::Error for DummyError {}
 
 #[derive(Debug)]
 pub struct DummyRootChannel {}
+
+impl Default for DummyRootChannel {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 impl DummyRootChannel {
     pub fn new() -> Self {
@@ -60,6 +69,12 @@ impl RootChannel for DummyRootChannel {
 
 #[derive(Debug)]
 pub struct DummySectionChannel {}
+
+impl Default for DummySectionChannel {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 impl DummySectionChannel {
     pub fn new() -> Self {
@@ -115,7 +130,7 @@ pub struct DummyWeakChannel {}
 
 #[async_trait]
 impl WeakSectionChannel for DummyWeakChannel {
-    async fn ack(self, _ack: Box<dyn Any + Send + Sync + 'static>) {
+    async fn ack(self, _ack: Box<dyn Any + Send + 'static>) {
         ready(()).await
     }
 }

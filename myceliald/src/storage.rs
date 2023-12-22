@@ -1,7 +1,7 @@
 //! storage backend for client
 
 use pipe::storage::Storage;
-use section::State;
+use section::state::State;
 use serde::{Deserialize, Serialize};
 use sqlx::{sqlite::SqliteConnectOptions, ConnectOptions, Row, SqliteConnection};
 use std::any::{type_name, Any, TypeId};

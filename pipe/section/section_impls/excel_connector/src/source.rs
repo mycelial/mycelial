@@ -1,13 +1,27 @@
-use crate::{ColumnType, ExcelPayload, Message, StdError, Value};
-use futures::{FutureExt, Sink, SinkExt, Stream, StreamExt};
+//! Excel connector source for full-syncing excel files.
+//!
+//! # Details
+//! - Uses `notify` crate to detect changes to excel files.
+//! - Syncs an entire file when a change is detected.
+//! - Uses glob pattern for matching filepaths / directories. (e.g. ** for recursive, * for all files)
+//! - For sheets, use * to sync all sheets, otherwise a list of strings.
+
+use crate::{ExcelMessage, ExcelPayload, Sheet, TableColumn};
 use notify::{Event, RecursiveMode, Watcher};
-use section::{Command, Section, SectionChannel, State};
+use section::{
+    command_channel::{Command, SectionChannel},
+    futures::{self, FutureExt, Sink, SinkExt, Stream, StreamExt},
+    message::Value,
+    section::Section,
+    state::State,
+    SectionError, SectionMessage,
+};
 
 // FIXME: drop direct dependency
 use tokio::sync::mpsc::Sender;
 use tokio_stream::wrappers::ReceiverStream;
 
-use calamine::{open_workbook_auto, DataType, Reader, Rows};
+use calamine::{open_workbook_auto, DataType as ExcelDataType, Reader, Rows};
 use std::path::Path;
 use std::pin::{pin, Pin};
 use std::time::Duration;
@@ -16,7 +30,7 @@ use std::{future::Future, sync::Arc};
 use glob::glob;
 use globset::Glob;
 
-fn err_msg(msg: impl Into<String>) -> StdError {
+fn err_msg(msg: impl Into<String>) -> SectionError {
     msg.into().into()
 }
 
@@ -24,101 +38,18 @@ fn err_msg(msg: impl Into<String>) -> StdError {
 pub struct Excel {
     path: String,
     sheets: Vec<String>,
-    strict: bool,
-}
-
-impl TryFrom<(ColumnType, usize, &[DataType], bool)> for Value {
-    // FIXME: specific error instead of Box<dyn Error>
-    type Error = StdError;
-
-    fn try_from(
-        (col, index, row, strict): (ColumnType, usize, &[DataType], bool),
-    ) -> Result<Self, Self::Error> {
-        if !strict {
-            let v2 = row.get(index).unwrap();
-            let v = match v2 {
-                DataType::Int(v) => v.to_string(),
-                DataType::Float(f) => f.to_string(),
-                DataType::String(s) => s.to_string(),
-                DataType::Bool(b) => b.to_string(),
-                DataType::DateTime(_) => v2
-                    .as_datetime()
-                    .unwrap()
-                    .format("%Y-%m-%d %H:%M:%S")
-                    .to_string(),
-                DataType::Duration(d) => d.to_string(),
-                DataType::DateTimeIso(d) => d.to_string(),
-                DataType::DurationIso(d) => d.to_string(),
-                DataType::Error(e) => e.to_string(),
-                DataType::Empty => "".to_string(),
-            };
-            let v = Value::Text(v);
-            return Ok(v);
-        }
-
-        let value = match col {
-            ColumnType::Int => row
-                .get(index)
-                .ok_or(err_msg("oh no"))
-                .unwrap()
-                .get_int()
-                .map(Value::Int), //FIXME: unwrap
-            ColumnType::Text => row
-                .get(index)
-                .ok_or(err_msg("oh no"))
-                .unwrap()
-                .get_string()
-                .map(|s| Value::Text(s.into())), //FIXME: unwrap
-            ColumnType::Real => row
-                .get(index)
-                .ok_or(err_msg("oh no"))
-                .unwrap()
-                .get_float()
-                .map(Value::Real),
-            ColumnType::Bool => row
-                .get(index)
-                .ok_or(err_msg("oh no"))
-                .unwrap()
-                .get_bool()
-                .map(Value::Bool), //FIXME: unwrap
-            ColumnType::DateTime => row
-                .get(index)
-                .ok_or(err_msg("oh no"))
-                .unwrap()
-                .as_datetime()
-                .map(Value::DateTime), //FIXME: unwrap;
-            _ => {
-                return Err(format!(
-                    "TryFrom<(ColumnType, usize, &[DataType])> for Value - unimplemented: {:?}",
-                    col
-                )
-                .into())
-            }
-        };
-        let v = value.unwrap_or(Value::Null); // FIXME? Here's where we're ignoring errors
-        Ok(v)
-    }
-}
-
-#[derive(Debug)]
-pub struct Sheet {
-    pub name: Arc<str>,
-    pub columns: Arc<[String]>,
-    pub column_types: Arc<[ColumnType]>,
 }
 
 #[derive(Debug)]
 enum InnerEvent {
-    Init,
     NewChange(String),
 }
 
 impl Excel {
-    pub fn new(path: impl Into<String>, sheets: &[&str], strict: bool) -> Self {
+    pub fn new(path: impl Into<String>, sheets: &[&str]) -> Self {
         Self {
             path: path.into(),
             sheets: sheets.iter().map(|&x| x.into()).collect(),
-            strict,
         }
     }
 
@@ -127,15 +58,25 @@ impl Excel {
         input: Input,
         output: Output,
         mut section_channel: SectionChan,
-    ) -> Result<(), StdError>
+    ) -> Result<(), SectionError>
     where
         Input: Stream + Send,
-        Output: Sink<Message, Error = StdError> + Send,
+        Output: Sink<SectionMessage, Error = SectionError> + Send,
         SectionChan: SectionChannel + Send + Sync,
     {
         let path = &self.path;
         let (tx, rx) = tokio::sync::mpsc::channel(4);
-        tx.send(InnerEvent::Init).await?;
+
+        // on init, sync all the files.
+        for entry in glob(path).expect("Failed to read glob pattern") {
+            match entry {
+                Ok(path) => {
+                    tx.send(InnerEvent::NewChange(path.display().to_string()))
+                        .await?
+                }
+                Err(_) => todo!(),
+            }
+        }
 
         let _watcher = self.watch_excel_paths(self.path.as_str(), tx);
 
@@ -171,43 +112,6 @@ impl Excel {
                     match msg {
                         Some(event) => {
                             match event {
-                                // on init, sync all the files.
-                                InnerEvent::Init => {
-                                    for entry in glob(path).expect("Failed to read glob pattern") {
-                                        match entry {
-                                            Ok(path) => {
-                                                let p = path.display().to_string();
-                                                // ignore temp files
-                                                if !p.contains('~') {
-                                                    let mut workbook: calamine::Sheets<std::io::BufReader<std::fs::File>> =
-                                                        open_workbook_auto(path).expect("Cannot open file");
-
-                                                    let mut sheets = self
-                                                        .init_schema::<SectionChan>(&mut workbook, &state, self.strict)
-                                                        .await?;
-
-                                                    for sheet in sheets.iter_mut() {
-                                                        if let Some(Ok(range)) = workbook.worksheet_range(&sheet.name) {
-                                                            let mut rows = range.rows();
-                                                            // the first is the header, so don't send it in the data payload since it's already part of the schema
-                                                            let _ = rows.next();
-                                                            let excel_payload = self.build_excel_payload(sheet, rows, self.strict)?;
-
-                                                            let message = Message::new(
-                                                                format!("{}:{}", p, sheet.name),
-                                                                excel_payload,
-                                                                None,
-                                                            );
-                                                            output.send(message).await.map_err(|e| format!("failed to send data to sink {:?}", e))?;
-                                                        }
-
-                                                    }
-                                                }
-                                            },
-                                            Err(e) => println!("{:?}", e),
-                                        }
-                                    }
-                                }
                                 // When there's a change to a file, sync that file
                                 InnerEvent::NewChange(path) => {
                                     // ignore temp files
@@ -216,7 +120,7 @@ impl Excel {
                                             open_workbook_auto(path.clone()).expect("Cannot open file");
 
                                         let mut sheets = self
-                                            .init_schema::<SectionChan>(&mut workbook, &state, self.strict)
+                                            .init_schema::<SectionChan>(&mut workbook, &state)
                                             .await?;
 
                                         for sheet in sheets.iter_mut() {
@@ -224,12 +128,15 @@ impl Excel {
                                                 let mut rows = range.rows();
                                                 // the first is the header, so don't send it in the data payload since it's already part of the schema
                                                 let _ = rows.next();
-                                                let excel_payload = self.build_excel_payload(sheet, rows, self.strict)?;
+                                                let excel_payload = self.build_excel_payload(sheet, rows)?;
 
-                                                let message = Message::new(
-                                                    format!("{}:{}", path, sheet.name),
-                                                    excel_payload,
-                                                    None,
+                                                let origin: Arc<str> = Arc::from(format!("{}:{}", path, sheet.name));
+                                                let message = Box::new(
+                                                    ExcelMessage::new(
+                                                        origin,
+                                                        excel_payload,
+                                                        None,
+                                                    )
                                                 );
                                                 output.send(message).await.map_err(|e| format!("failed to send data to sink {:?}", e))?;
                                             }
@@ -250,25 +157,40 @@ impl Excel {
     fn build_excel_payload(
         &self,
         sheet: &Sheet,
-        rows: Rows<calamine::DataType>,
-        strict: bool,
-    ) -> Result<ExcelPayload, StdError> {
+        rows: Rows<ExcelDataType>,
+    ) -> Result<ExcelPayload, SectionError> {
         let mut values: Vec<Vec<Value>> = vec![];
         let cap = rows.len();
         for row in rows {
             if values.len() != row.len() {
                 values = row.iter().map(|_| Vec::with_capacity(cap)).collect();
             }
-            for (index, column) in sheet.column_types.iter().enumerate() {
-                let value = Value::try_from((*column, index, row, strict))?;
-                values[index].push(value);
+            for (index, _column) in sheet.columns.iter().enumerate() {
+                let x = row.get(index).ok_or(err_msg("oh no"))?; //FIXME: unwrap
+                let y = match x {
+                    ExcelDataType::Int(v) => Value::I64(*v),
+                    ExcelDataType::Float(f) => Value::F64(*f),
+                    ExcelDataType::String(s) => Value::from(s.to_string()),
+                    ExcelDataType::Bool(b) => Value::Bool(*b),
+                    ExcelDataType::DateTime(_) => Value::from(
+                        // todo: do we have a datetime format rather than string?
+                        x.as_datetime()
+                            .unwrap()
+                            .format("%Y-%m-%d %H:%M:%S")
+                            .to_string(),
+                    ),
+                    ExcelDataType::Duration(f) => Value::F64(*f),
+                    ExcelDataType::DateTimeIso(d) => Value::Str(d.as_str().into()),
+                    ExcelDataType::DurationIso(d) => Value::Str(d.as_str().into()),
+                    ExcelDataType::Error(e) => Value::Str(e.to_string().into()),
+                    ExcelDataType::Empty => Value::Null,
+                };
+                values[index].push(y);
             }
         }
         let batch = ExcelPayload {
             columns: Arc::clone(&sheet.columns),
-            column_types: Arc::clone(&sheet.column_types),
             values,
-            offset: 0,
         };
         Ok(batch)
     }
@@ -277,8 +199,7 @@ impl Excel {
         &self,
         workbook: &mut calamine::Sheets<std::io::BufReader<std::fs::File>>,
         _state: &<C as SectionChannel>::State,
-        strict: bool,
-    ) -> Result<Vec<Sheet>, StdError> {
+    ) -> Result<Vec<Sheet>, SectionError> {
         let mut sheets = Vec::with_capacity(self.sheets.len());
         let all_sheets: Vec<String>;
         let sheet_names = match self.sheets.iter().any(|sheet| sheet == "*") {
@@ -295,39 +216,41 @@ impl Excel {
 
                 let mut rows = range.rows();
                 let first_row = rows.next().ok_or(err_msg("no rows"))?;
-                let second_row = rows.next().ok_or(err_msg("no rows"))?;
 
-                // the column names are in the first row, which we want to put into `cols`
+                // get the column names from the first row
                 let cols = first_row
                     .iter()
-                    .map(|cell| match cell {
-                        DataType::String(s) => Ok(s.to_string()),
-                        _ => Err(err_msg("column name is not a string")),
-                    })
-                    .collect::<Result<Vec<String>, StdError>>()?;
-                // get the data types from the second row
-                let col_types: Vec<ColumnType> = second_row
-                    .iter()
-                    .map(|cell| match strict {
-                        true => match cell {
-                            DataType::String(_) => ColumnType::Text,
-                            DataType::Int(_) => ColumnType::Int,
-                            DataType::Float(_) => ColumnType::Real,
-                            DataType::Bool(_) => ColumnType::Bool,
-                            DataType::DateTime(_) => ColumnType::DateTime,
-                            DataType::Duration(_) => ColumnType::Duration,
-                            DataType::DateTimeIso(_) => ColumnType::DateTimeIso,
-                            DataType::DurationIso(_) => ColumnType::DurationIso,
-                            _ => ColumnType::Text,
-                        },
-                        false => ColumnType::Text,
-                    })
-                    .collect();
+                    .enumerate()
+                    .map(|(_i, cell)| {
+                        let name = match cell {
+                            ExcelDataType::String(s) => s.to_string(),
+                            ExcelDataType::Int(i) => i.to_string(),
+                            ExcelDataType::Float(f) => f.to_string(),
+                            ExcelDataType::Bool(b) => b.to_string(),
+                            ExcelDataType::DateTime(_) => cell
+                                .as_datetime()
+                                .unwrap()
+                                .format("%Y-%m-%d %H:%M:%S")
+                                .to_string(),
+                            ExcelDataType::Duration(f) => f.to_string(),
+                            ExcelDataType::DateTimeIso(_) => cell
+                                .as_datetime()
+                                .unwrap()
+                                .format("%Y-%m-%d %H:%M:%S")
+                                .to_string(),
+                            ExcelDataType::DurationIso(f) => f.to_string(),
+                            ExcelDataType::Error(e) => e.to_string(),
+                            ExcelDataType::Empty => "".to_string(),
+                        };
 
+                        TableColumn {
+                            name: Arc::from(name.to_owned()),
+                        }
+                    })
+                    .collect::<Vec<TableColumn>>();
                 let sheet = Sheet {
                     name: Arc::from(name),
                     columns: Arc::from(cols),
-                    column_types: Arc::from(col_types),
                 };
                 sheets.push(sheet);
             }
@@ -368,10 +291,10 @@ struct AckMessage {
 impl<Input, Output, SectionChan> Section<Input, Output, SectionChan> for Excel
 where
     Input: Stream + Send + 'static,
-    Output: Sink<Message, Error = StdError> + Send + 'static,
+    Output: Sink<SectionMessage, Error = SectionError> + Send + 'static,
     SectionChan: SectionChannel + Send + Sync + 'static,
 {
-    type Error = StdError;
+    type Error = SectionError;
     type Future = Pin<Box<dyn Future<Output = Result<(), Self::Error>> + Send + 'static>>;
 
     fn start(self, input: Input, output: Output, command: SectionChan) -> Self::Future {
@@ -379,8 +302,8 @@ where
     }
 }
 
-pub fn new(path: impl Into<String>, sheets: &[&str], strict: bool) -> Excel {
-    Excel::new(path, sheets, strict)
+pub fn new(path: impl Into<String>, sheets: &[&str]) -> Excel {
+    Excel::new(path, sheets)
 }
 
 // gets the root directory of the path to watch, or the path itself if there are no wildcards

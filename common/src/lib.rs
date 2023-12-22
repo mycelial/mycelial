@@ -1,7 +1,5 @@
-use pipe::{
-    config::{Config as DynamicPipeConfig, Value as DynamicPipeValue},
-    types::SectionError,
-};
+use pipe::config::{Config as DynamicPipeConfig, Value as DynamicPipeValue};
+use section::SectionError;
 use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
 

@@ -3,6 +3,7 @@ use arrow::{
     record_batch::RecordBatch,
 };
 use axum::{
+    body::StreamBody,
     extract::{BodyStream, State},
     headers::{authorization::Basic, Authorization},
     http::{self, header, Method, Request, StatusCode, Uri},
@@ -23,11 +24,12 @@ use rust_embed::RustEmbed;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use sqlx::{
-    sqlite::SqliteConnectOptions, sqlite::SqliteRow, ConnectOptions, FromRow, Row, SqliteConnection,
+    sqlite::SqliteConnectOptions, sqlite::SqliteRow, ConnectOptions, Connection, FromRow, Row,
+    Sqlite, SqliteConnection, Transaction,
 };
-use std::{net::SocketAddr, path::Path};
+use std::{convert::Infallible, io::Cursor, net::SocketAddr, path::Path};
 use std::{str::FromStr, sync::Arc};
-use tokio::sync::Mutex;
+use tokio::sync::{Mutex, MutexGuard};
 use uuid::Uuid;
 
 mod error;
@@ -87,35 +89,56 @@ async fn ingestion(
     while let Some(chunk) = body.next().await {
         buf.append(&mut chunk.unwrap().to_vec());
     }
-    let reader = StreamReader::try_new(buf.as_slice(), None).unwrap();
-    for record_batch in reader.flatten() {
-        app.database
-            .store_record(&topic, origin, &record_batch)
-            .await
-            .unwrap()
+    let ln = buf.len() as u64;
+    let mut buf = Cursor::new(buf);
+    let mut connection = app.database.get_connection().await;
+    let mut transaction = connection.begin().await?;
+    let message_id = app
+        .database
+        .new_message(&mut transaction, topic.as_str(), origin)
+        .await?;
+    let mut stored = 0;
+    while buf.position() < ln {
+        let reader = StreamReader::try_new_unbuffered(&mut buf, None).unwrap();
+        for record_batch in reader {
+            let record_batch = record_batch?;
+            app.database
+                .store_batch(&mut transaction, message_id, &record_batch)
+                .await?;
+            stored += 1;
+        }
     }
+    // don't store messages without batches
+    match stored {
+        0 => transaction.rollback().await?,
+        _ => transaction.commit().await?,
+    };
     Ok(Json("ok"))
 }
 
-async fn get_record(
+async fn get_message(
     State(app): State<Arc<App>>,
     axum::extract::Path((topic, offset)): axum::extract::Path<(String, u64)>,
 ) -> Result<impl IntoResponse, error::Error> {
-    let response = match app.database.get_record(&topic, offset).await? {
-        Some((id, origin, data)) => (
-            [
-                ("x-message-id", id.to_string()),
-                ("x-message-origin", origin),
-            ],
-            data,
-        ),
-        None => (
+    let response = match app.database.get_message(&topic, offset).await? {
+        batches if batches.is_empty() => (
             [
                 ("x-message-id", offset.to_string()),
                 ("x-message-origin", String::new()),
             ],
-            vec![],
+            StreamBody::new(futures::stream::iter(vec![])),
         ),
+        batches => {
+            let (id, origin, _) = batches.first().unwrap();
+            let id = id.to_string();
+            let origin = origin.to_string();
+            let chunks: Vec<Result<_, Infallible>> =
+                batches.into_iter().map(|(_, _, data)| Ok(data)).collect();
+            (
+                [("x-message-id", id), ("x-message-origin", origin)],
+                StreamBody::new(futures::stream::iter(chunks)),
+            )
+        }
     };
     Ok(response)
 }
@@ -442,51 +465,73 @@ impl Database {
         Ok(())
     }
 
-    async fn store_record(
+    async fn get_connection(&self) -> MutexGuard<'_, SqliteConnection> {
+        self.connection.lock().await
+    }
+
+    async fn new_message(
         &self,
+        transaction: &mut Transaction<'_, Sqlite>,
         topic: &str,
         origin: &str,
+    ) -> Result<i64, error::Error> {
+        let id = sqlx::query("INSERT INTO messages(topic, origin) VALUES(?, ?) RETURNING ID")
+            .bind(topic)
+            .bind(origin)
+            .fetch_one(&mut **transaction)
+            .await
+            .map(|row| row.get::<i64, _>(0))?;
+        Ok(id)
+    }
+
+    async fn store_batch(
+        &self,
+        transaction: &mut Transaction<'_, Sqlite>,
+        message_id: i64,
         record_batch: &RecordBatch,
     ) -> Result<(), error::Error> {
         let mut stream_writer: StreamWriter<_> =
             StreamWriter::try_new(vec![], record_batch.schema().as_ref()).unwrap();
+
         // FIXME: unwrap
         stream_writer.write(record_batch).unwrap();
         stream_writer.finish().unwrap();
 
         let bytes: Vec<u8> = stream_writer.into_inner().unwrap();
-
-        let mut connection = self.connection.lock().await;
-        sqlx::query("INSERT INTO records (topic, origin, data) VALUES (?, ?, ?)")
-            .bind(topic)
-            .bind(origin)
+        sqlx::query("INSERT INTO records (message_id, data) VALUES (?, ?)")
+            .bind(message_id)
             .bind(bytes)
-            .execute(&mut *connection)
+            .execute(&mut **transaction)
             .await?;
         Ok(())
     }
 
-    async fn get_record(
+    // FIXME: message is not streamed
+    async fn get_message(
         &self,
         topic: &str,
         offset: u64,
-    ) -> Result<Option<(u64, String, Vec<u8>)>, error::Error> {
+    ) -> Result<Vec<(u64, String, Vec<u8>)>, error::Error> {
         let mut connection = self.connection.lock().await;
         let offset: i64 = offset.try_into().unwrap();
-        let row = sqlx::query(
-            "SELECT id, origin, data FROM records WHERE topic = ? AND id > ? ORDER BY id ASC LIMIT 1",
+        let rows = sqlx::query(
+            "WITH next_message AS ( SELECT id, topic, origin FROM messages WHERE id > ? and topic = ? LIMIT 1) \
+            SELECT n.id, n.origin, r.data FROM next_message n \
+            JOIN records r on n.id = r.message_id \
+            ORDER BY r.id"
         )
-            .bind(topic)
             .bind(offset)
-            .fetch_optional(&mut *connection)
-            .await?;
-        Ok(row.map(|row| {
-            (
+            .bind(topic)
+            .fetch_all(&mut *connection)
+            .await?
+            .into_iter()
+            .map(|row| (
                 row.get::<i64, &str>("id").try_into().unwrap(),
                 row.get("origin"),
                 row.get("data"),
-            )
-        }))
+            ))
+            .collect::<Vec<_>>();
+        Ok(rows)
     }
 
     async fn get_clients(&self) -> Result<Clients, error::Error> {
@@ -739,7 +784,7 @@ async fn main() -> anyhow::Result<()> {
         .route("/api/client", post(provision_client)) // no client auth needed
         .route("/api/tokens", post(issue_token)) // no client auth needed
         .route("/ingestion/:topic", post(ingestion))
-        .route("/ingestion/:topic/:offset", get(get_record))
+        .route("/ingestion/:topic/:offset", get(get_message))
         .merge(
             Router::new()
                 .route(

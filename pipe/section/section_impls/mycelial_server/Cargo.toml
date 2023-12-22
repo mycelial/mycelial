@@ -1,0 +1,17 @@
+[package]
+name = "mycelial_server"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+arrow = { version = "49", features = ["prettyprint"] }
+arrow_msg = { path = "../../../arrow_msg" }
+base64 = "0.21.5"
+reqwest = { version = "0.11.22", features = ["stream"] }
+section = { version = "0.2", path = "../../" }
+tokio = { version = "1", features = ["full"] }
+
+[dev-dependencies]
+stub = { path = "../stub/" }

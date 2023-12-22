@@ -3,13 +3,14 @@
 //!     - dumb server endpoint polling
 //!     - server dumbly returns all existing pipes
 //! - schedules and runs pipes
+mod constructors;
 mod http_client;
 mod runtime;
 mod storage;
 
 use clap::Parser;
 use common::ClientConfig;
-use pipe::types::SectionError;
+use section::SectionError;
 use std::fs::File;
 use std::io::Read;
 use std::{io, result};

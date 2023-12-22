@@ -1,12 +1,11 @@
 //! Wrappings around tokio channel which allow Sender to behave as Sink and Receiver as a Stream
 //!
 //! Channels allow to glue pipe sections together (both static and dynamic)
+use section::futures::Sink;
 use std::{
     pin::Pin,
     task::{Context, Poll},
 };
-
-use futures::Sink;
 use tokio::sync::mpsc::{
     channel as _channel, error::SendError, unbounded_channel as _unbounded_channel, Receiver,
     Sender, UnboundedSender,

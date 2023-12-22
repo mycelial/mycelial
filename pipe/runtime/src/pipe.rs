@@ -1,17 +1,21 @@
 //! Pipe
 
-use futures::{FutureExt, Sink, SinkExt, Stream};
 use tokio::task::JoinHandle;
 
-use crate::channel::channel;
-use crate::types::{DynSection, DynSink, DynStream, SectionError, SectionFuture};
-use section::{Command, RootChannel, SectionChannel};
-use section::{ReplyTo as _, Section, SectionRequest, State};
+use crate::{
+    channel::channel,
+    config::Config,
+    registry::Registry,
+    types::{DynSection, DynSink, DynStream},
+};
+use section::{
+    command_channel::{Command, ReplyTo as _, RootChannel, SectionChannel, SectionRequest},
+    futures::{self, FutureExt, Sink, SinkExt, Stream},
+    section::Section,
+    state::State,
+    SectionError, SectionFuture, SectionMessage,
+};
 use stub::Stub;
-
-use super::config::Config;
-use super::message::Message;
-use super::registry::Registry;
 
 #[allow(dead_code)]
 pub struct Pipe<R: RootChannel + Send + 'static> {
@@ -76,8 +80,8 @@ impl<R: RootChannel + Send + 'static> TryFrom<(&'_ Config, &'_ Registry<R::Secti
 impl<Input, Output, RootChan> Section<Input, Output, <RootChan as RootChannel>::SectionChannel>
     for Pipe<RootChan>
 where
-    Input: Stream<Item = Message> + Send + 'static,
-    Output: Sink<Message, Error = SectionError> + Send + 'static,
+    Input: Stream<Item = SectionMessage> + Send + 'static,
+    Output: Sink<SectionMessage, Error = SectionError> + Send + 'static,
     RootChan: RootChannel + Send + 'static,
 {
     type Error = SectionError;
@@ -106,7 +110,7 @@ where
                     let output = pipe_output.take().unwrap();
                     (next_input, output)
                 } else {
-                    let (tx, rx) = channel::<Message>(1);
+                    let (tx, rx) = channel::<SectionMessage>(1);
                     let tx = tx.sink_map_err(|_| -> SectionError { "send error".into() });
                     (Box::pin(rx), Box::pin(tx))
                 };

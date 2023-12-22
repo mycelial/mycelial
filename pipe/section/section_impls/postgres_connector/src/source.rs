@@ -1,17 +1,25 @@
-use crate::{ColumnType, Message, PostgresPayload, StdError, Value};
-use futures::{FutureExt, Sink, SinkExt, Stream, StreamExt};
-use section::{Command, Section, SectionChannel, State};
+use chrono::{DateTime, NaiveDate, NaiveDateTime, NaiveTime, Timelike, Utc};
+use section::{
+    command_channel::{Command, SectionChannel},
+    decimal,
+    futures::{self, FutureExt, Sink, SinkExt, Stream, StreamExt},
+    message::{DataType, Value},
+    section::Section,
+    uuid, SectionError, SectionFuture, SectionMessage,
+};
 use sqlx::{
-    postgres::{PgConnectOptions, PgConnection, PgRow},
-    ConnectOptions, Row,
+    postgres::{
+        types::{PgMoney, PgTimeTz},
+        PgConnectOptions, PgConnection, PgRow, PgValue,
+    },
+    types::{Json, JsonRawValue},
+    Column, ConnectOptions, Row, TypeInfo, Value as _, ValueRef,
 };
-
+use std::sync::Arc;
 use std::time::Duration;
-use std::{future::Future, sync::Arc};
-use std::{
-    pin::{pin, Pin},
-    str::FromStr,
-};
+use std::{pin::pin, str::FromStr};
+
+use crate::{PostgresMessage, PostgresPayload, TableColumn};
 
 #[derive(Debug)]
 pub struct Postgres {
@@ -21,30 +29,11 @@ pub struct Postgres {
     poll_interval: Duration,
 }
 
-impl TryFrom<(ColumnType, usize, &PgRow)> for Value {
-    type Error = StdError;
-
-    fn try_from((col, index, row): (ColumnType, usize, &PgRow)) -> Result<Self, Self::Error> {
-        let value = match col {
-            ColumnType::I16 => Value::I16(row.get::<i16, _>(index)),
-            ColumnType::I32 => Value::I32(row.get::<i32, _>(index)),
-            ColumnType::I64 => Value::I64(row.get::<i64, _>(index)),
-            ColumnType::F32 => Value::F32(row.get::<f32, _>(index)),
-            ColumnType::F64 => Value::F64(row.get::<f64, _>(index)),
-            ColumnType::Blob => Value::Blob(row.get::<Vec<u8>, _>(index)),
-            ColumnType::Text => Value::Text(row.get::<String, _>(index)),
-            ColumnType::Bool => Value::Bool(row.get::<bool, _>(index)),
-            _ => Err(format!("unsupported type {}", col))?,
-        };
-        Ok(value)
-    }
-}
-
 #[derive(Debug)]
-pub struct Table {
+#[allow(unused)]
+pub(crate) struct Table {
     pub name: Arc<str>,
-    pub columns: Arc<[String]>,
-    pub column_types: Arc<[ColumnType]>,
+    pub columns: Arc<[TableColumn]>,
     pub query: String,
     pub offset: i64,
     pub limit: i64,
@@ -70,10 +59,10 @@ impl Postgres {
         input: Input,
         output: Output,
         mut section_channel: SectionChan,
-    ) -> Result<(), StdError>
+    ) -> Result<(), SectionError>
     where
         Input: Stream + Send,
-        Output: Sink<Message, Error = StdError> + Send,
+        Output: Sink<SectionMessage, Error = SectionError> + Send,
         SectionChan: SectionChannel + Send + Sync,
     {
         let mut connection = PgConnectOptions::from_str(self.url.as_str())?
@@ -83,33 +72,14 @@ impl Postgres {
 
         let mut _input = pin!(input.fuse());
         let mut output = pin!(output);
-        let mut state = section_channel
-            .retrieve_state()
-            .await?
-            .unwrap_or(<<SectionChan as SectionChannel>::State>::new());
 
-        let mut tables = self
-            .init_tables::<SectionChan>(&mut connection, &state)
-            .await?;
+        let mut tables = self.init_tables(&mut connection).await?;
 
         let mut interval = tokio::time::interval(self.poll_interval);
         loop {
             futures::select! {
                 cmd = section_channel.recv().fuse() => {
-                    match cmd? {
-                        Command::Ack(any) => {
-                            match any.downcast::<AckMessage>() {
-                                Ok(ack) => {
-                                    state.set(&ack.table, ack.offset)?;
-                                    section_channel.store_state(state.clone()).await?;
-                                },
-                                Err(_) =>
-                                    Err("Failed to downcast incoming Ack message to Message")?,
-                            };
-                        },
-                        Command::Stop => return Ok(()),
-                        _ => {},
-                    }
+                   if let Command::Stop = cmd? { return Ok(()) };
                 },
                 _ = interval.tick().fuse() => {
                     for table in tables.iter_mut() {
@@ -125,7 +95,7 @@ impl Postgres {
                         }
 
                         let payload = self.build_payload(table, rows)?;
-                        let message = Message::new(table.name.as_ref().to_string(), payload, None);
+                        let message = Box::new(PostgresMessage::new(Arc::clone(&table.name), payload, None));
                         output.send(message).await?;
                     }
                 },
@@ -133,11 +103,7 @@ impl Postgres {
         }
     }
 
-    async fn init_tables<C: SectionChannel>(
-        &self,
-        connection: &mut PgConnection,
-        _state: &<C as SectionChannel>::State,
-    ) -> Result<Vec<Table>, StdError> {
+    async fn init_tables(&self, connection: &mut PgConnection) -> Result<Vec<Table>, SectionError> {
         let all = self.tables.iter().any(|t| t == "*");
         let names =
             sqlx::query("SELECT table_name FROM information_schema.tables WHERE table_schema=$1")
@@ -151,7 +117,7 @@ impl Postgres {
         let mut tables = vec![];
         for name in names {
             let name: Arc<str> = name.into();
-            let (columns, column_types) = sqlx::query(
+            let columns: Vec<TableColumn> = sqlx::query(
                 "SELECT column_name, data_type FROM information_schema.columns WHERE table_name = $1 and table_schema=$2"
             )
                 .bind(name.as_ref())
@@ -159,31 +125,47 @@ impl Postgres {
                 .fetch_all(&mut *connection)
                 .await?
                 .into_iter()
-                .map(|row| (row.get::<String, _>(0), row.get::<String, _>(1)))
-                .fold((vec![], vec![]), |(mut col_names, mut col_types), (name, ty)| {
-                    let ty = match ty.as_str() {
-                        "smallint" => ColumnType::I16,
-                        "integer"  => ColumnType::I32,
-                        "bigint" => ColumnType::I64,
-                        "real" => ColumnType::F32,
-                        "double precision" => ColumnType::F64,
-                        "text" | "character" | "character varying" => ColumnType::Text,
-                        "bytea" => ColumnType::Blob,
-                        "boolean" => ColumnType::Bool,
-                        _ => unimplemented!("unsupported column type '{}' in table '{}'", ty, name)
+                .map(|row| {
+                    let col_name = row.get::<String, _>(0);
+                    let data_type = match row.get::<String, _>(1).as_str() {
+                        "smallint" => DataType::I16,
+                        "integer"  => DataType::I32,
+                        "bigint" => DataType::I64,
+                        "real" => DataType::F32,
+                        "double precision" => DataType::F64,
+                        "text" | "character" | "character varying" => DataType::Str,
+                        "bytea" => DataType::Bin,
+                        "boolean" => DataType::Bool,
+                        "date" => DataType::Date,
+                        "time without time zone" => DataType::Time,
+                        "json" => DataType::RawJson,
+                        "jsonb" => DataType::RawJson,
+                        "money" => DataType::Decimal,
+                        "numeric" => DataType::Decimal,
+                        "time with time zone" => DataType::Str, // legacy type
+                        "timestamp without time zone" => DataType::TimeStamp,
+                        "timestamp with time zone" => DataType::TimeStamp,
+                        "uuid" => DataType::Uuid,
+                        ty => unimplemented!("unsupported column type '{}' for column '{}' in table '{}'", ty, col_name, name)
                     };
-                    col_names.push(name);
-                    col_types.push(ty);
-                    (col_names, col_types)
-                });
+                    TableColumn { name: col_name.into(), data_type }
+                })
+                .collect();
             //let query = format!("SELECT * FROM \"{}\".\"{name}\" LIMIT=$1 OFFSET=$2", self.schema);
             // FIXME: no batching for now
-            let query = format!("SELECT * FROM \"{}\".\"{name}\"", self.schema);
+            let query = format!(
+                "SELECT {} FROM \"{}\".\"{name}\"",
+                columns
+                    .iter()
+                    .map(|col| col.name.as_ref())
+                    .collect::<Vec<_>>()
+                    .join(", "),
+                self.schema,
+            );
             let table = Table {
                 name,
                 query,
                 columns: columns.into(),
-                column_types: column_types.into(),
                 limit: 1024,
                 offset: 0,
             };
@@ -192,44 +174,92 @@ impl Postgres {
         Ok(tables)
     }
 
-    fn build_payload(&self, table: &Table, rows: Vec<PgRow>) -> Result<PostgresPayload, StdError> {
-        let mut values: Vec<Vec<Value>> = vec![];
-        for row in rows.iter() {
-            if values.len() != row.columns().len() {
-                values = row
-                    .columns()
-                    .iter()
-                    .map(|_| Vec::with_capacity(rows.len()))
-                    .collect();
+    fn build_payload(
+        &self,
+        table: &Table,
+        rows: Vec<PgRow>,
+    ) -> Result<PostgresPayload, SectionError> {
+        let values = match rows.is_empty() {
+            true => vec![],
+            false => {
+                let mut values: Vec<Vec<Value>> =
+                    vec![Vec::with_capacity(rows[0].len()); table.columns.len()];
+                for row in rows.iter() {
+                    for col in row.columns() {
+                        let pos = col.ordinal();
+                        let raw_value = row.try_get_raw(pos)?;
+                        let pg_value: PgValue = ValueRef::to_owned(&raw_value);
+                        let type_info = raw_value.type_info();
+                        let value = match type_info.name() {
+                            "INT2" => pg_value.try_decode::<Option<i16>>()?.map(Value::I16),
+                            "INT4" => pg_value.try_decode::<Option<i32>>()?.map(Value::I32),
+                            "INT8" => pg_value.try_decode::<Option<i64>>()?.map(Value::I64),
+                            "BYTEA" => pg_value.try_decode::<Option<Vec<u8>>>()?.map(Value::from),
+                            "CHAR" | "VARCHAR" | "TEXT" => {
+                                pg_value.try_decode::<Option<String>>()?.map(Value::from)
+                            }
+                            "DATE" => pg_value.try_decode::<Option<NaiveDate>>()?.map(|v| {
+                                Value::Date(v.and_hms_opt(0, 0, 0).unwrap().timestamp_micros())
+                            }),
+                            "TIME" => pg_value.try_decode::<Option<NaiveTime>>()?.map(|v| {
+                                let micros = NaiveDateTime::from_timestamp_opt(
+                                    v.num_seconds_from_midnight() as _,
+                                    v.nanosecond(),
+                                )
+                                .unwrap()
+                                .timestamp_micros();
+                                Value::Time(micros)
+                            }),
+                            "TIMETZ" => pg_value
+                                .try_decode::<Option<PgTimeTz>>()?
+                                .map(|v| format!("{} {}", v.time, v.offset).into()),
+                            "TIMESTAMP" => pg_value
+                                .try_decode::<Option<NaiveDateTime>>()?
+                                .map(|v| Value::TimeStamp(v.timestamp_micros())),
+                            "TIMESTAMPTZ" => pg_value
+                                .try_decode::<Option<DateTime<Utc>>>()?
+                                .map(|v| Value::TimeStamp(v.timestamp_micros())),
+                            "FLOAT4" => pg_value.try_decode::<Option<f32>>()?.map(Value::F32),
+                            "FLOAT8" => pg_value.try_decode::<Option<f64>>()?.map(Value::F64),
+                            "JSON" => pg_value
+                                .try_decode::<Option<Json<Box<JsonRawValue>>>>()?
+                                .map(|v| Value::Str(v.0.into())),
+                            "JSONB" => pg_value
+                                .try_decode::<Option<Json<Box<JsonRawValue>>>>()?
+                                .map(|v| Value::Str(v.0.into())),
+                            "MONEY" => pg_value
+                                .try_decode::<Option<PgMoney>>()?
+                                .map(|v| Value::Decimal(v.to_decimal(2))),
+                            "NUMERIC" => pg_value
+                                .try_decode::<Option<decimal::Decimal>>()?
+                                .map(Value::Decimal),
+                            "UUID" => pg_value
+                                .try_decode::<Option<uuid::Uuid>>()?
+                                .map(Value::Uuid),
+                            name => panic!("{}", name),
+                        }
+                        .unwrap_or(Value::Null);
+                        values[pos].push(value)
+                    }
+                }
+                values
             }
-            for (index, &column) in table.column_types.iter().enumerate() {
-                let value = Value::try_from((column, index, row))?;
-                values[index].push(value);
-            }
-        }
-        let batch = PostgresPayload {
-            columns: Arc::clone(&table.columns),
-            column_types: Arc::clone(&table.column_types),
-            values,
-            offset: table.offset,
         };
-        Ok(batch)
+        Ok(PostgresPayload {
+            columns: Arc::clone(&table.columns),
+            values,
+        })
     }
-}
-
-struct AckMessage {
-    table: Arc<str>,
-    offset: i64,
 }
 
 impl<Input, Output, SectionChan> Section<Input, Output, SectionChan> for Postgres
 where
     Input: Stream + Send + 'static,
-    Output: Sink<Message, Error = StdError> + Send + 'static,
+    Output: Sink<SectionMessage, Error = SectionError> + Send + 'static,
     SectionChan: SectionChannel + Send + Sync + 'static,
 {
-    type Error = StdError;
-    type Future = Pin<Box<dyn Future<Output = Result<(), Self::Error>> + Send + 'static>>;
+    type Error = SectionError;
+    type Future = SectionFuture;
 
     fn start(self, input: Input, output: Output, command: SectionChan) -> Self::Future {
         Box::pin(async move { self.enter_loop(input, output, command).await })

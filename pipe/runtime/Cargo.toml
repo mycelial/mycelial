@@ -1,6 +1,6 @@
 [package]
 name = "runtime"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -10,34 +10,11 @@ tokio = []
 
 
 [dependencies]
-futures = "0.3"
 tokio = { version = "1", features=["full"] }
 tokio-util = "0.7"
 tokio-stream = "0.1"
 serde_json = "1"
 toml = "0.7"
-section = { path = "../section" }
+section = { version = "0.2", path = "../section" }
 log = "0.4"
-
-## fixme
-reqwest = { version = "0.11" }
-base64 = { version = "0.21" }
-bytes = "1.5"
-arrow = "42"
-rdkafka = "0.34.0"
-snowflake-api = "=0.3.0"
-parquet = { version = "42", features = ["async"] }
-thiserror = "1"
-tempfile = "3"
-calamine = "0.22.1"
-chrono = "0.4.31"
-
-
-## sections
 stub = { path = "../section/section_impls/stub/" }
-sqlite_connector = { path = "../section/section_impls/sqlite_connector/" }
-postgres_connector = { path = "../section/section_impls/postgres_connector/" }
-mysql_connector = { path = "../section/section_impls/mysql_connector/" }
-excel_connector = { path = "../section/section_impls/excel_connector/" }
-kafka = { path = "../section/section_impls/kafka/" }
-sqlite_physical_replication = { path = "../section/section_impls/sqlite_physical_replication/" }

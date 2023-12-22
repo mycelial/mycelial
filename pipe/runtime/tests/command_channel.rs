@@ -1,8 +1,10 @@
 use std::time::Duration;
 
 use runtime::command_channel::{RootChannel, SectionRequest};
+use section::command_channel::{
+    Command, RootChannel as _, SectionChannel as _, WeakSectionChannel,
+};
 use section::dummy::DummyState;
-use section::{Command, RootChannel as _, SectionChannel as _, WeakSectionChannel};
 use tokio::time::timeout;
 
 const TIMEOUT: Duration = Duration::from_millis(100);
@@ -74,7 +76,7 @@ async fn test_command_channel() -> Result<(), Box<dyn std::error::Error>> {
     let log_request = log_request.unwrap().unwrap();
     assert!(matches!(log_request, SectionRequest::Log { .. }));
     let (id, log) = match log_request {
-        section::SectionRequest::Log { id, message } => (id, message),
+        section::command_channel::SectionRequest::Log { id, message } => (id, message),
         _ => unreachable!(),
     };
     assert_eq!(id, 0);

@@ -12,8 +12,8 @@ use common::{
 use pipe::{
     config::{Config, Value},
     scheduler::SchedulerHandle,
-    types::SectionError,
 };
+use section::SectionError;
 use tokio::task::JoinHandle;
 
 /// Http Client

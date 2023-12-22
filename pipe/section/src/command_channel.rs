@@ -3,10 +3,10 @@
 use async_trait::async_trait;
 use std::any::Any;
 
-use crate::State;
+use crate::state::State;
 
 #[async_trait]
-pub trait RootChannel: Send + Sync + 'static {
+pub trait RootChannel: Send + 'static {
     type SectionChannel: SectionChannel + Send;
     type Error: std::error::Error + Send + Sync + 'static;
 
@@ -59,15 +59,15 @@ pub trait SectionChannel: Send + Sync + 'static {
 }
 
 #[async_trait]
-pub trait WeakSectionChannel: Send + 'static {
-    async fn ack(self, ack: Box<dyn Any + Send + Sync + 'static>);
+pub trait WeakSectionChannel: Send + Sync + 'static {
+    async fn ack(self, ack: Box<dyn Any + Send + 'static>);
 }
 
 #[non_exhaustive]
 #[derive(Debug)]
 pub enum Command {
     // Message Acknowledgement
-    Ack(Box<dyn Any + Send + Sync + 'static>),
+    Ack(Box<dyn Any + Send + 'static>),
 
     // Signal for section to stop
     Stop,

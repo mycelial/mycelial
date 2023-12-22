@@ -3,7 +3,7 @@ name = "myceliald"
 version = "0.1.0"
 edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+# See more keys and their definitions at https:/doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 tokio = { version = "1", features = ["full"] }
@@ -19,5 +19,16 @@ pretty_env_logger = "0.5"
 toml = "0.7"
 common = { path = "../common" }
 thiserror = "1"
-pipe = { path = "../pipe/runtime/", package="runtime" }
-section = { path = "../pipe/section/" }
+pipe = { version = "0.2", path = "../pipe/runtime/", package="runtime" }
+section = { version = "0.2", path = "../pipe/section/" }
+
+## sections
+hello_world = { path = "../pipe/section/section_impls/hello_world/" }
+sqlite_connector = { path = "../pipe/section/section_impls/sqlite_connector/" }
+excel_connector = { path = "../pipe/section/section_impls/excel_connector/" }
+postgres_connector = { path = "../pipe/section/section_impls/postgres_connector/" }
+kafka_connector = { path = "../pipe/section/section_impls/kafka_connector/" }
+mycelial_server = { path = "../pipe/section/section_impls/mycelial_server/" }
+snowflake = { path = "../pipe/section/section_impls/snowflake/" }
+#mysql_connector = { path = "../pipe/section/section_impls/mysql_connector/" }
+#sqlite_physical_replication = { path = "../pipe/section/section_impls/sqlite_physical_replication/" }

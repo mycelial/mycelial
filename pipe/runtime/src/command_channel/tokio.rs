@@ -8,9 +8,12 @@ use tokio::sync::oneshot::{
 };
 
 use section::{
-    async_trait, Command, ReplyTo, RootChannel as RootChannelTrait,
-    SectionChannel as SectionChannelTrait, SectionRequest as _SectionRequest, State as StateTrait,
-    WeakSectionChannel as WeakSectionChannelTrait,
+    async_trait,
+    command_channel::{
+        Command, ReplyTo, RootChannel as RootChannelTrait, SectionChannel as SectionChannelTrait,
+        SectionRequest as _SectionRequest, WeakSectionChannel as WeakSectionChannelTrait,
+    },
+    state::State as StateTrait,
 };
 use std::any::Any;
 use std::collections::BTreeMap;
@@ -218,7 +221,7 @@ pub struct WeakSectionChannel {
 
 #[async_trait]
 impl WeakSectionChannelTrait for WeakSectionChannel {
-    async fn ack(self, payload: Box<dyn Any + Send + Sync + 'static>) {
+    async fn ack(self, payload: Box<dyn Any + Send + 'static>) {
         if let Some(tx) = self.weak_tx.upgrade() {
             tx.send(Command::Ack(payload)).ok();
         }

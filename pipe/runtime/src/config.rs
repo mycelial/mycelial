@@ -1,7 +1,6 @@
 //! Dynamic section configuration
+use section::SectionError;
 use std::collections::HashMap;
-
-use super::types::SectionError;
 
 pub type Map = HashMap<String, Value>;
 

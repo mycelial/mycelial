@@ -1,3 +1,4 @@
+use arrow::error::ArrowError;
 use axum::{
     http::StatusCode,
     response::{IntoResponse, Response},
@@ -33,6 +34,9 @@ pub enum Error {
 
     // &'static str error
     Str(&'static str),
+
+    // Arrow Error
+    ArrowError(ArrowError),
 }
 
 impl std::fmt::Display for Error {
@@ -104,6 +108,12 @@ impl From<serde_json::Error> for Error {
 impl From<&'static str> for Error {
     fn from(e: &'static str) -> Self {
         Self::Str(e)
+    }
+}
+
+impl From<ArrowError> for Error {
+    fn from(e: ArrowError) -> Self {
+        Self::ArrowError(e)
     }
 }
 
