@@ -1,3 +1,4 @@
+use arrow_msg::ArrowMsg;
 use section::{
     futures::{self, FutureExt, Sink, SinkExt, Stream, StreamExt},
     command_channel::{Command, SectionChannel},
@@ -57,7 +58,7 @@ impl SnowflakeSource {
         SectionChan: SectionChannel + Send + 'static,
     {
         // todo: move this before the loop to make it fail early? or verify configuration somehow
-        let mut api = SnowflakeApi::with_password_auth(
+        let api = SnowflakeApi::with_password_auth(
             &self.account_identifier,
             &self.warehouse,
             Some(&self.database),
@@ -81,10 +82,9 @@ impl SnowflakeSource {
                     let query_result = api.exec(&self.query).await?;
                     match query_result {
                         QueryResult::Arrow(batches) => {
-                            for batch in batches {
-                                let message = SectionMessage::new("snowflake_src", batch, None);
-                                output.send(message).await?;
-                            }
+                            let batches = batches.into_iter().map(|batch| Some(batch.into())).collect();
+                            let message = ArrowMsg::new("snowflake_src", batches, None);
+                            output.send(Box::new(message)).await?;
                         }
                         QueryResult::Json(_) => {
                             Err("unexpected payload, expected arrow, got json")?

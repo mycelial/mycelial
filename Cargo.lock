@@ -3341,6 +3341,7 @@ dependencies = [
 name = "snowflake"
 version = "0.1.0"
 dependencies = [
+ "arrow_msg",
  "section",
  "snowflake-api",
  "tokio",
