@@ -11,13 +11,6 @@ use pipe::{
     scheduler::{Scheduler, SchedulerHandle},
 };
 use section::command_channel::SectionChannel;
-//use mycelial_server;
-//use mysql_connector;
-//use postgres_connector;
-//use snowflake;
-//use sqlite_connector;
-//use sqlite_physical_replication;
-//use section::SectionChannel;
 
 /// Setup & populate registry
 fn setup_registry<S: SectionChannel>() -> Registry<S> {
@@ -59,9 +52,12 @@ fn setup_registry<S: SectionChannel>() -> Registry<S> {
             "mycelial_server_source",
             constructors::mycelial_server::source_ctor,
         ),
+        (
+            "snowflake_destination",
+            constructors::snowflake::destination_ctor,
+        ),
+        ("snowflake_source", constructors::snowflake::source_ctor),
         //("mysql_connector_destination", mysql_connector::destination::constructor),
-        //("snowflake_destination", snowflake::destination::constructor),
-        //("snowflake_source", snowflake::source::constructor),
         //("sqlite_physical_replication_destination", sqlite_physical_replication::destination::constructor),
         //("sqlite_physical_replication_source", sqlite_physical_replication::source::constructor),
     ];

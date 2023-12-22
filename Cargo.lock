@@ -2150,6 +2150,7 @@ dependencies = [
  "section",
  "serde",
  "serde_json",
+ "snowflake",
  "sqlite_connector",
  "sqlx",
  "thiserror",
