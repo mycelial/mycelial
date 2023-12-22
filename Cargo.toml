@@ -4,14 +4,14 @@ members = [
     "myceliald",
     "common",
     "pipe/runtime",
+    "pipe/arrow_msg",
     "pipe/section",
-    #"pipe/section/section_impls/*"
     "pipe/section/section_impls/hello_world",
     "pipe/section/section_impls/sqlite_connector",
     "pipe/section/section_impls/excel_connector",
     "pipe/section/section_impls/postgres_connector",
     "pipe/section/section_impls/mycelial_server",
-
     "pipe/section/section_impls/kafka_connector",
+    "pipe/section/section_impls/snowflake",
 ]
 resolver = "2"

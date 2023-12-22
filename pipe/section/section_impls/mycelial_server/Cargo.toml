@@ -7,6 +7,7 @@ edition = "2021"
 
 [dependencies]
 arrow = { version = "49", features = ["prettyprint"] }
+arrow_msg = { path = "../../../arrow_msg" }
 base64 = "0.21.5"
 reqwest = { version = "0.11.22", features = ["stream"] }
 section = { version = "0.2", path = "../../" }
