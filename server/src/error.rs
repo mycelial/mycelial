@@ -36,7 +36,7 @@ pub enum Error {
     Str(&'static str),
 
     // Arrow Error
-    ArrowError(ArrowError),
+    Arrow(ArrowError),
 }
 
 impl std::fmt::Display for Error {
@@ -113,7 +113,7 @@ impl From<&'static str> for Error {
 
 impl From<ArrowError> for Error {
     fn from(e: ArrowError) -> Self {
-        Self::ArrowError(e)
+        Self::Arrow(e)
     }
 }
 
