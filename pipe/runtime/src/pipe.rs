@@ -66,9 +66,9 @@ impl<R: RootChannel + Send + 'static> TryFrom<(&'_ Config, &'_ Registry<R::Secti
                         .ok_or("section needs to have a name")?
                         .as_str()
                         .ok_or("section name should be string")?;
-                    let constructor = registry
-                        .get_constructor(name)
-                        .ok_or(format!("the runtime's registry contains no constructor for '{name}' available"))?;
+                    let constructor = registry.get_constructor(name).ok_or(format!(
+                        "the runtime's registry contains no constructor for '{name}' available"
+                    ))?;
                     constructor(section_cfg)
                 },
             )
