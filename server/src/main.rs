@@ -50,7 +50,7 @@ impl FromRow<'_, SqliteRow> for Workspace {
         Ok(Self {
             id: row.get("id"),
             name: row.get("name"),
-            created_at: Utc::now(),
+            created_at: Utc::now(), // TODO: get from db
             // created_at: row.get("created_at"),
             pipe_configs: Vec::new(),
         })
@@ -615,7 +615,7 @@ impl Database {
     async fn delete_workspace(&self, id: u64) -> Result<(), error::Error> {
         let mut connection = self.connection.lock().await;
         let id: i64 = id.try_into().unwrap();
-        let _ = sqlx::query("DELETE FROM pipes WHERE id = ?")
+        let _ = sqlx::query("DELETE FROM workspaces WHERE id = ?")
             .bind(id) // fixme
             .execute(&mut *connection)
             .await?;
