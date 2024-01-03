@@ -312,7 +312,7 @@ fn get_directory_or_filepath(path: &str) -> String {
     let split_path = path.split('/').collect::<Vec<&str>>();
     let mut directory_to_watch = String::new();
     let mut found = false;
-    for (_i, part) in split_path.iter().enumerate() {
+    for part in split_path.iter() {
         if part.contains('*') || part.contains("**") {
             found = true;
             break;
