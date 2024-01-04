@@ -61,7 +61,10 @@ fn setup_registry<S: SectionChannel>() -> Registry<S> {
             "mysql_connector_destination",
             constructors::mysql_connector::destination_ctor,
         ),
-        //("mysql_connector_destination", mysql_connector::destination::constructor),
+        (
+            "mysql_connector_source",
+            constructors::mysql_connector::source_ctor,
+        ),
         //("sqlite_physical_replication_destination", sqlite_physical_replication::destination::constructor),
         //("sqlite_physical_replication_source", sqlite_physical_replication::source::constructor),
     ];

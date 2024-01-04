@@ -12,7 +12,6 @@ pub type Ack = Pin<Box<dyn Future<Output = ()> + Send>>;
 pub type Next<'a> = Pin<Box<dyn Future<Output = Result<Option<Chunk>, SectionError>> + Send>>;
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
-#[non_exhaustive]
 pub enum DataType {
     Null,
     Bool,
@@ -140,7 +139,6 @@ impl From<Vec<u8>> for Value {
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
-#[non_exhaustive]
 pub enum ValueView<'a> {
     Null,
     Bool(bool),

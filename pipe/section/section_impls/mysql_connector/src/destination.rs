@@ -98,6 +98,7 @@ impl Mysql {
                                     unimplemented => unimplemented!("unimplemented value: {:?}", unimplemented),
                                 }
                             }
+    
                             println!("query: {:?}", query.sql());
                             query.execute(&mut *transaction).await?;
                         }

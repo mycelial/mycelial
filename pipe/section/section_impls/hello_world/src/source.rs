@@ -18,6 +18,7 @@ use std::time::Duration;
 #[derive(Debug)]
 pub struct HelloWorld {
     message: String,
+    count: u32,
     interval_milis: i64,
 }
 
@@ -32,6 +33,7 @@ impl HelloWorld {
         Self {
             message: message.into(),
             interval_milis,
+            count: 0,
         }
     }
 }
@@ -46,7 +48,7 @@ where
     type Error = SectionError;
     type Future = SectionFuture;
 
-    fn start(self, _input: Input, output: Output, mut section_chan: SectionChan) -> Self::Future {
+    fn start(mut self, _input: Input, output: Output, mut section_chan: SectionChan) -> Self::Future {
         Box::pin(async move {
             let mut output = pin!(output);
             let mut interval = pin!(time::interval(Duration::from_millis(
@@ -63,8 +65,9 @@ where
                     }
                     _ = interval.tick().fuse() => {
                         counter += 1;
+                        self.count += 1;
                         let message = format!("{} {}", self.message, counter);
-                        let hello_world_payload = HelloWorldPayload { message };
+                        let hello_world_payload = HelloWorldPayload { message, count: u32::MAX };
                         section_chan.log(&format!("sending message: '{:?}'", hello_world_payload)).await?;
                         output.send(hello_world_payload.into()).await.ok();
                     }

@@ -10,6 +10,7 @@ pub mod source;
 pub struct HelloWorldPayload {
     /// message
     pub message: String,
+    pub count: u32,
 }
 
 impl DataFrame for HelloWorldPayload {
@@ -18,6 +19,10 @@ impl DataFrame for HelloWorldPayload {
             "message",
             DataType::Str,
             Box::new(std::iter::once(ValueView::from(&self.message))),
+        ), Column::new(
+            "count",
+            DataType::U64,
+            Box::new(std::iter::once(ValueView::from(&self.count))),
         )]
     }
 }
