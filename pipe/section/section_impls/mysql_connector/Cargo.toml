@@ -6,6 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-sqlx = { version = "0.7", features = ["mysql", "runtime-tokio"] }
+sqlx = { version = "0.7", features = ["mysql", "runtime-tokio", "chrono", "rust_decimal", "uuid"] }
 section = { path = "../../../section/" }
 futures = "0.3"
+chrono = "0.4.31"

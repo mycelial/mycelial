@@ -2143,6 +2143,7 @@ dependencies = [
  "kafka_connector",
  "log",
  "mycelial_server",
+ "mysql_connector",
  "postgres_connector",
  "pretty_env_logger",
  "reqwest",
@@ -2156,6 +2157,16 @@ dependencies = [
  "thiserror",
  "tokio",
  "toml",
+]
+
+[[package]]
+name = "mysql_connector"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "futures",
+ "section",
+ "sqlx",
 ]
 
 [[package]]

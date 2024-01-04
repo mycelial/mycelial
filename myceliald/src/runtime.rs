@@ -57,6 +57,10 @@ fn setup_registry<S: SectionChannel>() -> Registry<S> {
             constructors::snowflake::destination_ctor,
         ),
         ("snowflake_source", constructors::snowflake::source_ctor),
+        (
+            "mysql_connector_destination",
+            constructors::mysql_connector::destination_ctor,
+        ),
         //("mysql_connector_destination", mysql_connector::destination::constructor),
         //("sqlite_physical_replication_destination", sqlite_physical_replication::destination::constructor),
         //("sqlite_physical_replication_source", sqlite_physical_replication::source::constructor),
