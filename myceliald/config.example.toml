@@ -42,6 +42,10 @@ message = "Hello World"
 display_name = "Hello World Src"
 
 [[sources]]
+type = "stuck_in_the_middle"
+display_name = "Stuck in the Middle"
+
+[[sources]]
 type = "snowflake"
 display_name = "snowflake query"
 username = "username"

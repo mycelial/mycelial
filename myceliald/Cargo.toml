@@ -30,5 +30,6 @@ postgres_connector = { path = "../pipe/section/section_impls/postgres_connector/
 kafka_connector = { path = "../pipe/section/section_impls/kafka_connector/" }
 mycelial_server = { path = "../pipe/section/section_impls/mycelial_server/" }
 snowflake = { path = "../pipe/section/section_impls/snowflake/" }
+stuck_in_the_middle = { path = "../pipe/section/section_impls/stuck_in_the_middle/" }
 #mysql_connector = { path = "../pipe/section/section_impls/mysql_connector/" }
 #sqlite_physical_replication = { path = "../pipe/section/section_impls/sqlite_physical_replication/" }
