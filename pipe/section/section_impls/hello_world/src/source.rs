@@ -18,7 +18,6 @@ use std::time::Duration;
 #[derive(Debug)]
 pub struct HelloWorld {
     message: String,
-    count: u32,
     interval_milis: i64,
 }
 
@@ -33,7 +32,6 @@ impl HelloWorld {
         Self {
             message: message.into(),
             interval_milis,
-            count: 0,
         }
     }
 }
@@ -65,9 +63,8 @@ where
                     }
                     _ = interval.tick().fuse() => {
                         counter += 1;
-                        self.count += 1;
                         let message = format!("{} {}", self.message, counter);
-                        let hello_world_payload = HelloWorldPayload { message, count: u32::MAX };
+                        let hello_world_payload = HelloWorldPayload { message };
                         section_chan.log(&format!("sending message: '{:?}'", hello_world_payload)).await?;
                         output.send(hello_world_payload.into()).await.ok();
                     }

@@ -2,7 +2,7 @@ use chrono::{DateTime, NaiveDateTime, Utc};
 use section::{
     command_channel::{Command, SectionChannel},
     futures::{self, FutureExt, Sink, Stream, StreamExt},
-    message::{Chunk, DataType, ValueView},
+    message::{Chunk, ValueView},
     section::Section,
     SectionError, SectionFuture, SectionMessage,
 };
@@ -64,17 +64,14 @@ impl Mysql {
                         sqlx::query(&schema).execute(&mut *transaction).await?;
                         let values_placeholder = columns.iter().map(|_| "?").collect::<Vec<_>>().join(",");
                         let insert = format!("INSERT INTO `{name}` VALUES({values_placeholder})");
-                        println!("insert: {}", insert);
                         'outer: loop {
                             let mut query = sqlx::query(&insert);
                             for col in columns.iter_mut() {
                                 let next = col.next();
-                                println!("next: {:?}", next);
                                 if next.is_none() {
                                     break 'outer;
                                 }
                                 let n = next.unwrap();
-                                println!("n: {:?}", n);
                                 query = match n {
                                     ValueView::U8(u) => query.bind(u),
                                     ValueView::U16(u) => query.bind(u),
@@ -98,8 +95,6 @@ impl Mysql {
                                     unimplemented => unimplemented!("unimplemented value: {:?}", unimplemented),
                                 }
                             }
-    
-                            println!("query: {:?}", query.sql());
                             query.execute(&mut *transaction).await?;
                         }
                     }

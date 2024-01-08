@@ -25,7 +25,6 @@ pub(crate) struct TableColumn {
     data_type: DataType,
 }
 
-
 #[derive(Debug, Clone)]
 pub struct MysqlPayload {
     /// column names
@@ -113,9 +112,7 @@ pub fn generate_schema(table_name: &str, df: &dyn DataFrame) -> Result<String, S
         .iter()
         .map(|col| {
             let cdt = col.data_type();
-            println!("col: {:?}\n", cdt);
             let dtype = match col.data_type() {
-                // should one of these be blob?
                 DataType::I8 | DataType::I16 => "SMALLINT",
                 DataType::I32 => "INTEGER",
                 DataType::I64 => "BIGINT",
@@ -124,23 +121,22 @@ pub fn generate_schema(table_name: &str, df: &dyn DataFrame) -> Result<String, S
                 DataType::Decimal => "NUMERIC",
                 DataType::RawJson => "JSON",
                 DataType::Str => "TEXT",
-                DataType::Bin => "BYTEA",
+                DataType::Bin => "BLOB",
                 DataType::Time => "TIME",
                 DataType::Date => "DATE",
-                DataType::TimeStamp => "TIMESTAMPTZ",
+                DataType::TimeStamp => "TIMESTAMP",
                 DataType::Uuid => "UUID",
-                DataType::Any => "TEXT",// I don't think this is fully valid but it kinda works? 
-                // DataType::Null => todo!(),
                 DataType::Bool => "TINYINT",
                 DataType::U8 => "SMALLINT",
                 DataType::U16 => "INT",
-                DataType::U32 => "BIGINT", 
+                DataType::U32 => "BIGINT",
                 DataType::U64 => "DOUBLE",
+                DataType::Any => "TEXT", // I don't think this is fully valid but it kinda works?
                 v => return Err(format!("unsupported type {v:?}")),
             };
             Ok(format!("{} {}", col.name(), dtype))
         })
         .collect::<Result<Vec<_>, _>>()?
-        .join(",");
+        .join(", ");
     Ok(format!("CREATE TABLE IF NOT EXISTS `{name}` ({columns})",))
 }
