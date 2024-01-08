@@ -2153,6 +2153,7 @@ dependencies = [
  "snowflake",
  "sqlite_connector",
  "sqlx",
+ "stuck_in_the_middle",
  "thiserror",
  "tokio",
  "toml",
@@ -3822,6 +3823,16 @@ dependencies = [
 name = "stub"
 version = "0.1.0"
 dependencies = [
+ "futures",
+ "section",
+]
+
+[[package]]
+name = "stuck_in_the_middle"
+version = "0.1.0"
+dependencies = [
+ "arrow 49.0.0",
+ "arrow_msg",
  "futures",
  "section",
 ]
