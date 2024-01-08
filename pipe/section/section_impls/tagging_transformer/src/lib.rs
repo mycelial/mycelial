@@ -22,6 +22,7 @@ pub struct TaggingTransformer {
     column: String,
     text: String,
 }
+
 impl Default for TaggingTransformer {
     fn default() -> Self {
         Self::new("tag", "text")
@@ -84,8 +85,8 @@ where
 
                                             // Push a new value onto the old columns
                                             let mut values = old_cols
-                                                .into_iter()
-                                                .map(|c| c.to_owned())
+                                                .iter()
+                                                .map(std::borrow::ToOwned::to_owned)
                                                 .collect::<Vec<_>>();
                                             let tag = Arc::new(StringArray::from(vec![self.text.clone()]));
                                             values.push(tag);
@@ -120,30 +121,3 @@ where
         })
     }
 }
-
-// impl Stream for StuckInTheMiddle {
-//     type Item = usize;
-
-//     fn poll_next(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-//         Poll::Pending
-//     }
-// }
-
-// impl<T> Sink<T> for StuckInTheMiddle {
-
-//     fn poll_ready(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-//         Poll::Ready(Ok(()))
-//     }
-
-//     fn start_send(self: Pin<&mut Self>, _item: T) -> Result<(), Self::Error> {
-//         Ok(())
-//     }
-
-//     fn poll_close(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-//         Poll::Ready(Ok(()))
-//     }
-
-//     fn poll_flush(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-//         Poll::Ready(Ok(()))
-//     }
-// }
