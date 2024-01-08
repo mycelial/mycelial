@@ -42,8 +42,8 @@ message = "Hello World"
 display_name = "Hello World Src"
 
 [[sources]]
-type = "stuck_in_the_middle"
-display_name = "Stuck in the Middle"
+type = "tagging_transformer"
+display_name = "Tagging Transformer"
 
 [[sources]]
 type = "snowflake"

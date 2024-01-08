@@ -1,5 +1,5 @@
 [package]
-name = "stuck_in_the_middle"
+name = "tagging_transformer"
 version = "0.1.0"
 edition = "2021"
 

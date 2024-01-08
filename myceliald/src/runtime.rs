@@ -21,8 +21,8 @@ fn setup_registry<S: SectionChannel>() -> Registry<S> {
         ),
         ("hello_world_source", constructors::hello_world::source_ctor),
         (
-            "stuck_in_the_middle_source",
-            constructors::stuck_in_the_middle::source_ctor,
+            "tagging_transformer",
+            constructors::tagging_transformer::transform_ctor,
         ),
         (
             "sqlite_connector_destination",

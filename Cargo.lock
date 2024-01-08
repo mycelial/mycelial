@@ -2153,7 +2153,7 @@ dependencies = [
  "snowflake",
  "sqlite_connector",
  "sqlx",
- "stuck_in_the_middle",
+ "tagging_transformer",
  "thiserror",
  "tokio",
  "toml",
@@ -3828,16 +3828,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "stuck_in_the_middle"
-version = "0.1.0"
-dependencies = [
- "arrow 49.0.0",
- "arrow_msg",
- "futures",
- "section",
-]
-
-[[package]]
 name = "subtle"
 version = "2.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3902,6 +3892,16 @@ checksum = "a75fb188eb626b924683e3b95e3a48e63551fcfb51949de2f06a9d91dbee93c9"
 dependencies = [
  "core-foundation-sys",
  "libc",
+]
+
+[[package]]
+name = "tagging_transformer"
+version = "0.1.0"
+dependencies = [
+ "arrow 49.0.0",
+ "arrow_msg",
+ "futures",
+ "section",
 ]
 
 [[package]]

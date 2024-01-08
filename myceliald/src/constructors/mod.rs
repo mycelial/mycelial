@@ -5,4 +5,4 @@ pub mod mycelial_server;
 pub mod postgres_connector;
 pub mod snowflake;
 pub mod sqlite_connector;
-pub mod stuck_in_the_middle;
+pub mod tagging_transformer;

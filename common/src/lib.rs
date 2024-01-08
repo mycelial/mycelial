@@ -43,7 +43,7 @@ pub enum Source {
     Hello_World(HelloWorldSourceConfig),
     Excel_Connector(ExcelConfig),
     Postgres_Connector(PostgresConnectorConfig),
-    Stuck_In_The_Middle(StuckInTheMiddleConfig),
+    Tagging_Transformer(TaggingTransformerConfig),
 }
 
 /// Internally-tagged type of a source needs to match the variant name
@@ -125,7 +125,7 @@ pub struct HelloWorldSourceConfig {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct StuckInTheMiddleConfig {
+pub struct TaggingTransformerConfig {
     #[serde(flatten)]
     pub common_attrs: CommonAttrs,
 }
