@@ -43,6 +43,7 @@ pub enum Source {
     Hello_World(HelloWorldSourceConfig),
     Excel_Connector(ExcelConfig),
     Postgres_Connector(PostgresConnectorConfig),
+    // TODO: either we need to add another enum for transformers, or merge these two into "sections" and make the section itself know if it supports sourcing, transforming, or destinationing
     Tagging_Transformer(TaggingTransformerConfig),
 }
 
