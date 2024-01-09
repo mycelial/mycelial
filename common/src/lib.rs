@@ -172,7 +172,6 @@ pub struct MysqlConnectorDestinationConfig {
 // requests and responses
 // todo: move to a module
 
-
 #[derive(Serialize, Deserialize, Debug)]
 pub struct ProvisionClientRequest {
     pub client_config: ClientConfig,

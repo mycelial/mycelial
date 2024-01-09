@@ -46,7 +46,12 @@ where
     type Error = SectionError;
     type Future = SectionFuture;
 
-    fn start(mut self, _input: Input, output: Output, mut section_chan: SectionChan) -> Self::Future {
+    fn start(
+        mut self,
+        _input: Input,
+        output: Output,
+        mut section_chan: SectionChan,
+    ) -> Self::Future {
         Box::pin(async move {
             let mut output = pin!(output);
             let mut interval = pin!(time::interval(Duration::from_millis(

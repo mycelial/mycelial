@@ -69,7 +69,5 @@ pub fn destination_ctor<S: SectionChannel>(
         .ok_or("mysql destination section requires 'url'")?
         .as_str()
         .ok_or("path should be string")?;
-    Ok(Box::new(mysql_connector::destination::Mysql::new(
-        url,
-    )))
+    Ok(Box::new(mysql_connector::destination::Mysql::new(url)))
 }

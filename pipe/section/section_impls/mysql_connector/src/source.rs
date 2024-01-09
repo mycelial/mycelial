@@ -1,4 +1,4 @@
-use chrono::{ NaiveDate, NaiveDateTime, NaiveTime, Timelike};
+use chrono::{NaiveDate, NaiveDateTime, NaiveTime, Timelike};
 use section::{
     command_channel::{Command, SectionChannel},
     decimal,
@@ -10,12 +10,7 @@ use section::{
 use sqlx::{
     mysql::{MySqlConnectOptions, MySqlConnection, MySqlRow, MySqlValue},
     types::{Json, JsonRawValue},
-    Column,
-    ConnectOptions,
-    Row,
-    TypeInfo,
-    Value as _,
-    ValueRef,
+    Column, ConnectOptions, Row, TypeInfo, Value as _, ValueRef,
 };
 use std::sync::Arc;
 use std::time::Duration;
@@ -104,7 +99,10 @@ impl Mysql {
         }
     }
 
-    async fn init_tables(&self, connection: &mut MySqlConnection) -> Result<Vec<Table>, SectionError> {
+    async fn init_tables(
+        &self,
+        connection: &mut MySqlConnection,
+    ) -> Result<Vec<Table>, SectionError> {
         let all = self.tables.iter().any(|t| t == "*");
         let names =
             sqlx::query("SELECT table_name FROM information_schema.tables WHERE table_schema = ?")
@@ -188,7 +186,11 @@ impl Mysql {
         Ok(tables)
     }
 
-    fn build_payload(&self, table: &Table, rows: Vec<MySqlRow>) -> Result<MysqlPayload, SectionError> {
+    fn build_payload(
+        &self,
+        table: &Table,
+        rows: Vec<MySqlRow>,
+    ) -> Result<MysqlPayload, SectionError> {
         let values = match rows.is_empty() {
             true => vec![],
             false => {
@@ -203,9 +205,13 @@ impl Mysql {
                         let value = match type_info.name() {
                             "TINYINT" => mysql_value.try_decode::<Option<i8>>()?.map(Value::I8),
                             "SMALLINT" => mysql_value.try_decode::<Option<i16>>()?.map(Value::I16),
-                            "MEDIUMINT" | "INT" => mysql_value.try_decode::<Option<i32>>()?.map(Value::I32),
+                            "MEDIUMINT" | "INT" => {
+                                mysql_value.try_decode::<Option<i32>>()?.map(Value::I32)
+                            }
                             "BIGINT" => mysql_value.try_decode::<Option<i64>>()?.map(Value::I64),
-                            "DECIMAL" | "NUMERIC" => mysql_value.try_decode::<Option<decimal::Decimal>>()?.map(Value::Decimal),
+                            "DECIMAL" | "NUMERIC" => mysql_value
+                                .try_decode::<Option<decimal::Decimal>>()?
+                                .map(Value::Decimal),
                             "FLOAT" => mysql_value.try_decode::<Option<f32>>()?.map(Value::F32),
                             "DOUBLE" => mysql_value.try_decode::<Option<f64>>()?.map(Value::F64),
                             "BIT" => mysql_value.try_decode::<Option<bool>>()?.map(Value::Bool),
@@ -221,20 +227,23 @@ impl Mysql {
                                 .timestamp_micros();
                                 Value::Time(micros)
                             }),
-                            "CHAR" | "VARCHAR" | "TEXT" | "ENUM" | "LONGTEXT" | "MEDIUMTEXT" | "MULTILINESTRING"=> {
+                            "CHAR" | "VARCHAR" | "TEXT" | "ENUM" | "LONGTEXT" | "MEDIUMTEXT"
+                            | "MULTILINESTRING" => {
                                 mysql_value.try_decode::<Option<String>>()?.map(Value::from)
                             }
-                            "BINARY" | "VARBINARY" => mysql_value.try_decode::<Option<Vec<u8>>>()?.map(Value::from),
-                            "BLOB" => mysql_value.try_decode::<Option<Vec<u8>>>()?.map(Value::from),
-                            "DATETIME" => mysql_value.try_decode::<Option<NaiveDateTime>>()?.map(|v| {
-                                Value::TimeStamp(v.timestamp_micros())
-                            }),
+                            "BINARY" | "VARBINARY" => mysql_value
+                                .try_decode::<Option<Vec<u8>>>()?
+                                .map(Value::from),
+                            "BLOB" => mysql_value
+                                .try_decode::<Option<Vec<u8>>>()?
+                                .map(Value::from),
+                            "DATETIME" => mysql_value
+                                .try_decode::<Option<NaiveDateTime>>()?
+                                .map(|v| Value::TimeStamp(v.timestamp_micros())),
                             "JSON" => mysql_value
                                 .try_decode::<Option<Json<Box<JsonRawValue>>>>()?
                                 .map(|v| Value::Str(v.0.into())),
-                            "YEAR" => {
-                                mysql_value.try_decode::<Option<u32>>()?.map(Value::U32)
-                            },
+                            "YEAR" => mysql_value.try_decode::<Option<u32>>()?.map(Value::U32),
 
                             name => panic!("{}", name),
                         }
