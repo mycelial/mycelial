@@ -242,6 +242,12 @@ impl<'a> From<&'a Value> for ValueView<'a> {
     }
 }
 
+impl<'a> From<&'a u32> for ValueView<'a> {
+    fn from(value: &'a u32) -> Self {
+        ValueView::U32(*value)
+    }
+}
+
 impl<'a> From<&'a String> for ValueView<'a> {
     fn from(value: &'a String) -> Self {
         ValueView::Str(value)

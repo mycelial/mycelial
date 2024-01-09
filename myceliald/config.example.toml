@@ -110,7 +110,15 @@ type = "postgres_connector"
 display_name = "postgres destination"
 url = "postgres://user:password@127.0.0.1:5432/test"
 
+[[sources]]
+type = "mysql_connector"
+display_name = "mysql source"
+url = "mysql://username:password@127.0.0.1:3306/test"
+schema = "test"
+tables = "*"
+poll_interval = 5
+
 [[destinations]]
 type = "mysql_connector"
 display_name = "mysql destination"
-url = "mysql://user:password@127.0.0.1:3306/test"
+url = "mysql://username:password@127.0.0.1:3306/test"
