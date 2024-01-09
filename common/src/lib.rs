@@ -43,6 +43,7 @@ pub enum Source {
     Hello_World(HelloWorldSourceConfig),
     Excel_Connector(ExcelConfig),
     Postgres_Connector(PostgresConnectorConfig),
+    Mysql_Connector(MysqlConnectorSourceConfig),
 }
 
 /// Internally-tagged type of a source needs to match the variant name
@@ -150,6 +151,16 @@ pub struct PostgresConnectorDestinationConfig {
     #[serde(flatten)]
     pub common_attrs: CommonAttrs,
     pub url: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct MysqlConnectorSourceConfig {
+    #[serde(flatten)]
+    pub common_attrs: CommonAttrs,
+    pub url: String,
+    pub schema: String,
+    pub tables: String,
+    pub poll_interval: i64,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

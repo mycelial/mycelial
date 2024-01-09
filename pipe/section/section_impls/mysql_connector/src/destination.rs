@@ -1,11 +1,16 @@
-use futures::{FutureExt, Sink, Stream, StreamExt};
-use section::{Command, Section, SectionChannel};
-use std::pin::{pin, Pin};
+use chrono::{DateTime, NaiveDateTime, Utc};
+use section::{
+    command_channel::{Command, SectionChannel},
+    futures::{self, FutureExt, Sink, Stream, StreamExt},
+    message::{Chunk, ValueView},
+    section::Section,
+    SectionError, SectionFuture, SectionMessage,
+};
+use std::pin::pin;
 
-use crate::{escape_table_name, generate_schema, Message, StdError, Value};
+use crate::{escape_table_name, generate_schema};
 use sqlx::Connection;
 use sqlx::{mysql::MySqlConnectOptions, ConnectOptions};
-use std::future::Future;
 use std::str::FromStr;
 
 #[derive(Debug)]
@@ -23,10 +28,10 @@ impl Mysql {
         input: Input,
         output: Output,
         mut section_chan: SectionChan,
-    ) -> Result<(), StdError>
+    ) -> Result<(), SectionError>
     where
-        Input: Stream<Item = Message> + Send + 'static,
-        Output: Sink<Message, Error = StdError> + Send + 'static,
+        Input: Stream<Item = SectionMessage> + Send + 'static,
+        Output: Sink<SectionMessage, Error = SectionError> + Send + 'static,
         SectionChan: SectionChannel + Send + 'static,
     {
         let mut input = pin!(input.fuse());
@@ -46,28 +51,54 @@ impl Mysql {
                         None => Err("input closed")?,
                         Some(message) => message,
                     };
-                    let payload = &message.payload;
-                    let name = escape_table_name(&message.origin);
-                    let schema = generate_schema(&message);
-                    sqlx::query(&schema).execute(&mut *connection).await?;
-                    let values_placeholder = (0..payload.values.len()).map(|_| "?").collect::<Vec<_>>().join(",");
-                    let query = format!("INSERT INTO `{name}` VALUES({values_placeholder})");
+                    let name = escape_table_name(message.origin());
                     let mut transaction = connection.begin().await?;
-                    for row in 0..payload.values[0].len() {
-                        let mut q = sqlx::query(&query);
-                        for col in 0..payload.values.len() {
-                            q = match &payload.values[col][row] {
-                                Value::Int(i) => q.bind(i),
-                                Value::Real(f) => q.bind(f),
-                                Value::Text(t) => q.bind(t),
-                                Value::Blob(b) => q.bind(b),
-                                Value::Bool(b) => q.bind(b),
-                                // FIXME: oof, to insert NULL we need to bind None
-                                Value::Null => q.bind(Option::<i64>::None)
-                            };
+
+                    while let Some(chunk) = message.next().await? {
+                        let df = match chunk{
+                            Chunk::DataFrame(df) => df,
+                            _ => Err("expected dataframe chunk".to_string())?
                         };
-                        q.execute(&mut *transaction).await?;
+                        let schema = generate_schema(name.as_str(), df.as_ref())?;
+                        let mut columns = df.columns();
+                        sqlx::query(&schema).execute(&mut *transaction).await?;
+                        let values_placeholder = columns.iter().map(|_| "?").collect::<Vec<_>>().join(",");
+                        let insert = format!("INSERT INTO `{name}` VALUES({values_placeholder})");
+                        'outer: loop {
+                            let mut query = sqlx::query(&insert);
+                            for col in columns.iter_mut() {
+                                let next = col.next();
+                                if next.is_none() {
+                                    break 'outer;
+                                }
+                                let n = next.unwrap();
+                                query = match n {
+                                    ValueView::U8(u) => query.bind(u),
+                                    ValueView::U16(u) => query.bind(u),
+                                    ValueView::U32(u) => query.bind(u),
+                                    ValueView::U64(u) => query.bind(u),
+                                    ValueView::I8(i) => query.bind(i as i64),
+                                    ValueView::I16(i) => query.bind(i as i64),
+                                    ValueView::I32(i) => query.bind(i as i64),
+                                    ValueView::I64(i) => query.bind(i),
+                                    ValueView::F32(f) => query.bind(f),
+                                    ValueView::F64(f) => query.bind(f),
+                                    ValueView::Str(s) => query.bind(s),
+                                    ValueView::Bin(b) => query.bind(b),
+                                    ValueView::Bool(b) => query.bind(b),
+                                    ValueView::Time(us) => query.bind(NaiveDateTime::from_timestamp_micros(us).unwrap().time()),
+                                    ValueView::Date(us) => query.bind(NaiveDateTime::from_timestamp_micros(us).unwrap().date()),
+                                    ValueView::TimeStamp(us) => query.bind(DateTime::<Utc>::from_timestamp(us / 1_000_000, (us % 1_000_000 * 1000) as _).unwrap()),
+                                    ValueView::Decimal(d) => query.bind(d),
+                                    ValueView::Uuid(u) => query.bind(u),
+                                    ValueView::Null => query.bind(Option::<&str>::None),
+                                    unimplemented => unimplemented!("unimplemented value: {:?}", unimplemented),
+                                }
+                            }
+                            query.execute(&mut *transaction).await?;
+                        }
                     }
+
                     transaction.commit().await?;
                     message.ack().await;
                 }
@@ -78,12 +109,12 @@ impl Mysql {
 
 impl<Input, Output, SectionChan> Section<Input, Output, SectionChan> for Mysql
 where
-    Input: Stream<Item = Message> + Send + 'static,
-    Output: Sink<Message, Error = StdError> + Send + 'static,
+    Input: Stream<Item = SectionMessage> + Send + 'static,
+    Output: Sink<SectionMessage, Error = SectionError> + Send + 'static,
     SectionChan: SectionChannel + Send + 'static,
 {
-    type Error = StdError;
-    type Future = Pin<Box<dyn Future<Output = Result<(), Self::Error>> + Send + 'static>>;
+    type Error = SectionError;
+    type Future = SectionFuture;
 
     fn start(self, input: Input, output: Output, command: SectionChan) -> Self::Future {
         Box::pin(async move { self.enter_loop(input, output, command).await })
