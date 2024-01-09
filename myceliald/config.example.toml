@@ -42,6 +42,10 @@ message = "Hello World"
 display_name = "Hello World Src"
 
 [[sources]]
+type = "tagging_transformer"
+display_name = "Tagging Transformer"
+
+[[sources]]
 type = "snowflake"
 display_name = "snowflake query"
 username = "username"

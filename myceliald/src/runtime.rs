@@ -21,6 +21,10 @@ fn setup_registry<S: SectionChannel>() -> Registry<S> {
         ),
         ("hello_world_source", constructors::hello_world::source_ctor),
         (
+            "tagging_transformer",
+            constructors::tagging_transformer::transform_ctor,
+        ),
+        (
             "sqlite_connector_destination",
             constructors::sqlite_connector::destination_ctor,
         ),
