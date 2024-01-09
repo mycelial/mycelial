@@ -111,7 +111,6 @@ pub fn generate_schema(table_name: &str, df: &dyn DataFrame) -> Result<String, S
         .columns()
         .iter()
         .map(|col| {
-            let cdt = col.data_type();
             let dtype = match col.data_type() {
                 DataType::I8 | DataType::I16 => "SMALLINT",
                 DataType::I32 => "INTEGER",

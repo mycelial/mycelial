@@ -10,7 +10,7 @@ use std::pin::pin;
 
 use crate::{escape_table_name, generate_schema};
 use sqlx::Connection;
-use sqlx::{mysql::MySqlConnectOptions, ConnectOptions, Execute};
+use sqlx::{mysql::MySqlConnectOptions, ConnectOptions};
 use std::str::FromStr;
 
 #[derive(Debug)]
