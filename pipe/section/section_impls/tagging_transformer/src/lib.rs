@@ -98,7 +98,7 @@ where
                                             )?;
 
                                             // create a message from the RecordBatch
-                                            let new_msg = ArrowMsg::new("sitm", vec![Some(new_rb.into())], None);
+                                            let new_msg = ArrowMsg::new("tagging transformer", vec![Some(new_rb.into())], None);
 
                                             output.send(Box::new(new_msg)).await.ok();
                                             section_channel.log("payload sent").await?;
