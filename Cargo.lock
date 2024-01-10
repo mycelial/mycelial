@@ -3911,6 +3911,7 @@ dependencies = [
 name = "tagging_transformer"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "arrow 49.0.0",
  "arrow_msg",
  "futures",
