@@ -573,7 +573,7 @@ dependencies = [
 
 [[package]]
 name = "arrow_msg"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "arrow 49.0.0",
  "chrono",
@@ -3078,7 +3078,7 @@ dependencies = [
 
 [[package]]
 name = "runtime"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "log",
  "section",
@@ -3253,7 +3253,7 @@ checksum = "1c107b6f4780854c8b126e228ea8869f4d7b71260f962fefb57b996b8959ba6b"
 
 [[package]]
 name = "section"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "async-trait",
  "futures",

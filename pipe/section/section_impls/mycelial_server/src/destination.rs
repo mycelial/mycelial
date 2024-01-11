@@ -68,7 +68,7 @@ impl Mycelial {
                             match chunk {
                                 Chunk::DataFrame(df) => {
                                     // FIXME: unwrap unwrap unwrap
-                                    let rb = df_to_recordbatch(df).unwrap();
+                                    let rb = df_to_recordbatch(df.as_ref()).unwrap();
                                     let mut stream_writer: StreamWriter<_> = StreamWriter::try_new(vec![], rb.schema().as_ref()).unwrap();
                                     stream_writer.write(&rb).unwrap();
                                     stream_writer.finish().unwrap();

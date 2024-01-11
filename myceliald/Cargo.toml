@@ -19,8 +19,8 @@ pretty_env_logger = "0.5"
 toml = "0.7"
 common = { path = "../common" }
 thiserror = "1"
-pipe = { version = "0.2", path = "../pipe/runtime/", package="runtime" }
-section = { version = "0.2", path = "../pipe/section/" }
+pipe = { version = "0.3", path = "../pipe/runtime/", package="runtime" }
+section = { version = "0.3", path = "../pipe/section/" }
 
 ## sections
 hello_world = { path = "../pipe/section/section_impls/hello_world/" }

@@ -3,7 +3,7 @@ use section::{
     command_channel::{Command, SectionChannel},
     decimal,
     futures::{self, FutureExt, Sink, SinkExt, Stream, StreamExt},
-    message::{DataType, Value},
+    message::{DataType, TimeUnit, Value},
     section::Section,
     uuid, SectionError, SectionFuture, SectionMessage,
 };
@@ -136,15 +136,15 @@ impl Postgres {
                         "text" | "character" | "character varying" => DataType::Str,
                         "bytea" => DataType::Bin,
                         "boolean" => DataType::Bool,
-                        "date" => DataType::Date,
-                        "time without time zone" => DataType::Time,
+                        "date" => DataType::Date(TimeUnit::Second),
+                        "time without time zone" => DataType::Time(TimeUnit::Second),
                         "json" => DataType::RawJson,
                         "jsonb" => DataType::RawJson,
                         "money" => DataType::Decimal,
                         "numeric" => DataType::Decimal,
                         "time with time zone" => DataType::Str, // legacy type
-                        "timestamp without time zone" => DataType::TimeStamp,
-                        "timestamp with time zone" => DataType::TimeStamp,
+                        "timestamp without time zone" => DataType::TimeStamp(TimeUnit::Microsecond),
+                        "timestamp with time zone" => DataType::TimeStamp(TimeUnit::Microsecond),
                         "uuid" => DataType::Uuid,
                         ty => unimplemented!("unsupported column type '{}' for column '{}' in table '{}'", ty, col_name, name)
                     };
@@ -199,7 +199,10 @@ impl Postgres {
                                 pg_value.try_decode::<Option<String>>()?.map(Value::from)
                             }
                             "DATE" => pg_value.try_decode::<Option<NaiveDate>>()?.map(|v| {
-                                Value::Date(v.and_hms_opt(0, 0, 0).unwrap().timestamp_micros())
+                                Value::Date(
+                                    TimeUnit::Second,
+                                    v.and_hms_opt(0, 0, 0).unwrap().timestamp(),
+                                )
                             }),
                             "TIME" => pg_value.try_decode::<Option<NaiveTime>>()?.map(|v| {
                                 let micros = NaiveDateTime::from_timestamp_opt(
@@ -208,17 +211,21 @@ impl Postgres {
                                 )
                                 .unwrap()
                                 .timestamp_micros();
-                                Value::Time(micros)
+                                Value::Time(TimeUnit::Microsecond, micros)
                             }),
                             "TIMETZ" => pg_value
                                 .try_decode::<Option<PgTimeTz>>()?
                                 .map(|v| format!("{} {}", v.time, v.offset).into()),
-                            "TIMESTAMP" => pg_value
-                                .try_decode::<Option<NaiveDateTime>>()?
-                                .map(|v| Value::TimeStamp(v.timestamp_micros())),
-                            "TIMESTAMPTZ" => pg_value
-                                .try_decode::<Option<DateTime<Utc>>>()?
-                                .map(|v| Value::TimeStamp(v.timestamp_micros())),
+                            "TIMESTAMP" => {
+                                pg_value.try_decode::<Option<NaiveDateTime>>()?.map(|v| {
+                                    Value::TimeStamp(TimeUnit::Microsecond, v.timestamp_micros())
+                                })
+                            }
+                            "TIMESTAMPTZ" => {
+                                pg_value.try_decode::<Option<DateTime<Utc>>>()?.map(|v| {
+                                    Value::TimeStampUTC(TimeUnit::Microsecond, v.timestamp_micros())
+                                })
+                            }
                             "FLOAT4" => pg_value.try_decode::<Option<f32>>()?.map(Value::F32),
                             "FLOAT8" => pg_value.try_decode::<Option<f64>>()?.map(Value::F64),
                             "JSON" => pg_value

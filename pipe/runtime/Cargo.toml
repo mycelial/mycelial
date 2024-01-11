@@ -1,6 +1,6 @@
 [package]
 name = "runtime"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -15,6 +15,6 @@ tokio-util = "0.7"
 tokio-stream = "0.1"
 serde_json = "1"
 toml = "0.7"
-section = { version = "0.2", path = "../section" }
+section = { path = "../section" }
 log = "0.4"
 stub = { path = "../section/section_impls/stub/" }

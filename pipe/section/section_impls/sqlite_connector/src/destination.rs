@@ -1,15 +1,15 @@
 use section::{
     command_channel::{Command, SectionChannel},
     futures::{self, FutureExt, Sink, Stream, StreamExt},
-    message::{Chunk, ValueView},
+    message::{Chunk, TimeUnit, ValueView},
     section::Section,
     SectionError, SectionMessage,
 };
 use std::pin::{pin, Pin};
 
 use crate::{escape_table_name, generate_schema};
-use sqlx::Connection;
 use sqlx::{sqlite::SqliteConnectOptions, ConnectOptions};
+use sqlx::{types::chrono::NaiveDateTime, Connection};
 use std::future::Future;
 use std::str::FromStr;
 
@@ -88,9 +88,22 @@ impl Sqlite {
                                             ValueView::Str(s) => query.bind(s),
                                             ValueView::Bin(b) => query.bind(b),
                                             ValueView::Bool(b) => query.bind(b),
-                                            ValueView::Time(t) => query.bind(t.to_string()),
-                                            ValueView::Date(t) => query.bind(t.to_string()),
-                                            ValueView::TimeStamp(t) => query.bind(t.to_string()),
+                                            ValueView::Time(tu, t) => {
+                                                let ts = to_naive_date(tu, t).unwrap();
+                                                query.bind(ts.to_string())
+                                            },
+                                            ValueView::Date(tu, t) => {
+                                                let ts = to_naive_date(tu, t).unwrap();
+                                                query.bind(ts.to_string())}
+                                            ,
+                                            ValueView::TimeStamp(tu, t) => {
+                                                let ts = to_naive_date(tu, t).unwrap();
+                                                query.bind(ts.to_string())
+                                            },
+                                            ValueView::TimeStampUTC(tu, t) => {
+                                                let ts = to_naive_date(tu, t).map(|ts| ts.and_utc()).unwrap();
+                                                query.bind(ts.to_string())
+                                            },
                                             ValueView::Decimal(d) => query.bind(d.to_string()),
                                             ValueView::Uuid(u) => query.bind(u.to_string()),
                                             ValueView::Null => query.bind(Option::<&str>::None),
@@ -109,6 +122,17 @@ impl Sqlite {
                     message.ack().await;
                 }
             }
+        }
+    }
+}
+
+fn to_naive_date(tu: TimeUnit, t: i64) -> Option<NaiveDateTime> {
+    match tu {
+        TimeUnit::Second => NaiveDateTime::from_timestamp_opt(t, 0),
+        TimeUnit::Millisecond => NaiveDateTime::from_timestamp_micros(t * 1000),
+        TimeUnit::Microsecond => NaiveDateTime::from_timestamp_micros(t),
+        TimeUnit::Nanosecond => {
+            NaiveDateTime::from_timestamp_opt(t / 1_000_000_000, (t % 1_000_000_000) as _)
         }
     }
 }
