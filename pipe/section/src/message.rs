@@ -1,15 +1,11 @@
 //! Section messaging
 
-use futures::{FutureExt, Stream};
-
 use crate::SectionError;
 use std::future::Future;
-use std::marker::PhantomData;
 use std::pin::Pin;
-use std::task::{Context, Poll};
 
 pub type Ack = Pin<Box<dyn Future<Output = ()> + Send>>;
-pub type Next<'a> = Pin<Box<dyn Future<Output = Result<Option<Chunk>, SectionError>> + Send>>;
+pub type Next<'a> = Pin<Box<dyn Future<Output = Result<Option<Chunk>, SectionError>> + 'a + Send>>;
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
 #[non_exhaustive]
@@ -305,45 +301,6 @@ pub trait Message: Send + std::fmt::Debug {
     fn ack(&mut self) -> Ack;
 }
 
-pub struct MessageStream<'a> {
-    inner: Box<dyn Message>,
-    future: Option<Next<'a>>,
-    _marker: PhantomData<&'a ()>,
-}
-
-unsafe impl Sync for MessageStream<'_> {}
-
-impl<'a> Stream for MessageStream<'a> {
-    type Item = Result<Chunk, SectionError>;
-
-    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        let mut this = self.as_mut();
-        let mut future = match this.future.take() {
-            None => this.inner.next(),
-            Some(f) => f,
-        };
-        match future.poll_unpin(cx) {
-            Poll::Pending => {
-                this.future = Some(future);
-                Poll::Pending
-            }
-            Poll::Ready(Ok(None)) => Poll::Ready(None),
-            Poll::Ready(Ok(Some(chunk))) => Poll::Ready(Some(Ok(chunk))),
-            Poll::Ready(Err(e)) => Poll::Ready(Some(Err(e))),
-        }
-    }
-}
-
-impl From<Box<dyn Message>> for MessageStream<'_> {
-    fn from(inner: Box<dyn Message>) -> Self {
-        Self {
-            inner,
-            future: None,
-            _marker: PhantomData,
-        }
-    }
-}
-
 #[derive(Debug)]
 pub enum Chunk {
     Byte(Vec<u8>),
@@ -404,8 +361,6 @@ impl<'a> Iterator for Column<'a> {
 mod test {
     use std::collections::HashSet;
 
-    use futures::TryStream;
-
     use super::*;
 
     #[test]
@@ -431,55 +386,4 @@ mod test {
         assert_eq!(set.len(), len + 1);
     }
 
-    #[tokio::test]
-    async fn test_message_stream() {
-        #[derive(Debug)]
-        struct Test {
-            inner: Vec<i32>,
-        }
-
-        impl DataFrame for Test {
-            fn columns(&self) -> Vec<Column<'_>> {
-                vec![Column::new(
-                    "inner",
-                    DataType::I32,
-                    Box::new(self.inner.iter().copied().map(ValueView::I32)),
-                )]
-            }
-        }
-
-        #[derive(Debug)]
-        struct TestMsg {
-            inner: Option<Test>,
-        }
-
-        impl Message for TestMsg {
-            fn ack(&mut self) -> Ack {
-                Box::pin(async {})
-            }
-
-            fn origin(&self) -> &str {
-                "test"
-            }
-
-            fn next(&mut self) -> Next<'_> {
-                let v = self.inner.take().map(|v| Chunk::DataFrame(Box::new(v)));
-                Box::pin(async move { Ok(v) })
-            }
-        }
-
-        let msg = TestMsg {
-            inner: Some(Test {
-                inner: vec![1, 2, 3],
-            }),
-        };
-
-        let msg_stream: MessageStream = (Box::new(msg) as Box<dyn Message>).into();
-
-        fn try_stream<T: TryStream>(_: &T) {}
-        try_stream(&msg_stream);
-
-        fn send_sync<T: Send + Sync + 'static>(_: T) {}
-        send_sync(msg_stream);
-    }
 }

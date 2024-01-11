@@ -18,12 +18,14 @@ token = "token"                    # Default token for Sqlite Physical Replicati
 [[sources]]
 type = "sqlite_connector"
 display_name = "Sqlite Source"
+tables = "*"
 path = "test.sqlite"
 
 [[sources]]
 type = "excel_connector"
 display_name = "Excel Source"
 path = "test.xlsx"
+sheets = "*"
 strict = false
 
 # SOURCES
@@ -43,6 +45,8 @@ display_name = "Hello World Src"
 
 [[sources]]
 type = "tagging_transformer"
+column = "tag"
+text = "text"
 display_name = "Tagging Transformer"
 
 [[sources]]
