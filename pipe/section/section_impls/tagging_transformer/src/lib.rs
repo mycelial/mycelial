@@ -74,7 +74,7 @@ where
                                                 pretty_print(&*df))).await?;
 
                                             // Convert to a RecordBatch from the arrow crate
-                                            let rb = df_to_recordbatch(df)?;
+                                            let rb = df_to_recordbatch(df.as_ref())?;
                                             let old_schema = rb.schema();
                                             let old_cols = rb.columns();
 

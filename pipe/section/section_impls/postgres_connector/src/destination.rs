@@ -121,6 +121,7 @@ impl Postgres {
     }
 }
 
+// FIXME: move this function to lib
 fn to_naive_date(tu: TimeUnit, t: i64) -> Option<NaiveDateTime> {
     match tu {
         TimeUnit::Second => NaiveDateTime::from_timestamp_opt(t, 0),

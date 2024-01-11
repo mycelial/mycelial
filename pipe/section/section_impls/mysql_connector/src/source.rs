@@ -3,7 +3,7 @@ use section::{
     command_channel::{Command, SectionChannel},
     decimal,
     futures::{self, FutureExt, Sink, SinkExt, Stream, StreamExt},
-    message::{DataType, Value},
+    message::{DataType, TimeUnit, Value},
     section::Section,
     SectionError, SectionFuture, SectionMessage,
 };
@@ -130,7 +130,7 @@ impl Mysql {
                         "smallint" => DataType::I16,
                         "bigint" => DataType::I64,
                         "text" => DataType::Str,
-                        "date" => DataType::Date,
+                        "date" => DataType::Date(TimeUnit::Microsecond),
                         "json" => DataType::RawJson,
                         "numeric" => DataType::Decimal,
                         "uuid" => DataType::Uuid,
@@ -138,7 +138,7 @@ impl Mysql {
                         "bit" => DataType::Bool,
                         "blob" => DataType::Bin,
                         "char" => DataType::Str,
-                        "datetime" => DataType::TimeStamp,
+                        "datetime" => DataType::TimeStamp(TimeUnit::Microsecond),
                         "decimal" => DataType::Decimal,
                         "double" => DataType::F64,
                         "enum" => DataType::Str,
@@ -150,8 +150,9 @@ impl Mysql {
                         "mediumtext" => DataType::Str,
                         "mediumint" => DataType::I32,
                         "set" => DataType::Str,
-                        "time" => DataType::Time,
-                        "timestamp" => DataType::TimeStamp,
+                        "time" => DataType::Time(TimeUnit::Microsecond),
+                        // FIXME: it is TimestampUTC?
+                        "timestamp" => DataType::TimeStamp(TimeUnit::Microsecond),
                         "tinyblob" => DataType::Bin,
                         "tinytext" => DataType::Str,
                         "tinyint" => DataType::I8,
@@ -216,7 +217,10 @@ impl Mysql {
                             "DOUBLE" => mysql_value.try_decode::<Option<f64>>()?.map(Value::F64),
                             "BIT" => mysql_value.try_decode::<Option<bool>>()?.map(Value::Bool),
                             "DATE" => mysql_value.try_decode::<Option<NaiveDate>>()?.map(|v| {
-                                Value::Date(v.and_hms_opt(0, 0, 0).unwrap().timestamp_micros())
+                                Value::Date(
+                                    TimeUnit::Microsecond,
+                                    v.and_hms_opt(0, 0, 0).unwrap().timestamp_micros(),
+                                )
                             }),
                             "TIME" => mysql_value.try_decode::<Option<NaiveTime>>()?.map(|v| {
                                 let micros = NaiveDateTime::from_timestamp_opt(
@@ -225,7 +229,7 @@ impl Mysql {
                                 )
                                 .unwrap()
                                 .timestamp_micros();
-                                Value::Time(micros)
+                                Value::Time(TimeUnit::Microsecond, micros)
                             }),
                             "CHAR" | "VARCHAR" | "TEXT" | "ENUM" | "LONGTEXT" | "MEDIUMTEXT"
                             | "MULTILINESTRING" => {
@@ -237,9 +241,11 @@ impl Mysql {
                             "BLOB" => mysql_value
                                 .try_decode::<Option<Vec<u8>>>()?
                                 .map(Value::from),
-                            "DATETIME" => mysql_value
-                                .try_decode::<Option<NaiveDateTime>>()?
-                                .map(|v| Value::TimeStamp(v.timestamp_micros())),
+                            "DATETIME" => {
+                                mysql_value.try_decode::<Option<NaiveDateTime>>()?.map(|v| {
+                                    Value::TimeStamp(TimeUnit::Microsecond, v.timestamp_micros())
+                                })
+                            }
                             "JSON" => mysql_value
                                 .try_decode::<Option<Json<Box<JsonRawValue>>>>()?
                                 .map(|v| Value::Str(v.0.into())),
