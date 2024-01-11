@@ -63,20 +63,20 @@ pub enum Destination {
 }
 
 // Shared between all source definitions
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct CommonAttrs {
     // pub r#type: String,
     pub display_name: String,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct SqliteConnectorConfig {
     #[serde(flatten)]
     pub common_attrs: CommonAttrs,
     pub path: String,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct PostgresConnectorConfig {
     #[serde(flatten)]
     pub common_attrs: CommonAttrs,
@@ -91,7 +91,7 @@ pub struct ExcelConfig {
     pub strict: bool,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct KafkaConfig {
     #[serde(flatten)]
     pub common_attrs: CommonAttrs,
@@ -99,7 +99,7 @@ pub struct KafkaConfig {
     pub brokers: String,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct SnowflakeConfig {
     #[serde(flatten)]
     pub common_attrs: CommonAttrs,
@@ -111,7 +111,7 @@ pub struct SnowflakeConfig {
     pub database: String,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct SqlitePhysicalReplicationSourceConfig {
     #[serde(flatten)]
     pub common_attrs: CommonAttrs,
@@ -119,7 +119,7 @@ pub struct SqlitePhysicalReplicationSourceConfig {
     // database path
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct HelloWorldSourceConfig {
     #[serde(flatten)]
     pub common_attrs: CommonAttrs,
@@ -127,19 +127,19 @@ pub struct HelloWorldSourceConfig {
     pub interval_milis: u64,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct TaggingTransformerConfig {
     #[serde(flatten)]
     pub common_attrs: CommonAttrs,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct HelloWorldDestinationConfig {
     #[serde(flatten)]
     pub common_attrs: CommonAttrs,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct KafkaDestinationConfig {
     #[serde(flatten)]
     pub common_attrs: CommonAttrs,
@@ -147,7 +147,7 @@ pub struct KafkaDestinationConfig {
     pub topic: String,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct SqlitePhysicalReplicationDestinationConfig {
     #[serde(flatten)]
     pub common_attrs: CommonAttrs,
@@ -155,14 +155,14 @@ pub struct SqlitePhysicalReplicationDestinationConfig {
     pub database_path: String,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct PostgresConnectorDestinationConfig {
     #[serde(flatten)]
     pub common_attrs: CommonAttrs,
     pub url: String,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct MysqlConnectorSourceConfig {
     #[serde(flatten)]
     pub common_attrs: CommonAttrs,
@@ -172,7 +172,7 @@ pub struct MysqlConnectorSourceConfig {
     pub poll_interval: i64,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct MysqlConnectorDestinationConfig {
     #[serde(flatten)]
     pub common_attrs: CommonAttrs,
