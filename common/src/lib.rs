@@ -87,6 +87,7 @@ pub struct ExcelConfig {
     #[serde(flatten)]
     pub common_attrs: CommonAttrs,
     pub path: String,
+    pub sheets: String,
     pub strict: bool,
 }
 
