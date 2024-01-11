@@ -28,9 +28,10 @@ pub enum DataType {
     F64,
     Str,
     Bin,
-    Time,
-    Date,
-    TimeStamp,
+    Time(TimeUnit),
+    Date(TimeUnit),
+    TimeStamp(TimeUnit),
+    TimeStampUTC(TimeUnit),
     Decimal,
     Uuid,
     RawJson,
@@ -60,12 +61,25 @@ impl From<DataType> for i8 {
             DataType::F64 => 11,
             DataType::Str => 12,
             DataType::Bin => 13,
-            DataType::Time => 14,
-            DataType::Date => 15,
-            DataType::TimeStamp => 16,
-            DataType::Decimal => 17,
-            DataType::Uuid => 18,
-            DataType::RawJson => 19,
+            DataType::Time(TimeUnit::Second) => 14,
+            DataType::Time(TimeUnit::Millisecond) => 15,
+            DataType::Time(TimeUnit::Microsecond) => 16,
+            DataType::Time(TimeUnit::Nanosecond) => 17,
+            DataType::Date(TimeUnit::Second) => 18,
+            DataType::Date(TimeUnit::Millisecond) => 19,
+            DataType::Date(TimeUnit::Microsecond) => 20,
+            DataType::Date(TimeUnit::Nanosecond) => 21,
+            DataType::TimeStamp(TimeUnit::Second) => 22,
+            DataType::TimeStamp(TimeUnit::Millisecond) => 23,
+            DataType::TimeStamp(TimeUnit::Microsecond) => 24,
+            DataType::TimeStamp(TimeUnit::Nanosecond) => 25,
+            DataType::TimeStampUTC(TimeUnit::Second) => 26,
+            DataType::TimeStampUTC(TimeUnit::Millisecond) => 27,
+            DataType::TimeStampUTC(TimeUnit::Microsecond) => 28,
+            DataType::TimeStampUTC(TimeUnit::Nanosecond) => 29,
+            DataType::Decimal => 30,
+            DataType::Uuid => 31,
+            DataType::RawJson => 32,
             DataType::Any => 127,
         }
     }
@@ -74,27 +88,40 @@ impl From<DataType> for i8 {
 impl From<i8> for DataType {
     fn from(value: i8) -> Self {
         match value {
-            0 => Self::Null,
-            1 => Self::Bool,
-            2 => Self::I8,
-            3 => Self::I16,
-            4 => Self::I32,
-            5 => Self::I64,
-            6 => Self::U8,
-            7 => Self::U16,
-            8 => Self::U32,
-            9 => Self::U64,
-            10 => Self::F32,
-            11 => Self::F64,
-            12 => Self::Str,
-            13 => Self::Bin,
-            14 => Self::Time,
-            15 => Self::Date,
-            16 => Self::TimeStamp,
-            17 => Self::Decimal,
-            18 => Self::Uuid,
-            19 => Self::RawJson,
-            127 => Self::Any,
+            0 => DataType::Null,
+            1 => DataType::Bool,
+            2 => DataType::I8,
+            3 => DataType::I16,
+            4 => DataType::I32,
+            5 => DataType::I64,
+            6 => DataType::U8,
+            7 => DataType::U16,
+            8 => DataType::U32,
+            9 => DataType::U64,
+            10 => DataType::F32,
+            11 => DataType::F64,
+            12 => DataType::Str,
+            13 => DataType::Bin,
+            14 => DataType::Time(TimeUnit::Second),
+            15 => DataType::Time(TimeUnit::Millisecond),
+            16 => DataType::Time(TimeUnit::Microsecond),
+            17 => DataType::Time(TimeUnit::Nanosecond),
+            18 => DataType::Date(TimeUnit::Second),
+            19 => DataType::Date(TimeUnit::Millisecond),
+            20 => DataType::Date(TimeUnit::Microsecond),
+            21 => DataType::Date(TimeUnit::Nanosecond),
+            22 => DataType::TimeStamp(TimeUnit::Second),
+            23 => DataType::TimeStamp(TimeUnit::Millisecond),
+            24 => DataType::TimeStamp(TimeUnit::Microsecond),
+            25 => DataType::TimeStamp(TimeUnit::Nanosecond),
+            26 => DataType::TimeStampUTC(TimeUnit::Second),
+            27 => DataType::TimeStampUTC(TimeUnit::Millisecond),
+            28 => DataType::TimeStampUTC(TimeUnit::Microsecond),
+            29 => DataType::TimeStampUTC(TimeUnit::Nanosecond),
+            30 => DataType::Decimal,
+            31 => DataType::Uuid,
+            32 => DataType::RawJson,
+            127 => DataType::Any,
             value => panic!("unexpected value: {}", value),
         }
     }
@@ -117,12 +144,10 @@ pub enum Value {
     F64(f64),
     Str(Box<str>),
     Bin(Box<[u8]>),
-    // Time since midnight in microseconds
-    Time(i64),
-    // Unix time in microseconds
-    Date(i64),
-    // Unix time in microseconds
-    TimeStamp(i64),
+    Time(TimeUnit, i64),
+    Date(TimeUnit, i64),
+    TimeStamp(TimeUnit, i64),
+    TimeStampUTC(TimeUnit, i64),
     Decimal(crate::decimal::Decimal),
     Uuid(crate::uuid::Uuid),
 }
@@ -137,6 +162,14 @@ impl From<Vec<u8>> for Value {
     fn from(value: Vec<u8>) -> Self {
         Value::Bin(value.into())
     }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum TimeUnit {
+    Second,
+    Millisecond,
+    Microsecond,
+    Nanosecond,
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
@@ -156,9 +189,10 @@ pub enum ValueView<'a> {
     F64(f64),
     Str(&'a str),
     Bin(&'a [u8]),
-    Time(i64),
-    Date(i64),
-    TimeStamp(i64),
+    Time(TimeUnit, i64),
+    Date(TimeUnit, i64),
+    TimeStamp(TimeUnit, i64),
+    TimeStampUTC(TimeUnit, i64),
     Decimal(rust_decimal::Decimal),
     Uuid(&'a uuid::Uuid),
 }
@@ -180,9 +214,10 @@ impl ValueView<'_> {
             Self::F64(_) => DataType::F64,
             Self::Str(_) => DataType::Str,
             Self::Bin(_) => DataType::Bin,
-            Self::Time(_) => DataType::Time,
-            Self::Date(_) => DataType::Date,
-            Self::TimeStamp(_) => DataType::TimeStamp,
+            Self::Time(tu, _) => DataType::Time(*tu),
+            Self::Date(tu, _) => DataType::Date(*tu),
+            Self::TimeStamp(tu, _) => DataType::TimeStamp(*tu),
+            Self::TimeStampUTC(tu, _) => DataType::TimeStampUTC(*tu),
             Self::Decimal(_) => DataType::Decimal,
             Self::Uuid(_) => DataType::Uuid,
         }
@@ -206,9 +241,10 @@ impl<'a> PartialEq<Value> for ValueView<'a> {
             (&Self::F64(l), &Value::F64(r)) => l == r,
             (&Self::Str(l), Value::Str(r)) => l == r.as_ref(),
             (&Self::Bin(l), Value::Bin(r)) => l == r.as_ref(),
-            (&Self::Time(l), &Value::Time(r)) => l == r,
-            (&Self::Date(l), &Value::Date(r)) => l == r,
-            (&Self::TimeStamp(l), &Value::TimeStamp(r)) => l == r,
+            (&Self::Time(ltu, l), &Value::Time(rtu, r)) => l == r && ltu == rtu,
+            (&Self::Date(ltu, l), &Value::Date(rtu, r)) => l == r && ltu == rtu,
+            (&Self::TimeStamp(ltu, l), &Value::TimeStamp(rtu, r)) => l == r && ltu == rtu,
+            (&Self::TimeStampUTC(ltu, l), &Value::TimeStampUTC(rtu, r)) => l == r && ltu == rtu,
             (&Self::Decimal(l), Value::Decimal(r)) => l == *r,
             (&Self::Uuid(l), Value::Uuid(r)) => l == r,
             _ => false,
@@ -233,9 +269,10 @@ impl<'a> From<&'a Value> for ValueView<'a> {
             Value::F64(v) => Self::F64(*v),
             Value::Str(v) => Self::Str(v),
             Value::Bin(v) => Self::Bin(v),
-            Value::Time(v) => Self::Time(*v),
-            Value::Date(v) => Self::Date(*v),
-            Value::TimeStamp(v) => Self::TimeStamp(*v),
+            Value::Time(tu, v) => Self::Time(*tu, *v),
+            Value::Date(tu, v) => Self::Date(*tu, *v),
+            Value::TimeStamp(tu, v) => Self::TimeStamp(*tu, *v),
+            Value::TimeStampUTC(tu, v) => Self::TimeStampUTC(*tu, *v),
             Value::Decimal(v) => Self::Decimal(*v),
             Value::Uuid(v) => Self::Uuid(v),
         }
@@ -384,7 +421,7 @@ mod test {
     #[test]
     fn size_datatype_converts() {
         let mut set = HashSet::new();
-        let len = 20;
+        let len = 33;
         for x in (0..len).chain(std::iter::once(127)) {
             let x = x as i8;
             let dt: DataType = x.into();

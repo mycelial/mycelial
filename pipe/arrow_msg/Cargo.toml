@@ -8,3 +8,7 @@ edition = "2021"
 [dependencies]
 section = { version = "0.2", path = "../section/" }
 arrow = "49"
+chrono = "0.4"
+
+[dev-dependencies]
+quickcheck = "1"
