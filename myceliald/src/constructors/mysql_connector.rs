@@ -72,12 +72,11 @@ pub fn destination_ctor<S: SectionChannel>(
     Ok(Box::new(mysql_connector::destination::Mysql::new(url)))
 }
 
-
 #[cfg(test)]
 mod test {
     use std::collections::HashMap;
 
-    use common::{MysqlConnectorSourceConfig, MysqlConnectorDestinationConfig};
+    use common::{MysqlConnectorDestinationConfig, MysqlConnectorSourceConfig};
     use section::dummy::DummySectionChannel;
     use serde_json::Value;
 

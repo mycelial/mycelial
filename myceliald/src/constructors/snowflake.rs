@@ -119,12 +119,11 @@ pub fn destination_ctor<S: SectionChannel>(
     )))
 }
 
-
 #[cfg(test)]
 mod test {
     use std::collections::HashMap;
 
-    use common::SnowflakeConfig;
+    use common::{SnowflakeDestinationConfig, SnowflakeSourceConfig};
     use section::dummy::DummySectionChannel;
     use serde_json::Value;
 
@@ -132,7 +131,7 @@ mod test {
 
     #[test]
     fn test_source_ctor_matches_config() {
-        let source_config = SnowflakeConfig::default();
+        let source_config = SnowflakeSourceConfig::default();
         let mut c: HashMap<String, Value> =
             serde_json::from_str(&serde_json::to_string(&source_config).unwrap()).unwrap();
 
@@ -143,7 +142,7 @@ mod test {
 
     #[test]
     fn test_destination_ctor_matches_config() {
-        let destination_config = SnowflakeConfig::default();
+        let destination_config = SnowflakeDestinationConfig::default();
         let mut c: HashMap<String, Value> =
             serde_json::from_str(&serde_json::to_string(&destination_config).unwrap()).unwrap();
 

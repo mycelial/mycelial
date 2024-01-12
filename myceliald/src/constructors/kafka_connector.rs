@@ -21,7 +21,6 @@ pub fn destination_ctor<S: SectionChannel>(
     )))
 }
 
-
 #[cfg(test)]
 mod test {
     use std::collections::HashMap;

@@ -47,4 +47,3 @@ mod test {
         let _section = source_ctor::<DummySectionChannel>(&config).unwrap();
     }
 }
-

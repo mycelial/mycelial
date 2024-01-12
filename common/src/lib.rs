@@ -36,9 +36,9 @@ pub struct Node {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(tag = "type", rename_all = "lowercase")]
 pub enum Source {
-    Sqlite_Connector(SqliteConnectorConfig),
+    Sqlite_Connector(SqliteSourceConfig),
     Kafka(KafkaConfig),
-    Snowflake(SnowflakeConfig),
+    Snowflake(SnowflakeDestinationConfig),
     Sqlite_Physical_Replication(SqlitePhysicalReplicationSourceConfig),
     Hello_World(HelloWorldSourceConfig),
     Excel_Connector(ExcelConfig),
@@ -53,8 +53,8 @@ pub enum Source {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(tag = "type", rename_all = "lowercase")]
 pub enum Destination {
-    Sqlite_Connector(SqliteConnectorConfig),
-    Snowflake(SnowflakeConfig),
+    Sqlite_Connector(SqliteDestinationConfig),
+    Snowflake(SnowflakeDestinationConfig),
     Sqlite_Physical_Replication(SqlitePhysicalReplicationDestinationConfig),
     Hello_World(HelloWorldDestinationConfig),
     Kafka(KafkaDestinationConfig),
@@ -70,7 +70,15 @@ pub struct CommonAttrs {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
-pub struct SqliteConnectorConfig {
+pub struct SqliteSourceConfig {
+    #[serde(flatten)]
+    pub common_attrs: CommonAttrs,
+    pub path: String,
+    pub tables: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+pub struct SqliteDestinationConfig {
     #[serde(flatten)]
     pub common_attrs: CommonAttrs,
     pub path: String,
@@ -80,6 +88,10 @@ pub struct SqliteConnectorConfig {
 pub struct PostgresConnectorConfig {
     #[serde(flatten)]
     pub common_attrs: CommonAttrs,
+    pub url: String,
+    pub schema: String,
+    pub tables: String,
+    pub poll_interval: u64,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
@@ -100,7 +112,7 @@ pub struct KafkaConfig {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
-pub struct SnowflakeConfig {
+pub struct SnowflakeSourceConfig {
     #[serde(flatten)]
     pub common_attrs: CommonAttrs,
     pub username: String,
@@ -109,6 +121,22 @@ pub struct SnowflakeConfig {
     pub account_identifier: String,
     pub warehouse: String,
     pub database: String,
+    pub schema: String,
+    pub query: String,
+    pub delay: u64,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+pub struct SnowflakeDestinationConfig {
+    #[serde(flatten)]
+    pub common_attrs: CommonAttrs,
+    pub username: String,
+    pub password: String,
+    pub role: String,
+    pub account_identifier: String,
+    pub warehouse: String,
+    pub database: String,
+    pub schema: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
@@ -131,6 +159,8 @@ pub struct HelloWorldSourceConfig {
 pub struct TaggingTransformerConfig {
     #[serde(flatten)]
     pub common_attrs: CommonAttrs,
+    pub column: String,
+    pub text: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]

@@ -19,7 +19,6 @@ pub fn transform_ctor<S: SectionChannel>(
     )))
 }
 
-
 #[cfg(test)]
 mod test {
     use std::collections::HashMap;
