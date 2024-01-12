@@ -1,4 +1,4 @@
-use arrow::{util::pretty::pretty_format_batches, record_batch::RecordBatch, datatypes::DataType};
+use arrow::{datatypes::DataType, record_batch::RecordBatch, util::pretty::pretty_format_batches};
 use arrow_msg::ArrowMsg;
 use section::{
     command_channel::{Command, SectionChannel},
@@ -26,17 +26,17 @@ pub struct SnowflakeSource {
 // - cast timestamp ntz to proper timestamp
 fn rebatch(rb: RecordBatch) -> Result<RecordBatch, SectionError> {
     let schema = rb.schema();
-    let needs_rebatch = schema.fields().iter().any(|field| {
-        match field.data_type() {
-            DataType::Struct(_fields) => field.metadata().get("logicalType").map(|s| s.as_str()) == Some("TIMESTAMP_NTZ"),
-            _ => {
-                println!("field: {:?}", field);
-                false
-            }
+    let needs_rebatch = schema.fields().iter().any(|field| match field.data_type() {
+        DataType::Struct(_fields) => {
+            field.metadata().get("logicalType").map(|s| s.as_str()) == Some("TIMESTAMP_NTZ")
+        }
+        _ => {
+            println!("field: {:?}", field);
+            false
         }
     });
     if !needs_rebatch {
-        return Ok(rb)
+        return Ok(rb);
     };
 
     unimplemented!()
