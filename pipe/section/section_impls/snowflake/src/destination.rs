@@ -97,7 +97,7 @@ impl SnowflakeDestination {
                     let mut msg = msg.unwrap();
                     while let Some(chunk) = msg.next().await? {
                         let batch = match chunk {
-                            Chunk::DataFrame(df) => df_to_recordbatch(df)?,
+                            Chunk::DataFrame(df) => df_to_recordbatch(df.as_ref())?,
                             _ => panic!("unsupported chunk: {:?}", chunk),
                         };
                         self.destructive_load_batch(&mut api, &batch, msg.origin()).await?;

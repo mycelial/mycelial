@@ -6,7 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-section = { version = "0.2", path = "../../" }
+section = { path = "../../" }
 sqlx = { version = "0.7", features = ["sqlite"] }
 notify = { version = "6", default-features = false, features = ["macos_kqueue"] }
 tokio = { version = "1", features=["full"] }

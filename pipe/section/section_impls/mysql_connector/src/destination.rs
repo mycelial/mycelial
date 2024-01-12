@@ -1,8 +1,8 @@
-use chrono::{DateTime, NaiveDateTime, Utc};
+use chrono::NaiveDateTime;
 use section::{
     command_channel::{Command, SectionChannel},
     futures::{self, FutureExt, Sink, Stream, StreamExt},
-    message::{Chunk, ValueView},
+    message::{Chunk, TimeUnit, ValueView},
     section::Section,
     SectionError, SectionFuture, SectionMessage,
 };
@@ -86,9 +86,22 @@ impl Mysql {
                                     ValueView::Str(s) => query.bind(s),
                                     ValueView::Bin(b) => query.bind(b),
                                     ValueView::Bool(b) => query.bind(b),
-                                    ValueView::Time(us) => query.bind(NaiveDateTime::from_timestamp_micros(us).unwrap().time()),
-                                    ValueView::Date(us) => query.bind(NaiveDateTime::from_timestamp_micros(us).unwrap().date()),
-                                    ValueView::TimeStamp(us) => query.bind(DateTime::<Utc>::from_timestamp(us / 1_000_000, (us % 1_000_000 * 1000) as _).unwrap()),
+                                    ValueView::Time(tu, t) => {
+                                        let ts = to_naive_date(tu, t);
+                                        query.bind(ts.unwrap().time())
+                                    },
+                                    ValueView::Date(tu, t) => {
+                                        let ts = to_naive_date(tu, t);
+                                        query.bind(ts.unwrap().date())
+                                    },
+                                    ValueView::TimeStamp(tu, t) => {
+                                        let ts = to_naive_date(tu, t);
+                                        query.bind(ts.unwrap())
+                                    },
+                                    ValueView::TimeStampUTC(tu, t) => {
+                                        let ts = to_naive_date(tu, t).map(|ts| ts.and_utc());
+                                        query.bind(ts.unwrap())
+                                    },
                                     ValueView::Decimal(d) => query.bind(d),
                                     ValueView::Uuid(u) => query.bind(u),
                                     ValueView::Null => query.bind(Option::<&str>::None),
@@ -103,6 +116,18 @@ impl Mysql {
                     message.ack().await;
                 }
             }
+        }
+    }
+}
+
+// FIXME: move this function to lib
+fn to_naive_date(tu: TimeUnit, t: i64) -> Option<NaiveDateTime> {
+    match tu {
+        TimeUnit::Second => NaiveDateTime::from_timestamp_opt(t, 0),
+        TimeUnit::Millisecond => NaiveDateTime::from_timestamp_micros(t * 1000),
+        TimeUnit::Microsecond => NaiveDateTime::from_timestamp_micros(t),
+        TimeUnit::Nanosecond => {
+            NaiveDateTime::from_timestamp_opt(t / 1_000_000_000, (t % 1_000_000_000) as _)
         }
     }
 }

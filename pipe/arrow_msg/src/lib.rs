@@ -1,3 +1,5 @@
+pub use arrow;
+
 use std::{collections::HashMap, sync::Arc};
 
 use arrow::{
@@ -7,22 +9,26 @@ use arrow::{
         Decimal128Builder, Float32Array, Float32Builder, Float64Array, Float64Builder, Int16Array,
         Int16Builder, Int32Array, Int32Builder, Int64Array, Int64Builder, Int8Array, Int8Builder,
         NullBuilder, StringArray, StringBuilder, Time64MicrosecondArray, Time64MicrosecondBuilder,
-        TimestampMicrosecondArray, TimestampMicrosecondBuilder, UInt16Array, UInt16Builder,
-        UInt32Array, UInt32Builder, UInt64Array, UInt64Builder, UInt8Array, UInt8Builder,
-        UnionArray,
+        Time64NanosecondArray, TimestampMicrosecondArray, TimestampMicrosecondBuilder,
+        TimestampMillisecondArray, TimestampNanosecondArray, TimestampSecondArray, UInt16Array,
+        UInt16Builder, UInt32Array, UInt32Builder, UInt64Array, UInt64Builder, UInt8Array,
+        UInt8Builder, UnionArray,
     },
     buffer::Buffer,
     datatypes::{
-        DataType as ArrowDataType, Date64Type, Decimal128Type, Field, Float32Type, Float64Type,
-        Int16Type, Int32Type, Int64Type, Int8Type, Schema, SchemaRef, Time64MicrosecondType,
-        TimeUnit, TimestampMicrosecondType, UInt16Type, UInt32Type, UInt64Type, UInt8Type,
-        UnionFields, UnionMode, DECIMAL128_MAX_PRECISION, DECIMAL_DEFAULT_SCALE,
+        DataType as ArrowDataType, Date32Type, Date64Type, Decimal128Type, Field, Float32Type,
+        Float64Type, Int16Type, Int32Type, Int64Type, Int8Type, Schema, SchemaRef,
+        Time32MillisecondType, Time32SecondType, Time64MicrosecondType, Time64NanosecondType,
+        TimeUnit as ArrowTimeUnit, TimestampMicrosecondType, TimestampMillisecondType,
+        TimestampNanosecondType, TimestampSecondType, UInt16Type, UInt32Type, UInt64Type,
+        UInt8Type, UnionFields, UnionMode, DECIMAL128_MAX_PRECISION, DECIMAL_DEFAULT_SCALE,
     },
     record_batch::RecordBatch as ArrowRecordBatch,
 };
+use chrono::FixedOffset;
 use section::{
     decimal::Decimal,
-    message::{Ack, Chunk, Column, DataFrame, DataType, Message, ValueView},
+    message::{Ack, Chunk, Column, DataFrame, DataType, Message, TimeUnit, ValueView},
     SectionError,
 };
 
@@ -34,15 +40,15 @@ pub struct RecordBatch {
 }
 
 impl RecordBatch {
-    pub fn new(inner: ArrowRecordBatch, schema: SchemaRef) -> Self {
+    pub fn new(inner: ArrowRecordBatch) -> Self {
+        let schema = inner.schema();
         Self { inner, schema }
     }
 }
 
 impl From<ArrowRecordBatch> for RecordBatch {
     fn from(value: ArrowRecordBatch) -> Self {
-        let schema = value.schema();
-        Self::new(value, schema)
+        Self::new(value)
     }
 }
 
@@ -138,19 +144,68 @@ fn union_array_to_iter<'a>(
                     )
                 }
             }),
-            DataType::Time => ValueView::Time(
-                child
-                    .as_primitive::<Time64MicrosecondType>()
-                    .value(value_offset),
+            DataType::Time(tu) => match tu {
+                TimeUnit::Second => ValueView::Time(
+                    tu,
+                    child.as_primitive::<Time32SecondType>().value(value_offset) as _,
+                ),
+                TimeUnit::Millisecond => ValueView::Time(
+                    tu,
+                    child
+                        .as_primitive::<Time32MillisecondType>()
+                        .value(value_offset) as _,
+                ),
+                TimeUnit::Microsecond => ValueView::Time(
+                    tu,
+                    child
+                        .as_primitive::<Time64MicrosecondType>()
+                        .value(value_offset),
+                ),
+                TimeUnit::Nanosecond => ValueView::Time(
+                    tu,
+                    child
+                        .as_primitive::<Time64NanosecondType>()
+                        .value(value_offset),
+                ),
+            },
+            DataType::Date(_tu) => ValueView::Time(
+                TimeUnit::Millisecond,
+                child.as_primitive::<Date64Type>().value(value_offset),
             ),
-            DataType::Date => {
-                ValueView::Time(child.as_primitive::<Date64Type>().value(value_offset))
+            DataType::TimeStamp(tu) => {
+                let value = match tu {
+                    TimeUnit::Second => child
+                        .as_primitive::<TimestampSecondType>()
+                        .value(value_offset),
+                    TimeUnit::Millisecond => child
+                        .as_primitive::<TimestampMillisecondType>()
+                        .value(value_offset),
+                    TimeUnit::Microsecond => child
+                        .as_primitive::<TimestampMicrosecondType>()
+                        .value(value_offset),
+                    TimeUnit::Nanosecond => child
+                        .as_primitive::<TimestampNanosecondType>()
+                        .value(value_offset),
+                };
+                ValueView::TimeStamp(tu, value)
             }
-            DataType::TimeStamp => ValueView::TimeStamp(
-                child
-                    .as_primitive::<TimestampMicrosecondType>()
-                    .value(value_offset),
-            ),
+            DataType::TimeStampUTC(tu) => {
+                let value = match tu {
+                    TimeUnit::Second => child
+                        .as_primitive::<TimestampSecondType>()
+                        .value(value_offset),
+                    TimeUnit::Millisecond => child
+                        .as_primitive::<TimestampMillisecondType>()
+                        .value(value_offset),
+                    TimeUnit::Microsecond => child
+                        .as_primitive::<TimestampMicrosecondType>()
+                        .value(value_offset),
+                    TimeUnit::Nanosecond => child
+                        .as_primitive::<TimestampNanosecondType>()
+                        .value(value_offset),
+                };
+                ValueView::TimeStampUTC(tu, value)
+            }
             dt => unimplemented!("unimplemented dt: {}", dt),
         }
     });
@@ -297,34 +352,180 @@ impl DataFrame for RecordBatch {
                             ),
                         )
                     }
-                    ArrowDataType::Time64(_tu) => {
-                        let arr = column.as_primitive::<Time64MicrosecondType>();
-                        (
-                            DataType::Time,
-                            Box::new(
-                                arr.iter()
-                                    .map(|val| val.map(ValueView::Time).unwrap_or(ValueView::Null)),
+                    ArrowDataType::Time32(time_unit) => match time_unit {
+                        ArrowTimeUnit::Second => {
+                            let arr = column.as_primitive::<Time32SecondType>();
+                            (
+                                DataType::Time(TimeUnit::Second),
+                                Box::new(arr.iter().map(|val| {
+                                    val.map(|v| ValueView::Time(TimeUnit::Second, v as _))
+                                        .unwrap_or(ValueView::Null)
+                                })),
+                            )
+                        }
+                        ArrowTimeUnit::Millisecond => {
+                            let arr = column.as_primitive::<Time32MillisecondType>();
+                            (
+                                DataType::Time(TimeUnit::Millisecond),
+                                Box::new(arr.iter().map(|val| {
+                                    val.map(|v| ValueView::Time(TimeUnit::Millisecond, v as _))
+                                        .unwrap_or(ValueView::Null)
+                                })),
+                            )
+                        }
+                        _ => unimplemented!("Time32 only supports time unit in seconds"),
+                    },
+                    ArrowDataType::Time64(tu) => {
+                        let tu = from_arrow_timeunit(tu.clone());
+                        let iter: Box<dyn Iterator<Item = ValueView> + Send> = match tu {
+                            TimeUnit::Microsecond => {
+                                let arr = column.as_primitive::<Time64MicrosecondType>();
+                                Box::new(arr.iter().map(move |val| {
+                                    val.map(|v| ValueView::Time(tu, v))
+                                        .unwrap_or(ValueView::Null)
+                                }))
+                            }
+                            TimeUnit::Nanosecond => {
+                                let arr = column.as_primitive::<Time64NanosecondType>();
+                                Box::new(arr.iter().map(move |val| {
+                                    val.map(|v| ValueView::Time(tu, v))
+                                        .unwrap_or(ValueView::Null)
+                                }))
+                            }
+                            _ => unreachable!(
+                                "arrow time64 can carry only microseconds and nanoseconds"
                             ),
+                        };
+                        (DataType::Time(tu), iter)
+                    }
+                    ArrowDataType::Date32 => {
+                        let arr = column.as_primitive::<Date32Type>();
+                        (
+                            DataType::Date(TimeUnit::Second),
+                            Box::new(arr.iter().map(|val| {
+                                val.map(|v| ValueView::Date(TimeUnit::Second, (v as i64) * 86400))
+                                    .unwrap_or(ValueView::Null)
+                            })),
                         )
                     }
                     ArrowDataType::Date64 => {
                         let arr = column.as_primitive::<Date64Type>();
                         (
-                            DataType::Date,
-                            Box::new(
-                                arr.iter()
-                                    .map(|val| val.map(ValueView::Date).unwrap_or(ValueView::Null)),
-                            ),
-                        )
-                    }
-                    ArrowDataType::Timestamp(_tu, _tz) => {
-                        let arr = column.as_primitive::<TimestampMicrosecondType>();
-                        (
-                            DataType::TimeStamp,
+                            DataType::Date(TimeUnit::Millisecond),
                             Box::new(arr.iter().map(|val| {
-                                val.map(ValueView::TimeStamp).unwrap_or(ValueView::Null)
+                                val.map(|v| ValueView::Date(TimeUnit::Millisecond, v))
+                                    .unwrap_or(ValueView::Null)
                             })),
                         )
+                    }
+                    ArrowDataType::Timestamp(tu, None) => match tu {
+                        ArrowTimeUnit::Second => {
+                            let arr = column.as_primitive::<TimestampSecondType>();
+                            (
+                                DataType::TimeStamp(TimeUnit::Second),
+                                Box::new(arr.iter().map(|val| {
+                                    val.map(|v| ValueView::TimeStamp(TimeUnit::Second, v))
+                                        .unwrap_or(ValueView::Null)
+                                })),
+                            )
+                        }
+                        ArrowTimeUnit::Millisecond => {
+                            let arr = column.as_primitive::<TimestampMillisecondType>();
+                            (
+                                DataType::TimeStamp(TimeUnit::Millisecond),
+                                Box::new(arr.iter().map(|val| {
+                                    val.map(|v| ValueView::TimeStamp(TimeUnit::Millisecond, v))
+                                        .unwrap_or(ValueView::Null)
+                                })),
+                            )
+                        }
+                        ArrowTimeUnit::Microsecond => {
+                            let arr = column.as_primitive::<TimestampMicrosecondType>();
+                            (
+                                DataType::TimeStamp(TimeUnit::Microsecond),
+                                Box::new(arr.iter().map(|val| {
+                                    val.map(|v| ValueView::TimeStamp(TimeUnit::Microsecond, v))
+                                        .unwrap_or(ValueView::Null)
+                                })),
+                            )
+                        }
+                        ArrowTimeUnit::Nanosecond => {
+                            let arr = column.as_primitive::<TimestampNanosecondType>();
+                            (
+                                DataType::TimeStamp(TimeUnit::Nanosecond),
+                                Box::new(arr.iter().map(|val| {
+                                    val.map(|v| ValueView::TimeStamp(TimeUnit::Nanosecond, v))
+                                        .unwrap_or(ValueView::Null)
+                                })),
+                            )
+                        }
+                    },
+                    ArrowDataType::Timestamp(tu, Some(tz)) => {
+                        // FIXME: unwrap
+                        let offset: i64 = tz
+                            .as_ref()
+                            .parse::<FixedOffset>()
+                            .unwrap()
+                            .utc_minus_local() as i64;
+                        match tu {
+                            ArrowTimeUnit::Second => {
+                                let arr = column.as_primitive::<TimestampSecondType>();
+                                (
+                                    DataType::TimeStampUTC(TimeUnit::Second),
+                                    Box::new(arr.iter().map(move |val| {
+                                        val.map(|v| {
+                                            ValueView::TimeStampUTC(TimeUnit::Second, v + offset)
+                                        })
+                                        .unwrap_or(ValueView::Null)
+                                    })),
+                                )
+                            }
+                            ArrowTimeUnit::Millisecond => {
+                                let arr = column.as_primitive::<TimestampMillisecondType>();
+                                (
+                                    DataType::TimeStampUTC(TimeUnit::Millisecond),
+                                    Box::new(arr.iter().map(move |val| {
+                                        val.map(|v| {
+                                            ValueView::TimeStampUTC(
+                                                TimeUnit::Millisecond,
+                                                v + offset * 1000,
+                                            )
+                                        })
+                                        .unwrap_or(ValueView::Null)
+                                    })),
+                                )
+                            }
+                            ArrowTimeUnit::Microsecond => {
+                                let arr = column.as_primitive::<TimestampMicrosecondType>();
+                                (
+                                    DataType::TimeStampUTC(TimeUnit::Microsecond),
+                                    Box::new(arr.iter().map(move |val| {
+                                        val.map(|v| {
+                                            ValueView::TimeStampUTC(
+                                                TimeUnit::Microsecond,
+                                                v + offset * 1_000_000,
+                                            )
+                                        })
+                                        .unwrap_or(ValueView::Null)
+                                    })),
+                                )
+                            }
+                            ArrowTimeUnit::Nanosecond => {
+                                let arr = column.as_primitive::<TimestampNanosecondType>();
+                                (
+                                    DataType::TimeStampUTC(TimeUnit::Nanosecond),
+                                    Box::new(arr.iter().map(move |val| {
+                                        val.map(|v| {
+                                            ValueView::TimeStampUTC(
+                                                TimeUnit::Nanosecond,
+                                                v + offset * 1_000_000_000,
+                                            )
+                                        })
+                                        .unwrap_or(ValueView::Null)
+                                    })),
+                                )
+                            }
+                        }
                     }
                     ArrowDataType::Null => {
                         let arr = column.as_primitive::<Int8Type>();
@@ -360,6 +561,24 @@ impl DataFrame for RecordBatch {
     }
 }
 
+fn into_arrow_timeunit(tu: TimeUnit) -> ArrowTimeUnit {
+    match tu {
+        TimeUnit::Second => ArrowTimeUnit::Second,
+        TimeUnit::Millisecond => ArrowTimeUnit::Millisecond,
+        TimeUnit::Microsecond => ArrowTimeUnit::Microsecond,
+        TimeUnit::Nanosecond => ArrowTimeUnit::Nanosecond,
+    }
+}
+
+fn from_arrow_timeunit(tu: ArrowTimeUnit) -> TimeUnit {
+    match tu {
+        ArrowTimeUnit::Second => TimeUnit::Second,
+        ArrowTimeUnit::Millisecond => TimeUnit::Millisecond,
+        ArrowTimeUnit::Microsecond => TimeUnit::Microsecond,
+        ArrowTimeUnit::Nanosecond => TimeUnit::Nanosecond,
+    }
+}
+
 fn into_arrow_datatype(dt: DataType) -> ArrowDataType {
     match dt {
         DataType::I8 => ArrowDataType::Int8,
@@ -375,9 +594,15 @@ fn into_arrow_datatype(dt: DataType) -> ArrowDataType {
         DataType::Str => ArrowDataType::Utf8,
         DataType::Bin => ArrowDataType::Binary,
         DataType::Bool => ArrowDataType::Boolean,
-        DataType::Time => ArrowDataType::Time64(TimeUnit::Microsecond),
-        DataType::Date => ArrowDataType::Date64,
-        DataType::TimeStamp => ArrowDataType::Timestamp(TimeUnit::Microsecond, None),
+        DataType::Time(tu) if tu == TimeUnit::Second || tu == TimeUnit::Millisecond => {
+            ArrowDataType::Time32(into_arrow_timeunit(tu))
+        }
+        DataType::Time(tu) => ArrowDataType::Time64(into_arrow_timeunit(tu)),
+        DataType::Date(_) => ArrowDataType::Date64,
+        DataType::TimeStamp(tu) => ArrowDataType::Timestamp(into_arrow_timeunit(tu), None),
+        DataType::TimeStampUTC(tu) => {
+            ArrowDataType::Timestamp(into_arrow_timeunit(tu), Some(Arc::from("UTC")))
+        }
         DataType::Null => ArrowDataType::Null,
         _ => unimplemented!("{:?}", dt),
     }
@@ -395,7 +620,7 @@ fn rust_decimal_to_i128(decimal: Decimal) -> i128 {
 }
 
 fn to_union_array(column: Column<'_>) -> Result<(Vec<i8>, Vec<Field>, UnionArray), SectionError> {
-    let mut builders: Vec<Option<Box<dyn ArrayBuilder>>> = (0..32).map(|_| None).collect();
+    let mut builders: Vec<Option<Box<dyn ArrayBuilder>>> = (0..=32).map(|_| None).collect();
     let mut type_ids: Vec<i8> = vec![];
     let mut offsets: Vec<i32> = vec![];
     for value in column {
@@ -587,7 +812,7 @@ fn to_union_array(column: Column<'_>) -> Result<(Vec<i8>, Vec<Field>, UnionArray
                 offsets.push(b.len() as i32);
                 b.append_value(v);
             }
-            ValueView::Time(v) => {
+            ValueView::Time(_tu, v) => {
                 if builder.is_none() {
                     *builder = Some(Box::new(Time64MicrosecondBuilder::new()))
                 };
@@ -600,9 +825,16 @@ fn to_union_array(column: Column<'_>) -> Result<(Vec<i8>, Vec<Field>, UnionArray
                 offsets.push(b.len() as i32);
                 b.append_value(v);
             }
-            ValueView::Date(v) => {
+            ValueView::Date(tu, v) => {
                 if builder.is_none() {
                     *builder = Some(Box::new(Date64Builder::new()))
+                };
+
+                let v = match tu {
+                    TimeUnit::Second => v * 1000,
+                    TimeUnit::Millisecond => v,
+                    TimeUnit::Microsecond => v / 1000,
+                    TimeUnit::Nanosecond => v / 1_000_000,
                 };
                 builder
                     .as_mut()
@@ -610,9 +842,9 @@ fn to_union_array(column: Column<'_>) -> Result<(Vec<i8>, Vec<Field>, UnionArray
                     .as_any_mut()
                     .downcast_mut::<Date64Builder>()
                     .unwrap()
-                    .append_value(v / 1000); // micros to millis
+                    .append_value(v);
             }
-            ValueView::TimeStamp(v) => {
+            ValueView::TimeStamp(_tu, v) => {
                 if builder.is_none() {
                     *builder = Some(Box::new(TimestampMicrosecondBuilder::new()))
                 };
@@ -678,7 +910,7 @@ fn to_union_array(column: Column<'_>) -> Result<(Vec<i8>, Vec<Field>, UnionArray
     Ok((field_type_ids, fields, union_array))
 }
 
-pub fn df_to_recordbatch(df: Box<dyn DataFrame>) -> Result<ArrowRecordBatch, SectionError> {
+pub fn df_to_recordbatch(df: &dyn DataFrame) -> Result<ArrowRecordBatch, SectionError> {
     let columns = df.columns();
     let mut schema_columns = Vec::<Field>::with_capacity(columns.len());
     let mut rb_columns = Vec::<ArrayRef>::with_capacity(columns.len());
@@ -818,38 +1050,189 @@ pub fn df_to_recordbatch(df: Box<dyn DataFrame>) -> Result<ArrowRecordBatch, Sec
                     _ => panic!("expected uuid, got: {:?}", val),
                 }))),
             ),
-            DataType::Time => (
-                Field::new(name, ArrowDataType::Time64(TimeUnit::Microsecond), true),
-                Arc::new(Time64MicrosecondArray::from_iter(column.map(
-                    |val| match val {
-                        ValueView::Time(v) => Some(v),
-                        ValueView::Null => None,
-                        _ => panic!("expected time, got: {:?}", val),
-                    },
-                ))),
-            ),
-            DataType::Date => (
-                Field::new(name, ArrowDataType::Date64, true),
-                Arc::new(Date64Array::from_iter(column.map(|val| match val {
-                    ValueView::Date(d) => Some(d / 1000), // micros to millis
-                    ValueView::Null => None,
-                    _ => panic!("expected date, got: {:?}", val),
-                }))),
-            ),
-            DataType::TimeStamp => (
-                Field::new(
-                    name,
-                    ArrowDataType::Timestamp(TimeUnit::Microsecond, None),
-                    true,
+            DataType::Time(tu) => match tu {
+                TimeUnit::Second => (
+                    Field::new(
+                        name,
+                        ArrowDataType::Time64(ArrowTimeUnit::Microsecond),
+                        true,
+                    ),
+                    Arc::new(Time64MicrosecondArray::from_iter(column.map(
+                        |val| match val {
+                            ValueView::Time(TimeUnit::Second, v) => Some(v * 1_000_000),
+                            ValueView::Null => None,
+                            _ => panic!("expected time in seconds, got: {:?}", val),
+                        },
+                    ))),
                 ),
-                Arc::new(TimestampMicrosecondArray::from_iter(column.map(
-                    |val| match val {
-                        ValueView::TimeStamp(v) => Some(v),
-                        ValueView::Null => None,
-                        _ => panic!("expected timestamp, got: {:?}", val),
-                    },
-                ))),
-            ),
+                TimeUnit::Millisecond => (
+                    Field::new(
+                        name,
+                        ArrowDataType::Time64(ArrowTimeUnit::Microsecond),
+                        true,
+                    ),
+                    Arc::new(Time64MicrosecondArray::from_iter(column.map(
+                        |val| match val {
+                            ValueView::Time(TimeUnit::Millisecond, v) => Some(v * 1000),
+                            ValueView::Null => None,
+                            _ => panic!("expected time in milliseconds, got: {:?}", val),
+                        },
+                    ))),
+                ),
+                TimeUnit::Microsecond => (
+                    Field::new(
+                        name,
+                        ArrowDataType::Time64(ArrowTimeUnit::Microsecond),
+                        true,
+                    ),
+                    Arc::new(Time64MicrosecondArray::from_iter(column.map(
+                        |val| match val {
+                            ValueView::Time(TimeUnit::Microsecond, v) => Some(v),
+                            ValueView::Null => None,
+                            _ => panic!("expected time in microseconds, got: {:?}", val),
+                        },
+                    ))),
+                ),
+                TimeUnit::Nanosecond => (
+                    Field::new(name, ArrowDataType::Time64(ArrowTimeUnit::Nanosecond), true),
+                    Arc::new(Time64NanosecondArray::from_iter(column.map(
+                        |val| match val {
+                            ValueView::Time(TimeUnit::Nanosecond, v) => Some(v),
+                            ValueView::Null => None,
+                            _ => panic!("expected time in nanoseconds, got: {:?}", val),
+                        },
+                    ))),
+                ),
+            },
+            DataType::Date(tu) => {
+                let field = Field::new(name, ArrowDataType::Date64, true);
+                let arr = match tu {
+                    TimeUnit::Second => {
+                        Arc::new(Date64Array::from_iter(column.map(|val| match val {
+                            ValueView::Date(_, d) => Some(d * 1000),
+                            ValueView::Null => None,
+                            _ => panic!("expected date, got: {:?}", val),
+                        })))
+                    }
+                    TimeUnit::Millisecond => {
+                        Arc::new(Date64Array::from_iter(column.map(|val| match val {
+                            ValueView::Date(_, d) => Some(d),
+                            ValueView::Null => None,
+                            _ => panic!("expected date, got: {:?}", val),
+                        })))
+                    }
+                    TimeUnit::Microsecond => {
+                        Arc::new(Date64Array::from_iter(column.map(|val| match val {
+                            ValueView::Date(_, d) => Some(d / 1000),
+                            ValueView::Null => None,
+                            _ => panic!("expected date, got: {:?}", val),
+                        })))
+                    }
+                    TimeUnit::Nanosecond => {
+                        Arc::new(Date64Array::from_iter(column.map(|val| match val {
+                            ValueView::Date(_, d) => Some(d / 1_000_000),
+                            ValueView::Null => None,
+                            _ => panic!("expected date, got: {:?}", val),
+                        })))
+                    }
+                };
+                (field, arr)
+            }
+            DataType::TimeStamp(tu) => {
+                let atu = into_arrow_timeunit(tu);
+                match tu {
+                    TimeUnit::Second => (
+                        Field::new(name, ArrowDataType::Timestamp(atu, None), true),
+                        Arc::new(TimestampSecondArray::from_iter(column.map(
+                            |val| match val {
+                                ValueView::TimeStamp(_tu, v) => Some(v),
+                                ValueView::Null => None,
+                                _ => panic!("expected timestamp, got: {:?}", val),
+                            },
+                        ))),
+                    ),
+                    TimeUnit::Millisecond => (
+                        Field::new(name, ArrowDataType::Timestamp(atu, None), true),
+                        Arc::new(TimestampMillisecondArray::from_iter(column.map(
+                            |val| match val {
+                                ValueView::TimeStamp(_tu, v) => Some(v),
+                                ValueView::Null => None,
+                                _ => panic!("expected timestamp, got: {:?}", val),
+                            },
+                        ))),
+                    ),
+                    TimeUnit::Microsecond => (
+                        Field::new(name, ArrowDataType::Timestamp(atu, None), true),
+                        Arc::new(TimestampMicrosecondArray::from_iter(column.map(
+                            |val| match val {
+                                ValueView::TimeStamp(_tu, v) => Some(v),
+                                ValueView::Null => None,
+                                _ => panic!("expected timestamp, got: {:?}", val),
+                            },
+                        ))),
+                    ),
+                    TimeUnit::Nanosecond => (
+                        Field::new(name, ArrowDataType::Timestamp(atu, None), true),
+                        Arc::new(TimestampNanosecondArray::from_iter(column.map(
+                            |val| match val {
+                                ValueView::TimeStamp(_tu, v) => Some(v),
+                                ValueView::Null => None,
+                                _ => panic!("expected timestamp, got: {:?}", val),
+                            },
+                        ))),
+                    ),
+                }
+            }
+            DataType::TimeStampUTC(tu) => {
+                let atu = into_arrow_timeunit(tu);
+                let tz: Arc<str> = Arc::from("+00:00");
+                match tu {
+                    TimeUnit::Second => (
+                        Field::new(name, ArrowDataType::Timestamp(atu, Some(tz.clone())), true),
+                        Arc::new(
+                            TimestampSecondArray::from_iter(column.map(|val| match val {
+                                ValueView::TimeStampUTC(_tu, v) => Some(v),
+                                ValueView::Null => None,
+                                _ => panic!("expected timestamp utc, got: {:?}", val),
+                            }))
+                            .with_timezone(tz),
+                        ),
+                    ),
+                    TimeUnit::Millisecond => (
+                        Field::new(name, ArrowDataType::Timestamp(atu, Some(tz.clone())), true),
+                        Arc::new(
+                            TimestampMillisecondArray::from_iter(column.map(|val| match val {
+                                ValueView::TimeStampUTC(_tu, v) => Some(v),
+                                ValueView::Null => None,
+                                _ => panic!("expected timestamp utc, got: {:?}", val),
+                            }))
+                            .with_timezone(tz),
+                        ),
+                    ),
+                    TimeUnit::Microsecond => (
+                        Field::new(name, ArrowDataType::Timestamp(atu, Some(tz.clone())), true),
+                        Arc::new(
+                            TimestampMicrosecondArray::from_iter(column.map(|val| match val {
+                                ValueView::TimeStampUTC(_tu, v) => Some(v),
+                                ValueView::Null => None,
+                                _ => panic!("expected timestamp utc, got: {:?}", val),
+                            }))
+                            .with_timezone(tz),
+                        ),
+                    ),
+                    TimeUnit::Nanosecond => (
+                        Field::new(name, ArrowDataType::Timestamp(atu, Some(tz.clone())), true),
+                        Arc::new(
+                            TimestampNanosecondArray::from_iter(column.map(|val| match val {
+                                ValueView::TimeStampUTC(_tu, v) => Some(v),
+                                ValueView::Null => None,
+                                _ => panic!("expected timestamp utc, got: {:?}", val),
+                            }))
+                            .with_timezone(tz),
+                        ),
+                    ),
+                }
+            }
             DataType::Any => {
                 let name = name.to_string();
                 let (type_ids, fields, union_array) = to_union_array(column)?;
