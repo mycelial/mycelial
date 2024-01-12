@@ -2,8 +2,11 @@ name: Check
 
 on:
   push:
-    branches: main
-  pull_request
+    branches:
+    - main
+  pull_request:
+    branches:
+    - main
 
 jobs:
   lints:
@@ -88,3 +91,4 @@ jobs:
         run: |
           cargo test --target ${{ matrix.target }}
           cargo test --release --target ${{ matrix.target }}
+
