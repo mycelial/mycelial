@@ -44,3 +44,36 @@ pub fn destination_ctor<S: SectionChannel>(
         .ok_or("path should be string")?;
     Ok(Box::new(sqlite_connector::destination::Sqlite::new(path)))
 }
+
+#[cfg(test)]
+mod test {
+    use std::collections::HashMap;
+
+    use common::{SqliteDestinationConfig, SqliteSourceConfig};
+    use section::dummy::DummySectionChannel;
+    use serde_json::Value;
+
+    use super::*;
+
+    #[test]
+    fn test_source_ctor_matches_config() {
+        let source_config = SqliteSourceConfig::default();
+        let mut c: HashMap<String, Value> =
+            serde_json::from_str(&serde_json::to_string(&source_config).unwrap()).unwrap();
+
+        let config: Map = c.drain().map(|(k, v)| (k, v.try_into().unwrap())).collect();
+
+        let _section = source_ctor::<DummySectionChannel>(&config).unwrap();
+    }
+
+    #[test]
+    fn test_destination_ctor_matches_config() {
+        let destination_config = SqliteDestinationConfig::default();
+        let mut c: HashMap<String, Value> =
+            serde_json::from_str(&serde_json::to_string(&destination_config).unwrap()).unwrap();
+
+        let config: Map = c.drain().map(|(k, v)| (k, v.try_into().unwrap())).collect();
+
+        let _section = destination_ctor::<DummySectionChannel>(&config).unwrap();
+    }
+}

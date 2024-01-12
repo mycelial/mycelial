@@ -25,3 +25,25 @@ pub fn destination_ctor<S: SectionChannel>(
 ) -> Result<Box<dyn DynSection<S>>, SectionError> {
     Ok(Box::new(hello_world::destination::HelloWorld::new()))
 }
+
+#[cfg(test)]
+mod test {
+    use std::collections::HashMap;
+
+    use common::HelloWorldSourceConfig;
+    use section::dummy::DummySectionChannel;
+    use serde_json::Value;
+
+    use super::*;
+
+    #[test]
+    fn test_source_ctor() {
+        let source_config = HelloWorldSourceConfig::default();
+        let mut c: HashMap<String, Value> =
+            serde_json::from_str(&serde_json::to_string(&source_config).unwrap()).unwrap();
+
+        let config: Map = c.drain().map(|(k, v)| (k, v.try_into().unwrap())).collect();
+
+        let _section = source_ctor::<DummySectionChannel>(&config).unwrap();
+    }
+}
