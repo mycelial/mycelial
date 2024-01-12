@@ -91,3 +91,4 @@ jobs:
         run: |
           cargo test --target ${{ matrix.target }}
           cargo test --release --target ${{ matrix.target }}
+
