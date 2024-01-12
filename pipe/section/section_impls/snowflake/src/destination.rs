@@ -143,7 +143,7 @@ impl SnowflakeDestination {
         .await?;
 
         api.exec(
-            "CREATE OR REPLACE TEMPORARY FILE FORMAT CUSTOM_PARQUET_FORMAT TYPE = PARQUET COMPRESSION = NONE TRIM_SPACE = TRUE REPLACE_INVALID_CHARACTERS = TRUE BINARY_AS_TEXT = FALSE;"
+            "CREATE OR REPLACE TEMPORARY FILE FORMAT CUSTOM_PARQUET_FORMAT TYPE = PARQUET COMPRESSION = AUTO TRIM_SPACE = TRUE REPLACE_INVALID_CHARACTERS = TRUE BINARY_AS_TEXT = FALSE USE_LOGICAL_TYPE = TRUE;"
         ).await?;
 
         api.exec(&format!("TRUNCATE TABLE {};", table_name)).await?;
@@ -159,18 +159,21 @@ impl SnowflakeDestination {
     // Since type conversion goes Arrow -> Parquet -> Snowflake
     // The Arrow schema mapping must match what Snowflake expects on load instead of being
     // logically mapped directly from Arrow types
+    // todo: use Parquet directly
     fn arrow_schema_to_snowflake_schema(&self, arrow_schema: SchemaRef) -> String {
         arrow_schema.fields.iter().map(|f| {
-            // todo: use Parquet directly
+            let tmp: String;
             let snowflake_type = match f.data_type() {
                 DataType::Boolean => "BOOLEAN",
+                DataType::Time32(_) | DataType::Time64(_) => "TIME",
                 // null encoded as int32 in parquet
                 DataType::Null |
-                // time32 and time64 denote time of day and encoded as int in parquet too
-                DataType::Time32(_) | DataType::Time64(_) |
                 // rest of ints
                 DataType::Int8 | DataType::Int16 | DataType::Int32 | DataType::Int64 | DataType::UInt8 | DataType::UInt16 | DataType::UInt32 | DataType::UInt64 => "NUMBER",
-                DataType::Float16 | DataType::Float32 | DataType::Float64 | DataType::Decimal128(_, _) | DataType::Decimal256(_, _) => "FLOAT",
+                DataType::Float16 | DataType::Float32 | DataType::Float64 => "Float",
+                DataType::Decimal128(_, scale) | DataType::Decimal256(_, scale) => {
+                    tmp = format!("NUMBER({}, {scale})", 38 - scale); &tmp
+                },
                 DataType::Date32 | DataType::Date64 => "DATE",
                 DataType::Timestamp(_, _) => "TIMESTAMP",
                 DataType::Binary | DataType::FixedSizeBinary(_) | DataType::LargeBinary => "BINARY",
