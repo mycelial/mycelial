@@ -47,7 +47,7 @@ where
                             Err("input closed")?;
                         }
                         let mut msg = msg.unwrap();
-                        let tmp_file = tokio::task::spawn_blocking(|| tempfile::NamedTempFile::new())
+                        let tmp_file = tokio::task::spawn_blocking(tempfile::NamedTempFile::new)
                             .await??;
                         let mut fd = OpenOptions::new()
                             .create(true)

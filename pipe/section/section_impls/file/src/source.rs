@@ -82,7 +82,7 @@ where
             };
             output.send(Box::new(msg)).await?;
             section_channel.recv().await?;
-            return Ok(());
+            Ok(())
         })
     }
 }
