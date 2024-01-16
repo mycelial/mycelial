@@ -117,14 +117,30 @@ fn union_array_to_iter<'a>(
         let field = field_map.get(&type_id).unwrap();
         match field.data_type() {
             ArrowDataType::Null => ValueView::Null,
-            ArrowDataType::Int8 => ValueView::I8(child.as_primitive::<Int8Type>().value(value_offset)),
-            ArrowDataType::Int16 => ValueView::I16(child.as_primitive::<Int16Type>().value(value_offset)),
-            ArrowDataType::Int32 => ValueView::I32(child.as_primitive::<Int32Type>().value(value_offset)),
-            ArrowDataType::Int64 => ValueView::I64(child.as_primitive::<Int64Type>().value(value_offset)),
-            ArrowDataType::UInt8 => ValueView::U8(child.as_primitive::<UInt8Type>().value(value_offset)),
-            ArrowDataType::UInt16 => ValueView::U16(child.as_primitive::<UInt16Type>().value(value_offset)),
-            ArrowDataType::UInt32 => ValueView::U32(child.as_primitive::<UInt32Type>().value(value_offset)),
-            ArrowDataType::UInt64 => ValueView::U64(child.as_primitive::<UInt64Type>().value(value_offset)),
+            ArrowDataType::Int8 => {
+                ValueView::I8(child.as_primitive::<Int8Type>().value(value_offset))
+            }
+            ArrowDataType::Int16 => {
+                ValueView::I16(child.as_primitive::<Int16Type>().value(value_offset))
+            }
+            ArrowDataType::Int32 => {
+                ValueView::I32(child.as_primitive::<Int32Type>().value(value_offset))
+            }
+            ArrowDataType::Int64 => {
+                ValueView::I64(child.as_primitive::<Int64Type>().value(value_offset))
+            }
+            ArrowDataType::UInt8 => {
+                ValueView::U8(child.as_primitive::<UInt8Type>().value(value_offset))
+            }
+            ArrowDataType::UInt16 => {
+                ValueView::U16(child.as_primitive::<UInt16Type>().value(value_offset))
+            }
+            ArrowDataType::UInt32 => {
+                ValueView::U32(child.as_primitive::<UInt32Type>().value(value_offset))
+            }
+            ArrowDataType::UInt64 => {
+                ValueView::U64(child.as_primitive::<UInt64Type>().value(value_offset))
+            }
             ArrowDataType::Float32 => {
                 ValueView::F32(child.as_primitive::<Float32Type>().value(value_offset))
             }
@@ -132,57 +148,53 @@ fn union_array_to_iter<'a>(
                 ValueView::F64(child.as_primitive::<Float64Type>().value(value_offset))
             }
             ArrowDataType::Utf8 => ValueView::Str(child.as_string::<i32>().value(value_offset)),
-            ArrowDataType::LargeUtf8 => ValueView::Str(child.as_string::<i32>().value(value_offset)),
+            ArrowDataType::LargeUtf8 => {
+                ValueView::Str(child.as_string::<i32>().value(value_offset))
+            }
             ArrowDataType::Binary => ValueView::Bin(child.as_binary::<i32>().value(value_offset)),
-            ArrowDataType::LargeBinary => ValueView::Bin(child.as_binary::<i32>().value(value_offset)),
+            ArrowDataType::LargeBinary => {
+                ValueView::Bin(child.as_binary::<i32>().value(value_offset))
+            }
             ArrowDataType::Decimal128(scale, _precision) => ValueView::Decimal({
                 let d = child.as_primitive::<Decimal128Type>().value(value_offset);
                 Decimal::from_i128_with_scale(d, *scale as _)
             }),
-            ArrowDataType::Time32(tu) => {
-                match tu {
-                    ArrowTimeUnit::Second => ValueView::Time(
-                        TimeUnit::Second,
-                        child.as_primitive::<Time32SecondType>().value(value_offset) as _,
-                    ),
-                    ArrowTimeUnit::Millisecond => ValueView::Time(
-                        TimeUnit::Millisecond,
-                        child
-                            .as_primitive::<Time32MillisecondType>()
-                            .value(value_offset) as _,
-                    ),
-                    _ => unreachable!("time32 encodes only seconds or milliseconds")
-                }
-            },
-            ArrowDataType::Time64(tu) => {
-                match tu {
-                    ArrowTimeUnit::Microsecond => ValueView::Time(
-                        TimeUnit::Microsecond,
-                        child
-                            .as_primitive::<Time64MicrosecondType>()
-                            .value(value_offset),
-                    ),
-                    ArrowTimeUnit::Nanosecond => ValueView::Time(
-                        TimeUnit::Nanosecond,
-                        child
-                            .as_primitive::<Time64NanosecondType>()
-                            .value(value_offset),
-                    ),
-                    _ => unreachable!("time64 encodes only microseconds or nanoseconds")
-                }
-            },
-            ArrowDataType::Date32 => {
-                ValueView::Date(
+            ArrowDataType::Time32(tu) => match tu {
+                ArrowTimeUnit::Second => ValueView::Time(
                     TimeUnit::Second,
-                    child.as_primitive::<Date32Type>().value(value_offset) as i64 * 86400
-                )
-            },
-            ArrowDataType::Date64 => {
-                ValueView::Date(
+                    child.as_primitive::<Time32SecondType>().value(value_offset) as _,
+                ),
+                ArrowTimeUnit::Millisecond => ValueView::Time(
                     TimeUnit::Millisecond,
-                    child.as_primitive::<Date64Type>().value(value_offset),
-                )
+                    child
+                        .as_primitive::<Time32MillisecondType>()
+                        .value(value_offset) as _,
+                ),
+                _ => unreachable!("time32 encodes only seconds or milliseconds"),
             },
+            ArrowDataType::Time64(tu) => match tu {
+                ArrowTimeUnit::Microsecond => ValueView::Time(
+                    TimeUnit::Microsecond,
+                    child
+                        .as_primitive::<Time64MicrosecondType>()
+                        .value(value_offset),
+                ),
+                ArrowTimeUnit::Nanosecond => ValueView::Time(
+                    TimeUnit::Nanosecond,
+                    child
+                        .as_primitive::<Time64NanosecondType>()
+                        .value(value_offset),
+                ),
+                _ => unreachable!("time64 encodes only microseconds or nanoseconds"),
+            },
+            ArrowDataType::Date32 => ValueView::Date(
+                TimeUnit::Second,
+                child.as_primitive::<Date32Type>().value(value_offset) as i64 * 86400,
+            ),
+            ArrowDataType::Date64 => ValueView::Date(
+                TimeUnit::Millisecond,
+                child.as_primitive::<Date64Type>().value(value_offset),
+            ),
             ArrowDataType::Timestamp(tu, tz) => {
                 let value = match tu {
                     ArrowTimeUnit::Second => child
