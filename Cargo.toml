@@ -15,5 +15,6 @@ members = [
     "pipe/section/section_impls/snowflake",
     "pipe/section/section_impls/tagging_transformer",
     "pipe/section/section_impls/mysql_connector",
+    "pipe/section/section_impls/file",
 ]
 resolver = "2"

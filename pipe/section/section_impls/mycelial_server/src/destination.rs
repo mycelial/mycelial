@@ -3,22 +3,54 @@
 //! network section, dumps incoming messages to provided http endpoint
 use arrow::ipc::writer::StreamWriter;
 use arrow_msg::df_to_recordbatch;
+use async_stream::stream;
 use base64::engine::{general_purpose::STANDARD as BASE64, Engine};
 use reqwest::Body;
 use section::{
     command_channel::{Command, SectionChannel},
     futures::{self, FutureExt, Sink, Stream, StreamExt, TryStreamExt},
-    message::{Chunk, MessageStream},
+    message::{Chunk, Message},
     section::Section,
     SectionError, SectionFuture, SectionMessage,
 };
-use std::pin::pin;
+use std::{
+    pin::{pin, Pin},
+    task::{Context, Poll},
+};
 
 #[derive(Debug)]
 pub struct Mycelial {
     endpoint: String,
     token: String,
     topic: String,
+}
+
+struct S<T: Stream> {
+    inner: T,
+}
+
+unsafe impl<T: Stream> Sync for S<T> {}
+
+impl<T: Stream> Stream for S<T> {
+    type Item = <T as Stream>::Item;
+
+    fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+        unsafe {
+            let this = self.get_unchecked_mut();
+            Stream::poll_next(Pin::new_unchecked(&mut this.inner), cx)
+        }
+    }
+}
+
+fn to_stream(mut msg: Box<dyn Message>) -> impl Stream<Item = Result<Chunk, SectionError>> {
+    let inner = stream! { loop {
+        match msg.next().await {
+            Ok(Some(v)) => yield Ok(v),
+            Err(e) => yield Err(e),
+            Ok(None) => break,
+        }
+    } };
+    S { inner }
 }
 
 impl Mycelial {
@@ -62,7 +94,7 @@ impl Mycelial {
                     };
                     let origin = msg.origin().to_string();
                     let ack = msg.ack();
-                    let msg_stream: MessageStream = msg.into();
+                    let msg_stream = to_stream(msg);
                     let msg_stream = msg_stream
                         .map_ok(|chunk| {
                             match chunk {

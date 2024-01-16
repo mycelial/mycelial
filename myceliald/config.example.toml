@@ -18,12 +18,14 @@ token = "token"                    # Default token for Sqlite Physical Replicati
 [[sources]]
 type = "sqlite_connector"
 display_name = "Sqlite Source"
+tables = "*"
 path = "test.sqlite"
 
 [[sources]]
 type = "excel_connector"
 display_name = "Excel Source"
 path = "test.xlsx"
+sheets = "*"
 strict = false
 
 # SOURCES
@@ -43,6 +45,8 @@ display_name = "Hello World Src"
 
 [[sources]]
 type = "tagging_transformer"
+column = "tag"
+text = "text"
 display_name = "Tagging Transformer"
 
 [[sources]]
@@ -65,6 +69,11 @@ url = "postgres://user:password@localhost:5432/test"
 schema = "public"
 tables = "*"
 poll_interval = 5
+
+[[sources]]
+type = "file"
+display_name = "file source"
+path = "Cargo.toml"
 
 
 # DESTINATIONS
@@ -122,3 +131,8 @@ poll_interval = 5
 type = "mysql_connector"
 display_name = "mysql destination"
 url = "mysql://username:password@127.0.0.1:3306/test"
+
+[[destinations]]
+type = "file"
+display_name = "file destination"
+path = "/tmp/Cargo.toml"
