@@ -32,4 +32,5 @@ mycelial_server = { path = "../pipe/section/section_impls/mycelial_server/" }
 snowflake = { path = "../pipe/section/section_impls/snowflake/" }
 tagging_transformer = { path = "../pipe/section/section_impls/tagging_transformer/" }
 mysql_connector = { path = "../pipe/section/section_impls/mysql_connector/" }
+file = { path = "../pipe/section/section_impls/file/" }
 #sqlite_physical_replication = { path = "../pipe/section/section_impls/sqlite_physical_replication/" }

@@ -46,6 +46,7 @@ pub enum Source {
     // TODO: either we need to add another enum for transformers, or merge these two into "sections" and make the section itself know if it supports sourcing, transforming, or destinationing
     Tagging_Transformer(TaggingTransformerConfig),
     Mysql_Connector(MysqlConnectorSourceConfig),
+    File(FileSourceConfig),
 }
 
 /// Internally-tagged type of a source needs to match the variant name
@@ -60,6 +61,7 @@ pub enum Destination {
     Kafka(KafkaDestinationConfig),
     Postgres_Connector(PostgresConnectorDestinationConfig),
     Mysql_Connector(MysqlConnectorDestinationConfig),
+    File(FileDestinationConfig),
 }
 
 // Shared between all source definitions
@@ -203,11 +205,26 @@ pub struct MysqlConnectorSourceConfig {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
+pub struct FileSourceConfig {
+    #[serde(flatten)]
+    pub common_attrs: CommonAttrs,
+    pub path: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct MysqlConnectorDestinationConfig {
     #[serde(flatten)]
     pub common_attrs: CommonAttrs,
     pub url: String,
 }
+
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+pub struct FileDestinationConfig {
+    #[serde(flatten)]
+    pub common_attrs: CommonAttrs,
+    pub path: String,
+}
+
 // requests and responses
 // todo: move to a module
 

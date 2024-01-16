@@ -23,9 +23,9 @@ impl FileDestination {
 
 impl<Input, Output, SectionChan> Section<Input, Output, SectionChan> for FileDestination
 where
-    Input: Stream<Item = SectionMessage> + Send + Sync + 'static,
-    Output: Sink<SectionMessage, Error = SectionError> + Send + Sync + 'static,
-    SectionChan: SectionChannel + Send + Sync + 'static,
+    Input: Stream<Item = SectionMessage> + Send + 'static,
+    Output: Sink<SectionMessage, Error = SectionError> + Send + 'static,
+    SectionChan: SectionChannel + Send + 'static,
 {
     type Error = SectionError;
     type Future = SectionFuture;

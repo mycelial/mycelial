@@ -41,7 +41,7 @@ impl Message for FileStream {
 
     fn next(&mut self) -> section::message::Next<'_> {
         Box::pin(async {
-            let mut buf = vec![0; 4096];
+            let mut buf = vec![0; 16384];
             match self.fd.read(buf.as_mut_slice()).await {
                 Ok(0) => Ok(None),
                 Ok(read) => {
@@ -60,9 +60,9 @@ impl Message for FileStream {
 
 impl<Input, Output, SectionChan> Section<Input, Output, SectionChan> for FileSource
 where
-    Input: Stream<Item = SectionMessage> + Send + Sync + 'static,
-    Output: Sink<SectionMessage, Error = SectionError> + Send + Sync + 'static,
-    SectionChan: SectionChannel + Send + Sync + 'static,
+    Input: Stream<Item = SectionMessage> + Send + 'static,
+    Output: Sink<SectionMessage, Error = SectionError> + Send + 'static,
+    SectionChan: SectionChannel + Send + 'static,
 {
     type Error = SectionError;
     type Future = SectionFuture;

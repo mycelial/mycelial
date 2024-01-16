@@ -70,6 +70,11 @@ schema = "public"
 tables = "*"
 poll_interval = 5
 
+[[sources]]
+type = "file"
+display_name = "file source"
+path = "Cargo.toml"
+
 
 # DESTINATIONS
 # Define all data DESTINATIONS (data stores and directory paths)
@@ -126,3 +131,8 @@ poll_interval = 5
 type = "mysql_connector"
 display_name = "mysql destination"
 url = "mysql://username:password@127.0.0.1:3306/test"
+
+[[destinations]]
+type = "file"
+display_name = "file destination"
+path = "/tmp/Cargo.toml"

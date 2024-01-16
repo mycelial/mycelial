@@ -13,7 +13,10 @@ use section::{
     section::Section,
     SectionError, SectionFuture, SectionMessage,
 };
-use std::{pin::{pin, Pin}, task::{Context, Poll}};
+use std::{
+    pin::{pin, Pin},
+    task::{Context, Poll},
+};
 
 #[derive(Debug)]
 pub struct Mycelial {
@@ -23,23 +26,23 @@ pub struct Mycelial {
 }
 
 struct S<T: Stream> {
-    inner: T
+    inner: T,
 }
 
-unsafe impl<T: Stream> Sync for S<T>{}
+unsafe impl<T: Stream> Sync for S<T> {}
 
 impl<T: Stream> Stream for S<T> {
     type Item = <T as Stream>::Item;
-        
+
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        unsafe { 
+        unsafe {
             let this = self.get_unchecked_mut();
             Stream::poll_next(Pin::new_unchecked(&mut this.inner), cx)
         }
     }
 }
 
-fn to_stream(mut msg: Box<dyn Message>) -> impl Stream<Item=Result<Chunk, SectionError>> {
+fn to_stream(mut msg: Box<dyn Message>) -> impl Stream<Item = Result<Chunk, SectionError>> {
     let inner = stream! { loop {
         match msg.next().await {
             Ok(Some(v)) => yield Ok(v),

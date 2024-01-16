@@ -1,4 +1,5 @@
 pub mod excel_connector;
+pub mod file;
 pub mod hello_world;
 pub mod kafka_connector;
 pub mod mycelial_server;

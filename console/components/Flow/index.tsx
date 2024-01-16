@@ -46,6 +46,8 @@ import {
   PostgresConnectorSourceNode,
   PostgresConnectorDestinationNode,
   MysqlConnectorDestinationNode,
+  FileSourceNode,
+  FileDestinationNode,
 } from "@/components/nodes";
 
 import { Grid, Group } from "@/components/layout";
@@ -187,6 +189,8 @@ const nodeTypes = {
   postgres_connector_source: PostgresConnectorSourceNode,
   postgres_connector_destination: PostgresConnectorDestinationNode,
   mysql_connector_destination: MysqlConnectorDestinationNode,
+  file_source: FileSourceNode,
+  file_destination: FileDestinationNode,
 };
 
 const defaultEdgeOptions = {
