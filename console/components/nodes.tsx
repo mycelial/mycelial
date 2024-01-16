@@ -1334,7 +1334,7 @@ const PostgresConnectorSourceNode: FC<NodeProps> = memo(({ id, data, selected })
   return (
     <div className={classNames}>
       <div className=" grid grid-cols-1 gap-x-6 gap-y-2">
-        <h2 className="text-slate-400 font-normal">SQLite Source</h2>
+        <h2 className="text-slate-400 font-normal">Postgres Source</h2>
         <button
           onClick={() => {
             if (confirm("Are you sure you want to delete this node?")) {
@@ -1613,7 +1613,7 @@ const FileSourceNode: FC<NodeProps> = memo(({ id, data, selected }) => {
   return (
     <div className={classNames}>
       <div className=" grid grid-cols-1 gap-x-6 gap-y-2">
-        <h2 className="text-slate-400 font-normal">SQLite Source</h2>
+        <h2 className="text-slate-400 font-normal">File Source</h2>
         <button
           onClick={() => {
             if (confirm("Are you sure you want to delete this node?")) {
