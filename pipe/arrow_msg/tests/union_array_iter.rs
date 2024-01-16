@@ -1,7 +1,7 @@
 use arrow::{
     array::{Array, Float64Array, Int32Array, StringArray, UnionArray},
     buffer::Buffer,
-    datatypes::{DataType as ArrowDataType, Field, UnionMode, UnionFields, Schema},
+    datatypes::{DataType as ArrowDataType, Field, Schema, UnionFields, UnionMode},
     record_batch::RecordBatch as ArrowRecordBatch,
 };
 use arrow_msg::RecordBatch;
@@ -42,14 +42,14 @@ fn test_union_array_iter() {
         let int_array = Int32Array::from(vec![1, 34]);
         let float_array = Float64Array::from(vec![3.2]);
         let string_array = StringArray::from(vec!["one", "two"]);
-        let type_id_buffer = Buffer::from_slice_ref(&[
+        let type_id_buffer = Buffer::from_slice_ref([
             type_ids[0],
             type_ids[1],
             type_ids[0],
             type_ids[2],
             type_ids[2],
         ]);
-        let value_offsets_buffer = Buffer::from_slice_ref(&[0_i32, 0, 1, 0, 1]);
+        let value_offsets_buffer = Buffer::from_slice_ref([0_i32, 0, 1, 0, 1]);
 
         let children: Vec<(Field, Arc<dyn Array>)> = vec![
             (
@@ -74,13 +74,13 @@ fn test_union_array_iter() {
             Some(value_offsets_buffer),
             children,
         )
-            .unwrap();
+        .unwrap();
         let union_dt = ArrowDataType::Union(UnionFields::new(type_ids, fields), UnionMode::Dense);
         let record_batch = ArrowRecordBatch::try_new(
             Arc::new(Schema::new(vec![Field::new("union_test", union_dt, true)])),
             vec![Arc::new(array)],
         )
-            .unwrap();
+        .unwrap();
 
         let df: Box<dyn DataFrame> = Box::new(RecordBatch::new(record_batch));
         let mut columns = df.columns();
@@ -90,7 +90,13 @@ fn test_union_array_iter() {
 
         assert_eq!(
             column.collect::<Vec<ValueView>>(),
-            vec![ValueView::I32(1), ValueView::F64(3.2), ValueView::I32(34), ValueView::Str("one"), ValueView::Str("two")],
+            vec![
+                ValueView::I32(1),
+                ValueView::F64(3.2),
+                ValueView::I32(34),
+                ValueView::Str("one"),
+                ValueView::Str("two")
+            ],
         );
         TestResult::passed()
     }
