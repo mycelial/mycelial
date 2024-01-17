@@ -15,7 +15,7 @@ import { useLoaderData } from 'react-router-dom';
 import { getId } from '../../utils';
 import dagre from 'dagre';
 import { Client, DrawerType } from '../../types.ts';
-import { createPipe, deletePipe } from '../../actions/pipes';
+import { createPipe, newCreatePipe, deletePipe } from '../../actions/pipes';
 import { WorkspaceData, DataNode as DataNodeType } from '../../types.ts';
 import Box from '@mui/material/Box';
 import ClientDrawer from '../ClientDrawer';
@@ -125,6 +125,65 @@ const Flow: React.FC = () => {
     setEdgesToBeDeleted([]);
 
     const currentEdges = [...edges];
+
+    const currentNodes = [...nodes];
+
+    // iterate through all the nodes
+    // for each node,
+    // if it has no target edges, it's a "head" node
+    // if it has no source edges, it's a "tail" node
+    // for each edge node from the source side of the node, create a pipe
+    // i.e. each time there's a fork, clone the pipe and create a new one.
+    // once you reach a tail, stop and save the pipe.
+    // this will let us put transforms in. 
+
+  //   function dfs(currentNode: string, path: string[]) {
+  //     if (!graph[currentNode] || graph[currentNode].length === 0) {
+  //         allPaths.push([...path]);
+  //         return;
+  //     }
+  //     for (const nextNode of graph[currentNode]) {
+  //         path.push(nextNode);
+  //         dfs(nextNode, path);
+  //         path.pop();
+  //     }
+  // }
+
+    let heads = [];
+    for (const node of currentNodes) {
+      const targetEdges = currentEdges.filter((edge) => edge.target === node.id);
+      if (targetEdges.length === 0) {
+        heads.push(node);
+      }
+    }
+
+
+    let allPipes = [];
+    function dfs(currentNode, path) {
+      // todo: Somewhere in here, add metadata about pipe id, etc.
+      const nextEdges = currentEdges.filter((edge) => edge.source === currentNode.id);
+      if (nextEdges.length === 0 ) {
+        allPipes.push([...path]);
+        return;
+      }
+      for (const nextEdge of nextEdges) {
+        const nextNode = currentNodes.filter((node) => node.id === nextEdge.target)[0];
+        path.push(nextNode);
+        dfs(nextNode, path);
+        path.pop();
+      }
+    }
+    for (const head of heads) {
+      dfs(head, [head]);
+    }
+    console.log(allPipes);
+    for (const pipe in allPipes) {
+      console.log(pipe);
+      // const response = await newCreatePipe({
+      //   workspaceId: workspace.id,
+      //   pipe,
+      // });
+    }
 
     for (const edge of currentEdges) {
       const pipeId = edge.data?.id || 0;
