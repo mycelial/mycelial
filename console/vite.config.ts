@@ -12,6 +12,9 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: './setupTest.ts',
   },
+  build: {
+    outDir: 'out',
+  },
   server: {
     proxy: {
       '/api': {
