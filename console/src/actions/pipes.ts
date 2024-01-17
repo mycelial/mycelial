@@ -71,6 +71,38 @@ const createPipe = async ({
   }
 };
 
+const newCreatePipe = async ({ workspace_id, id, pipe }: pipeData) => {
+  let method = 'put';
+  if (id === 0) {
+    method = 'post';
+  }
+  // todo: Split into two pipes if there's a mycelial_server in the middle? 
+
+  const payload = {
+    configs: [
+      {
+        workspace_id,
+        id,
+        pipe,
+      },
+    ],
+  };
+  try {
+    const response = await axios({
+      method,
+      url: PIPE_URL,
+      data: payload,
+      headers,
+    });
+    if (method === 'post') {
+      return response.data[0];
+    }
+    return response.status;
+  } catch (error) {
+    return error;
+  }
+};
+
 const deletePipe = async (id: string) => {
   try {
     const response = await axios({
@@ -142,4 +174,4 @@ const configurePipes = (pipes: pipeData[]) => {
   return data;
 };
 
-export { getPipes, configurePipes, createPipe, deletePipe };
+export { getPipes, configurePipes, createPipe, newCreatePipe, deletePipe };

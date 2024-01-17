@@ -19,26 +19,21 @@ const formatSections = (client: clientFormatType, sections: any[], sources = tru
   if (sections.length === 0) return [];
 
   return sections.map((section) => {
+    console.log(section);
     let formatted = { ...section };
     formatted.clientId = client.id;
     formatted.name = `${section.type}_${sources ? 'source' : 'destination'}`;
     formatted.clientName = client.displayName;
     if (sources) {
       formatted.source = true;
-      if (section.type === 'hello_world') {
-        formatted.interval_milis = section.interval_milis || 5000;
-        formatted.message = 'Hello!';
-      }
-      if (section.type === 'sqlite_connector') {
-        formatted.strict ??= true;
-        formatted.tables ??= '*';
-      }
-
-      if (section.type === 'excel_connector') {
-        formatted.sheets = section.sheets || '*';
-      }
     } else {
       formatted.destination = true;
+    }
+    //HACK
+    if (section.type === "tagging_transformer") {
+      formatted.source = true;
+      formatted.destination = true;
+      formatted.name = "tagging_transformer";
     }
     return formatted;
   });
