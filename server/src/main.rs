@@ -767,7 +767,12 @@ async fn assets(uri: Uri) -> Result<impl IntoResponse, StatusCode> {
             let mime = mime_guess::from_path(path).first_or_octet_stream();
             Ok(([(header::CONTENT_TYPE, mime.as_ref())], file.data).into_response())
         }
-        None => Err(StatusCode::NOT_FOUND),
+        None => {
+            // fallback to index page
+            let index = Assets::get("index.html").unwrap();
+            let mime = mime_guess::from_path("index.html".to_string()).first_or_octet_stream();
+            Ok(([(header::CONTENT_TYPE, mime.as_ref())], index.data).into_response())
+        }
     }
 }
 
