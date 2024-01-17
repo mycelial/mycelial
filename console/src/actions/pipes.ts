@@ -123,6 +123,7 @@ const configurePipes = (pipes: pipeData[]) => {
   let nodemap: { [key: string]: string } = {};
 
   for (const pipeConfig of pipes) {
+    let source = null;
     let pipeId = pipeConfig.id;
     let edge = { ...edgePresets };
     edge.data = { id: pipeId };
@@ -149,21 +150,30 @@ const configurePipes = (pipes: pipeData[]) => {
       node.data = nodeData;
       node.key = node.id;
 
-      if (index === 0) {
-        node.data.source = true;
+      console.log("nodeData");
+      console.log(nodeData);
+
+      if (node.data.source === true) {
         node.sourcePosition = Position.Right;
         edge.source = node.id;
       }
-
-      if (index === 1) {
-        node.data.destination = true;
-        edge.target = node.id;
+      if (node.data.destination === true) {
         node.targetPosition = Position.Left;
+        edge.target = node.id;
       }
 
       initialNodes[node.id] = node;
+
+      if (source !== null) {
+        const e = {...edge};
+        e.id = getId();
+        e.source = source.id || "0";
+        e.target = node.id
+        // instead of always creating a new edge here, sometimes we should just be updating the existing edge with the pipe id
+        initialEdges.push(e);
+      }
+      source = node;
     }
-    initialEdges.push(edge);
   }
 
   const data = {

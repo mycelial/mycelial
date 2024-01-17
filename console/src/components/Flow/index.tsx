@@ -128,26 +128,6 @@ const Flow: React.FC = () => {
 
     const currentNodes = [...nodes];
 
-    // iterate through all the nodes
-    // for each node,
-    // if it has no target edges, it's a "head" node
-    // if it has no source edges, it's a "tail" node
-    // for each edge node from the source side of the node, create a pipe
-    // i.e. each time there's a fork, clone the pipe and create a new one.
-    // once you reach a tail, stop and save the pipe.
-    // this will let us put transforms in. 
-
-  //   function dfs(currentNode: string, path: string[]) {
-  //     if (!graph[currentNode] || graph[currentNode].length === 0) {
-  //         allPaths.push([...path]);
-  //         return;
-  //     }
-  //     for (const nextNode of graph[currentNode]) {
-  //         path.push(nextNode);
-  //         dfs(nextNode, path);
-  //         path.pop();
-  //     }
-  // }
 
     let heads = [];
     for (const node of currentNodes) {
@@ -177,24 +157,14 @@ const Flow: React.FC = () => {
       dfs(head, [head]);
     }
     console.log(allPipes);
-    for (const pipe in allPipes) {
-      console.log(pipe);
-      // const response = await newCreatePipe({
-      //   workspaceId: workspace.id,
-      //   pipe,
-      // });
-    }
+    for (const i in allPipes) {
+      const p = allPipes[i];
+      const pipe = p.map((node) => node.data);
 
-    for (const edge of currentEdges) {
-      const pipeId = edge.data?.id || 0;
-      const sourceNode = nodes.filter((node) => node.id === edge.source)[0];
-      const targetNode = nodes.filter((node) => node.id === edge.target)[0];
-      if (sourceNode === undefined || targetNode === undefined) return;
-      const response = await createPipe({
-        workspaceId: workspace.id,
-        id: pipeId,
-        sourceNodeData: sourceNode.data,
-        targetNodeData: targetNode.data,
+      const response = await newCreatePipe({
+        workspace_id: parseInt(workspace.id),
+        id: 0, // TODO
+        pipe,
       });
 
       if (response === 200) {
@@ -202,15 +172,34 @@ const Flow: React.FC = () => {
         setTimeout(() => setPublished(false), 2000);
         continue;
       }
-
-      if (response.id) {
-        updateEdgeAnimation(edge.id, response.id);
-        setPublished(true);
-        setTimeout(() => setPublished(false), 2000);
-      }
     }
 
-    setEdges(currentEdges);
+    // for (const edge of currentEdges) {
+    //   const pipeId = edge.data?.id || 0;
+    //   const sourceNode = nodes.filter((node) => node.id === edge.source)[0];
+    //   const targetNode = nodes.filter((node) => node.id === edge.target)[0];
+    //   if (sourceNode === undefined || targetNode === undefined) return;
+    //   const response = await createPipe({
+    //     workspaceId: workspace.id,
+    //     id: pipeId,
+    //     sourceNodeData: sourceNode.data,
+    //     targetNodeData: targetNode.data,
+    //   });
+
+    //   if (response === 200) {
+    //     setPublished(true);
+    //     setTimeout(() => setPublished(false), 2000);
+    //     continue;
+    //   }
+
+    //   if (response.id) {
+    //     updateEdgeAnimation(edge.id, response.id);
+    //     setPublished(true);
+    //     setTimeout(() => setPublished(false), 2000);
+    //   }
+    // }
+
+    // setEdges(currentEdges);
   }, [edgesToBeDeleted, edges, nodes]);
 
   const onDrop = useCallback(
