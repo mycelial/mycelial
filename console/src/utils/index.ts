@@ -2,7 +2,7 @@ const getRandomString = () => {
   return String(Date.now().toString(32) + Math.random().toString(16)).replace(/\./g, '');
 };
 
-const getId = () => `node_${getRandomString()}`;
+const getId = (kind = "node") => `${kind}_${getRandomString()}`;
 
 const toTitleCase = (s: string) =>
   s

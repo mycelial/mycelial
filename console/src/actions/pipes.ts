@@ -166,7 +166,7 @@ const configurePipes = (pipes: pipeData[]) => {
 
       if (source !== null) {
         const e = {...edge};
-        e.id = getId();
+        e.id = getId("edge");
         e.source = source.id || "0";
         e.target = node.id
         // instead of always creating a new edge here, sometimes we should just be updating the existing edge with the pipe id
