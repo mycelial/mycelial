@@ -137,33 +137,37 @@ const Flow: React.FC = () => {
       }
     }
 
-
     let allPipes = [];
-    function dfs(currentNode, path) {
+
+    function dfs(id: Number, currentNode, path) {
       // todo: Somewhere in here, add metadata about pipe id, etc.
       const nextEdges = currentEdges.filter((edge) => edge.source === currentNode.id);
       if (nextEdges.length === 0 ) {
-        allPipes.push([...path]);
+        console.log(id);
+        allPipes.push({id, pipe: [...path]});
         return;
       }
       for (const nextEdge of nextEdges) {
         const nextNode = currentNodes.filter((node) => node.id === nextEdge.target)[0];
         path.push(nextNode);
-        dfs(nextNode, path);
+        id = id || nextEdge.data.id;
+        dfs(id, nextNode, path);
         path.pop();
       }
     }
     for (const head of heads) {
-      dfs(head, [head]);
+      dfs(0, head, [head]);
     }
-    console.log(allPipes);
     for (const i in allPipes) {
-      const p = allPipes[i];
+      const p = allPipes[i].pipe;
+      console.log(p);
+      const id = allPipes[i].id;
       const pipe = p.map((node) => node.data);
+      console.log(pipe);
 
       const response = await newCreatePipe({
         workspace_id: parseInt(workspace.id),
-        id: 0, // TODO
+        id,
         pipe,
       });
 
