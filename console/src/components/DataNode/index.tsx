@@ -29,7 +29,7 @@ interface DataNodeProps extends NodeProps {
   };
 }
 
-const renderHandle = (handleType: string): ReactElement => {
+const renderHandle = (handleType: string, isConnectable: boolean): ReactElement => {
   const theme = useTheme();
   const typeColor = handleType === 'source' ? theme.palette.forest.main : theme.palette.forest.dark;
   return (
@@ -37,7 +37,7 @@ const renderHandle = (handleType: string): ReactElement => {
       type={handleType as HandleType}
       id={handleType}
       position={handleType === 'source' ? Position.Right : Position.Left}
-      isConnectable
+      isConnectable={isConnectable}
       style={{
         ...styles.handle,
         background: typeColor,
@@ -62,6 +62,12 @@ const DataNode: FC<DataNodeProps> = memo(function DataNode(props) {
 
   const hasConnection = useStore((s) =>
     s.edges.some((edge) => edge.source === id || edge.target === id)
+  );
+  const isConnectedSource = useStore((s) =>
+    s.edges.some((edge) => edge.source === id)
+  );
+  const isConnectedTarget = useStore((s) =>
+    s.edges.some((edge) => edge.target === id)
   );
   useEffect(() => {
     if (!hasConnection) addUnconnectedNode(id);
@@ -100,8 +106,8 @@ const DataNode: FC<DataNodeProps> = memo(function DataNode(props) {
           bgcolor: `${hasConnection ? 'white' : '#dadada'}`,
         }}
       >
-        {data.destination && renderHandle('target')}
-        {data.source && renderHandle('source')}
+        {data.destination && renderHandle('target', !isConnectedTarget)}
+        {data.source && renderHandle('source', !isConnectedSource)}
         <Box>
           <Box>
             {data.source && <DataChip flowType="source" />}
