@@ -7,4 +7,5 @@ pub mod mysql_connector;
 pub mod postgres_connector;
 pub mod snowflake;
 pub mod sqlite_connector;
+pub mod sqlite_typecast;
 pub mod tagging_transformer;

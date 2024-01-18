@@ -1,0 +1,12 @@
+[package]
+name = "sqlite_typecast"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+section = { path = "../../" }
+arrow = { version = "49", features = ["prettyprint"] }
+arrow_msg = { path = "../../../arrow_msg" }
+futures = "0.3"

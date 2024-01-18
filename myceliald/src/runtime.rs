@@ -25,6 +25,10 @@ fn setup_registry<S: SectionChannel>() -> Registry<S> {
             constructors::tagging_transformer::transform_ctor,
         ),
         (
+            "sqlite_typecast",
+            constructors::sqlite_typecast::transformer,
+        ),
+        (
             "sqlite_connector_destination",
             constructors::sqlite_connector::destination_ctor,
         ),

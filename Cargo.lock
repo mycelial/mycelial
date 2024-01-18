@@ -2194,6 +2194,7 @@ dependencies = [
  "serde_json",
  "snowflake",
  "sqlite_connector",
+ "sqlite_typecast",
  "sqlx",
  "tagging_transformer",
  "thiserror",
@@ -3632,6 +3633,16 @@ dependencies = [
  "tokio",
  "tokio-stream",
  "tokio-util",
+]
+
+[[package]]
+name = "sqlite_typecast"
+version = "0.1.0"
+dependencies = [
+ "arrow 49.0.0",
+ "arrow_msg",
+ "futures",
+ "section",
 ]
 
 [[package]]
