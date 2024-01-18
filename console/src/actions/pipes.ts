@@ -120,8 +120,6 @@ const configurePipes = (pipes: pipeData[]) => {
   let initialNodes: { [id: string]: Partial<Node> } = {};
   let initialEdges = [];
 
-  let nodemap: { [key: string]: string } = {};
-
   for (const pipeConfig of pipes) {
     let source = null;
     let pipeId = pipeConfig.id;
@@ -136,22 +134,14 @@ const configurePipes = (pipes: pipeData[]) => {
         sourcePosition?: Position | undefined;
       } = { ...nodePresets };
       const { name, ...data } = nodeData;
-      const key = JSON.stringify(data);
 
-      if (nodemap.hasOwnProperty(key)) {
-        node.id = nodemap[key];
-      } else {
-        const id = getId();
-        node.id = id;
-        nodemap[key] = id;
-        initialNodes[id] = {};
-      }
+      // i don't know why we do this?
+      const id = getId();
+      node.id = id;
+      initialNodes[id] = {};
 
       node.data = nodeData;
       node.key = node.id;
-
-      console.log("nodeData");
-      console.log(nodeData);
 
       if (node.data.source === true) {
         node.sourcePosition = Position.Right;
@@ -169,7 +159,7 @@ const configurePipes = (pipes: pipeData[]) => {
         e.id = getId("edge");
         e.source = source.id || "0";
         e.target = node.id
-        // instead of always creating a new edge here, sometimes we should just be updating the existing edge with the pipe id
+        console.log(e);
         initialEdges.push(e);
       }
       source = node;
