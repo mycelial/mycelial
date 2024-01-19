@@ -27,6 +27,7 @@ pretty_env_logger = "0.5"
 common = { path = "../common" }
 rust-embed = "8.0.0"
 mime_guess = { version = "2" }
+async-stream = "0.3.5"
 
 [dependencies.uuid]
 version = "1.4.0"

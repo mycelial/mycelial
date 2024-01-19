@@ -3398,6 +3398,7 @@ version = "0.2.0"
 dependencies = [
  "anyhow",
  "arrow 42.0.0",
+ "async-stream",
  "axum",
  "base64 0.21.5",
  "chrono",

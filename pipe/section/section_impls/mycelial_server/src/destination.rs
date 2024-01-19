@@ -18,6 +18,8 @@ use std::{
     task::{Context, Poll},
 };
 
+use crate::StreamType;
+
 #[derive(Debug)]
 pub struct Mycelial {
     endpoint: String,
@@ -42,15 +44,27 @@ impl<T: Stream> Stream for S<T> {
     }
 }
 
-fn to_stream(mut msg: Box<dyn Message>) -> impl Stream<Item = Result<Chunk, SectionError>> {
-    let inner = stream! { loop {
-        match msg.next().await {
+async fn to_stream(mut msg: Box<dyn Message>) -> (StreamType, impl Stream<Item = Result<Chunk, SectionError>>) {
+    let chunk = msg.next().await;
+    let stream_type = match chunk {
+        Ok(Some(Chunk::DataFrame(_))) => StreamType::DataFrame,
+        _ => StreamType::BinStream,
+    };
+    let stream = stream! {
+        match chunk {
             Ok(Some(v)) => yield Ok(v),
             Err(e) => yield Err(e),
-            Ok(None) => break,
+            Ok(None) => return
         }
-    } };
-    S { inner }
+        loop {
+            match msg.next().await {
+                Ok(Some(v)) => yield Ok(v),
+                Err(e) => yield Err(e),
+                Ok(None) => return
+            }
+        }
+    };
+    (stream_type, stream)
 }
 
 impl Mycelial {
@@ -94,7 +108,7 @@ impl Mycelial {
                     };
                     let origin = msg.origin().to_string();
                     let ack = msg.ack();
-                    let msg_stream = to_stream(msg);
+                    let (stream_type, msg_stream) = to_stream(msg).await;
                     let msg_stream = msg_stream
                         .map_ok(|chunk| {
                             match chunk {
@@ -110,7 +124,7 @@ impl Mycelial {
                                 Chunk::Byte(bin) => bin,
                             }
                         });
-                    let body = Body::wrap_stream(msg_stream);
+                    let body = Body::wrap_stream(S{ inner: msg_stream });
                     let _ = client
                         .post(format!(
                             "{}/{}",
@@ -119,6 +133,7 @@ impl Mycelial {
                         ))
                         .header("Authorization", self.basic_auth())
                         .header("x-message-origin", origin)
+                        .header("x-stream-type", stream_type.to_string())
                         .body(body)
                         .send()
                         .await?;
