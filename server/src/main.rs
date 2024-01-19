@@ -476,14 +476,15 @@ impl Database {
         origin: &str,
         stream_type: &str,
     ) -> Result<i64, error::Error> {
-        let id =
-            sqlx::query("INSERT INTO messages(topic, origin, stream_type) VALUES(?, ?, ?) RETURNING ID")
-                .bind(topic)
-                .bind(origin)
-                .bind(stream_type)
-                .fetch_one(&mut **transaction)
-                .await
-                .map(|row| row.get::<i64, _>(0))?;
+        let id = sqlx::query(
+            "INSERT INTO messages(topic, origin, stream_type) VALUES(?, ?, ?) RETURNING ID",
+        )
+        .bind(topic)
+        .bind(origin)
+        .bind(stream_type)
+        .fetch_one(&mut **transaction)
+        .await
+        .map(|row| row.get::<i64, _>(0))?;
         Ok(id)
     }
 

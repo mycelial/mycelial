@@ -44,7 +44,9 @@ impl<T: Stream> Stream for S<T> {
     }
 }
 
-async fn to_stream(mut msg: Box<dyn Message>) -> (StreamType, impl Stream<Item = Result<Chunk, SectionError>>) {
+async fn to_stream(
+    mut msg: Box<dyn Message>,
+) -> (StreamType, impl Stream<Item = Result<Chunk, SectionError>>) {
     let chunk = msg.next().await;
     let stream_type = match chunk {
         Ok(Some(Chunk::DataFrame(_))) => StreamType::DataFrame,

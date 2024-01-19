@@ -6,9 +6,10 @@ use reqwest::Client;
 use section::{
     command_channel::{Command, SectionChannel, WeakSectionChannel},
     futures::{self, stream::FusedStream, FutureExt, Sink, SinkExt, Stream, StreamExt},
+    message::{Ack, Chunk, Message},
     section::Section,
     state::State,
-    SectionError, SectionFuture, SectionMessage, message::{Message, Ack, Chunk},
+    SectionError, SectionFuture, SectionMessage,
 };
 use tokio::time::{Instant, Interval};
 
@@ -149,18 +150,28 @@ impl Mycelial {
 
         let origin = match res.headers().get("x-message-origin") {
             None => Err("response needs to have x-message-origin header")?,
-            Some(v) => v.to_str().expect("bad header 'x-message-origin' value").to_string(),
+            Some(v) => v
+                .to_str()
+                .expect("bad header 'x-message-origin' value")
+                .to_string(),
         };
 
         let stream_type = match res.headers().get("x-stream-type") {
             None => Err("response needs to have x-stream-type header")?,
-            Some(v) => v.to_str().expect("bad header 'x-stream-type' value").to_string(),
+            Some(v) => v
+                .to_str()
+                .expect("bad header 'x-stream-type' value")
+                .to_string(),
         };
 
         let maybe_new_offset = match res.headers().get("x-message-id") {
             None => Err("response needs to have x-message-id header")?,
             // FIXME: unwrap
-            Some(v) => v.to_str().expect("bad header 'x-message-id' value").parse().unwrap(),
+            Some(v) => v
+                .to_str()
+                .expect("bad header 'x-message-id' value")
+                .parse()
+                .unwrap(),
         };
 
         if maybe_new_offset == *offset {
@@ -171,19 +182,18 @@ impl Mycelial {
         let weak_chan = section_chan.weak_chan();
         match stream_type.as_str() {
             "binary" => {
-                let stream = res.bytes_stream()
-                    .map(|chunk| {
-                        chunk
-                            .map(|bytes| bytes.to_vec())
-                            .map_err(|err| -> SectionError { err.into() })
-                    });
+                let stream = res.bytes_stream().map(|chunk| {
+                    chunk
+                        .map(|bytes| bytes.to_vec())
+                        .map_err(|err| -> SectionError { err.into() })
+                });
                 let bin_stream = BinStream::new(
                     origin,
                     stream,
                     Some(Box::pin(async move { weak_chan.ack(Box::new(o)).await })),
                 );
                 Ok(Some(Box::new(bin_stream)))
-            },
+            }
             "arrow" => {
                 // FIXME: add async stream interface for arrow StreamReader
                 let body = res.bytes().await?.to_vec();
@@ -203,7 +213,7 @@ impl Mycelial {
                     origin,
                     batches,
                     Some(Box::pin(async move { weak_chan.ack(Box::new(o)).await })),
-                    );
+                );
                 Ok(Some(Box::new(msg)))
             }
             _ => Err(format!("unsupported stream_type '{stream_type}'"))?,
@@ -215,8 +225,7 @@ impl Mycelial {
     }
 }
 
-
-struct BinStream<T>{
+struct BinStream<T> {
     origin: String,
     stream: T,
     ack: Option<Ack>,
@@ -235,22 +244,22 @@ impl<T> BinStream<T> {
         Self {
             origin: origin.into(),
             stream,
-            ack
+            ack,
         }
     }
 }
 
-impl<T: Stream<Item=Result<Vec<u8>, SectionError>> + Send + Unpin> Message for BinStream<T> {
+impl<T: Stream<Item = Result<Vec<u8>, SectionError>> + Send + Unpin> Message for BinStream<T> {
     fn origin(&self) -> &str {
         self.origin.as_str()
     }
 
     fn next(&mut self) -> section::message::Next<'_> {
-        Box::pin(async { 
+        Box::pin(async {
             match self.stream.next().await {
                 Some(Ok(b)) => Ok(Some(Chunk::Byte(b))),
                 Some(Err(e)) => Err(e),
-                None => Ok(None)
+                None => Ok(None),
             }
         })
     }
@@ -259,7 +268,6 @@ impl<T: Stream<Item=Result<Vec<u8>, SectionError>> + Send + Unpin> Message for B
         self.ack.take().unwrap_or(Box::pin(async {}))
     }
 }
- 
 
 impl<Input, Output, SectionChan> Section<Input, Output, SectionChan> for Mycelial
 where
