@@ -1,26 +1,20 @@
 use std::pin::pin;
 use std::sync::Arc;
 
-use arrow::array::StringArray;
-use arrow::datatypes::DataType as ArrowDataType;
-use arrow::datatypes::Field;
-use arrow::datatypes::SchemaBuilder;
-use arrow::record_batch::RecordBatch as ArrowRecordBatch;
-
-use arrow_msg::df_to_recordbatch;
-use arrow_msg::ArrowMsg;
-
 use section::command_channel::{Command, SectionChannel};
 use section::futures::{self, Sink, SinkExt, Stream};
 use section::futures::{FutureExt, StreamExt};
 use section::pretty_print::pretty_print;
 use section::section::Section;
-use section::{message::Chunk, SectionError, SectionFuture, SectionMessage};
+use section::{
+    message::{Ack, Chunk, Column, DataFrame, DataType, Message, Value},
+    SectionError, SectionFuture, SectionMessage,
+};
 
 #[derive(Debug)]
 pub enum Type {
     Int,
-    Float,
+    Real,
     String,
 }
 
@@ -45,6 +39,88 @@ impl SqliteTypecast {
     }
 }
 
+// datatype
+#[derive(Debug)]
+#[allow(unused)]
+pub(crate) struct Table {
+    name: Arc<str>,
+    columns: Arc<[TableColumn]>,
+    query: String,
+    offset: i64,
+    limit: i64,
+}
+
+#[derive(Debug)]
+#[allow(unused)]
+pub(crate) struct TableColumn {
+    name: Arc<str>,
+    data_type: DataType,
+}
+
+#[derive(Debug)]
+pub(crate) struct TypecastPayload {
+    columns: Arc<[TableColumn]>,
+    values: Vec<Vec<Value>>,
+}
+
+impl DataFrame for TypecastPayload {
+    fn columns(&self) -> Vec<section::message::Column<'_>> {
+        self.columns
+            .iter()
+            .zip(self.values.iter())
+            .map(|(col, column)| {
+                Column::new(
+                    col.name.as_ref(),
+                    col.data_type,
+                    Box::new(column.iter().map(Into::into)),
+                )
+            })
+            .collect()
+    }
+}
+
+pub struct TypecastMessage {
+    origin: Arc<str>,
+    payload: Option<Box<dyn DataFrame>>,
+    ack: Option<Ack>,
+}
+
+impl TypecastMessage {
+    fn new(origin: Arc<str>, payload: impl DataFrame, ack: Option<Ack>) -> Self {
+        Self {
+            origin,
+            payload: Some(Box::new(payload)),
+            ack,
+        }
+    }
+}
+
+impl std::fmt::Debug for TypecastMessage {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("typecastMessage")
+            .field("origin", &self.origin)
+            .field("payload", &self.payload)
+            .finish()
+    }
+}
+
+impl Message for TypecastMessage {
+    fn origin(&self) -> &str {
+        self.origin.as_ref()
+    }
+
+    fn next(&mut self) -> section::message::Next<'_> {
+        let v = self.payload.take().map(Chunk::DataFrame);
+        Box::pin(async move { Ok(v) })
+    }
+
+    fn ack(&mut self) -> Ack {
+        self.ack.take().unwrap_or(Box::pin(async {}))
+    }
+}
+
+//
+
 impl<Input, Output, SectionChan> Section<Input, Output, SectionChan> for SqliteTypecast
 where
     Input: Stream<Item = SectionMessage> + Send + 'static,
@@ -67,7 +143,7 @@ where
                         }
                     }
                     stream = input.next() => {
-                        let mut stream = match stream{
+                        let mut stream = match stream {
                             Some(stream) => stream,
                             None => Err("input stream closed")?
                         };
@@ -80,36 +156,14 @@ where
                                                 stream.origin(),
                                                 pretty_print(&*df))).await?;
 
-                                            // // Convert to a RecordBatch from the arrow crate
-                                            // let rb = df_to_recordbatch(df.as_ref())?;
-                                            // let old_schema = rb.schema();
-                                            // let old_cols = rb.columns();
+                                            let payload = df_to_tc_message(
+                                                stream.origin().into(),
+                                                df,
+                                                stream.ack()
+                                            );
 
-                                            // // Create a new schema from the old schema and push on a new field
-                                            // let mut builder = SchemaBuilder::from(old_schema.fields());
-                                            // builder.push(Field::new(self.column.clone(), ArrowDataType::Utf8, false));
-                                            // let new_schema = builder.finish();
-
-                                            // // Push a new value onto the old columns
-                                            // let mut values = old_cols
-                                            //     .iter()
-                                            //     .map(std::borrow::ToOwned::to_owned)
-                                            //     .collect::<Vec<_>>();
-                                            // let tag = Arc::new(StringArray::from(vec![self.text.clone()]));
-                                            // values.push(tag);
-
-                                            // // create a new arrow RecordBatch from the schema and columns
-                                            // let new_rb = ArrowRecordBatch::try_new(
-                                            //     Arc::new(new_schema),
-                                            //     values,
-                                            // )?;
-
-                                            // // create a message from the RecordBatch
-                                            // let new_msg = ArrowMsg::new("tagging transformer", vec![Some(new_rb.into())], None);
-
-                                            // output.send(Box::new(df)).await.ok();
+                                            output.send(Box::new(payload)).await.ok();
                                             section_channel.log("payload sent").await?;
-
                                         },
                                         Some(_) => {Err("unsupported stream type, dataframe expected")?},
                                         None => break,
@@ -127,4 +181,33 @@ where
             }
         })
     }
+}
+
+fn df_to_tc_message(origin: Arc<str>, df: Box<dyn DataFrame>, ack: Ack) -> TypecastMessage {
+    let columns: Vec<TableColumn> = df
+        .columns()
+        .iter()
+        .map(|c| TableColumn {
+            name: c.name().into(),
+            data_type: c.data_type(),
+        })
+        .collect::<Vec<_>>();
+
+    let values: Vec<Vec<Value>> = df
+        .columns()
+        .into_iter()
+        .map(|col| {
+            col.map(|val| {
+                let val = (&val).into();
+                val
+            })
+            .collect::<Vec<Value>>()
+        })
+        .collect();
+
+    let payload = TypecastPayload {
+        columns: columns.into(),
+        values: values,
+    };
+    TypecastMessage::new(origin, payload, Some(ack))
 }

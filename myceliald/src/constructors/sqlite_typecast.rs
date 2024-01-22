@@ -17,8 +17,8 @@ pub fn transformer<S: SectionChannel>(
     {
         "string" => sqlite_typecast::Type::String,
         "int" => sqlite_typecast::Type::Int,
-        "float" => sqlite_typecast::Type::Float,
-        _ => return Err("target type must be string, int, or float")?,
+        "real" => sqlite_typecast::Type::Real,
+        _ => return Err("target type must be string, int, or real")?,
     };
     Ok(Box::new(sqlite_typecast::SqliteTypecast::new(
         target_type,

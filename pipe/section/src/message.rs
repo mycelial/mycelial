@@ -160,6 +160,33 @@ impl From<Vec<u8>> for Value {
     }
 }
 
+impl<'a> From<&'a ValueView<'_>> for Value {
+    fn from(value: &'a ValueView) -> Self {
+        match value {
+            ValueView::Null => Self::Null,
+            ValueView::Bool(v) => Self::Bool(*v),
+            ValueView::I8(v) => Self::I8(*v),
+            ValueView::I16(v) => Self::I16(*v),
+            ValueView::I32(v) => Self::I32(*v),
+            ValueView::I64(v) => Self::I64(*v),
+            ValueView::U8(v) => Self::U8(*v),
+            ValueView::U16(v) => Self::U16(*v),
+            ValueView::U32(v) => Self::U32(*v),
+            ValueView::U64(v) => Self::U64(*v),
+            ValueView::F32(v) => Self::F32(*v),
+            ValueView::F64(v) => Self::F64(*v),
+            ValueView::Str(v) => Self::Str(v.to_string().into_boxed_str()),
+            ValueView::Bin(v) => Self::Bin(v.to_vec().into_boxed_slice()),
+            ValueView::Time(tu, v) => Self::Time(*tu, *v),
+            ValueView::Date(tu, v) => Self::Date(*tu, *v),
+            ValueView::TimeStamp(tu, v) => Self::TimeStamp(*tu, *v),
+            ValueView::TimeStampUTC(tu, v) => Self::TimeStampUTC(*tu, *v),
+            ValueView::Decimal(v) => Self::Decimal(*v),
+            ValueView::Uuid(v) => Self::Uuid(**v),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum TimeUnit {
     Second,
