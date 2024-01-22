@@ -77,9 +77,8 @@ const DataNode: FC<DataNodeProps> = memo(function DataNode(props) {
     if (confirm('Are you sure you want to delete this node?')) {
       const deleted = getNode(id);
       if (!deleted) return;
-      const connected = getConnectedEdges([deleted], edges);
-      if (connected.length) connected.forEach((e) => addEdgeToBeDeleted(e.data.id));
 
+      addEdgeToBeDeleted(deleted?.data.id);
       // this following removed node from the UI.
       // The Publish button in the Flow component
       // handles the API call to delete

@@ -66,6 +66,7 @@ const Flow: React.FC = () => {
     onNodeClick,
     clientDrawerOpen,
     updateEdgeAnimation,
+    updatePipeHeadWithId,
     setShowActiveNode,
   } = useFlowStore(selector);
   const { clients, data, workspace } = useLoaderData() as WorkspaceData;
@@ -115,14 +116,7 @@ const Flow: React.FC = () => {
   };
 
   const onSave = useCallback(async () => {
-    for (const deleted of edgesToBeDeleted) {
-      try {
-        await deletePipe(deleted);
-      } catch (error) {
-        console.error('Error:', error);
-      }
-    }
-    setEdgesToBeDeleted([]);
+    let edgesToDelete = [...edgesToBeDeleted];
 
     const currentEdges = [...edges];
 
@@ -139,71 +133,63 @@ const Flow: React.FC = () => {
 
     let allPipes = [];
 
-    function dfs(id: Number, currentNode, path) {
-      // todo: Somewhere in here, add metadata about pipe id, etc.
+    function dfs(id: Number, currentNode, path, edges) {
       const nextEdges = currentEdges.filter((edge) => edge.source === currentNode.id);
       if (nextEdges.length === 0 ) {
-        console.log(id);
-        allPipes.push({id, pipe: [...path]});
+        allPipes.push({id, pipe: [...path], edges: edges});
         return;
       }
       for (const nextEdge of nextEdges) {
         const nextNode = currentNodes.filter((node) => node.id === nextEdge.target)[0];
         path.push(nextNode);
-        id = id || nextEdge.data.id;
-        dfs(id, nextNode, path);
+        dfs(id, nextNode, path, edges.concat(nextEdge.id));
         path.pop();
       }
     }
     for (const head of heads) {
-      dfs(0, head, [head]);
+      dfs(head.data.id || 0, head, [head], []);
     }
     for (const i in allPipes) {
       const p = allPipes[i].pipe;
-      console.log(p);
       const id = allPipes[i].id;
+      console.log(allPipes[i]);
+      edgesToDelete = edgesToDelete.filter((edge) => edge !== id);
       const pipe = p.map((node) => node.data);
-      console.log(pipe);
 
       const response = await newCreatePipe({
         workspace_id: parseInt(workspace.id),
         id,
         pipe,
       });
-
+      console.log(response);
       if (response === 200) {
+        for (const edgeID of allPipes[i].edges) {
+          updateEdgeAnimation(edgeID);
+        }
         setPublished(true);
         setTimeout(() => setPublished(false), 2000);
         continue;
       }
+      if (response.id) {
+        updatePipeHeadWithId(p[0].id, response.id);
+        for (const edgeID of allPipes[i].edges) {
+          updateEdgeAnimation(edgeID);
+        }
+        setPublished(true);
+        setTimeout(() => setPublished(false), 2000);
+      }
     }
 
-    // for (const edge of currentEdges) {
-    //   const pipeId = edge.data?.id || 0;
-    //   const sourceNode = nodes.filter((node) => node.id === edge.source)[0];
-    //   const targetNode = nodes.filter((node) => node.id === edge.target)[0];
-    //   if (sourceNode === undefined || targetNode === undefined) return;
-    //   const response = await createPipe({
-    //     workspaceId: workspace.id,
-    //     id: pipeId,
-    //     sourceNodeData: sourceNode.data,
-    //     targetNodeData: targetNode.data,
-    //   });
+    for (const deleted of edgesToDelete) {
+      try {
+        await deletePipe(deleted);
+      } catch (error) {
+        console.error('Error:', error);
+      }
+    }
+    setEdgesToBeDeleted([]);
 
-    //   if (response === 200) {
-    //     setPublished(true);
-    //     setTimeout(() => setPublished(false), 2000);
-    //     continue;
-    //   }
-
-    //   if (response.id) {
-    //     updateEdgeAnimation(edge.id, response.id);
-    //     setPublished(true);
-    //     setTimeout(() => setPublished(false), 2000);
-    //   }
-    // }
-
-    // setEdges(currentEdges);
+    setEdges(currentEdges);
   }, [edgesToBeDeleted, edges, nodes]);
 
   const onDrop = useCallback(
