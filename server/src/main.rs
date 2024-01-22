@@ -68,7 +68,13 @@ struct Cli {
     database_path: String,
 }
 
-// FIXME: full body accumulation
+struct MessageStream {
+    id: u64,
+    origin: String,
+    stream_type: String,
+    stream: Pin<Box<dyn Stream<Item = Result<Vec<u8>, error::Error>> + Send>>,
+}
+
 async fn ingestion(
     State(app): State<Arc<App>>,
     axum::extract::Path(topic): axum::extract::Path<String>,
@@ -131,7 +137,12 @@ async fn get_message(
                 StreamBody::new(stream),
             )
         }
-        Some((id, origin, stream_type, stream)) => (
+        Some(MessageStream {
+            id,
+            origin,
+            stream_type,
+            stream,
+        }) => (
             [
                 ("x-message-id", id.to_string()),
                 ("x-message-origin", origin),
@@ -502,20 +513,11 @@ impl Database {
         Ok(())
     }
 
-    // FIXME: message is not streamed
     async fn get_message(
         &self,
         topic: &str,
         offset: u64,
-    ) -> Result<
-        Option<(
-            u64,
-            String,
-            String,
-            Pin<Box<dyn Stream<Item = Result<Vec<u8>, error::Error>> + Send>>,
-        )>,
-        error::Error,
-    > {
+    ) -> Result<Option<MessageStream>, error::Error> {
         let mut connection = Arc::clone(&self.connection).lock_owned().await;
         let offset: i64 = offset.try_into().unwrap();
         let message_info = sqlx::query(
@@ -533,7 +535,7 @@ impl Database {
             )
         });
 
-        let (message_id, message_origin, message_type) = match message_info {
+        let (id, origin, stream_type) = match message_info {
             Some((id, o, t)) => (id, o, t),
             None => return Ok(None),
         };
@@ -541,7 +543,7 @@ impl Database {
         // move connection into stream wrapper around sqlx's stream
         let stream = async_stream::stream! {
             let mut stream = sqlx::query("SELECT data FROM records r WHERE r.message_id = ?")
-                .bind(message_id as i64)
+                .bind(id as i64)
                 .fetch(&mut *connection)
                 .map(|maybe_row| {
                     maybe_row
@@ -552,12 +554,12 @@ impl Database {
                 yield chunk;
             }
         };
-        Ok(Some((
-            message_id,
-            message_origin,
-            message_type,
-            Box::pin(stream),
-        )))
+        Ok(Some(MessageStream {
+            id,
+            origin,
+            stream_type,
+            stream: Box::pin(stream),
+        }))
     }
 
     async fn get_clients(&self) -> Result<Clients, error::Error> {

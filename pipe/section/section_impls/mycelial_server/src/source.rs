@@ -137,7 +137,7 @@ impl Mycelial {
         section_chan: &SectionChan,
         offset: &mut u64,
     ) -> Result<Option<SectionMessage>, SectionError> {
-        let res = client
+        let response = client
             .get(format!(
                 "{}/{}/{}",
                 self.endpoint.as_str().trim_end_matches('/'),
@@ -148,73 +148,61 @@ impl Mycelial {
             .send()
             .await?;
 
-        let origin = match res.headers().get("x-message-origin") {
+        let origin = match response.headers().get("x-message-origin") {
             None => Err("response needs to have x-message-origin header")?,
             Some(v) => v
                 .to_str()
-                .expect("bad header 'x-message-origin' value")
+                .map_err(|_| "bad header 'x-message-origin' value")?
                 .to_string(),
         };
 
-        let stream_type = match res.headers().get("x-stream-type") {
+        let stream_type = match response.headers().get("x-stream-type") {
             None => Err("response needs to have x-stream-type header")?,
             Some(v) => v
                 .to_str()
-                .expect("bad header 'x-stream-type' value")
+                .map_err(|_| "bad header 'x-stream-type' value")?
                 .to_string(),
         };
 
-        let maybe_new_offset = match res.headers().get("x-message-id") {
+        let maybe_new_offset = match response.headers().get("x-message-id") {
             None => Err("response needs to have x-message-id header")?,
-            // FIXME: unwrap
             Some(v) => v
                 .to_str()
-                .expect("bad header 'x-message-id' value")
-                .parse()
-                .unwrap(),
+                .map_err(|_| "bad header 'x-message-id' value")?
+                .parse()?,
         };
 
         if maybe_new_offset == *offset {
             return Ok(None);
         }
         *offset = maybe_new_offset;
-        let o = *offset;
+
         let weak_chan = section_chan.weak_chan();
+        let ack: Option<Ack> = Some(Box::pin(async move {
+            weak_chan.ack(Box::new(maybe_new_offset)).await
+        }));
         match stream_type.as_str() {
             "binary" => {
-                let stream = res.bytes_stream().map(|chunk| {
+                let stream = response.bytes_stream().map(|chunk| {
                     chunk
                         .map(|bytes| bytes.to_vec())
                         .map_err(|err| -> SectionError { err.into() })
                 });
-                let bin_stream = BinStream::new(
-                    origin,
-                    stream,
-                    Some(Box::pin(async move { weak_chan.ack(Box::new(o)).await })),
-                );
-                Ok(Some(Box::new(bin_stream)))
+                Ok(Some(Box::new(BinStream::new(origin, stream, ack))))
             }
             "arrow" => {
                 // FIXME: add async stream interface for arrow StreamReader
-                let body = res.bytes().await?.to_vec();
+                let body = response.bytes().await?.to_vec();
                 let len = body.len() as u64;
                 let mut body = Cursor::new(body);
                 let mut batches = vec![];
                 while body.position() < len {
-                    let reader = StreamReader::try_new_unbuffered(&mut body, None).unwrap();
+                    let reader = StreamReader::try_new_unbuffered(&mut body, None)?;
                     for batch in reader {
-                        let batch = batch?;
-                        batches.push(Some(batch.into()))
+                        batches.push(Some(batch?.into()))
                     }
                 }
-                let weak_chan = section_chan.weak_chan();
-                let o = *offset;
-                let msg = ArrowMsg::new(
-                    origin,
-                    batches,
-                    Some(Box::pin(async move { weak_chan.ack(Box::new(o)).await })),
-                );
-                Ok(Some(Box::new(msg)))
+                Ok(Some(Box::new(ArrowMsg::new(origin, batches, ack))))
             }
             _ => Err(format!("unsupported stream_type '{stream_type}'"))?,
         }
