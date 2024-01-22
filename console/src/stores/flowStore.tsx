@@ -52,7 +52,8 @@ type RFState = {
   getNode: (id: string) => Node | undefined;
   handleDrawerOpen: (identifier: string) => void;
   handleDrawerClose: (identifier: string) => void;
-  updateEdgeAnimation: (edgeId: string, dataId: string) => void;
+  updateEdgeAnimation: (edgeId: string) => void;
+  updatePipeHeadWithId: (pipeId: string, dataId: string) => void;
   getEdge: (id: string) => Edge | undefined;
 };
 
@@ -98,15 +99,25 @@ const useFlowStore = create<RFState>((set, get) => ({
     const deletedEdges = get().edgesToBeDeleted.concat([pipeId]);
     set({ edgesToBeDeleted: deletedEdges });
   },
-  updateEdgeAnimation: (edgeId: string, dataId: string) => {
+  updateEdgeAnimation: (edgeId: string) => {
     const updatedEdges = get().edges.map((edge) => {
       if (edge.id === edgeId) {
-        edge.data.id = dataId;
         edge.animated = true;
       }
       return edge;
     });
     return set({ edges: updatedEdges });
+  },
+  updatePipeHeadWithId: (pipeId: string, dataId: string) => {
+    console.log("updatePipeHeadWithId: pipeId: ", pipeId, " dataId: ", dataId);
+    const updatedPipes = get().nodes.map((pipe) => {
+      const connectedSourceEdges = get().edges.filter((edge) => edge.target === pipe.id);
+      if (pipe.id === pipeId && connectedSourceEdges.length === 0) {
+        pipe.data.id = dataId;
+      }
+      return pipe;
+    });
+    return set({ nodes: updatedPipes });
   },
   setEdgesToBeDeleted: (edges: string[]) => set({ edgesToBeDeleted: edges }),
   onNodesChange: (changes: NodeChange[]) => {
@@ -192,6 +203,7 @@ export const selector = (store: RFState) => ({
   handleDrawerOpen: store.handleDrawerOpen,
   handleDrawerClose: store.handleDrawerClose,
   updateEdgeAnimation: store.updateEdgeAnimation,
+  updatePipeHeadWithId: store.updatePipeHeadWithId,
   addEdgeToBeDeleted: store.addEdgeToBeDeleted,
   getNode: store.getNode,
   addUnconnectedNode: store.addUnconnectedNode,

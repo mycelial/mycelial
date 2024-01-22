@@ -16,7 +16,7 @@ export default async function dataLoader({ params }: DataLoaderParams) {
 
   return {
     clients: clients as unknown as Client[],
-    data: { nodes: data.nodes as DataNode[], edges: data.edges },
+    data: { nodes: data.nodes as DataNode[], edges: data.edges, pipes: data.pipes },
     workspace,
   };
 }

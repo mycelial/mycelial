@@ -73,7 +73,7 @@ const createPipe = async ({
 
 const newCreatePipe = async ({ workspace_id, id, pipe }: pipeData) => {
   let method = 'put';
-  if (id === 0) {
+  if (id === 0 || id === undefined) {
     method = 'post';
   }
   // todo: Split into two pipes if there's a mycelial_server in the middle? 
@@ -117,7 +117,7 @@ const deletePipe = async (id: string) => {
 };
 
 const configurePipes = (pipes: pipeData[]) => {
-  let initialNodes: { [id: string]: Partial<Node> } = {};
+  let initialNodes: Partial<Node>[] = [];
   let initialEdges = [];
 
   for (const pipeConfig of pipes) {
@@ -135,13 +135,15 @@ const configurePipes = (pipes: pipeData[]) => {
       } = { ...nodePresets };
       const { name, ...data } = nodeData;
 
-      // i don't know why we do this?
       const id = getId();
       node.id = id;
       initialNodes[id] = {};
 
       node.data = nodeData;
       node.key = node.id;
+      if (index === 0) {
+        node.data.id = pipeId;
+      };
 
       if (node.data.source === true) {
         node.sourcePosition = Position.Right;
@@ -152,14 +154,13 @@ const configurePipes = (pipes: pipeData[]) => {
         edge.target = node.id;
       }
 
-      initialNodes[node.id] = node;
+      initialNodes.push(node);
 
       if (source !== null) {
         const e = {...edge};
         e.id = getId("edge");
         e.source = source.id || "0";
         e.target = node.id
-        console.log(e);
         initialEdges.push(e);
       }
       source = node;
@@ -167,7 +168,7 @@ const configurePipes = (pipes: pipeData[]) => {
   }
 
   const data = {
-    nodes: Object.values(initialNodes),
+    nodes: initialNodes,
     edges: initialEdges,
   };
 
