@@ -126,10 +126,16 @@ const Flow: React.FC = () => {
     let heads = [];
     for (const node of currentNodes) {
       const targetEdges = currentEdges.filter((edge) => edge.target === node.id);
+      // nothing connects to this node, so it is a head
       if (targetEdges.length === 0) {
         heads.push(node);
       }
+      // edge case: if a node is a mycelial network, then it is also a head
+      if (node.data.type === 'mycelial_server') {
+        heads.push(node);
+      }
     }
+    console.log("heads: ", heads);
 
     let allPipes = [];
 
@@ -142,6 +148,11 @@ const Flow: React.FC = () => {
       for (const nextEdge of nextEdges) {
         const nextNode = currentNodes.filter((node) => node.id === nextEdge.target)[0];
         path.push(nextNode);
+        if (nextNode.data.type === 'mycelial_server') {
+          allPipes.push({id, pipe: [...path], edges: edges.concat(nextEdge.id)});
+          path.pop();
+          continue;
+        }
         dfs(id, nextNode, path, edges.concat(nextEdge.id));
         path.pop();
       }

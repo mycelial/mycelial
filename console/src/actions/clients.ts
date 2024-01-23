@@ -19,7 +19,7 @@ const formatSections = (client: clientFormatType, sections: any[], sources = tru
   if (sections.length === 0) return [];
 
   return sections.map((section) => {
-    console.log(section);
+    // console.log(section);
     let formatted = { ...section };
     formatted.clientId = client.id;
     formatted.name = `${section.type}_${sources ? 'source' : 'destination'}`;

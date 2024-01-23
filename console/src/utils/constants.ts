@@ -88,7 +88,7 @@ export const mycelialServer = {
   displayName: 'Mycelial',
   sections: [
     {
-      id: 'mycelial Mycelial',
+      id: 0,
       display_name: 'Mycelial Server',
       clientName: 'Mycelial',
       clientId: '123mycelial',
