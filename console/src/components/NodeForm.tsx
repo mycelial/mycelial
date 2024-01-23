@@ -25,7 +25,8 @@ const NodeForm = () => {
     clientName,
     source,
     destination,
-    password,
+    name, 
+    client, // todo
     ...fields
   } = activeNode?.data ?? {};
 

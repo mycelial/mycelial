@@ -11,10 +11,12 @@ type NodeFormFieldProps = {
   formik: any;
 };
 const renderNodeFormField = ({ key, formik }: NodeFormFieldProps) => {
-  console.log({ key });
-  console.log({ formik });
+  let fieldType: string = fieldNames[key] as string;
+  if (fieldType === undefined) {
+    console.warn(`No field type found for ${key}`);
+    fieldType = 'text';
+  }
 
-  const fieldType: string = fieldNames[key] as string;
   switch (fieldType) {
     case 'number':
     case 'text':
