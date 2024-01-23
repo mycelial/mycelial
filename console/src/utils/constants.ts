@@ -73,6 +73,14 @@ export const fieldNames: { [key: string]: string } = {
   schema: 'text',
   database: 'text',
   tables: 'text',
+  password: 'text',
+  username: 'text',
+  account_identifier: 'text',
+  query: 'text',
+  poll_interval: 'number',
+  delay: 'number',
+  text: 'text',
+  column: 'text',
 };
 
 export const mycelialServer = {
