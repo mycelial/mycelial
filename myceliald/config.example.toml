@@ -26,7 +26,7 @@ type = "excel_connector"
 display_name = "Excel Source"
 path = "test.xlsx"
 sheets = "*"
-strict = false
+strict = "false"
 
 # SOURCES
 # Define all data sources (data stores and directory paths)
