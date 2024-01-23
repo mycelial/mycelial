@@ -38,7 +38,7 @@ pub struct Node {
 pub enum Source {
     Sqlite_Connector(SqliteSourceConfig),
     Kafka(KafkaConfig),
-    Snowflake(SnowflakeDestinationConfig),
+    Snowflake(SnowflakeSourceConfig),
     Sqlite_Physical_Replication(SqlitePhysicalReplicationSourceConfig),
     Hello_World(HelloWorldSourceConfig),
     Excel_Connector(ExcelConfig),
