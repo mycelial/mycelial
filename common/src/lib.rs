@@ -102,7 +102,7 @@ pub struct ExcelConfig {
     pub common_attrs: CommonAttrs,
     pub path: String,
     pub sheets: String,
-    pub strict: bool,
+    pub strict: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
