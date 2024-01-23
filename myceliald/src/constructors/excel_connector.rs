@@ -22,7 +22,8 @@ pub fn source_ctor<S: SectionChannel>(
     // FIXME: naming
     // If excel is strict - DataType::Any will be used, otherwise each cell value will be converted
     // to string
-    let stringify = config.get("strict")
+    let stringify = config
+        .get("strict")
         .ok_or("excel section requires 'strict' flag")?
         .as_str()
         .ok_or("strict flag should be string")?;
