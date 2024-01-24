@@ -28,56 +28,7 @@ type pipeData = {
   pipe: any[];
 };
 
-type createPipeParams = {
-  workspaceId: string;
-  id: number;
-  sourceNodeData: any;
-  targetNodeData: any;
-};
-
-const createPipe = async ({
-  workspaceId,
-  id,
-  sourceNodeData,
-  targetNodeData,
-}: createPipeParams) => {
-  let method = "put";
-  if (id === 0) {
-    method = "post";
-  }
-
-  if (sourceNodeData.type === "mycelial_server")
-    sourceNodeData.name = "mycelial_server_source";
-  if (targetNodeData.type === "mycelial_server")
-    targetNodeData.name = "mycelial_server_destination";
-
-  const payload = {
-    configs: [
-      {
-        workspace_id: parseInt(workspaceId),
-        id,
-        pipe: [sourceNodeData, targetNodeData],
-      },
-    ],
-  };
-
-  try {
-    const response = await axios({
-      method,
-      url: PIPE_URL,
-      data: payload,
-      headers,
-    });
-    if (method === "post") {
-      return response.data[0];
-    }
-    return response.status;
-  } catch (error) {
-    return error;
-  }
-};
-
-const newCreatePipe = async ({ workspace_id, id, pipe }: pipeData) => {
+const createPipe = async ({ workspace_id, id, pipe }: pipeData) => {
   let method = "put";
   if (id === 0 || id === undefined) {
     method = "post";
@@ -195,4 +146,4 @@ const configurePipes = (pipes: pipeData[]) => {
   return data;
 };
 
-export { getPipes, configurePipes, createPipe, newCreatePipe, deletePipe };
+export { getPipes, configurePipes, createPipe, deletePipe };

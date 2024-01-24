@@ -15,7 +15,7 @@ import { useLoaderData } from 'react-router-dom';
 import { getId } from '../../utils';
 import dagre from 'dagre';
 import { Client, DrawerType } from '../../types.ts';
-import { createPipe, newCreatePipe, deletePipe } from '../../actions/pipes';
+import { createPipe, deletePipe } from '../../actions/pipes';
 import { WorkspaceData, DataNode as DataNodeType } from '../../types.ts';
 import Box from '@mui/material/Box';
 import ClientDrawer from '../ClientDrawer';
@@ -165,7 +165,7 @@ const Flow: React.FC = () => {
       edgesToDelete = edgesToDelete.filter((edge) => edge !== id);
       const pipe = p.map((node) => node.data);
 
-      const response = await newCreatePipe({
+      const response = await createPipe({
         workspace_id: parseInt(workspace.id),
         id,
         pipe,
