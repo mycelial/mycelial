@@ -135,7 +135,6 @@ const Flow: React.FC = () => {
         heads.push(node);
       }
     }
-    console.log("heads: ", heads);
 
     let allPipes = [];
 
@@ -163,7 +162,6 @@ const Flow: React.FC = () => {
     for (const i in allPipes) {
       const p = allPipes[i].pipe;
       const id = allPipes[i].id;
-      console.log(allPipes[i]);
       edgesToDelete = edgesToDelete.filter((edge) => edge !== id);
       const pipe = p.map((node) => node.data);
 
@@ -172,7 +170,6 @@ const Flow: React.FC = () => {
         id,
         pipe,
       });
-      console.log(response);
       if (response === 200) {
         for (const edgeID of allPipes[i].edges) {
           updateEdgeAnimation(edgeID);

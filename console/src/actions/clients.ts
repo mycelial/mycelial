@@ -19,7 +19,6 @@ const formatSections = (client: clientFormatType, sections: any[], sources = tru
   if (sections.length === 0) return [];
 
   return sections.map((section) => {
-    // console.log(section);
     let formatted = { ...section };
     formatted.clientId = client.id;
     formatted.name = `${section.type}_${sources ? 'source' : 'destination'}`;
@@ -29,7 +28,8 @@ const formatSections = (client: clientFormatType, sections: any[], sources = tru
     } else {
       formatted.destination = true;
     }
-    //HACK
+    // FIXME: this section is called a source on the backend, so to have it appear in the UI correctly, we
+    // have to tag it as both a source and a destination here
     if (section.type === "tagging_transformer") {
       formatted.source = true;
       formatted.destination = true;
