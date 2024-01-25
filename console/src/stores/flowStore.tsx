@@ -109,10 +109,8 @@ const useFlowStore = create<RFState>((set, get) => ({
     return set({ edges: updatedEdges });
   },
   updatePipeHeadWithId: (pipeId: string, dataId: string) => {
-    console.log("updatePipeHeadWithId: pipeId: ", pipeId, " dataId: ", dataId);
     const updatedPipes = get().nodes.map((pipe) => {
-      const connectedSourceEdges = get().edges.filter((edge) => edge.target === pipe.id);
-      if (pipe.id === pipeId && connectedSourceEdges.length === 0) {
+      if (pipe.id === pipeId) {
         pipe.data.id = dataId;
       }
       return pipe;
