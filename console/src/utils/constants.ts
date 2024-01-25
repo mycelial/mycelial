@@ -6,6 +6,7 @@ import DataNode from '../components/DataNode';
 export const API_URL = '/api';
 export const PIPE_URL = `${API_URL}/pipe`;
 export const CLIENT_URL = `${API_URL}/clients`;
+export const DAEMON_TOKEN_URL = `${API_URL}/daemon_token`;
 export const TOKEN_URL = `${API_URL}/token`;
 export const WORKSPACE_URL = `${API_URL}/workspaces`;
 

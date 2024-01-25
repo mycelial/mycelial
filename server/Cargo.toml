@@ -4,14 +4,18 @@ version = "0.2.0"
 edition = "2021"
 
 [features]
-default = []
+# default = []
+default = ["require_auth"] # todo: How can I set the frontend env variable based on this one?
 embed_assets = []
+require_auth = []
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 tokio = { version = "1", features = ["full"] }
 axum = { version = "0.6", features = ["headers"] }
+jsonwebtoken = {version = "9.2", features =["use_pem"]}
 clap = { version = "4", features = ["derive", "env"]}
+reqwest = { version = "0.11", features = ["json"] }
 base64 = { version = "0.21" }
 anyhow = "1"
 arrow = { version = "42", features = ["prettyprint"] }
@@ -28,6 +32,8 @@ common = { path = "../common" }
 rust-embed = "8.0.0"
 mime_guess = { version = "2" }
 async-stream = "0.3.5"
+dotenv = "0.15.0"
+bcrypt = "0.15.0"
 
 [dependencies.uuid]
 version = "1.4.0"

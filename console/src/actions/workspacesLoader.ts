@@ -1,9 +1,9 @@
+import { LoaderFunctionArgs } from 'react-router-dom';
 import { WorkspacesData } from '../types';
 import { getWorkspaces } from './workspaces';
 
-const workspacesLoader = async (): Promise<WorkspacesData> => {
-  const response = await getWorkspaces();
-  return response;
+const workspacesLoader = async (args: LoaderFunctionArgs): Promise<WorkspacesData> => {
+  return [];
 };
 
 export default workspacesLoader;

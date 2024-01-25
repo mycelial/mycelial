@@ -245,6 +245,8 @@ pub struct ProvisionClientRequest {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct ProvisionClientResponse {
     pub id: String,
+    pub client_id: String,
+    pub client_secret: String,
 }
 
 #[derive(Serialize, Deserialize, Debug)]

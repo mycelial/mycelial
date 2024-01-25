@@ -25,11 +25,14 @@ pub struct Mycelial {
     /// endpoint URL
     endpoint: String,
 
-    /// basic auth token
-    token: String,
-
     /// topic
     topic: String,
+
+    /// client_id
+    client_id: String,
+
+    /// client_secret
+    client_secret: String,
 }
 
 struct IntervalStream {
@@ -71,13 +74,15 @@ impl Stream for IntervalStream {
 impl Mycelial {
     pub fn new(
         endpoint: impl Into<String>,
-        token: impl Into<String>,
         topic: impl Into<String>,
+        client_id: impl Into<String>,
+        client_secret: impl Into<String>,
     ) -> Self {
         Self {
             endpoint: endpoint.into(),
-            token: token.into(),
             topic: topic.into(),
+            client_id: client_id.into(),
+            client_secret: client_secret.into(),
         }
     }
 
@@ -209,7 +214,10 @@ impl Mycelial {
     }
 
     fn basic_auth(&self) -> String {
-        format!("Basic {}", BASE64.encode(format!("{}:", self.token)))
+        format!(
+            "Basic {}",
+            BASE64.encode(format!("{}:{}", self.client_id, self.client_secret))
+        )
     }
 }
 

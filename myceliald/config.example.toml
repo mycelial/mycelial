@@ -12,7 +12,7 @@ storage_path = "client.db" # Path and name of SQLite database to store this Sqli
 # Replace with the endpoint and token for your Sqlite Physical Replication Server
 [server]
 endpoint = "http://localhost:7777" # Default Sqlite Physical Replication Server endpoint
-token = "token"                    # Default token for Sqlite Physical Replication Server and Clients
+token = "6f8d87ea-7523-46eb-a9c4-b73eb1489659"                    # Default token for Sqlite Physical Replication Server and Clients
 
 # This sqlite connector is a work in progress alpha version. Uncomment to use.
 [[sources]]
@@ -53,7 +53,7 @@ display_name = "Tagging Transformer"
 type = "typecast_transformer"
 display_name = "Typecast Transformer"
 from = "any"
-to = "string"
+target_type = "string"
 column = "name"
 
 [[sources]]
@@ -113,13 +113,13 @@ topic = "test"
 [[destinations]]
 type = "snowflake"
 display_name = "snowflake destination"
-username = "username"
-password = "password"
-role = "role"
-account_identifier = "account_identifier"
-warehouse = "warehouse"
-database = "database"
-schema = "schema"
+username = "mycelial"
+password = "qMNUKQIv6^bFMDH6"
+role = "ACCOUNTADMIN"
+account_identifier = "QQZWAFP-KQB94042"
+warehouse = "COMPUTE_WH"
+database = "MYSQL_TEST"
+schema = "PUBLIC"
 
 [[destinations]]
 type = "postgres_connector"
@@ -129,7 +129,7 @@ url = "postgres://user:password@127.0.0.1:5432/test"
 [[sources]]
 type = "mysql_connector"
 display_name = "mysql source"
-url = "mysql://username:password@127.0.0.1:3306/test"
+url = "mysql://usrname:password@127.0.0.1:3306/test"
 schema = "test"
 tables = "*"
 poll_interval = 5

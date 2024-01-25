@@ -25,6 +25,8 @@ pub struct Scheduler<T: Storage<<R::SectionChannel as SectionChannel>::State>, R
     pipe_configs: HashMap<u64, Config>,
     pipes: HashMap<u64, Option<JoinHandle<Result<(), SectionError>>>>,
     root_chan: R,
+    client_id: String,
+    client_secret: String,
 }
 
 #[derive(Debug)]
@@ -39,6 +41,12 @@ pub enum Message {
     /// Remove pipe
     RemovePipe {
         id: u64,
+        reply_to: OneshotSender<Result<(), SectionError>>,
+    },
+
+    SetClientIdAndSecret {
+        client_id: String,
+        client_secret: String,
         reply_to: OneshotSender<Result<(), SectionError>>,
     },
 
@@ -84,6 +92,8 @@ where
             pipe_configs: HashMap::new(),
             pipes: HashMap::new(),
             root_chan: RootChannel::new(),
+            client_id: String::new(),
+            client_secret: String::new(),
         }
     }
 
@@ -121,6 +131,9 @@ where
                         Message::RemovePipe { id, reply_to } => {
                             self.remove_pipe(id).await;
                             reply_to.send(Ok(())).ok();
+                        }
+                        Message::SetClientIdAndSecret { reply_to, client_id, client_secret } => {
+                            reply_to.send(self.set_client_id_and_secret(client_id, client_secret)).ok();
                         }
                         Message::ListIds { reply_to } => {
                             reply_to
@@ -167,6 +180,16 @@ where
         }
     }
 
+    fn set_client_id_and_secret(
+        &mut self,
+        client_id: String,
+        client_secret: String,
+    ) -> Result<(), SectionError> {
+        self.client_id = client_id;
+        self.client_secret = client_secret;
+        Ok(())
+    }
+
     async fn add_pipe(&mut self, id: u64, config: Config) -> Result<ScheduleResult, SectionError> {
         let schedule_result = match self.pipe_configs.get(&id) {
             Some(c) if c == &config => return Ok(ScheduleResult::Noop),
@@ -187,7 +210,12 @@ where
 
     fn schedule(&mut self, id: u64) -> Result<(), SectionError> {
         if let Some(config) = self.pipe_configs.get(&id).cloned() {
-            let pipe = Pipe::<R>::try_from((&config, &self.registry))?;
+            let pipe = Pipe::<R>::try_from((
+                &config,
+                &self.registry,
+                &self.client_id,
+                &self.client_secret,
+            ))?;
             let section_chan = self.root_chan.add_section(id)?;
             let pipe = pipe.start(
                 Stub::<_, SectionError>::new(),
@@ -297,5 +325,19 @@ impl SchedulerHandle {
 
     async fn send(&self, message: Message) -> Result<(), SectionError> {
         Ok(self.tx.send(message).await?)
+    }
+
+    pub async fn set_client_id_and_secret(
+        &self,
+        client_id: String,
+        client_secret: String,
+    ) -> Result<(), SectionError> {
+        call!(
+            self,
+            Message::SetClientIdAndSecret {
+                client_id,
+                client_secret
+            }
+        )
     }
 }

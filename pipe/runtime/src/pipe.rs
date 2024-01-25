@@ -4,7 +4,7 @@ use tokio::task::JoinHandle;
 
 use crate::{
     channel::channel,
-    config::Config,
+    config::{self, Config},
     registry::Registry,
     types::{DynSection, DynSink, DynStream},
 };
@@ -48,28 +48,42 @@ impl<R: RootChannel + Send + 'static> Pipe<R> {
     }
 }
 
-impl<R: RootChannel + Send + 'static> TryFrom<(&'_ Config, &'_ Registry<R::SectionChannel>)>
-    for Pipe<R>
+impl<R: RootChannel + Send + 'static>
+    TryFrom<(
+        &'_ Config,
+        &'_ Registry<R::SectionChannel>,
+        &'_ String,
+        &'_ String,
+    )> for Pipe<R>
 {
     type Error = SectionError;
 
     fn try_from(
-        (config, registry): (&Config, &Registry<R::SectionChannel>),
+        (config, registry, client_id, client_secret): (
+            &Config,
+            &Registry<R::SectionChannel>,
+            &String,
+            &String,
+        ),
     ) -> Result<Self, Self::Error> {
         let sections = config
             .get_sections()
             .iter()
             .map(
-                |section_cfg| -> Result<Box<dyn DynSection<R::SectionChannel>>, SectionError> {
+                |section_cfg: &std::collections::HashMap<String, crate::config::Value>| -> Result<Box<dyn DynSection<R::SectionChannel>>, SectionError> {
                     let name: &str = section_cfg
                         .get("name")
                         .ok_or("section needs to have a name")?
                         .as_str()
                         .ok_or("section name should be string")?;
+                    let mut c = section_cfg.clone();
+                    c.insert("client_id".to_string(), config::Value::String(client_id.to_string()));
+                    c.insert("client_secret".to_string(), config::Value::String(client_secret.to_string()));
+                    // can i inject the values here?? 
                     let constructor = registry.get_constructor(name).ok_or(format!(
                         "the runtime's registry contains no constructor for '{name}' available"
                     ))?;
-                    constructor(section_cfg)
+                    constructor(&c)
                 },
             )
             .collect::<Result<Vec<Box<dyn DynSection<R::SectionChannel>>>, _>>()?;

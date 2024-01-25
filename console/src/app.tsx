@@ -13,6 +13,13 @@ import workspacesLoader from './actions/workspacesLoader.ts';
 import dataLoader from './actions/workspaceDataLoader.ts';
 import './fonts/AeonikFono.ttf';
 import './fonts/AeonikMono.ttf';
+import { Auth0Provider } from '@auth0/auth0-react';
+
+type DataLoaderParams = { params: { workspaceId: string } };
+
+function paramsLoader({ params }: DataLoaderParams) {
+  return { workspaceId: params.workspaceId };
+}
 
 const routesConfig = [
   {
@@ -23,17 +30,17 @@ const routesConfig = [
       {
         path: 'workspaces',
         element: <Workspaces />,
-        loader: workspacesLoader,
+        loader: workspacesLoader, // interesting -- for some reason, if I remove this, you're continually redirected to the login page, even if it isn't used in the component. 
       },
       {
         path: 'workspaces/:workspaceId',
         element: <FlowWithProvider />,
-        loader: dataLoader,
+        loader: paramsLoader,
       },
       {
         path: 'clients',
         element: <ClientsTable />,
-        loader: dataLoader,
+        loader: dataLoader, // todo
       },
     ],
   },
@@ -46,12 +53,26 @@ const routesConfig = [
 const router = createBrowserRouter(routesConfig);
 
 const rootElement = document.getElementById('root');
+console.log("rootElement", rootElement);
 if (rootElement) {
+  const domain = import.meta.env.VITE_AUTH0_DOMAIN;
+  const auth0ClientId = import.meta.env.VITE_AUTH0_CLIENT_ID;
   ReactDOM.createRoot(rootElement).render(
+    // todo: put these values in a .env file
+    <Auth0Provider
+    domain={domain}
+    clientId={auth0ClientId}
+    cacheLocation="localstorage"
+    authorizationParams={{
+      redirect_uri: window.location.origin,
+      audience: "test",
+    }}
+  >
     <React.StrictMode>
       <ThemeProvider theme={theme}>
         <RouterProvider router={router} />
       </ThemeProvider>
     </React.StrictMode>
+  </Auth0Provider>
   );
 }

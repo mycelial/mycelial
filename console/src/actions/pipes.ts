@@ -8,10 +8,25 @@ import {
 } from "../utils/constants";
 import { Node, Position } from "reactflow";
 import { NodeData } from "../types";
+import { useAuth0 } from "@auth0/auth0-react";
 
 async function getPipes() {
+  let h = {
+    ...headers,
+    "x-auth0-token": "",
+  }
+  if (import.meta.env.VITE_USE_AUTH0 === "true") {
+    const { getIdTokenClaims } = useAuth0();
+    const token = await getIdTokenClaims();
+
+    h = {
+      ...headers,
+      "x-auth0-token": token?.__raw || "",
+    }
+  }
+
   try {
-    const response = await axios.get(PIPE_URL, { headers });
+    const response = await axios.get(PIPE_URL, { headers: h });
     const pipes = response.data.configs;
     if (!response || response.data === undefined || pipes.length === 0) {
       return { nodes: [], edges: [] };
@@ -28,7 +43,7 @@ type pipeData = {
   pipe: any[];
 };
 
-const createPipe = async ({ workspace_id, id, pipe }: pipeData) => {
+const createPipe = async ({ workspace_id, id, pipe }: pipeData, token: string) => {
   let method = "put";
   if (id === 0 || id === undefined) {
     method = "post";
@@ -54,7 +69,10 @@ const createPipe = async ({ workspace_id, id, pipe }: pipeData) => {
       method,
       url: PIPE_URL,
       data: payload,
-      headers,
+      headers: {
+        'x-auth0-token': token,
+        ...headers
+      },
     });
     if (method === "post") {
       return response.data[0];
@@ -65,12 +83,12 @@ const createPipe = async ({ workspace_id, id, pipe }: pipeData) => {
   }
 };
 
-const deletePipe = async (id: string) => {
+const deletePipe = async (id: string, token: string) => {
   try {
     const response = await axios({
       method: "delete",
       url: `${PIPE_URL}/${id}`,
-      headers,
+      headers: {'x-auth0-token': token, ...headers},
     });
     return response;
   } catch (error) {
