@@ -110,7 +110,6 @@ const configurePipes = (pipes: pipeData[]) => {
       // only combine "mycelial_server" nodes -- as a kind of visual syntactic sugar.
       if (nodemap.hasOwnProperty(key) && nodeData.type === "mycelial_server") {
         node.id = nodemap[key];
-        console.log("setting node id to ", node.id, " for key ", key);
       } else {
         const id = getId();
         node.id = id;
@@ -121,8 +120,6 @@ const configurePipes = (pipes: pipeData[]) => {
       node.data = nodeData;
       node.key = node.id;
       if (index === 0) {
-        console.log("setting pipe id to ", pipeId, " for node ", node.id);
-        console.log("storedID is ", storedID);
         node.data.id = pipeId;
       }
       if (node.data.source === true) {

@@ -27,12 +27,9 @@ export default function DataEdge({
     targetY,
     targetPosition,
   });
-  const { edges, setEdges, getEdge, addEdgeToBeDeleted } = useFlowStore(selector);
+  const { edges, setEdges } = useFlowStore(selector);
 
   const onRemove = useCallback(() => {
-    const deleted = getEdge(id);
-    addEdgeToBeDeleted(deleted?.data.id);
-
     const updatedEdges = edges.filter((edge) => edge.id !== id);
     setEdges(updatedEdges);
     // following action triggers onEdgeChange, which updates edgesToBeDeleted
