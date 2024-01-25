@@ -98,8 +98,14 @@ const configurePipes = (pipes: pipeData[]) => {
         sourcePosition?: Position | undefined;
       } = { ...nodePresets };
       const { name, ...data } = nodeData;
+      const { id, ...rest } = data;
+      let storedID = id;
 
-      const key = JSON.stringify(data);
+      if (nodeData.type === "mycelial_server_source" || nodeData.type === "mycelial_server_destination") {
+        nodeData.type = "mycelial_server";
+      }
+
+      const key = JSON.stringify(rest);
 
       // only combine "mycelial_server" nodes -- as a kind of visual syntactic sugar.
       if (nodemap.hasOwnProperty(key) && nodeData.type === "mycelial_server") {
