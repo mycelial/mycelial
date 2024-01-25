@@ -1,4 +1,7 @@
-use pipe::{config::Map, types::DynSection};
+use pipe::{
+    config::{Map, Value},
+    types::DynSection,
+};
 use section::{command_channel::SectionChannel, SectionError};
 
 pub fn source_ctor<S: SectionChannel>(
@@ -19,9 +22,22 @@ pub fn source_ctor<S: SectionChannel>(
         .ok_or("excel section requires 'path'")?
         .as_str()
         .ok_or("path should be string")?;
+    // FIXME: naming
+    // If excel is strict - DataType::Any will be used, otherwise each cell value will be converted
+    // to string
+    let stringify = match config
+        .get("strict")
+        .ok_or("excel section requires 'strict' flag")?
+    {
+        Value::String(v) => Ok(v.to_lowercase() != "true"),
+        Value::Bool(b) => Ok(!(*b)),
+        _ => Err("strict should be boolean-ish"),
+    }?;
+
     Ok(Box::new(excel_connector::source::Excel::new(
         path,
         sheets.as_slice(),
+        stringify,
     )))
 }
 
@@ -43,6 +59,6 @@ mod test {
 
         let config: Map = c.drain().map(|(k, v)| (k, v.try_into().unwrap())).collect();
 
-        let _section = source_ctor::<DummySectionChannel>(&config).unwrap();
+        assert!(source_ctor::<DummySectionChannel>(&config).is_ok());
     }
 }

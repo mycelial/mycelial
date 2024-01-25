@@ -56,7 +56,7 @@ pub fn pretty_print(df: &dyn DataFrame) -> String {
     }
     let col_names = columns
         .iter()
-        .map(|col| col.name().to_string())
+        .map(|col| format!("{}::{}", col.name(), col.data_type()))
         .collect::<Vec<_>>();
     let values = columns
         .into_iter()

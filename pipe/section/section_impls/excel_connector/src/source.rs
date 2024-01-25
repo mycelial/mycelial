@@ -6,12 +6,12 @@
 //! - Uses glob pattern for matching filepaths / directories. (e.g. ** for recursive, * for all files)
 //! - For sheets, use * to sync all sheets, otherwise a list of strings.
 
-use crate::{ExcelMessage, ExcelPayload, Sheet, TableColumn};
+use crate::{ExcelDataTypeWrapper, ExcelMessage, ExcelPayload, Sheet, TableColumn};
 use notify::{Event, RecursiveMode, Watcher};
 use section::{
     command_channel::{Command, SectionChannel},
     futures::{self, FutureExt, Sink, SinkExt, Stream, StreamExt},
-    message::Value,
+    message::{DataType, Value},
     section::Section,
     state::State,
     SectionError, SectionMessage,
@@ -30,26 +30,24 @@ use std::{future::Future, sync::Arc};
 use glob::glob;
 use globset::Glob;
 
-fn err_msg(msg: impl Into<String>) -> SectionError {
-    msg.into().into()
-}
-
 #[derive(Debug)]
 pub struct Excel {
     path: String,
     sheets: Vec<String>,
+    stringify: bool,
 }
 
 #[derive(Debug)]
-enum InnerEvent {
-    NewChange(String),
+enum FsEvent {
+    Change(String),
 }
 
 impl Excel {
-    pub fn new(path: impl Into<String>, sheets: &[&str]) -> Self {
+    pub fn new(path: impl Into<String>, sheets: &[&str], stringify: bool) -> Self {
         Self {
             path: path.into(),
             sheets: sheets.iter().map(|&x| x.into()).collect(),
+            stringify,
         }
     }
 
@@ -70,10 +68,7 @@ impl Excel {
         // on init, sync all the files.
         for entry in glob(path).expect("Failed to read glob pattern") {
             match entry {
-                Ok(path) => {
-                    tx.send(InnerEvent::NewChange(path.display().to_string()))
-                        .await?
-                }
+                Ok(path) => tx.send(FsEvent::Change(path.display().to_string())).await?,
                 Err(_) => todo!(),
             }
         }
@@ -113,21 +108,19 @@ impl Excel {
                         Some(event) => {
                             match event {
                                 // When there's a change to a file, sync that file
-                                InnerEvent::NewChange(path) => {
+                                FsEvent::Change(path) => {
                                     // ignore temp files
                                     if !path.contains('~') {
                                         let mut workbook: calamine::Sheets<std::io::BufReader<std::fs::File>> =
                                             open_workbook_auto(path.clone()).expect("Cannot open file");
 
-                                        let mut sheets = self
-                                            .init_schema::<SectionChan>(&mut workbook, &state)
-                                            .await?;
+                                        let mut sheets = self.init_schema(&mut workbook).await?;
 
                                         for sheet in sheets.iter_mut() {
                                             if let Some(Ok(range)) = workbook.worksheet_range(&sheet.name) {
-                                                let mut rows = range.rows();
                                                 // the first is the header, so don't send it in the data payload since it's already part of the schema
-                                                let _ = rows.next();
+                                                let mut rows = range.rows();
+                                                rows.next();
                                                 let excel_payload = self.build_excel_payload(sheet, rows)?;
 
                                                 let origin: Arc<str> = Arc::from(format!("{}:{}", path, sheet.name));
@@ -159,33 +152,12 @@ impl Excel {
         sheet: &Sheet,
         rows: Rows<ExcelDataType>,
     ) -> Result<ExcelPayload, SectionError> {
-        let mut values: Vec<Vec<Value>> = vec![];
-        let cap = rows.len();
+        let mut values: Vec<Vec<Value>> = (0..sheet.columns.len())
+            .map(|_| Vec::with_capacity(rows.len()))
+            .collect();
         for row in rows {
-            if values.len() != row.len() {
-                values = row.iter().map(|_| Vec::with_capacity(cap)).collect();
-            }
-            for (index, _column) in sheet.columns.iter().enumerate() {
-                let x = row.get(index).ok_or(err_msg("oh no"))?; //FIXME: unwrap
-                let y = match x {
-                    ExcelDataType::Int(v) => Value::I64(*v),
-                    ExcelDataType::Float(f) => Value::F64(*f),
-                    ExcelDataType::String(s) => Value::from(s.to_string()),
-                    ExcelDataType::Bool(b) => Value::Bool(*b),
-                    ExcelDataType::DateTime(_) => Value::from(
-                        // todo: do we have a datetime format rather than string?
-                        x.as_datetime()
-                            .unwrap()
-                            .format("%Y-%m-%d %H:%M:%S")
-                            .to_string(),
-                    ),
-                    ExcelDataType::Duration(f) => Value::F64(*f),
-                    ExcelDataType::DateTimeIso(d) => Value::Str(d.as_str().into()),
-                    ExcelDataType::DurationIso(d) => Value::Str(d.as_str().into()),
-                    ExcelDataType::Error(e) => Value::Str(e.to_string().into()),
-                    ExcelDataType::Empty => Value::Null,
-                };
-                values[index].push(y);
+            for (index, raw_value) in row.iter().enumerate() {
+                values[index].push(ExcelDataTypeWrapper::new(raw_value, self.stringify).into());
             }
         }
         let batch = ExcelPayload {
@@ -195,10 +167,9 @@ impl Excel {
         Ok(batch)
     }
 
-    async fn init_schema<C: SectionChannel>(
+    async fn init_schema(
         &self,
         workbook: &mut calamine::Sheets<std::io::BufReader<std::fs::File>>,
-        _state: &<C as SectionChannel>::State,
     ) -> Result<Vec<Sheet>, SectionError> {
         let mut sheets = Vec::with_capacity(self.sheets.len());
         let all_sheets: Vec<String>;
@@ -210,18 +181,22 @@ impl Excel {
             false => self.sheets.as_slice(),
         };
 
+        let data_type = match self.stringify {
+            true => DataType::Str,
+            false => DataType::Any,
+        };
+
         for s in sheet_names {
             if let Some(Ok(range)) = workbook.worksheet_range(s) {
                 let name = s.as_str();
 
                 let mut rows = range.rows();
-                let first_row = rows.next().ok_or(err_msg("no rows"))?;
+                let first_row = rows.next().ok_or("no rows")?;
 
                 // get the column names from the first row
                 let cols = first_row
                     .iter()
-                    .enumerate()
-                    .map(|(_i, cell)| {
+                    .map(|cell| {
                         let name = match cell {
                             ExcelDataType::String(s) => s.to_string(),
                             ExcelDataType::Int(i) => i.to_string(),
@@ -244,10 +219,12 @@ impl Excel {
                         };
 
                         TableColumn {
-                            name: Arc::from(name.to_owned()),
+                            name: Arc::from(name),
+                            data_type,
                         }
                     })
                     .collect::<Vec<TableColumn>>();
+
                 let sheet = Sheet {
                     name: Arc::from(name),
                     columns: Arc::from(cols),
@@ -261,7 +238,7 @@ impl Excel {
     fn watch_excel_paths(
         &self,
         excel_path: &str,
-        tx: Sender<InnerEvent>,
+        tx: Sender<FsEvent>,
     ) -> notify::Result<impl Watcher> {
         let pattern = Glob::new(excel_path).unwrap().compile_matcher();
         let mut file_watcher = notify::PollWatcher::new(
@@ -269,7 +246,7 @@ impl Excel {
                 Ok(event) if event.kind.is_modify() || event.kind.is_create() => {
                     let path: String = event.paths[0].to_str().unwrap().into();
                     if pattern.is_match(path.as_str()) {
-                        tx.blocking_send(InnerEvent::NewChange(path)).ok();
+                        tx.blocking_send(FsEvent::Change(path)).ok();
                     }
                 }
                 Ok(_) => (),
@@ -300,10 +277,6 @@ where
     fn start(self, input: Input, output: Output, command: SectionChan) -> Self::Future {
         Box::pin(async move { self.enter_loop(input, output, command).await })
     }
-}
-
-pub fn new(path: impl Into<String>, sheets: &[&str]) -> Excel {
-    Excel::new(path, sheets)
 }
 
 // gets the root directory of the path to watch, or the path itself if there are no wildcards

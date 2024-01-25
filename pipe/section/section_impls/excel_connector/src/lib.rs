@@ -1,5 +1,6 @@
+use calamine::DataType as ExcelDataType;
 use section::message::{Ack, Chunk, Column, DataFrame, DataType, Message, Value};
-use std::{fmt::Display, sync::Arc};
+use std::sync::Arc;
 
 pub mod source;
 
@@ -12,6 +13,7 @@ pub(crate) struct Sheet {
 #[derive(Debug)]
 pub(crate) struct TableColumn {
     name: Arc<str>,
+    data_type: DataType,
 }
 
 #[derive(Debug)]
@@ -28,7 +30,7 @@ impl DataFrame for ExcelPayload {
             .map(|(col, column)| {
                 Column::new(
                     col.name.as_ref(),
-                    DataType::Any,
+                    col.data_type,
                     Box::new(column.iter().map(Into::into)),
                 )
             })
@@ -76,48 +78,41 @@ impl std::fmt::Debug for ExcelMessage {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum ColumnType {
-    Int,
-    Text,
-    Blob,
-    Real,
-    Numeric,
-    Bool,
-    DateTime,
-    Duration,
-    DateTimeIso,
-    DurationIso,
+pub(crate) struct ExcelDataTypeWrapper<'a> {
+    value: &'a ExcelDataType,
+    stringify: bool,
 }
 
-impl Display for ColumnType {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let ty = match self {
-            ColumnType::Int => "INTEGER",
-            ColumnType::Text => "TEXT",
-            ColumnType::Blob => "BLOB",
-            ColumnType::Real => "DOUBLE",
-            ColumnType::Numeric => "NUMERIC",
-            ColumnType::Bool => "BOOL",
-            ColumnType::DateTime => "DATETIME",
-            ColumnType::Duration => "DURATION",
-            ColumnType::DateTimeIso => "DATETIMEISO",
-            ColumnType::DurationIso => "DURATIONISO",
-        };
-        write!(f, "{}", ty)
+impl<'a> ExcelDataTypeWrapper<'a> {
+    pub fn new(value: &'a ExcelDataType, stringify: bool) -> Self {
+        Self { value, stringify }
     }
 }
 
-/// Escape table name
-pub fn escape_table_name(name: impl AsRef<str>) -> String {
-    name.as_ref()
-        .chars()
-        .flat_map(|char| {
-            let maybe_char = match char {
-                '"' => Some('\\'),
-                _ => None,
-            };
-            maybe_char.into_iter().chain([char])
-        })
-        .collect::<String>()
+impl From<ExcelDataTypeWrapper<'_>> for Value {
+    fn from(val: ExcelDataTypeWrapper<'_>) -> Self {
+        match val.value {
+            value if val.stringify => Value::from(value.to_string()),
+            ExcelDataType::Int(v) => Value::I64(*v),
+            ExcelDataType::Float(f) => Value::F64(*f),
+            ExcelDataType::String(s) => Value::from(s.to_string()),
+            ExcelDataType::Bool(b) => Value::Bool(*b),
+            ExcelDataType::DateTime(_) => {
+                // TODO: do we have a datetime format rather than string?
+                // FIXME: unwrap
+                Value::from(
+                    val.value
+                        .as_datetime()
+                        .unwrap()
+                        .format("%Y-%m-%d %H:%M:%S")
+                        .to_string(),
+                )
+            }
+            ExcelDataType::Duration(f) => Value::F64(*f),
+            ExcelDataType::DateTimeIso(d) => Value::Str(d.as_str().into()),
+            ExcelDataType::DurationIso(d) => Value::Str(d.as_str().into()),
+            ExcelDataType::Error(e) => Value::Str(e.to_string().into()),
+            ExcelDataType::Empty => Value::Null,
+        }
+    }
 }

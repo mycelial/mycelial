@@ -6,6 +6,7 @@ use reqwest::Client;
 use section::{
     command_channel::{Command, SectionChannel, WeakSectionChannel},
     futures::{self, stream::FusedStream, FutureExt, Sink, SinkExt, Stream, StreamExt},
+    message::{Ack, Chunk, Message},
     section::Section,
     state::State,
     SectionError, SectionFuture, SectionMessage,
@@ -99,13 +100,13 @@ impl Mycelial {
         loop {
             futures::select! {
                 _ = interval.next() => {
-                    match self.get_next_batch(&mut client, &section_chan, &mut offset).await {
+                    match self.get_next_chunk(&mut client, &section_chan, &mut offset).await {
                         Ok(Some(msg)) => {
                             output.send(msg).await.ok();
                             interval.reset();
                         },
                         Ok(None) => (),
-                        Err(e) => section_chan.log(format!("failed to retrieve next batch: {:?}", e)).await?,
+                        Err(e) => section_chan.log(format!("failed to retrieve next chunk: {:?}", e)).await?,
                     }
                 },
                 cmd = section_chan.recv().fuse() => {
@@ -130,13 +131,13 @@ impl Mycelial {
         }
     }
 
-    async fn get_next_batch<SectionChan: SectionChannel>(
+    async fn get_next_chunk<SectionChan: SectionChannel>(
         &self,
         client: &mut Client,
         section_chan: &SectionChan,
         offset: &mut u64,
     ) -> Result<Option<SectionMessage>, SectionError> {
-        let res = client
+        let response = client
             .get(format!(
                 "{}/{}/{}",
                 self.endpoint.as_str().trim_end_matches('/'),
@@ -147,15 +148,28 @@ impl Mycelial {
             .send()
             .await?;
 
-        let origin = match res.headers().get("x-message-origin") {
+        let origin = match response.headers().get("x-message-origin") {
             None => Err("response needs to have x-message-origin header")?,
-            Some(v) => v.to_str().unwrap().to_string(),
+            Some(v) => v
+                .to_str()
+                .map_err(|_| "bad header 'x-message-origin' value")?
+                .to_string(),
         };
 
-        let maybe_new_offset = match res.headers().get("x-message-id") {
+        let stream_type = match response.headers().get("x-stream-type") {
+            None => Err("response needs to have x-stream-type header")?,
+            Some(v) => v
+                .to_str()
+                .map_err(|_| "bad header 'x-stream-type' value")?
+                .to_string(),
+        };
+
+        let maybe_new_offset = match response.headers().get("x-message-id") {
             None => Err("response needs to have x-message-id header")?,
-            // FIXME: unwrap
-            Some(v) => v.to_str().unwrap().parse().unwrap(),
+            Some(v) => v
+                .to_str()
+                .map_err(|_| "bad header 'x-message-id' value")?
+                .parse()?,
         };
 
         if maybe_new_offset == *offset {
@@ -163,29 +177,83 @@ impl Mycelial {
         }
         *offset = maybe_new_offset;
 
-        let body = res.bytes().await?.to_vec();
-        let len = body.len() as u64;
-        let mut body = Cursor::new(body);
-        let mut batches = vec![];
-        while body.position() < len {
-            let reader = StreamReader::try_new_unbuffered(&mut body, None).unwrap();
-            for batch in reader {
-                let batch = batch?;
-                batches.push(Some(batch.into()))
-            }
-        }
         let weak_chan = section_chan.weak_chan();
-        let o = *offset;
-        let msg = ArrowMsg::new(
-            origin,
-            batches,
-            Some(Box::pin(async move { weak_chan.ack(Box::new(o)).await })),
-        );
-        Ok(Some(Box::new(msg)))
+        let ack: Option<Ack> = Some(Box::pin(async move {
+            weak_chan.ack(Box::new(maybe_new_offset)).await
+        }));
+        match stream_type.as_str() {
+            "binary" => {
+                let stream = response.bytes_stream().map(|chunk| {
+                    chunk
+                        .map(|bytes| bytes.to_vec())
+                        .map_err(|err| -> SectionError { err.into() })
+                });
+                Ok(Some(Box::new(BinStream::new(origin, stream, ack))))
+            }
+            "arrow" => {
+                // FIXME: add async stream interface for arrow StreamReader
+                let body = response.bytes().await?.to_vec();
+                let len = body.len() as u64;
+                let mut body = Cursor::new(body);
+                let mut batches = vec![];
+                while body.position() < len {
+                    let reader = StreamReader::try_new_unbuffered(&mut body, None)?;
+                    for batch in reader {
+                        batches.push(Some(batch?.into()))
+                    }
+                }
+                Ok(Some(Box::new(ArrowMsg::new(origin, batches, ack))))
+            }
+            _ => Err(format!("unsupported stream_type '{stream_type}'"))?,
+        }
     }
 
     fn basic_auth(&self) -> String {
         format!("Basic {}", BASE64.encode(format!("{}:", self.token)))
+    }
+}
+
+struct BinStream<T> {
+    origin: String,
+    stream: T,
+    ack: Option<Ack>,
+}
+
+impl<T> std::fmt::Debug for BinStream<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("BinStream")
+            .field("origin", &self.origin)
+            .finish()
+    }
+}
+
+impl<T> BinStream<T> {
+    fn new(origin: impl Into<String>, stream: T, ack: Option<Ack>) -> Self {
+        Self {
+            origin: origin.into(),
+            stream,
+            ack,
+        }
+    }
+}
+
+impl<T: Stream<Item = Result<Vec<u8>, SectionError>> + Send + Unpin> Message for BinStream<T> {
+    fn origin(&self) -> &str {
+        self.origin.as_str()
+    }
+
+    fn next(&mut self) -> section::message::Next<'_> {
+        Box::pin(async {
+            match self.stream.next().await {
+                Some(Ok(b)) => Ok(Some(Chunk::Byte(b))),
+                Some(Err(e)) => Err(e),
+                None => Ok(None),
+            }
+        })
+    }
+
+    fn ack(&mut self) -> Ack {
+        self.ack.take().unwrap_or(Box::pin(async {}))
     }
 }
 
