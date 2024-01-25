@@ -130,15 +130,15 @@ pub enum Value {
     Null,
     Bool(bool),
     I8(i8),
-    I16(i16), //
-    I32(i32), //
-    I64(i64), //
+    I16(i16),
+    I32(i32),
+    I64(i64),
     U8(u8),
-    U16(u16), //
-    U32(u32), //
-    U64(u64), //
-    F32(f32), //
-    F64(f64), //
+    U16(u16),
+    U32(u32),
+    U64(u64),
+    F32(f32),
+    F64(f64),
     Str(Box<str>),
     Bin(Box<[u8]>),
     Time(TimeUnit, i64),

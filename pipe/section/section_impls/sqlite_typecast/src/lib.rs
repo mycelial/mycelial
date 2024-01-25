@@ -20,22 +20,89 @@ pub enum Type {
 
 #[derive(Debug)]
 pub struct SqliteTypecast {
-    target_type: Type,
+    target_type: DataType,
     column: String,
 }
 
 impl Default for SqliteTypecast {
     fn default() -> Self {
-        Self::new(Type::String, "text")
+        Self::new(DataType::Str, "text")
     }
 }
 
 impl SqliteTypecast {
-    pub fn new(target_type: Type, column: &str) -> Self {
+    pub fn new(target_type: DataType, column: &str) -> Self {
         Self {
             column: column.to_string(),
             target_type: target_type,
         }
+    }
+
+    fn df_to_tc_message(
+        &self,
+        origin: Arc<str>,
+        df: &Box<dyn DataFrame>,
+        ack: Ack,
+    ) -> TypecastMessage {
+        let mut casted_column: Option<usize> = None;
+
+        let columns: Vec<TableColumn> = df
+            .columns()
+            .iter()
+            .enumerate()
+            .map(|(i, column)| {
+                let name: Arc<str> = column.name().into();
+
+                let data_type = if self.column.eq(&*name) {
+                    casted_column = Some(i);
+                    // todo: check that the column can actually be casted to
+                    //column.data_type()
+                    self.target_type
+                } else {
+                    column.data_type()
+                };
+                TableColumn {
+                    name: name,
+                    data_type: data_type,
+                }
+            })
+            .collect::<Vec<_>>();
+
+        let values: Vec<Vec<Value>> = df
+            .columns()
+            .into_iter()
+            .enumerate()
+            .map(|(i, col)| {
+                col.map(|val| {
+                    if casted_column == Some(i) {
+                        let value: Value = (&val).into();
+                        // we do the cast
+                        let casted = match self.target_type {
+                            DataType::I64 => value.into_i64(),
+                            DataType::F64 => value.into_f64(),
+                            // DataType::Str => value.into_string(),
+                            _ => todo!(),
+                        };
+                        casted.unwrap_or_else(|_| {
+                            let msg =
+                                format!("could not convert {:?} to {:?}", val, self.target_type);
+                            Value::Str(msg.to_owned().into_boxed_str())
+                        })
+                    } else {
+                        // we pass along the old value
+                        let val = (&val).into();
+                        val
+                    }
+                })
+                .collect::<Vec<Value>>()
+            })
+            .collect();
+
+        let payload = TypecastPayload {
+            columns: columns.into(),
+            values: values,
+        };
+        TypecastMessage::new(origin, payload, Some(ack))
     }
 }
 
@@ -152,15 +219,15 @@ where
                                 msg = stream.next().fuse() => {
                                     match msg? {
                                         Some(Chunk::DataFrame(df)) => {
+                                            let payload = self.df_to_tc_message(
+                                                stream.origin().into(),
+                                                &df,
+                                                stream.ack()
+                                            );
+
                                             section_channel.log(format!("transform got dataframe chunk from {}:\n{}",
                                                 stream.origin(),
                                                 pretty_print(&*df))).await?;
-
-                                            let payload = df_to_tc_message(
-                                                stream.origin().into(),
-                                                df,
-                                                stream.ack()
-                                            );
 
                                             output.send(Box::new(payload)).await.ok();
                                             section_channel.log("payload sent").await?;
@@ -181,33 +248,4 @@ where
             }
         })
     }
-}
-
-fn df_to_tc_message(origin: Arc<str>, df: Box<dyn DataFrame>, ack: Ack) -> TypecastMessage {
-    let columns: Vec<TableColumn> = df
-        .columns()
-        .iter()
-        .map(|c| TableColumn {
-            name: c.name().into(),
-            data_type: c.data_type(),
-        })
-        .collect::<Vec<_>>();
-
-    let values: Vec<Vec<Value>> = df
-        .columns()
-        .into_iter()
-        .map(|col| {
-            col.map(|val| {
-                let val = (&val).into();
-                val
-            })
-            .collect::<Vec<Value>>()
-        })
-        .collect();
-
-    let payload = TypecastPayload {
-        columns: columns.into(),
-        values: values,
-    };
-    TypecastMessage::new(origin, payload, Some(ack))
 }

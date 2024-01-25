@@ -1,5 +1,5 @@
 use pipe::{config::Map, types::DynSection};
-use section::{command_channel::SectionChannel, SectionError};
+use section::{command_channel::SectionChannel, message::DataType, SectionError};
 
 pub fn transformer<S: SectionChannel>(
     config: &Map,
@@ -15,9 +15,9 @@ pub fn transformer<S: SectionChannel>(
         .as_str()
         .ok_or("tagging 'text' must be set")?
     {
-        "string" => sqlite_typecast::Type::String,
-        "int" => sqlite_typecast::Type::Int,
-        "real" => sqlite_typecast::Type::Real,
+        "string" => DataType::Str, //sqlite_typecast::Type::String,
+        "int" => DataType::I64,
+        "real" => DataType::F64,
         _ => return Err("target type must be string, int, or real")?,
     };
     Ok(Box::new(sqlite_typecast::SqliteTypecast::new(
@@ -30,7 +30,7 @@ pub fn transformer<S: SectionChannel>(
 mod test {
     use std::collections::HashMap;
 
-    use common::SqliteTypeCast;
+    use common::SqliteTypeCastConfig;
     use section::dummy::DummySectionChannel;
     use serde_json::Value;
 
@@ -38,12 +38,12 @@ mod test {
 
     #[test]
     fn test_ctor_matches_config() {
-        let source_config = TaggingTransformerConfig::default();
+        let source_config = SqliteTypeCastConfig::default();
         let mut c: HashMap<String, Value> =
             serde_json::from_str(&serde_json::to_string(&source_config).unwrap()).unwrap();
 
         let config: Map = c.drain().map(|(k, v)| (k, v.try_into().unwrap())).collect();
 
-        let _section = transform_ctor::<DummySectionChannel>(&config).unwrap();
+        let _section = transformer::<DummySectionChannel>(&config).unwrap();
     }
 }
