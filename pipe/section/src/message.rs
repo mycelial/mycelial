@@ -203,7 +203,7 @@ impl Value {
     pub fn into_u16(self) -> Result<Value, TypeCastError> {
         match self {
             Value::U8(v) => Ok(Value::U16(v.into())),
-            Value::U16(v) => Ok(Value::U16(v.into())),
+            Value::U16(v) => Ok(Value::U16(v)),
             t => Err(TypeCastError {
                 msg: format!("could not convert {:?} to Value::U8", t),
             }),
@@ -214,7 +214,7 @@ impl Value {
         match self {
             Value::U8(v) => Ok(Value::U32(v.into())),
             Value::U16(v) => Ok(Value::U32(v.into())),
-            Value::U32(v) => Ok(Value::U32(v.into())),
+            Value::U32(v) => Ok(Value::U32(v)),
             t => Err(TypeCastError {
                 msg: format!("could not convert {:?} to Value::U32", t),
             }),
@@ -226,7 +226,7 @@ impl Value {
             Value::U8(v) => Ok(Value::U64(v.into())),
             Value::U16(v) => Ok(Value::U64(v.into())),
             Value::U32(v) => Ok(Value::U64(v.into())),
-            Value::U64(v) => Ok(Value::U64(v.into())),
+            Value::U64(v) => Ok(Value::U64(v)),
             t => Err(TypeCastError {
                 msg: format!("could not convert {:?} to Value::U64", t),
             }),

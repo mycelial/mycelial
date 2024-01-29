@@ -38,7 +38,10 @@ mod test {
 
     #[test]
     fn test_ctor_matches_config() {
-        let source_config = SqliteTypeCastConfig::default();
+        let mut source_config = SqliteTypeCastConfig::default();
+        source_config.column = "blah".into();
+        source_config.target_type = "int".into();
+
         let mut c: HashMap<String, Value> =
             serde_json::from_str(&serde_json::to_string(&source_config).unwrap()).unwrap();
 

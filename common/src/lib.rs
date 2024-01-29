@@ -170,9 +170,8 @@ pub struct TaggingTransformerConfig {
 pub struct SqliteTypeCastConfig {
     #[serde(flatten)]
     pub common_attrs: CommonAttrs,
-    pub from: String,
-    pub to: String,
     pub column: String,
+    pub target_type: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]

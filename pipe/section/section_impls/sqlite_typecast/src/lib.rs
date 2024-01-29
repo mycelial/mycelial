@@ -34,16 +34,11 @@ impl SqliteTypecast {
     pub fn new(target_type: DataType, column: &str) -> Self {
         Self {
             column: column.to_string(),
-            target_type: target_type,
+            target_type,
         }
     }
 
-    fn df_to_tc_message(
-        &self,
-        origin: Arc<str>,
-        df: &Box<dyn DataFrame>,
-        ack: Ack,
-    ) -> TypecastMessage {
+    fn df_to_tc_message(&self, origin: Arc<str>, df: &dyn DataFrame, ack: Ack) -> TypecastMessage {
         let mut casted_column: Option<usize> = None;
 
         let columns: Vec<TableColumn> = df
@@ -61,10 +56,7 @@ impl SqliteTypecast {
                 } else {
                     column.data_type()
                 };
-                TableColumn {
-                    name: name,
-                    data_type: data_type,
-                }
+                TableColumn { name, data_type }
             })
             .collect::<Vec<_>>();
 
@@ -90,8 +82,7 @@ impl SqliteTypecast {
                         })
                     } else {
                         // we pass along the old value
-                        let val = (&val).into();
-                        val
+                        (&val).into()
                     }
                 })
                 .collect::<Vec<Value>>()
@@ -100,7 +91,7 @@ impl SqliteTypecast {
 
         let payload = TypecastPayload {
             columns: columns.into(),
-            values: values,
+            values,
         };
         TypecastMessage::new(origin, payload, Some(ack))
     }
@@ -221,7 +212,7 @@ where
                                         Some(Chunk::DataFrame(df)) => {
                                             let payload = self.df_to_tc_message(
                                                 stream.origin().into(),
-                                                &df,
+                                                &*df,
                                                 stream.ack()
                                             );
 
