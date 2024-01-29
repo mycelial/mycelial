@@ -50,8 +50,8 @@ text = "text"
 display_name = "Tagging Transformer"
 
 [[sources]]
-type = "sqlite_typecast"
-display_name = "Sqlite Typecast"
+type = "typecast_transformer"
+display_name = "Typecast Transformer"
 from = "any"
 to = "string"
 column = "name"

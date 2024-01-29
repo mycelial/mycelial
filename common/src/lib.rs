@@ -45,7 +45,7 @@ pub enum Source {
     Postgres_Connector(PostgresConnectorConfig),
     // TODO: either we need to add another enum for transformers, or merge these two into "sections" and make the section itself know it's ability to source, destination, or transform
     Tagging_Transformer(TaggingTransformerConfig),
-    Sqlite_Typecast(SqliteTypeCastConfig),
+    Typecast_Transformer(TypecastTransformerConfig),
     Mysql_Connector(MysqlConnectorSourceConfig),
     File(FileSourceConfig),
 }
@@ -167,7 +167,7 @@ pub struct TaggingTransformerConfig {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
-pub struct SqliteTypeCastConfig {
+pub struct TypecastTransformerConfig {
     #[serde(flatten)]
     pub common_attrs: CommonAttrs,
     pub column: String,

@@ -15,12 +15,12 @@ pub fn transformer<S: SectionChannel>(
         .as_str()
         .ok_or("tagging 'text' must be set")?
     {
-        "string" => DataType::Str, //sqlite_typecast::Type::String,
+        "string" => DataType::Str,
         "int" => DataType::I64,
         "real" => DataType::F64,
         _ => return Err("target type must be string, int, or real")?,
     };
-    Ok(Box::new(sqlite_typecast::SqliteTypecast::new(
+    Ok(Box::new(typecast_transformer::TypecastTransformer::new(
         target_type,
         column,
     )))
@@ -30,7 +30,7 @@ pub fn transformer<S: SectionChannel>(
 mod test {
     use std::collections::HashMap;
 
-    use common::SqliteTypeCastConfig;
+    use common::TypecastTransformerConfig;
     use section::dummy::DummySectionChannel;
     use serde_json::Value;
 
@@ -38,7 +38,7 @@ mod test {
 
     #[test]
     fn test_ctor_matches_config() {
-        let mut source_config = SqliteTypeCastConfig::default();
+        let mut source_config = TypecastTransformerConfig::default();
         source_config.column = "blah".into();
         source_config.target_type = "int".into();
 

@@ -19,18 +19,18 @@ pub enum Type {
 }
 
 #[derive(Debug)]
-pub struct SqliteTypecast {
+pub struct TypecastTransformer {
     target_type: DataType,
     column: String,
 }
 
-impl Default for SqliteTypecast {
+impl Default for TypecastTransformer {
     fn default() -> Self {
         Self::new(DataType::Str, "text")
     }
 }
 
-impl SqliteTypecast {
+impl TypecastTransformer {
     pub fn new(target_type: DataType, column: &str) -> Self {
         Self {
             column: column.to_string(),
@@ -179,7 +179,7 @@ impl Message for TypecastMessage {
 
 //
 
-impl<Input, Output, SectionChan> Section<Input, Output, SectionChan> for SqliteTypecast
+impl<Input, Output, SectionChan> Section<Input, Output, SectionChan> for TypecastTransformer
 where
     Input: Stream<Item = SectionMessage> + Send + 'static,
     Output: Sink<SectionMessage, Error = SectionError> + Send + 'static,

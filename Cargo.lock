@@ -2194,12 +2194,12 @@ dependencies = [
  "serde_json",
  "snowflake",
  "sqlite_connector",
- "sqlite_typecast",
  "sqlx",
  "tagging_transformer",
  "thiserror",
  "tokio",
  "toml",
+ "typecast_transformer",
 ]
 
 [[package]]
@@ -3637,16 +3637,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "sqlite_typecast"
-version = "0.1.0"
-dependencies = [
- "arrow 49.0.0",
- "arrow_msg",
- "futures",
- "section",
-]
-
-[[package]]
 name = "sqlx"
 version = "0.7.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4325,6 +4315,16 @@ checksum = "97fee6b57c6a41524a810daee9286c02d7752c4253064d0b05472833a438f675"
 dependencies = [
  "cfg-if",
  "static_assertions",
+]
+
+[[package]]
+name = "typecast_transformer"
+version = "0.1.0"
+dependencies = [
+ "arrow 49.0.0",
+ "arrow_msg",
+ "futures",
+ "section",
 ]
 
 [[package]]
