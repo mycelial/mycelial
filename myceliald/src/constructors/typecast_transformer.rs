@@ -6,14 +6,14 @@ pub fn transformer<S: SectionChannel>(
 ) -> Result<Box<dyn DynSection<S>>, SectionError> {
     let column = config
         .get("column")
-        .ok_or("tagging requires a 'column' name")?
+        .ok_or("typecasting requires a 'column' name")?
         .as_str()
-        .ok_or("tagging 'column' name must be a string")?;
+        .ok_or("typecasted 'column' name must be a string")?;
     let target_type = match config
         .get("target_type")
         .ok_or("typecasting requires a 'target_type'")?
         .as_str()
-        .ok_or("tagging 'text' must be set")?
+        .ok_or("typecasting 'target_type' must be set")?
     {
         "string" => DataType::Str,
         "int" => DataType::I64,
