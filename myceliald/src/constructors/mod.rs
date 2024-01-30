@@ -8,3 +8,4 @@ pub mod postgres_connector;
 pub mod snowflake;
 pub mod sqlite_connector;
 pub mod tagging_transformer;
+pub mod typecast_transformer;

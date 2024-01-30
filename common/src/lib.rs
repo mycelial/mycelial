@@ -43,8 +43,9 @@ pub enum Source {
     Hello_World(HelloWorldSourceConfig),
     Excel_Connector(ExcelConfig),
     Postgres_Connector(PostgresConnectorConfig),
-    // TODO: either we need to add another enum for transformers, or merge these two into "sections" and make the section itself know if it supports sourcing, transforming, or destinationing
+    // TODO: either we need to add another enum for transformers, or merge these two into "sections" and make the section itself know it's ability to source, destination, or transform
     Tagging_Transformer(TaggingTransformerConfig),
+    Typecast_Transformer(TypecastTransformerConfig),
     Mysql_Connector(MysqlConnectorSourceConfig),
     File(FileSourceConfig),
 }
@@ -163,6 +164,14 @@ pub struct TaggingTransformerConfig {
     pub common_attrs: CommonAttrs,
     pub column: String,
     pub text: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+pub struct TypecastTransformerConfig {
+    #[serde(flatten)]
+    pub common_attrs: CommonAttrs,
+    pub column: String,
+    pub target_type: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]

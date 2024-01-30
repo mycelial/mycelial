@@ -13,6 +13,7 @@ members = [
     "pipe/section/section_impls/mycelial_server",
     "pipe/section/section_impls/kafka_connector",
     "pipe/section/section_impls/snowflake",
+    "pipe/section/section_impls/typecast_transformer",
     "pipe/section/section_impls/tagging_transformer",
     "pipe/section/section_impls/mysql_connector",
     "pipe/section/section_impls/file",

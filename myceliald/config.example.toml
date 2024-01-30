@@ -50,6 +50,13 @@ text = "text"
 display_name = "Tagging Transformer"
 
 [[sources]]
+type = "typecast_transformer"
+display_name = "Typecast Transformer"
+from = "any"
+to = "string"
+column = "name"
+
+[[sources]]
 type = "snowflake"
 display_name = "snowflake query"
 username = "username"

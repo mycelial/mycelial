@@ -2200,6 +2200,7 @@ dependencies = [
  "thiserror",
  "tokio",
  "toml",
+ "typecast_transformer",
 ]
 
 [[package]]
@@ -4315,6 +4316,16 @@ checksum = "97fee6b57c6a41524a810daee9286c02d7752c4253064d0b05472833a438f675"
 dependencies = [
  "cfg-if",
  "static_assertions",
+]
+
+[[package]]
+name = "typecast_transformer"
+version = "0.1.0"
+dependencies = [
+ "arrow 49.0.0",
+ "arrow_msg",
+ "futures",
+ "section",
 ]
 
 [[package]]

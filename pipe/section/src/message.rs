@@ -1,6 +1,7 @@
 //! Section messaging
 
 use crate::SectionError;
+use std::fmt;
 use std::future::Future;
 use std::pin::Pin;
 
@@ -157,6 +158,161 @@ impl From<String> for Value {
 impl From<Vec<u8>> for Value {
     fn from(value: Vec<u8>) -> Self {
         Value::Bin(value.into())
+    }
+}
+
+impl<'a> From<&'a ValueView<'_>> for Value {
+    fn from(value: &'a ValueView) -> Self {
+        match value {
+            ValueView::Null => Self::Null,
+            ValueView::Bool(v) => Self::Bool(*v),
+            ValueView::I8(v) => Self::I8(*v),
+            ValueView::I16(v) => Self::I16(*v),
+            ValueView::I32(v) => Self::I32(*v),
+            ValueView::I64(v) => Self::I64(*v),
+            ValueView::U8(v) => Self::U8(*v),
+            ValueView::U16(v) => Self::U16(*v),
+            ValueView::U32(v) => Self::U32(*v),
+            ValueView::U64(v) => Self::U64(*v),
+            ValueView::F32(v) => Self::F32(*v),
+            ValueView::F64(v) => Self::F64(*v),
+            ValueView::Str(v) => Self::Str(v.to_string().into_boxed_str()),
+            ValueView::Bin(v) => Self::Bin(v.to_vec().into_boxed_slice()),
+            ValueView::Time(tu, v) => Self::Time(*tu, *v),
+            ValueView::Date(tu, v) => Self::Date(*tu, *v),
+            ValueView::TimeStamp(tu, v) => Self::TimeStamp(*tu, *v),
+            ValueView::TimeStampUTC(tu, v) => Self::TimeStampUTC(*tu, *v),
+            ValueView::Decimal(v) => Self::Decimal(*v),
+            ValueView::Uuid(v) => Self::Uuid(**v),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct TypeCastError {
+    msg: String,
+}
+
+impl fmt::Display for TypeCastError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.msg)
+    }
+}
+
+impl Value {
+    pub fn into_u16(self) -> Result<Value, TypeCastError> {
+        match self {
+            Value::U8(v) => Ok(Value::U16(v.into())),
+            Value::U16(v) => Ok(Value::U16(v)),
+            t => Err(TypeCastError {
+                msg: format!("could not convert {:?} to Value::U8", t),
+            }),
+        }
+    }
+
+    pub fn into_u32(self) -> Result<Value, TypeCastError> {
+        match self {
+            Value::U8(v) => Ok(Value::U32(v.into())),
+            Value::U16(v) => Ok(Value::U32(v.into())),
+            Value::U32(v) => Ok(Value::U32(v)),
+            t => Err(TypeCastError {
+                msg: format!("could not convert {:?} to Value::U32", t),
+            }),
+        }
+    }
+
+    pub fn into_u64(self) -> Result<Value, TypeCastError> {
+        match self {
+            Value::U8(v) => Ok(Value::U64(v.into())),
+            Value::U16(v) => Ok(Value::U64(v.into())),
+            Value::U32(v) => Ok(Value::U64(v.into())),
+            Value::U64(v) => Ok(Value::U64(v)),
+            t => Err(TypeCastError {
+                msg: format!("could not convert {:?} to Value::U64", t),
+            }),
+        }
+    }
+
+    pub fn into_f32(self) -> Result<Value, TypeCastError> {
+        match self {
+            Value::U8(v) => Ok(Value::F32(v.into())),
+            Value::U16(v) => Ok(Value::F32(v.into())),
+            Value::I8(v) => Ok(Value::F32(v.into())),
+            Value::I16(v) => Ok(Value::F32(v.into())),
+            t => Err(TypeCastError {
+                msg: format!("could not convert {:?} to Value::F32", t),
+            }),
+        }
+    }
+
+    pub fn into_f64(self) -> Result<Value, TypeCastError> {
+        match self {
+            Value::U8(v) => Ok(Value::F64(v.into())),
+            Value::U16(v) => Ok(Value::F64(v.into())),
+            Value::U32(v) => Ok(Value::F64(v.into())),
+            Value::I8(v) => Ok(Value::F64(v.into())),
+            Value::I16(v) => Ok(Value::F64(v.into())),
+            Value::I32(v) => Ok(Value::F64(v.into())),
+            Value::F32(v) => Ok(Value::F64(v.into())),
+            t => Err(TypeCastError {
+                msg: format!("could not convert {:?} to Value::F64", t),
+            }),
+        }
+    }
+
+    pub fn into_i16(self) -> Result<Value, TypeCastError> {
+        match self {
+            Value::U8(v) => Ok(Value::I16(v.into())),
+            Value::I8(v) => Ok(Value::I16(v.into())),
+            t => Err(TypeCastError {
+                msg: format!("could not convert {:?} to Value::I16", t),
+            }),
+        }
+    }
+
+    pub fn into_i32(self) -> Result<Value, TypeCastError> {
+        match self {
+            Value::I8(v) => Ok(Value::I32(v.into())),
+            Value::I16(v) => Ok(Value::I32(v.into())),
+            Value::U8(v) => Ok(Value::I32(v.into())),
+            Value::U16(v) => Ok(Value::I32(v.into())),
+            t => Err(TypeCastError {
+                msg: format!("could not convert {:?} to Value::I32", t),
+            }),
+        }
+    }
+
+    pub fn into_i64(self) -> Result<Value, TypeCastError> {
+        match self {
+            Value::I8(v) => Ok(Value::I64(v.into())),
+            Value::I16(v) => Ok(Value::I64(v.into())),
+            Value::I32(v) => Ok(Value::I64(v.into())),
+            Value::U8(v) => Ok(Value::I64(v.into())),
+            Value::U16(v) => Ok(Value::I64(v.into())),
+            Value::U32(v) => Ok(Value::I64(v.into())),
+            t => Err(TypeCastError {
+                msg: format!("could not convert {:?} to Value::I32", t),
+            }),
+        }
+    }
+
+    pub fn into_decimal(self) -> Result<Value, TypeCastError> {
+        match self {
+            Value::I8(v) => Ok(Value::Decimal(v.into())),
+            Value::I16(v) => Ok(Value::Decimal(v.into())),
+            Value::I32(v) => Ok(Value::Decimal(v.into())),
+            Value::I64(v) => Ok(Value::Decimal(v.into())),
+            Value::U8(v) => Ok(Value::Decimal(v.into())),
+            Value::U16(v) => Ok(Value::Decimal(v.into())),
+            Value::U32(v) => Ok(Value::Decimal(v.into())),
+            Value::U64(v) => Ok(Value::Decimal(v.into())),
+            // TODO: figure out how to cast these
+            // Value::F32(v) => Ok(Value::Decimal(v.into())),
+            // Value::F64(v) => Ok(Value::Decimal(v.into())),
+            t => Err(TypeCastError {
+                msg: format!("could not convert {:?} to Value::I32", t),
+            }),
+        }
     }
 }
 
@@ -361,6 +517,8 @@ impl<'a> Iterator for Column<'a> {
 mod test {
     use std::collections::HashSet;
 
+    use rust_decimal::Decimal;
+
     use super::*;
 
     #[test]
@@ -384,5 +542,213 @@ mod test {
             assert_eq!(<DataType as Into<i8>>::into(dt), x);
         }
         assert_eq!(set.len(), len + 1);
+    }
+
+    #[rustfmt::skip]
+    #[test]
+    fn upcast_value() {
+        // we don't have into_u8, since it's a minimum size
+
+        // into U16
+        assert_eq!(
+            Value::U16(2), 
+            Value::U16(2).into_u16().unwrap()
+        );
+        assert_eq!(
+            Value::U16(2), 
+            Value::U8(2).into_u16().unwrap()
+        );
+        assert!(
+            Value::U32(2).into_u16().is_err()
+        );
+
+        // into U32
+        assert_eq!(
+            Value::U32(2), 
+            Value::U32(2).into_u32().unwrap()
+        );
+        assert_eq!(
+            Value::U32(2), 
+            Value::U16(2).into_u32().unwrap()
+        );
+        assert_eq!(
+            Value::U32(2), 
+            Value::U8(2).into_u32().unwrap()
+        );
+        assert!(
+            Value::U32(2).into_u16().is_err()
+        );
+
+        // into U64
+        assert_eq!(
+            Value::U64(2), 
+            Value::U64(2).into_u64().unwrap()
+        );
+        assert_eq!(
+            Value::U64(2), 
+            Value::U32(2).into_u64().unwrap()
+        );
+        assert_eq!(
+            Value::U64(2), 
+            Value::U16(2).into_u64().unwrap()
+        );
+        assert_eq!(
+            Value::U64(2), 
+            Value::U8(2).into_u64().unwrap()
+        );
+        assert!(
+            Value::I64(2).into_u64().is_err()
+        );
+
+        // into F32
+        assert_eq!(
+            Value::F32(2.), 
+            Value::U8(2).into_f32().unwrap()
+        );
+        assert_eq!(
+            Value::F32(2.), 
+            Value::U16(2).into_f32().unwrap()
+        );
+        assert_eq!(
+            Value::F32(2.), 
+            Value::I8(2).into_f32().unwrap()
+        );
+        assert_eq!(
+            Value::F32(2.), 
+            Value::I16(2).into_f32().unwrap()
+        );
+        assert!(
+            Value::I64(2).into_f32().is_err()
+        );
+
+        // into F64
+        assert_eq!(
+            Value::F64(2.), 
+            Value::U8(2).into_f64().unwrap()
+        );
+        assert_eq!(
+            Value::F64(2.), 
+            Value::U16(2).into_f64().unwrap()
+        );
+        assert_eq!(
+            Value::F64(2.), 
+            Value::U32(2).into_f64().unwrap()
+        );
+        assert_eq!(
+            Value::F64(2.), 
+            Value::I8(2).into_f64().unwrap()
+        );
+        assert_eq!(
+            Value::F64(2.), 
+            Value::I16(2).into_f64().unwrap()
+        );
+        assert_eq!(
+            Value::F64(2.), 
+            Value::I32(2).into_f64().unwrap()
+        );
+        assert_eq!(
+            Value::F64(2.), 
+            Value::F32(2.).into_f64().unwrap()
+        );
+        assert!(
+            Value::I64(2).into_f64().is_err()
+        );
+
+        // into I16
+        assert_eq!(
+            Value::I16(2), 
+            Value::U8(2).into_i16().unwrap()
+        );
+        assert_eq!(
+            Value::I16(2), 
+            Value::I8(2).into_i16().unwrap()
+        );
+        assert!(
+            Value::I64(2).into_f64().is_err()
+        );
+
+        // into F32
+        assert_eq!(
+            Value::F32(2.), 
+            Value::U8(2).into_f32().unwrap()
+        );
+        assert_eq!(
+            Value::F32(2.), 
+            Value::U16(2).into_f32().unwrap()
+        );
+        assert_eq!(
+            Value::F32(2.), 
+            Value::I8(2).into_f32().unwrap()
+        );
+        assert_eq!(
+            Value::F32(2.), 
+            Value::I16(2).into_f32().unwrap()
+        );
+        assert!(
+            Value::I64(2).into_f32().is_err()
+        );
+
+        // into F64
+        assert_eq!(
+            Value::F64(2.), 
+            Value::U8(2).into_f64().unwrap()
+        );
+        assert_eq!(
+            Value::F64(2.), 
+            Value::U16(2).into_f64().unwrap()
+        );
+        assert_eq!(
+            Value::F64(2.), 
+            Value::U32(2).into_f64().unwrap()
+        );
+        assert_eq!(
+            Value::F64(2.), 
+            Value::I8(2).into_f64().unwrap()
+        );
+        assert_eq!(
+            Value::F64(2.), 
+            Value::I16(2).into_f64().unwrap()
+        );
+        assert_eq!(
+            Value::F64(2.), 
+            Value::I32(2).into_f64().unwrap()
+        );
+        assert!(
+            Value::I64(2).into_f64().is_err()
+        );
+
+        // into decimal
+        assert_eq!(
+            Value::Decimal(Decimal::new(2, 0)), 
+            Value::I8(2).into_decimal().unwrap()
+        );
+        assert_eq!(
+            Value::Decimal(Decimal::new(2, 0)), 
+            Value::I16(2).into_decimal().unwrap()
+        );
+        assert_eq!(
+            Value::Decimal(Decimal::new(2, 0)), 
+            Value::I32(2).into_decimal().unwrap()
+        );
+        assert_eq!(
+            Value::Decimal(Decimal::new(2, 0)), 
+            Value::I64(2).into_decimal().unwrap()
+        );
+        assert_eq!(
+            Value::Decimal(Decimal::new(2, 0)), 
+            Value::U8(2).into_decimal().unwrap()
+        );
+        assert_eq!(
+            Value::Decimal(Decimal::new(2, 0)), 
+            Value::U16(2).into_decimal().unwrap()
+        );
+        assert_eq!(
+            Value::Decimal(Decimal::new(2, 0)), 
+            Value::U32(2).into_decimal().unwrap()
+        );
+        assert_eq!(
+            Value::Decimal(Decimal::new(2, 0)), 
+            Value::U64(2).into_decimal().unwrap()
+        );
     }
 }
