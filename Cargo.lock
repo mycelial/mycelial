@@ -4324,7 +4324,6 @@ version = "0.1.0"
 dependencies = [
  "arrow 49.0.0",
  "arrow_msg",
- "futures",
  "section",
 ]
 
