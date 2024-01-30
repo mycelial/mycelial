@@ -30,10 +30,10 @@ const formatSections = (client: clientFormatType, sections: any[], sources = tru
     }
     // FIXME: this section is called a source on the backend, so to have it appear in the UI correctly, we
     // have to tag it as both a source and a destination here
-    if (section.type === "tagging_transformer") {
+    if (section.type.endsWith("transformer")) {
       formatted.source = true;
       formatted.destination = true;
-      formatted.name = "tagging_transformer";
+      formatted.name = section.type;
     }
     return formatted;
   });
