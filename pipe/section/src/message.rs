@@ -1,5 +1,7 @@
 //! Section messaging
 
+use rust_decimal::prelude::FromPrimitive;
+
 use crate::SectionError;
 use std::fmt;
 use std::future::Future;
@@ -307,12 +309,46 @@ impl Value {
             Value::U32(v) => Ok(Value::Decimal(v.into())),
             Value::U64(v) => Ok(Value::Decimal(v.into())),
             // TODO: figure out how to cast these
-            // Value::F32(v) => Ok(Value::Decimal(v.into())),
-            // Value::F64(v) => Ok(Value::Decimal(v.into())),
+            Value::F32(v) => Ok(Value::Decimal(
+                crate::decimal::Decimal::from_f32(v).ok_or_else(|| TypeCastError {
+                    msg: format!("could not convert {:?} to Decimal", v),
+                })?,
+            )),
+            Value::F64(v) => Ok(Value::Decimal(
+                crate::decimal::Decimal::from_f64(v).ok_or_else(|| TypeCastError {
+                    msg: format!("could not convert {:?} to Decimal", v),
+                })?,
+            )),
             t => Err(TypeCastError {
                 msg: format!("could not convert {:?} to Value::I32", t),
             }),
         }
+    }
+
+    pub fn into_str(self) -> Result<Value, TypeCastError> {
+        Ok(match self {
+            Value::Null => Value::Str("null".into()),
+            Value::Bool(v) => Value::Str(format!("{}", v).into()),
+            Value::I8(v) => Value::Str(format!("{}", v).into()),
+            Value::I16(v) => Value::Str(format!("{}", v).into()),
+            Value::I32(v) => Value::Str(format!("{}", v).into()),
+            Value::I64(v) => Value::Str(format!("{}", v).into()),
+            Value::U8(v) => Value::Str(format!("{}", v).into()),
+            Value::U16(v) => Value::Str(format!("{}", v).into()),
+            Value::U32(v) => Value::Str(format!("{}", v).into()),
+            Value::U64(v) => Value::Str(format!("{}", v).into()),
+            Value::F32(v) => Value::Str(format!("{}", v).into()),
+            Value::F64(v) => Value::Str(format!("{}", v).into()),
+            Value::Str(v) => Value::Str(format!("{}", v).into()),
+            Value::Bin(_) => Value::Str("<binary blob>".into()),
+            Value::Time(u, v) => Value::Str(format!("{:?}({})", u, v).into()),
+            Value::Date(u, v) => Value::Str(format!("{:?}({})", u, v).into()),
+            Value::TimeStamp(u, v) => Value::Str(format!("{:?}({})", u, v).into()),
+            Value::TimeStampUTC(u, v) => Value::Str(format!("{:?}({})", u, v).into()),
+            Value::Decimal(v) => Value::Str(format!("{}", v).into()),
+            Value::Uuid(v) => Value::Str(format!("{}", v).into()),
+        })
+        //Ok(Value::Str(format!("{}", self).into()))
     }
 }
 
@@ -749,6 +785,96 @@ mod test {
         assert_eq!(
             Value::Decimal(Decimal::new(2, 0)), 
             Value::U64(2).into_decimal().unwrap()
+        );
+        assert_eq!(
+            Value::Decimal(Decimal::new(314159, 5)), 
+            Value::F32(3.14159).into_decimal().unwrap()
+        );
+        assert_eq!(
+            Value::Decimal(Decimal::new(314159265, 8)), 
+            Value::F64(3.14159265).into_decimal().unwrap()
+        );
+
+        // into str
+        assert_eq!(
+            Value::Str("null".into()),
+            Value::Null.into_str().unwrap()
+        );
+        assert_eq!(
+            Value::Str("true".into()),
+            Value::Bool(true).into_str().unwrap()
+        );
+        assert_eq!(
+            Value::Str("2".into()),
+            Value::I8(2).into_str().unwrap()
+        );
+        assert_eq!(
+            Value::Str("2".into()),
+            Value::I16(2).into_str().unwrap()
+        );
+        assert_eq!(
+            Value::Str("2".into()),
+            Value::I32(2).into_str().unwrap()
+        );
+        assert_eq!(
+            Value::Str("2".into()),
+            Value::I64(2).into_str().unwrap()
+        );
+        assert_eq!(
+            Value::Str("2".into()),
+            Value::U8(2).into_str().unwrap()
+        );
+        assert_eq!(
+            Value::Str("2".into()),
+            Value::U16(2).into_str().unwrap()
+        );
+        assert_eq!(
+            Value::Str("2".into()),
+            Value::U32(2).into_str().unwrap()
+        );
+        assert_eq!(
+            Value::Str("2".into()),
+            Value::U64(2).into_str().unwrap()
+        );
+        assert_eq!(
+            Value::Str("3.14".into()),
+            Value::F32(3.14).into_str().unwrap()
+        );
+        assert_eq!(
+            Value::Str("3.14".into()),
+            Value::F64(3.14).into_str().unwrap()
+        );
+        assert_eq!(
+            Value::Str("2".into()),
+            Value::Str("2".into()).into_str().unwrap()
+        );
+        assert_eq!(
+            Value::Str("<binary blob>".into()),
+            Value::Bin(vec![1].into()).into_str().unwrap()
+        );
+        assert_eq!(
+            Value::Str("Millisecond(123)".into()),
+            Value::Time(TimeUnit::Millisecond, 123).into_str().unwrap()
+        );
+        assert_eq!(
+            Value::Str("Millisecond(123)".into()),
+            Value::Date(TimeUnit::Millisecond, 123).into_str().unwrap()
+        );
+        assert_eq!(
+            Value::Str("Millisecond(123)".into()),
+            Value::TimeStamp(TimeUnit::Millisecond, 123).into_str().unwrap()
+        );
+        assert_eq!(
+            Value::Str("Millisecond(123)".into()),
+            Value::TimeStampUTC(TimeUnit::Millisecond, 123).into_str().unwrap()
+        );
+        assert_eq!(
+            Value::Str("3.14159".into()),
+            Value::Decimal(Decimal::new(314159, 5)).into_str().unwrap()
+        );
+        assert_eq!(
+            Value::Str("a1a2a3a4-b1b2-c1c2-d1d2-d3d4d5d6d7d8".into()),
+            Value::Uuid(crate::uuid::Uuid::parse_str("a1a2a3a4b1b2c1c2d1d2d3d4d5d6d7d8").unwrap()).into_str().unwrap()
         );
     }
 }
