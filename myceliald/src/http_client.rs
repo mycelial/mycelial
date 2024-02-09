@@ -142,7 +142,7 @@ impl Client {
                 BASE64.encode(format!("{}:{}", client_id, client_secret))
             ));
         }
-        return Err(SectionError::from("no state found"));
+        Err(SectionError::from("no state found"))
     }
 
     fn basic_auth(&self) -> String {
