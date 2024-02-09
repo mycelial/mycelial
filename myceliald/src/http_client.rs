@@ -50,25 +50,26 @@ impl Client {
 
     // Client should register only once. Subsequently, it should use the client_id and client_secret it gets back from the registration to authenticate itself.
     async fn register_if_not_registered(&mut self) -> Result<(), SectionError> {
-        let state = self
-            .storage_handle
-            .retrieve_state(std::u64::MAX)
-            .await
-            .unwrap();
-        if state.is_none() {
-            return self.register().await;
-        }
-        let state = state.unwrap();
-        let client_id: Option<String> = state.get("auth0_client_id").unwrap();
-        let client_secret: Option<String> = state.get("auth0_client_secret").unwrap();
-        if client_id.is_none() || client_secret.is_none() {
-            return self.register().await;
-        }
-        // also store these values so they can be injected into the mycelial network sections
-        if client_id.is_some() && client_secret.is_some() {
-            self.scheduler_handle
-                .set_client_id_and_secret(client_id.unwrap(), client_secret.unwrap())
-                .await?;
+        let state = self.storage_handle.retrieve_state(std::u64::MAX).await?;
+        match state {
+            Some(state) => {
+                let client_id: Option<String> = state.get("auth0_client_id")?;
+                let client_secret: Option<String> = state.get("auth0_client_secret")?;
+                if client_id.is_none() || client_secret.is_none() {
+                    return self.register().await;
+                }
+                // also store these values so they can be injected into the mycelial network sections
+                if let Some(client_id) = client_id {
+                    if let Some(client_secret) = client_secret {
+                        self.scheduler_handle
+                            .set_client_id_and_secret(client_id, client_secret)
+                            .await?;
+                    }
+                }
+            }
+            None => {
+                return self.register().await;
+            }
         }
         Ok(())
     }
@@ -117,7 +118,7 @@ impl Client {
         let url = format!("{}/api/pipe", self.config.server.endpoint.as_str());
         let configs: PipeConfigs = client
             .get(url)
-            .header("Authorization", self.daemon_auth().await)
+            .header("Authorization", self.daemon_auth().await?)
             .send()
             .await?
             .json()
@@ -125,25 +126,23 @@ impl Client {
         Ok(configs.configs)
     }
 
-    async fn daemon_auth(&self) -> String {
-        let state = self
-            .storage_handle
-            .retrieve_state(std::u64::MAX)
-            .await
-            .unwrap()
-            .unwrap();
-        let client_id: String = match state.get("auth0_client_id").unwrap() {
-            Some(id) => id,
-            None => return String::new(),
-        };
-        let client_secret: String = match state.get("auth0_client_secret").unwrap() {
-            Some(secret) => secret,
-            None => return String::new(),
-        };
-        format!(
-            "Basic {}",
-            BASE64.encode(format!("{}:{}", client_id, client_secret))
-        )
+    async fn daemon_auth(&self) -> Result<String, SectionError> {
+        let state = self.storage_handle.retrieve_state(std::u64::MAX).await?;
+        if let Some(s) = state {
+            let client_id: String = match s.get("auth0_client_id")? {
+                Some(id) => id,
+                None => return Ok(String::new()),
+            };
+            let client_secret: String = match s.get("auth0_client_secret")? {
+                Some(secret) => secret,
+                None => return Ok(String::new()),
+            };
+            return Ok(format!(
+                "Basic {}",
+                BASE64.encode(format!("{}:{}", client_id, client_secret))
+            ));
+        }
+        return Err(SectionError::from("no state found"));
     }
 
     fn basic_auth(&self) -> String {

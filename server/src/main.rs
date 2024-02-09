@@ -568,7 +568,6 @@ impl Database {
         user_id: &str,
     ) -> Result<u64, error::Error> {
         let mut connection = self.connection.lock().await;
-        // FIXME: unwrap
         let config: String = serde_json::to_string(config)?;
         let id =
             sqlx::query("INSERT INTO pipes (raw_config, workspace_id, user_id) VALUES (?, ?, ?)")
@@ -578,6 +577,7 @@ impl Database {
                 .execute(&mut *connection)
                 .await?
                 .last_insert_rowid();
+        // FIXME: unwrap
         Ok(id.try_into().unwrap())
     }
 
@@ -589,6 +589,7 @@ impl Database {
     ) -> Result<(), error::Error> {
         let mut connection = self.connection.lock().await;
         let config: String = serde_json::to_string(config)?;
+        // FIXME: unwrap
         let id: i64 = id.try_into().unwrap();
         let _ = sqlx::query("update pipes set raw_config = ? WHERE id = ? and user_id = ?")
             .bind(config)
@@ -601,6 +602,7 @@ impl Database {
 
     async fn delete_config(&self, id: u64, user_id: &str) -> Result<(), error::Error> {
         let mut connection = self.connection.lock().await;
+        // FIXME: unwrap
         let id: i64 = id.try_into().unwrap();
         let _ = sqlx::query("DELETE FROM pipes WHERE id = ? and user_id = ?")
             .bind(id) // fixme
@@ -653,6 +655,7 @@ impl Database {
         offset: u64,
     ) -> Result<Option<MessageStream>, error::Error> {
         let mut connection = Arc::clone(&self.connection).lock_owned().await;
+        // FIXME: unwrap
         let offset: i64 = offset.try_into().unwrap();
         let message_info = sqlx::query(
             "SELECT id, origin, stream_type FROM messages WHERE id > ? and topic = ? LIMIT 1",
@@ -732,8 +735,7 @@ impl Database {
             sqlx::query_as(r"SELECT id, name, created_at FROM workspaces where user_id = ?")
                 .bind(user_id)
                 .fetch_all(&mut *connection)
-                .await
-                .unwrap();
+                .await?;
 
         Ok(records)
     }
@@ -762,8 +764,7 @@ impl Database {
         .bind(id)
         .bind(user_id)
         .fetch_one(&mut *connection)
-        .await
-        .unwrap();
+        .await?;
 
         let pipes: Vec<PipeConfig> = sqlx::query_as(
             "SELECT id, raw_config, workspace_id from pipes where workspace_id = ? and user_id = ?",
@@ -789,8 +790,7 @@ impl Database {
             .bind(workspace.id)
             .bind(user_id)
             .execute(&mut *connection)
-            .await
-            .unwrap();
+            .await?;
         Ok(workspace)
     }
 
