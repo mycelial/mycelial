@@ -89,17 +89,22 @@ impl Client {
             return Err(format!(
                 "failed to register client - status code: {:?}",
                 resp.status()
-            ).into());
+            )
+            .into());
         }
-        let provision_client_resp: ProvisionClientResponse = resp
-            .json()
-            .await?;
+        let provision_client_resp: ProvisionClientResponse = resp.json().await?;
 
         let mut state = SqliteState::new();
         state.set("auth0_client_id", provision_client_resp.client_id.clone())?;
-        state.set("auth0_client_secret", provision_client_resp.client_secret.clone())?;
+        state.set(
+            "auth0_client_secret",
+            provision_client_resp.client_secret.clone(),
+        )?;
         self.scheduler_handle
-            .set_client_id_and_secret(provision_client_resp.client_id, provision_client_resp.client_secret)
+            .set_client_id_and_secret(
+                provision_client_resp.client_id,
+                provision_client_resp.client_secret,
+            )
             .await?; // this is for injecting the values in the mycelial server config
         self.storage_handle
             .store_state(std::u64::MAX, state.clone())

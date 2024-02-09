@@ -962,13 +962,12 @@ impl App {
         user_id: &str,
     ) -> Result<impl IntoResponse, error::Error> {
         let mut connection = self.database.get_connection().await;
-        let daemon_token = sqlx::query(
-            "SELECT daemon_token FROM user_daemon_tokens WHERE user_id = ?",
-        )
-        .bind(user_id)
-        .fetch_one(&mut *connection)
-        .await?
-        .get::<String, _>(0);
+        let daemon_token =
+            sqlx::query("SELECT daemon_token FROM user_daemon_tokens WHERE user_id = ?")
+                .bind(user_id)
+                .fetch_one(&mut *connection)
+                .await?
+                .get::<String, _>(0);
         Ok(daemon_token)
     }
 
@@ -1080,7 +1079,10 @@ async fn main() -> anyhow::Result<()> {
             "/api/workspaces",
             get(get_workspaces).post(create_workspace),
         )
-        .route("/api/daemon_token", post(rotate_user_daemon_token).get(get_user_daemon_token))
+        .route(
+            "/api/daemon_token",
+            post(rotate_user_daemon_token).get(get_user_daemon_token),
+        )
         .route("/api/clients", get(get_clients));
     // check to see if auth feature is turned on.
     if cfg!(feature = "require_auth") {
