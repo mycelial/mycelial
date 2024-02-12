@@ -14,7 +14,6 @@ use clap::Parser;
 use common::{
     Destination, PipeConfig, PipeConfigs, ProvisionClientRequest, ProvisionClientResponse, Source,
 };
-use dotenv::dotenv;
 use futures::{Stream, StreamExt};
 use rust_embed::RustEmbed;
 use serde::{Deserialize, Serialize};
@@ -1052,8 +1051,6 @@ pub struct UserID(String);
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     pretty_env_logger::init();
-
-    dotenv().ok();
 
     let cli = Cli::try_parse()?;
     let app = App::new(cli.database_path).await?;

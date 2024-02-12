@@ -53,7 +53,7 @@ display_name = "Tagging Transformer"
 type = "typecast_transformer"
 display_name = "Typecast Transformer"
 from = "any"
-to = "string"
+target_type = "string"
 column = "name"
 
 [[sources]]

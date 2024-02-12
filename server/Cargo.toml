@@ -32,7 +32,6 @@ common = { path = "../common" }
 rust-embed = "8.0.0"
 mime_guess = { version = "2" }
 async-stream = "0.3.5"
-dotenv = "0.15.0"
 bcrypt = "0.15.0"
 
 [dependencies.uuid]
