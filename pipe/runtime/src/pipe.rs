@@ -48,19 +48,13 @@ impl<R: RootChannel + Send + 'static> Pipe<R> {
     }
 }
 
-impl<R: RootChannel + Send + 'static>
-    TryFrom<(
-        &'_ Config,
-        &'_ Registry<R::SectionChannel>,
-    )> for Pipe<R>
+impl<R: RootChannel + Send + 'static> TryFrom<(&'_ Config, &'_ Registry<R::SectionChannel>)>
+    for Pipe<R>
 {
     type Error = SectionError;
 
     fn try_from(
-        (config, registry): (
-            &Config,
-            &Registry<R::SectionChannel>,
-        ),
+        (config, registry): (&Config, &Registry<R::SectionChannel>),
     ) -> Result<Self, Self::Error> {
         let sections = config
             .get_sections()

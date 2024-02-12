@@ -1102,7 +1102,8 @@ async fn main() -> anyhow::Result<()> {
         .layer(middleware::from_fn_with_state(state.clone(), daemon_auth));
 
     // ingestion api is "security by obscurity" for now, and relies on the topic being secret
-    let ingestion_api = Router::new().route("/ingestion/:topic", post(ingestion))
+    let ingestion_api = Router::new()
+        .route("/ingestion/:topic", post(ingestion))
         .route("/ingestion/:topic/:offset", get(get_message));
 
     // FIXME: consistent endpoint namings

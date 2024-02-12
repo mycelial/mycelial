@@ -65,10 +65,7 @@ impl Stream for IntervalStream {
 }
 
 impl Mycelial {
-    pub fn new(
-        endpoint: impl Into<String>,
-        topic: impl Into<String>,
-    ) -> Self {
+    pub fn new(endpoint: impl Into<String>, topic: impl Into<String>) -> Self {
         Self {
             endpoint: endpoint.into(),
             topic: topic.into(),
