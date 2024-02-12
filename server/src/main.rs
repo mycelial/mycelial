@@ -1056,8 +1056,6 @@ async fn main() -> anyhow::Result<()> {
     let app = App::new(cli.database_path).await?;
     let state = Arc::new(app);
 
-    let u: UserID = UserID("".to_string());
-
     let mut protected_api = Router::new()
         .route("/api/pipe", post(post_pipe_config).put(put_pipe_configs))
         .route(
@@ -1109,7 +1107,6 @@ async fn main() -> anyhow::Result<()> {
         .merge(daemon_basic_api)
         .merge(daemon_protected_api)
         .merge(ingestion_api)
-        .layer(Extension(u))
         .with_state(state.clone());
 
     let assets = Router::new().fallback(assets);
