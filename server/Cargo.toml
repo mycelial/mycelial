@@ -4,7 +4,6 @@ version = "0.2.0"
 edition = "2021"
 
 [features]
-# default = []
 default = ["require_auth"] # todo: How can I set the frontend env variable based on this one?
 embed_assets = []
 require_auth = []

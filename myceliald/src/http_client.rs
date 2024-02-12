@@ -4,6 +4,7 @@
 
 use std::{collections::HashSet, time::Duration};
 
+use crate::daemon_storage::Storage;
 use base64::engine::{general_purpose::STANDARD as BASE64, Engine};
 use common::{
     ClientConfig, PipeConfig, PipeConfigs, ProvisionClientRequest, ProvisionClientResponse,
@@ -11,22 +12,18 @@ use common::{
 use pipe::{
     config::{Config, Value},
     scheduler::SchedulerHandle,
-    storage::Storage,
 };
-use section::{state::State, SectionError};
+use section::SectionError;
 use tokio::task::JoinHandle;
 
-use crate::storage::{SqliteState, SqliteStorageHandle};
-
 /// Http Client
-#[derive(Debug)]
 struct Client {
     config: ClientConfig,
 
     /// SchedulerHandle
     scheduler_handle: SchedulerHandle,
 
-    storage_handle: SqliteStorageHandle,
+    storage_handle: Storage,
 }
 
 fn is_for_client(config: &Config, name: &str) -> bool {
@@ -39,7 +36,7 @@ impl Client {
     fn new(
         config: ClientConfig,
         scheduler_handle: SchedulerHandle,
-        storage_handle: SqliteStorageHandle,
+        storage_handle: Storage,
     ) -> Self {
         Self {
             config,
@@ -50,15 +47,9 @@ impl Client {
 
     // Client should register only once. Subsequently, it should use the client_id and client_secret it gets back from the registration to authenticate itself.
     async fn register_if_not_registered(&mut self) -> Result<(), SectionError> {
-        let state = self.storage_handle.retrieve_state(std::u64::MAX).await?;
+        let state = self.storage_handle.retrieve_client_creds().await?;
         match state {
-            Some(state) => {
-                let client_id: Option<String> = state.get("auth0_client_id")?;
-                let client_secret: Option<String> = state.get("auth0_client_secret")?;
-                if client_id.is_none() || client_secret.is_none() {
-                    return self.register().await;
-                }
-            }
+            Some((_client_id, _client_secret)) => {}
             None => {
                 return self.register().await;
             }
@@ -87,19 +78,16 @@ impl Client {
         }
         let provision_client_resp: ProvisionClientResponse = resp.json().await?;
 
-        let mut state = SqliteState::new();
-        state.set("auth0_client_id", provision_client_resp.client_id.clone())?;
-        state.set(
-            "auth0_client_secret",
-            provision_client_resp.client_secret.clone(),
-        )?;
         self.storage_handle
-            .store_state(std::u64::MAX, state.clone())
+            .store_client_creds(
+                provision_client_resp.client_id.clone(),
+                provision_client_resp.client_secret.clone(),
+            )
             .await?;
         Ok(())
     }
 
-    async fn get_configs(&self) -> Result<Vec<PipeConfig>, SectionError> {
+    async fn get_configs(&mut self) -> Result<Vec<PipeConfig>, SectionError> {
         let client = reqwest::Client::new();
         let url = format!("{}/api/pipe", self.config.server.endpoint.as_str());
         let configs: PipeConfigs = client
@@ -112,17 +100,9 @@ impl Client {
         Ok(configs.configs)
     }
 
-    async fn daemon_auth(&self) -> Result<String, SectionError> {
-        let state = self.storage_handle.retrieve_state(std::u64::MAX).await?;
-        if let Some(s) = state {
-            let client_id: String = match s.get("auth0_client_id")? {
-                Some(id) => id,
-                None => return Ok(String::new()),
-            };
-            let client_secret: String = match s.get("auth0_client_secret")? {
-                Some(secret) => secret,
-                None => return Ok(String::new()),
-            };
+    async fn daemon_auth(&mut self) -> Result<String, SectionError> {
+        let state = self.storage_handle.retrieve_client_creds().await?;
+        if let Some((client_id, client_secret)) = state {
             return Ok(format!(
                 "Basic {}",
                 BASE64.encode(format!("{}:{}", client_id, client_secret))
@@ -134,7 +114,7 @@ impl Client {
     fn basic_auth(&self) -> String {
         format!(
             "Basic {}",
-            BASE64.encode(format!("{}:", self.config.server.token))
+            BASE64.encode(format!("{}:", self.config.node.auth_token))
         )
     }
 
@@ -189,7 +169,7 @@ impl Client {
 pub fn new(
     config: ClientConfig,
     scheduler_handle: SchedulerHandle,
-    storage_handle: SqliteStorageHandle,
+    storage_handle: Storage,
 ) -> JoinHandle<Result<(), SectionError>> {
     Client::new(config, scheduler_handle, storage_handle).spawn()
 }

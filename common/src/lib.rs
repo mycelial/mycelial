@@ -20,7 +20,6 @@ pub struct ClientConfig {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Server {
     pub endpoint: String,
-    pub token: String,
 }
 
 /// Generic node config
@@ -29,6 +28,7 @@ pub struct Node {
     pub display_name: String,
     pub unique_id: String,
     pub storage_path: String,
+    pub auth_token: String,
 }
 
 /// Internally-tagged type of a source needs to match the variant name
