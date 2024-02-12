@@ -11,7 +11,6 @@ async function getClients(token: string) {
 }
 
 async function createDaemonToken(token: string) {
-  console.log(token);
   try {
     const response = await axios.post(DAEMON_TOKEN_URL, {}, { headers: { 'x-auth0-token': token, ...headers }});
     return response;

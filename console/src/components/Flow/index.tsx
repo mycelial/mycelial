@@ -89,7 +89,6 @@ const Flow: React.FC = () => {
     if (with_auth) {
       getAccessTokenSilently().then((token) => {
         setToken(token);
-        console.log(workspaceId);
         loadWorkspaceData({params: {workspaceId}}, token).then((res) => {
           setClients(res.clients);
           setData(res.data);
@@ -170,7 +169,6 @@ const Flow: React.FC = () => {
     }
 
     let allPipes = [];
-    console.log(token);
 
     function dfs(id: Number, currentNode, path, edges) {
       const nextEdges = currentEdges.filter((edge) => edge.source === currentNode.id);

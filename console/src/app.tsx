@@ -53,7 +53,6 @@ const routesConfig = [
 const router = createBrowserRouter(routesConfig);
 
 const rootElement = document.getElementById('root');
-console.log("rootElement", rootElement);
 if (rootElement) {
   const domain = import.meta.env.VITE_AUTH0_DOMAIN;
   const auth0ClientId = import.meta.env.VITE_AUTH0_CLIENT_ID;
