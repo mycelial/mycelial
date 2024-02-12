@@ -252,6 +252,10 @@ const Flow: React.FC = () => {
       });
       const nodeClient = clients.filter((client: Client) => client.id === clientId)[0];
       const origin = nodeClient.sections.filter((node) => node.display_name === display_name)[0];
+      // this feels super hacky, but mycelial server sections should have unique topics and this is the easiest place to do that
+      if (origin.type === 'mycelial_server') {
+        origin.topic = Math.random().toString(36).substring(2);
+      }
 
       const newNode = {
         id: getId(),
