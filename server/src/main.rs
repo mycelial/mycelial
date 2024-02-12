@@ -1089,13 +1089,13 @@ async fn main() -> anyhow::Result<()> {
         protected_api = protected_api.layer(middleware::from_fn(user_auth));
     }
 
-    let mut daemon_basic_api = Router::new().route("/api/client", post(provision_client));
-    if cfg!(feature = "require_auth") {
-        daemon_basic_api = daemon_basic_api.layer(middleware::from_fn_with_state(
+    let daemon_basic_api = Router::new()
+        .route("/api/client", post(provision_client))
+        // todo: this should probably only be turned on if the feature is enabled
+        .layer(middleware::from_fn_with_state(
             state.clone(),
             validate_client_basic_auth,
         ));
-    }
 
     // daemon uses its client_id and client_secret to auth, regardless of whether user auth is turned on
     let daemon_protected_api = Router::new()
