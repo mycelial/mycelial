@@ -25,8 +25,6 @@ pub struct Scheduler<T: Storage<<R::SectionChannel as SectionChannel>::State>, R
     pipe_configs: HashMap<u64, Config>,
     pipes: HashMap<u64, Option<JoinHandle<Result<(), SectionError>>>>,
     root_chan: R,
-    client_id: String,
-    client_secret: String,
 }
 
 #[derive(Debug)]
@@ -86,8 +84,6 @@ where
             pipe_configs: HashMap::new(),
             pipes: HashMap::new(),
             root_chan: RootChannel::new(),
-            client_id: String::new(),
-            client_secret: String::new(),
         }
     }
 
@@ -191,10 +187,7 @@ where
 
     fn schedule(&mut self, id: u64) -> Result<(), SectionError> {
         if let Some(config) = self.pipe_configs.get(&id).cloned() {
-            let pipe = Pipe::<R>::try_from((
-                &config,
-                &self.registry,
-            ))?;
+            let pipe = Pipe::<R>::try_from((&config, &self.registry))?;
             let section_chan = self.root_chan.add_section(id)?;
             let pipe = pipe.start(
                 Stub::<_, SectionError>::new(),
