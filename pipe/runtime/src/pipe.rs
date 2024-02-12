@@ -75,7 +75,7 @@ impl<R: RootChannel + Send + 'static>
                     let constructor = registry.get_constructor(name).ok_or(format!(
                         "the runtime's registry contains no constructor for '{name}' available"
                     ))?;
-                    constructor(&section_cfg)
+                    constructor(section_cfg)
                 },
             )
             .collect::<Result<Vec<Box<dyn DynSection<R::SectionChannel>>>, _>>()?;

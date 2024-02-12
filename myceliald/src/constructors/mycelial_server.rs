@@ -23,8 +23,7 @@ pub fn source_ctor<S: SectionChannel>(
         .as_str()
         .ok_or("topic should be string")?;
     Ok(Box::new(mycelial_server::source::Mycelial::new(
-        endpoint,
-        topic,
+        endpoint, topic,
     )))
 }
 
@@ -48,7 +47,6 @@ pub fn destination_ctor<S: SectionChannel>(
         .as_str()
         .ok_or("topic should be string")?;
     Ok(Box::new(mycelial_server::destination::Mycelial::new(
-        endpoint,
-        topic,
+        endpoint, topic,
     )))
 }
