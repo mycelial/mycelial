@@ -65,7 +65,7 @@ async fn source_stream() -> Result<(), StdError> {
 
     let section_chan = DummySectionChannel::new();
 
-    let sqlite_source = source::Sqlite::new(db_path.as_str(), &["*"]);
+    let sqlite_source = source::Sqlite::new(db_path.as_str(), "test", "SELECT * FROM test");
     let (output, mut rx) = channel(1);
     let output = output.sink_map_err(|_| "chan closed".into());
     let input = Stub::<SectionMessage, StdError>::new();
@@ -158,10 +158,34 @@ async fn source_stream() -> Result<(), StdError> {
     assert_eq!(
         payload,
         vec![
-            vec![Value::I64(5)],
-            vec![Value::Str("foo".into())],
-            vec![Value::Bin("foo".as_bytes().into())],
-            vec![Value::F64(1.0)],
+            vec![
+                Value::I64(1),
+                Value::I64(2),
+                Value::Str("this".into()),
+                Value::Str("".into()),
+                Value::I64(5)
+            ],
+            vec![
+                Value::Str("foo".into()),
+                Value::Str("bar".into()),
+                Value::Str("is".into()),
+                Value::Str("bin".into()),
+                Value::Str("foo".into())
+            ],
+            vec![
+                Value::Str("foo".into()),
+                Value::Null,
+                Value::Str("not".into()),
+                Value::Str("incoming".into()),
+                Value::Bin([102, 111, 111].into())
+            ],
+            vec![
+                Value::F64(1.0),
+                Value::F64(0.2),
+                Value::Str("strict".into()),
+                Value::Bin([98, 105, 110].into()),
+                Value::F64(1.0)
+            ]
         ]
     );
     handle.abort();

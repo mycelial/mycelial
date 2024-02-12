@@ -1,36 +1,29 @@
-use pipe::{config::Map, types::DynSection};
+use pipe::{
+    config::{Map, Value},
+    types::DynSection,
+};
 use section::{command_channel::SectionChannel, SectionError};
 
-/// constructor for sqlite
-///
-/// # Config example:
-/// ```toml
-/// [[section]]
-/// name = "sqlite"
-/// path = ":memory:"
-/// tables = "foo,bar,baz"
-/// ```
 pub fn source_ctor<S: SectionChannel>(
     config: &Map,
 ) -> Result<Box<dyn DynSection<S>>, SectionError> {
-    let tables = config
-        .get("tables")
-        .ok_or("sqlite section requires 'tables'")?
-        .as_str()
-        .ok_or("'tables' should be string")?;
     let path = config
         .get("path")
         .ok_or("sqlite section requires 'path'")?
         .as_str()
         .ok_or("path should be string")?;
-    let tables = tables
-        .split(',')
-        .map(|x| x.trim())
-        .filter(|x| !x.is_empty())
-        .collect::<Vec<&str>>();
+    let origin = config
+        .get("origin")
+        .ok_or("sqlite section requires 'origin'")?
+        .as_str()
+        .ok_or("'origin' should be string")?;
+    let query = config
+        .get("query")
+        .ok_or("sqlite section requires 'query'")?
+        .as_str()
+        .ok_or("'query' should be string")?;
     Ok(Box::new(sqlite_connector::source::Sqlite::new(
-        path,
-        tables.as_slice(),
+        path, origin, query,
     )))
 }
 
@@ -42,7 +35,17 @@ pub fn destination_ctor<S: SectionChannel>(
         .ok_or("sqlite section requires 'path'")?
         .as_str()
         .ok_or("path should be string")?;
-    Ok(Box::new(sqlite_connector::destination::Sqlite::new(path)))
+    let truncate = config
+        .get("truncate")
+        .ok_or("sqlite destination section requires 'truncate'")?;
+    let truncate = match truncate {
+        Value::Bool(b) => *b,
+        Value::String(s) => s.to_lowercase() == "true",
+        _ => Err("truncate should be either bool or bool string")?,
+    };
+    Ok(Box::new(sqlite_connector::destination::Sqlite::new(
+        path, truncate,
+    )))
 }
 
 #[cfg(test)]
@@ -63,7 +66,7 @@ mod test {
 
         let config: Map = c.drain().map(|(k, v)| (k, v.try_into().unwrap())).collect();
 
-        let _section = source_ctor::<DummySectionChannel>(&config).unwrap();
+        assert!(source_ctor::<DummySectionChannel>(&config).is_ok())
     }
 
     #[test]
@@ -74,6 +77,6 @@ mod test {
 
         let config: Map = c.drain().map(|(k, v)| (k, v.try_into().unwrap())).collect();
 
-        let _section = destination_ctor::<DummySectionChannel>(&config).unwrap();
+        assert!(destination_ctor::<DummySectionChannel>(&config).is_ok())
     }
 }

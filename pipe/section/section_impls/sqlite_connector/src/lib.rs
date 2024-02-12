@@ -1,34 +1,25 @@
 use std::sync::Arc;
 
-use section::message::{Ack, Chunk, Column, DataFrame, DataType, Message, Value};
+use section::{
+    message::{Ack, Chunk, Column, DataFrame, DataType, Message, Value},
+    SectionError,
+};
+use tokio::sync::mpsc::Receiver;
 
 pub mod destination;
 pub mod source;
 
 #[derive(Debug)]
 #[allow(unused)]
-pub(crate) struct Table {
-    name: Arc<str>,
-    strict: bool,
-    without_rowid: bool,
-    columns: Arc<[TableColumn]>,
-    query: String,
-    offset: i64,
-    limit: i64,
-}
-
-#[derive(Debug)]
-#[allow(unused)]
-pub(crate) struct TableColumn {
-    name: Arc<str>,
+pub(crate) struct SqliteColumn {
+    name: String,
     data_type: DataType,
-    nullable: bool,
 }
 
 #[derive(Debug)]
 pub(crate) struct SqlitePayload {
     /// column names
-    columns: Arc<[TableColumn]>,
+    columns: Vec<SqliteColumn>,
 
     /// values
     values: Vec<Vec<Value>>,
@@ -52,15 +43,19 @@ impl DataFrame for SqlitePayload {
 
 pub struct SqliteMessage {
     origin: Arc<str>,
-    payload: Option<Box<dyn DataFrame>>,
+    stream: Receiver<Result<Chunk, SectionError>>,
     ack: Option<Ack>,
 }
 
 impl SqliteMessage {
-    fn new(origin: Arc<str>, payload: SqlitePayload, ack: Option<Ack>) -> Self {
+    fn new(
+        origin: Arc<str>,
+        stream: Receiver<Result<Chunk, SectionError>>,
+        ack: Option<Ack>,
+    ) -> Self {
         Self {
             origin,
-            payload: Some(Box::new(payload)),
+            stream,
             ack,
         }
     }
@@ -70,7 +65,7 @@ impl std::fmt::Debug for SqliteMessage {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("SqliteMessage")
             .field("origin", &self.origin)
-            .field("payload", &self.payload)
+            .field("stream", &self.stream)
             .finish()
     }
 }
@@ -81,8 +76,13 @@ impl Message for SqliteMessage {
     }
 
     fn next(&mut self) -> section::message::Next<'_> {
-        let v = self.payload.take().map(Chunk::DataFrame);
-        Box::pin(async move { Ok(v) })
+        Box::pin(async move {
+            match self.stream.recv().await {
+                Some(Ok(df)) => Ok(Some(df)),
+                Some(Err(e)) => Err(e),
+                None => Ok(None),
+            }
+        })
     }
 
     fn ack(&mut self) -> Ack {

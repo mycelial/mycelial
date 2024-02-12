@@ -7,7 +7,7 @@ edition = "2021"
 
 [dependencies]
 section = { path = "../../" }
-sqlx = { version = "0.7", features = ["sqlite"] }
+sqlx = { version = "0.7", features = ["sqlite", "chrono"] }
 notify = { version = "6", default-features = false, features = ["macos_kqueue"] }
 tokio = { version = "1", features=["full"] }
 tokio-stream = "0.1"

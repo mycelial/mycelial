@@ -1,28 +1,16 @@
-//! Sqlite section for query-based CDC
-//!
-//! Query-based CDC implementation, which uses `notify` crate to detect changes to database.  
-//! Sqlite-CDC section assumes append-only tables, any other usecase is not supported (yet?).
-//!
-//! # Configuration
-//! Path to sqlite and list of tables to observe.
-//! Section will automatically initialize underlying table state on initialization:
-//! - column names
-//! - column types
-//! - query
-//! - limit and offset
-use crate::{SqliteMessage, SqlitePayload, Table, TableColumn};
+use crate::{SqliteColumn, SqliteMessage, SqlitePayload};
 use notify::{Event, RecursiveMode, Watcher};
 use section::{
     command_channel::{Command, SectionChannel, WeakSectionChannel},
     futures::{self, FutureExt, Sink, SinkExt, Stream, StreamExt},
-    message::{DataType, Value},
+    message::{Chunk, DataType, Value},
     section::Section,
     state::State,
     SectionError, SectionFuture, SectionMessage,
 };
 use sqlx::{
     sqlite::{SqliteConnectOptions, SqliteRow},
-    Column as _, ConnectOptions, Row, SqliteConnection, TypeInfo, ValueRef,
+    Column as _, ConnectOptions, Row, TypeInfo, ValueRef,
 };
 
 // FIXME: drop direct dependency
@@ -36,122 +24,18 @@ use std::{pin::pin, str::FromStr};
 #[derive(Debug)]
 pub struct Sqlite {
     path: String,
-    tables: Vec<String>,
+    origin: Arc<str>,
+    query: String,
 }
 
-async fn get_table_list(
-    conn: &mut SqliteConnection,
-) -> Result<Vec<(String, bool, bool)>, SectionError> {
-    let tables_list = sqlx::query("PRAGMA table_list")
-        .map(|row: SqliteRow| {
-            let schema = row.get::<String, _>(0);
-            let name = row.get::<String, _>(1);
-            let ttype = row.get::<String, _>(2);
-            let without_rowid = row.get::<i64, _>(4) == 1;
-            let strict = row.get::<i64, _>(5) != 0;
-            (schema, name, ttype, without_rowid, strict)
-        })
-        .fetch_all(&mut *conn)
-        .await?
-        .into_iter()
-        .filter_map(|(schema, name, ttype, without_rowid, strict)| {
-            match (schema.as_str(), name.as_str(), ttype.as_str()) {
-                ("main", name_str, "table") if !name_str.starts_with("sqlite_") => {
-                    Some((name, without_rowid, strict))
-                }
-                _ => None,
-            }
-        })
-        .collect();
-    Ok(tables_list)
-}
-
-async fn describe_table<S: State>(
-    conn: &mut SqliteConnection,
-    name: String,
-    without_rowid: bool,
-    strict: bool,
-    state: &S,
-) -> Result<Table, SectionError> {
-    // NOTE: table_info doesn't show hidden or generated columns
-    //       xtable_info can be used instead
-    let columns = sqlx::query(format!("PRAGMA table_info({name})").as_str())
-        .map(|row: SqliteRow| {
-            let name = row.get::<String, _>(1);
-            let data_type = match (strict, row.get::<String, _>(2).as_str()) {
-                (false, _) => DataType::Any,
-                (_, "INT") => DataType::I64,
-                (_, "INTEGER") => DataType::I64,
-                (_, "REAL") => DataType::F64,
-                (_, "TEXT") => DataType::Str,
-                (_, "BLOB") => DataType::Bin,
-                (_, "ANY") => DataType::Any,
-                (_, u) => unimplemented!("unsupported column data type: {}", u),
-            };
-            let nullable = row.get::<i64, _>(3) == 0;
-            TableColumn {
-                name: name.into(),
-                data_type,
-                nullable,
-            }
-        })
-        .fetch_all(conn)
-        .await?;
-    if columns.is_empty() {
-        unreachable!()
-    }
-    let query = match without_rowid {
-        false => format!(
-            "SELECT {} FROM {} WHERE rowid > ? AND rowid <= ? ORDER BY rowid",
-            columns
-                .iter()
-                .map(|col| col.name.as_ref())
-                .collect::<Vec<_>>()
-                .join(", "),
-            name
-        ),
-        true => format!(
-            "SELECT {} FROM {} limit ? offset ?",
-            columns
-                .iter()
-                .map(|col| col.name.as_ref())
-                .collect::<Vec<_>>()
-                .join(", "),
-            name
-        ),
-    };
-    let offset = state.get::<i64>(&name)?.unwrap_or(0);
-    Ok(Table {
-        name: name.into(),
-        without_rowid,
-        strict,
-        columns: columns.into(),
-        query,
-        offset,
-        limit: 4096,
-    })
-}
-
-async fn get_tables<S: State>(
-    conn: &mut SqliteConnection,
-    state: &S,
-    filter_tables: &[String],
-) -> Result<Vec<Table>, SectionError> {
-    let mut tables = vec![];
-    let all_tables = filter_tables.iter().any(|name| name == "*");
-    for (table_name, without_rowid, strict) in get_table_list(conn).await? {
-        if all_tables || filter_tables.contains(&table_name) {
-            tables.push(describe_table(conn, table_name, without_rowid, strict, state).await?);
-        }
-    }
-    Ok(tables)
-}
+const LAST_MTIME: &str = "last_mtime";
 
 impl Sqlite {
-    pub fn new(path: impl Into<String>, tables: &[&str]) -> Self {
+    pub fn new(path: impl Into<String>, origin: impl AsRef<str>, query: impl Into<String>) -> Self {
         Self {
             path: path.into(),
-            tables: tables.iter().map(|&x| x.into()).collect(),
+            origin: Arc::from(origin.as_ref()),
+            query: query.into(),
         }
     }
 
@@ -171,13 +55,10 @@ impl Sqlite {
             .connect()
             .await?;
 
-        let (tx, rx) = tokio::sync::mpsc::channel(4);
-
-        // keep weak ref to be able to send messages to ourselfs
-        let weak_tx = tx.clone().downgrade();
+        let (tx, rx) = tokio::sync::mpsc::channel(1);
         tx.send(()).await.ok();
 
-        let _watcher = self.watch_sqlite_paths(self.path.as_str(), tx);
+        let _watcher = self.watch_sqlite_paths(self.path.as_str(), tx)?;
 
         let mut _input = pin!(input.fuse());
         let mut output = pin!(output);
@@ -185,20 +66,18 @@ impl Sqlite {
             .retrieve_state()
             .await?
             .unwrap_or(SectionChan::State::new());
-
-        let mut tables = get_tables(&mut connection, &state, &self.tables).await?;
-        let mut queue: Vec<usize> = vec![];
+        let mut last_mtime = state.get(LAST_MTIME)?.unwrap_or(0);
 
         let rx = ReceiverStream::new(rx);
         let mut rx = pin!(rx.fuse());
         loop {
-            futures::select_biased! {
+            futures::select! {
                 cmd = section_channel.recv().fuse() => {
                     match cmd? {
                         Command::Ack(any) => {
-                            match any.downcast::<AckMessage>() {
+                            match any.downcast::<i64>() {
                                 Ok(ack) => {
-                                    state.set(&ack.table, ack.offset)?;
+                                    state.set(LAST_MTIME, *ack)?;
                                     section_channel.store_state(state.clone()).await?;
                                 },
                                 Err(_) =>
@@ -213,48 +92,49 @@ impl Sqlite {
                     if msg.is_none() {
                         Err("file watcher exited")?
                     };
-                    if queue.is_empty() {
-                        queue = (0..tables.len()).rev().collect();
+                    let mtime = self.get_mtime().await?;
+                    if mtime <= last_mtime {
+                        continue
                     }
+                    last_mtime = mtime;
+                    let mut row_stream = sqlx::query(self.query.as_str())
+                        .fetch(&mut connection);
 
-                    while !queue.is_empty() {
-                        let table = &mut tables[*queue.last().unwrap()];
-                        let rows = match table.without_rowid {
-                            false =>
-                                sqlx::query(&table.query)
-                                    .bind(table.offset)
-                                    .bind(table.offset + table.limit)
-                                    .fetch_all(&mut connection)
-                                    .await?,
-                            true =>
-                                sqlx::query(&table.query)
-                                    .bind(table.limit)
-                                    .bind(table.offset)
-                                    .fetch_all(&mut connection)
-                                    .await?,
-                        };
-                        if rows.is_empty() {
-                            queue.pop();
-                            continue
+                    // check if row stream contains any result
+                    let mut row_stream = match row_stream.next().await {
+                        Some(res) => futures::stream::once(async { res }).chain(row_stream),
+                        None => continue
+                    };
+
+                    let mut row_stream = pin!(row_stream);
+                    let weak_chan = section_channel.weak_chan();
+                    let ack = Box::pin(async move {
+                        weak_chan.ack(Box::new(last_mtime)).await;
+                    });
+
+                    let mut buf = Vec::with_capacity(256);
+                    let (mut tx, rx) = tokio::sync::mpsc::channel(1);
+                    let message = SqliteMessage::new(
+                        Arc::clone(&self.origin),
+                        rx,
+                        Some(ack)
+                    );
+                    output.send(Box::new(message)).await.map_err(|_| "failed to send data to sink")?;
+
+                    'stream: loop {
+                        if buf.len() == buf.capacity() {
+                            self.send_chunk(&mut tx, &mut buf).await?;
                         }
-                        table.offset += rows.len() as i64;
-
-                        let sqlite_payload = self.build_sqlite_payload(table, rows)?;
-                        let weak_chan = section_channel.weak_chan();
-
-                        let ack_msg = AckMessage{ table: Arc::clone(&table.name), offset: table.offset };
-                        let ack = Box::pin(async move { weak_chan.ack(Box::new(ack_msg)).await; });
-                        let message = Box::new(SqliteMessage::new(Arc::clone(&table.name), sqlite_payload, Some(ack)));
-                        output.send(message).await.map_err(|_| "failed to send data to sink")?;
-                        break
-                    }
-                    // if empty count is less than table count - we didn't reach ends of table on
-                    // whole dataset
-                    if !queue.is_empty() {
-                        if let Some(tx) = weak_tx.clone().upgrade() {
-                            // try send instead of send, since channel is bufferized and we don't
-                            // want to deadlock ourselfs there
-                            tx.try_send(()).ok();
+                        match row_stream.next().await {
+                            Some(Ok(row)) => buf.push(row),
+                            Some(Err(e)) => {
+                                tx.send(Err("error".into())).await.ok();
+                                Err(e)?
+                            },
+                            None => {
+                                self.send_chunk(&mut tx, &mut buf).await?;
+                                break 'stream;
+                            },
                         }
                     }
                 },
@@ -262,14 +142,41 @@ impl Sqlite {
         }
     }
 
-    fn build_sqlite_payload(
+    async fn send_chunk(
         &self,
-        table: &Table,
-        rows: Vec<SqliteRow>,
-    ) -> Result<SqlitePayload, SectionError> {
-        let mut values: Vec<Vec<Value>> = (0..table.columns.len())
-            .map(|_| Vec::with_capacity(rows.len()))
-            .collect();
+        tx: &mut Sender<Result<Chunk, SectionError>>,
+        buf: &mut Vec<SqliteRow>,
+    ) -> Result<(), SectionError> {
+        if !buf.is_empty() {
+            let chunk = Chunk::DataFrame(Box::new(self.build_sqlite_payload(buf.as_slice())?));
+            tx.send(Ok(chunk)).await.map_err(|_| "send error")?;
+            buf.truncate(0);
+        }
+        Ok(())
+    }
+
+    async fn get_mtime(&self) -> Result<i64, SectionError> {
+        let metadata = tokio::fs::metadata(&self.path).await?;
+        let mtime = metadata
+            .modified()?
+            .duration_since(std::time::UNIX_EPOCH)?
+            .as_micros() as i64;
+        Ok(mtime)
+    }
+
+    fn build_sqlite_payload(&self, rows: &[SqliteRow]) -> Result<SqlitePayload, SectionError> {
+        let columns = match rows.first() {
+            None => Err("empty rows")?,
+            Some(row) => row
+                .columns()
+                .iter()
+                .map(|col| SqliteColumn {
+                    name: col.name().into(),
+                    data_type: DataType::Any,
+                })
+                .collect::<Vec<_>>(),
+        };
+        let mut values = vec![Vec::<Value>::with_capacity(rows.len()); columns.len()];
         for row in rows.iter() {
             for column in row.columns() {
                 let pos = column.ordinal();
@@ -285,12 +192,7 @@ impl Sqlite {
                 values[pos].push(value);
             }
         }
-        // FIXME: use Arc
-        let batch = SqlitePayload {
-            columns: Arc::clone(&table.columns),
-            values,
-        };
-        Ok(batch)
+        Ok(SqlitePayload { columns, values })
     }
 
     /// Watch sqlite database file and sqlite WAL (if present) for changes
@@ -300,7 +202,6 @@ impl Sqlite {
         sqlite_path: &str,
         tx: Sender<()>,
     ) -> notify::Result<impl Watcher> {
-        // initiate first check on startup
         let mut watcher = notify::recommended_watcher(move |res: Result<Event, _>| match res {
             Ok(event) if event.kind.is_modify() || event.kind.is_create() => {
                 tx.blocking_send(()).ok();
@@ -314,15 +215,11 @@ impl Sqlite {
             Path::new(&format!("{}-wal", sqlite_path)),
         ]
         .into_iter()
-        .filter(|path| path.exists())
+        // FIXME: files may not be present
+        .filter(|p| p.exists())
         .try_for_each(|path| watcher.watch(path, RecursiveMode::NonRecursive))?;
         Ok(watcher)
     }
-}
-
-struct AckMessage {
-    table: Arc<str>,
-    offset: i64,
 }
 
 impl<Input, Output, SectionChan> Section<Input, Output, SectionChan> for Sqlite
