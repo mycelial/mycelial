@@ -38,6 +38,9 @@ const Workspaces = () => {
         loadWorkspaces("").then((workspacesData) => {
           setWorkspaces(workspacesData);
         });
+        loadDaemonToken("").then((result) => {
+          setDaemonAccessToken(result);
+        })
     }
   }, []);
 

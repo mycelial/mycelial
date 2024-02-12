@@ -1091,7 +1091,6 @@ async fn main() -> anyhow::Result<()> {
 
     let daemon_basic_api = Router::new()
         .route("/api/client", post(provision_client))
-        // todo: this should probably only be turned on if the feature is enabled
         .layer(middleware::from_fn_with_state(
             state.clone(),
             validate_client_basic_auth,
