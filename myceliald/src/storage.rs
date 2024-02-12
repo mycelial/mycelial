@@ -1,4 +1,4 @@
-//! storage backend for client
+//! storage backend for client sections
 
 use pipe::storage::Storage;
 use section::state::State;

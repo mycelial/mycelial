@@ -75,8 +75,6 @@ async fn main() {
     let dst = destination::Mycelial::new(
         "http://localhost:7777/ingestion/",
         "topic",
-        "client_id",
-        "client_secret",
     );
     let (mut tx, rx) = section::futures::channel::mpsc::channel(1);
     let handle = tokio::spawn(dst.start(

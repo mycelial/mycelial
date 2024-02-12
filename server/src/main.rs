@@ -1097,17 +1097,21 @@ async fn main() -> anyhow::Result<()> {
         ));
     }
 
+    // daemon uses its client_id and client_secret to auth, regardless of whether user auth is turned on
     let daemon_protected_api = Router::new()
         .route("/api/pipe", get(get_pipe_configs))
-        .route("/ingestion/:topic", post(ingestion))
-        .route("/ingestion/:topic/:offset", get(get_message))
         .layer(middleware::from_fn_with_state(state.clone(), daemon_auth));
+
+    // ingestion api is "security by obscurity" for now, and relies on the topic being secret
+    let ingestion_api = Router::new().route("/ingestion/:topic", post(ingestion))
+        .route("/ingestion/:topic/:offset", get(get_message));
 
     // FIXME: consistent endpoint namings
     let api = Router::new()
         .merge(protected_api)
         .merge(daemon_basic_api)
         .merge(daemon_protected_api)
+        .merge(ingestion_api)
         .layer(Extension(u))
         .with_state(state.clone());
 

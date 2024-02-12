@@ -44,12 +44,6 @@ pub enum Message {
         reply_to: OneshotSender<Result<(), SectionError>>,
     },
 
-    SetClientIdAndSecret {
-        client_id: String,
-        client_secret: String,
-        reply_to: OneshotSender<Result<(), SectionError>>,
-    },
-
     /// Shutdown scheduler and all pipes
     Shutdown {
         reply_to: OneshotSender<Result<(), SectionError>>,
@@ -132,9 +126,6 @@ where
                             self.remove_pipe(id).await;
                             reply_to.send(Ok(())).ok();
                         }
-                        Message::SetClientIdAndSecret { reply_to, client_id, client_secret } => {
-                            reply_to.send(self.set_client_id_and_secret(client_id, client_secret)).ok();
-                        }
                         Message::ListIds { reply_to } => {
                             reply_to
                                 .send(Ok(self.pipe_configs.keys().copied().collect()))
@@ -180,16 +171,6 @@ where
         }
     }
 
-    fn set_client_id_and_secret(
-        &mut self,
-        client_id: String,
-        client_secret: String,
-    ) -> Result<(), SectionError> {
-        self.client_id = client_id;
-        self.client_secret = client_secret;
-        Ok(())
-    }
-
     async fn add_pipe(&mut self, id: u64, config: Config) -> Result<ScheduleResult, SectionError> {
         let schedule_result = match self.pipe_configs.get(&id) {
             Some(c) if c == &config => return Ok(ScheduleResult::Noop),
@@ -213,8 +194,6 @@ where
             let pipe = Pipe::<R>::try_from((
                 &config,
                 &self.registry,
-                &self.client_id,
-                &self.client_secret,
             ))?;
             let section_chan = self.root_chan.add_section(id)?;
             let pipe = pipe.start(
@@ -325,19 +304,5 @@ impl SchedulerHandle {
 
     async fn send(&self, message: Message) -> Result<(), SectionError> {
         Ok(self.tx.send(message).await?)
-    }
-
-    pub async fn set_client_id_and_secret(
-        &self,
-        client_id: String,
-        client_secret: String,
-    ) -> Result<(), SectionError> {
-        call!(
-            self,
-            Message::SetClientIdAndSecret {
-                client_id,
-                client_secret
-            }
-        )
     }
 }

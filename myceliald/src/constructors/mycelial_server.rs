@@ -22,21 +22,9 @@ pub fn source_ctor<S: SectionChannel>(
         .ok_or("mycelial net section requires 'topic'")?
         .as_str()
         .ok_or("topic should be string")?;
-    let client_id = config
-        .get("client_id")
-        .ok_or("mycelial net section requires 'client_id'")?
-        .as_str()
-        .ok_or("client_id should be string")?;
-    let client_secret = config
-        .get("client_secret")
-        .ok_or("mycelial net section requires 'client_secret'")?
-        .as_str()
-        .ok_or("client_secret should be string")?;
     Ok(Box::new(mycelial_server::source::Mycelial::new(
         endpoint,
         topic,
-        client_id,
-        client_secret,
     )))
 }
 
@@ -59,20 +47,8 @@ pub fn destination_ctor<S: SectionChannel>(
         .ok_or("mycelial net section requires 'topic'")?
         .as_str()
         .ok_or("topic should be string")?;
-    let client_id = config
-        .get("client_id")
-        .ok_or("mycelial net section requires 'client_id'")?
-        .as_str()
-        .ok_or("client_id should be string")?;
-    let client_secret = config
-        .get("client_secret")
-        .ok_or("mycelial net section requires 'client_secret'")?
-        .as_str()
-        .ok_or("client_secret should be string")?;
     Ok(Box::new(mycelial_server::destination::Mycelial::new(
         endpoint,
         topic,
-        client_id,
-        client_secret,
     )))
 }

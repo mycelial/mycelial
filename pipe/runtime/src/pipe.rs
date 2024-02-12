@@ -4,7 +4,7 @@ use tokio::task::JoinHandle;
 
 use crate::{
     channel::channel,
-    config::{self, Config},
+    config::Config,
     registry::Registry,
     types::{DynSection, DynSink, DynStream},
 };
@@ -52,18 +52,14 @@ impl<R: RootChannel + Send + 'static>
     TryFrom<(
         &'_ Config,
         &'_ Registry<R::SectionChannel>,
-        &'_ String,
-        &'_ String,
     )> for Pipe<R>
 {
     type Error = SectionError;
 
     fn try_from(
-        (config, registry, client_id, client_secret): (
+        (config, registry): (
             &Config,
             &Registry<R::SectionChannel>,
-            &String,
-            &String,
         ),
     ) -> Result<Self, Self::Error> {
         let sections = config
@@ -76,14 +72,10 @@ impl<R: RootChannel + Send + 'static>
                         .ok_or("section needs to have a name")?
                         .as_str()
                         .ok_or("section name should be string")?;
-                    let mut c = section_cfg.clone();
-                    c.insert("client_id".to_string(), config::Value::String(client_id.to_string()));
-                    c.insert("client_secret".to_string(), config::Value::String(client_secret.to_string()));
-                    // can i inject the values here?? 
                     let constructor = registry.get_constructor(name).ok_or(format!(
                         "the runtime's registry contains no constructor for '{name}' available"
                     ))?;
-                    constructor(&c)
+                    constructor(&section_cfg)
                 },
             )
             .collect::<Result<Vec<Box<dyn DynSection<R::SectionChannel>>>, _>>()?;

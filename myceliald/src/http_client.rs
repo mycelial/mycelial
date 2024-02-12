@@ -58,14 +58,6 @@ impl Client {
                 if client_id.is_none() || client_secret.is_none() {
                     return self.register().await;
                 }
-                // also store these values so they can be injected into the mycelial network sections
-                if let Some(client_id) = client_id {
-                    if let Some(client_secret) = client_secret {
-                        self.scheduler_handle
-                            .set_client_id_and_secret(client_id, client_secret)
-                            .await?;
-                    }
-                }
             }
             None => {
                 return self.register().await;
@@ -101,12 +93,6 @@ impl Client {
             "auth0_client_secret",
             provision_client_resp.client_secret.clone(),
         )?;
-        self.scheduler_handle
-            .set_client_id_and_secret(
-                provision_client_resp.client_id,
-                provision_client_resp.client_secret,
-            )
-            .await?; // this is for injecting the values in the mycelial server config
         self.storage_handle
             .store_state(std::u64::MAX, state.clone())
             .await?;

@@ -4,7 +4,6 @@
 use arrow::ipc::writer::StreamWriter;
 use arrow_msg::df_to_recordbatch;
 use async_stream::stream;
-use base64::engine::{general_purpose::STANDARD as BASE64, Engine};
 use reqwest::Body;
 use section::{
     command_channel::{Command, SectionChannel},
@@ -23,12 +22,6 @@ use std::{
 pub struct Mycelial {
     endpoint: String,
     topic: String,
-
-    /// client_id
-    client_id: String,
-
-    /// client_secret
-    client_secret: String,
 }
 
 // should we just introduce additional method in message trait to indicate stream type?
@@ -103,14 +96,10 @@ impl Mycelial {
     pub fn new(
         endpoint: impl Into<String>,
         topic: impl Into<String>,
-        client_id: impl Into<String>,
-        client_secret: impl Into<String>,
     ) -> Self {
         Self {
             endpoint: endpoint.into(),
             topic: topic.into(),
-            client_id: client_id.into(),
-            client_secret: client_secret.into(),
         }
     }
 
@@ -167,7 +156,6 @@ impl Mycelial {
                             self.endpoint.as_str().trim_end_matches('/'),
                             self.topic
                         ))
-                        .header("Authorization", self.basic_auth())
                         .header("x-message-origin", origin)
                         .header("x-stream-type", stream_type)
                         .body(body)
@@ -179,12 +167,6 @@ impl Mycelial {
         }
     }
 
-    fn basic_auth(&self) -> String {
-        format!(
-            "Basic {}",
-            BASE64.encode(format!("{}:{}", self.client_id, self.client_secret))
-        )
-    }
 }
 
 impl<Input, Output, SectionChan> Section<Input, Output, SectionChan> for Mycelial
