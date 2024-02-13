@@ -30,7 +30,7 @@ use uuid::Uuid;
 
 mod error;
 
-use jsonwebtoken::{decode, DecodingKey, Validation};
+use jsonwebtoken::{decode, jwk, DecodingKey, Validation};
 
 // This struct represents the claims you expect in your Auth0 token.
 #[derive(Debug, Deserialize, Serialize)]
@@ -41,15 +41,15 @@ struct MyClaims {
 }
 
 // Token validation logic
-fn validate_token(token: &str) -> Result<MyClaims, jsonwebtoken::errors::Error> {
-    // maybe use DecodingKey::from_jwk instead?
-    // these are publicly available, so hardcoding temporarily is ok,
-    // from https://dev-uywfm0nh3k5xxcjz.us.auth0.com/.well-known/jwks.json
-    let n = "ug9u8warbVfm7nxqrpmj7msiALDb5zvNnQVjgDhO2yfF3dA4L4o7JxQEWdwdgeyjGGfnrnYXU55tqi7wIO7_cgTZXUjvWoQ3Xs8_iz5sQ2r7UbO3_-f3uBHx6mX13Ti-hKwoK5iDQ4sMCT5GaeDJmcUYNX4QXpvU2n4bg6gu0nUKNHsyr1VuKf2xzyxi8x-m9-e8Qsyskzefo_GxNvmlMI0622s1g4JLV2WWjk1dYUZFwRLBXhN72k9b4YvzOrv-NHsDizFUeAgEIyTKLkgOVEx1NQC9W_UotPweEkH9352aF3mEF5xG2yGXvZ6PoFoLNZNnCMbUWgzGMBeW2FFIkQ";
-    let e = "AQAB";
-    let decoding_key = DecodingKey::from_rsa_components(n, e)?;
+fn validate_token(
+    token: &str,
+    jwks: Auth0Jwks,
+    audience: &str,
+) -> Result<MyClaims, jsonwebtoken::errors::Error> {
+    let decoding_key = DecodingKey::from_jwk(&jwks.keys[0])?;
+
     let mut validation = Validation::new(jsonwebtoken::Algorithm::RS256);
-    validation.set_audience(&["test"]);
+    validation.set_audience(&[audience]);
     decode::<MyClaims>(token, &decoding_key, &validation).map(|data| data.claims)
 }
 
@@ -149,15 +149,20 @@ async fn validate_client_basic_auth<B>(
 }
 
 // validates token and adds the user_id to the request extensions
-async fn user_auth<B>(mut req: Request<B>, next: Next<B>) -> Result<Response, impl IntoResponse> {
+async fn user_auth<B>(
+    Extension(jwks): Extension<Auth0Jwks>,
+    Extension(audience): Extension<Auth0Audience>,
+    mut req: Request<B>,
+    next: Next<B>,
+) -> Result<Response, impl IntoResponse> {
     let auth0_header = req
         .headers()
         .get("x-auth0-token")
         .and_then(|header| header.to_str().ok());
 
     if let Some(auth0_header) = auth0_header {
-        let validation_result = validate_token(auth0_header);
-        if validate_token(auth0_header).is_ok() {
+        let validation_result = validate_token(auth0_header, jwks, audience.0.as_str());
+        if validation_result.is_ok() {
             let user_id = validation_result.unwrap().sub;
             let user_id = UserID(user_id);
             req.extensions_mut().insert(user_id);
@@ -203,6 +208,12 @@ struct Cli {
     /// Database path
     #[clap(short, long, env = "DATABASE_PATH", default_value = "mycelial.db")]
     database_path: String,
+
+    #[clap(long, env = "AUTH0_AUTHORITY")]
+    auth0_authority: String,
+
+    #[clap(long, env = "AUTH0_AUDIENCE")]
+    auth0_audience: String,
 }
 
 struct MessageStream {
@@ -1048,6 +1059,14 @@ async fn assets(uri: Uri) -> Result<impl IntoResponse, StatusCode> {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct UserID(String);
 
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct Auth0Jwks {
+    keys: Vec<jwk::Jwk>,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct Auth0Audience(String);
+
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     pretty_env_logger::init();
@@ -1055,6 +1074,15 @@ async fn main() -> anyhow::Result<()> {
     let cli = Cli::try_parse()?;
     let app = App::new(cli.database_path).await?;
     let state = Arc::new(app);
+
+    let mut jwks = Auth0Jwks { keys: Vec::new() };
+    let audience = Auth0Audience(cli.auth0_audience);
+    if cfg!(feature = "require_auth") {
+        jwks = reqwest::get(format!("{}/.well-known/jwks.json", cli.auth0_authority))
+            .await?
+            .json::<Auth0Jwks>()
+            .await?;
+    }
 
     let mut protected_api = Router::new()
         .route("/api/pipe", post(post_pipe_config).put(put_pipe_configs))
@@ -1107,6 +1135,8 @@ async fn main() -> anyhow::Result<()> {
         .merge(daemon_basic_api)
         .merge(daemon_protected_api)
         .merge(ingestion_api)
+        .layer(Extension(jwks))
+        .layer(Extension(audience))
         .with_state(state.clone());
 
     let assets = Router::new().fallback(assets);

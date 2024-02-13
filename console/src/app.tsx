@@ -56,6 +56,7 @@ const rootElement = document.getElementById('root');
 if (rootElement) {
   const domain = import.meta.env.VITE_AUTH0_DOMAIN;
   const auth0ClientId = import.meta.env.VITE_AUTH0_CLIENT_ID;
+  const auth0Audience = import.meta.env.VITE_AUTH0_AUDIENCE;
   ReactDOM.createRoot(rootElement).render(
     // todo: put these values in a .env file
     <Auth0Provider
@@ -64,7 +65,7 @@ if (rootElement) {
     cacheLocation="localstorage"
     authorizationParams={{
       redirect_uri: window.location.origin,
-      audience: "test",
+      audience: auth0Audience,
     }}
   >
     <React.StrictMode>
