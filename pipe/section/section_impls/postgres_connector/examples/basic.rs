@@ -15,7 +15,7 @@ async fn main() -> Result<(), SectionError> {
     let pg_src = postgres_connector::source::Postgres::new(
         "postgres://user:password@localhost:5432/postgres",
         "public",
-        &["*"],
+        "select * from test",
         Duration::from_secs(5),
     );
     let (tx, mut rx) = futures::channel::mpsc::channel(1);

@@ -3,14 +3,14 @@ use section::{
     command_channel::{Command, SectionChannel},
     decimal,
     futures::{self, FutureExt, Sink, SinkExt, Stream, StreamExt},
-    message::{DataType, TimeUnit, Value},
+    message::{Chunk, DataType, TimeUnit, Value},
     section::Section,
     uuid, SectionError, SectionFuture, SectionMessage,
 };
 use sqlx::{
     postgres::{
         types::{PgMoney, PgTimeTz},
-        PgConnectOptions, PgConnection, PgRow, PgValue,
+        PgConnectOptions, PgRow, PgValue,
     },
     types::{Json, JsonRawValue},
     Column, ConnectOptions, Row, TypeInfo, Value as _, ValueRef,
@@ -19,37 +19,28 @@ use std::sync::Arc;
 use std::time::Duration;
 use std::{pin::pin, str::FromStr};
 
-use crate::{PostgresMessage, PostgresPayload, TableColumn};
+use crate::{PostgresColumn, PostgresMessage, PostgresPayload};
+use tokio::sync::mpsc::Sender;
 
 #[derive(Debug)]
 pub struct Postgres {
     url: String,
-    schema: String,
-    tables: Vec<String>,
+    origin: Arc<str>,
+    query: String,
     poll_interval: Duration,
-}
-
-#[derive(Debug)]
-#[allow(unused)]
-pub(crate) struct Table {
-    pub name: Arc<str>,
-    pub columns: Arc<[TableColumn]>,
-    pub query: String,
-    pub offset: i64,
-    pub limit: i64,
 }
 
 impl Postgres {
     pub fn new(
         url: impl Into<String>,
-        schema: impl Into<String>,
-        tables: &[&str],
+        origin: impl AsRef<str>,
+        query: impl Into<String>,
         poll_interval: Duration,
     ) -> Self {
         Self {
             url: url.into(),
-            schema: schema.into(),
-            tables: tables.iter().map(|&x| x.into()).collect(),
+            origin: Arc::from(origin.as_ref()),
+            query: query.into(),
             poll_interval,
         }
     }
@@ -73,8 +64,6 @@ impl Postgres {
         let mut _input = pin!(input.fuse());
         let mut output = pin!(output);
 
-        let mut tables = self.init_tables(&mut connection).await?;
-
         let mut interval = tokio::time::interval(self.poll_interval);
         loop {
             futures::select! {
@@ -82,180 +71,208 @@ impl Postgres {
                    if let Command::Stop = cmd? { return Ok(()) };
                 },
                 _ = interval.tick().fuse() => {
-                    for table in tables.iter_mut() {
-                        // FIXME: full table selected
-                        let rows = sqlx::query(table.query.as_str())
-                          //.bind(table.limit)
-                          //.bind(table.offset)
-                            .fetch_all(&mut connection)
-                            .await?;
+                    let mut row_stream = sqlx::query(self.query.as_str())
+                        .fetch(&mut connection);
 
-                        if rows.is_empty() {
-                            continue
+                    // check if row stream contains any result
+                    let mut row_stream = match row_stream.next().await {
+                        Some(res) => futures::stream::once(async { res }).chain(row_stream),
+                        None => continue
+                    };
+
+                    let mut row_stream = pin!(row_stream);
+                    let mut buf = Vec::with_capacity(256);
+                    let (mut tx, rx) = tokio::sync::mpsc::channel(1);
+                    let message = PostgresMessage::new(Arc::clone(&self.origin), rx);
+                    output.send(Box::new(message)).await.map_err(|_| "failed to send data to sink")?;
+
+                    'stream: loop {
+                        if buf.len() == buf.capacity() {
+                            self.send_chunk(&mut tx, &mut buf).await?;
                         }
-
-                        let payload = self.build_payload(table, rows)?;
-                        let message = Box::new(PostgresMessage::new(Arc::clone(&table.name), payload, None));
-                        output.send(message).await?;
+                        match row_stream.next().await {
+                            Some(Ok(row)) => buf.push(row),
+                            Some(Err(e)) => {
+                                tx.send(Err("error".into())).await.ok();
+                                Err(e)?
+                            },
+                            None => {
+                                self.send_chunk(&mut tx, &mut buf).await?;
+                                break 'stream;
+                            },
+                        }
                     }
                 },
             }
         }
     }
 
-    async fn init_tables(&self, connection: &mut PgConnection) -> Result<Vec<Table>, SectionError> {
-        let all = self.tables.iter().any(|t| t == "*");
-        let names =
-            sqlx::query("SELECT table_name FROM information_schema.tables WHERE table_schema=$1")
-                .bind(self.schema.as_str())
-                .fetch_all(&mut *connection)
-                .await?
-                .into_iter()
-                .map(|row| row.get::<String, _>(0))
-                .filter(|table_name| all || self.tables.contains(table_name));
-
-        let mut tables = vec![];
-        for name in names {
-            let name: Arc<str> = name.into();
-            let columns: Vec<TableColumn> = sqlx::query(
-                "SELECT column_name, data_type FROM information_schema.columns WHERE table_name = $1 and table_schema=$2"
-            )
-                .bind(name.as_ref())
-                .bind(self.schema.as_str())
-                .fetch_all(&mut *connection)
-                .await?
-                .into_iter()
-                .map(|row| {
-                    let col_name = row.get::<String, _>(0);
-                    let data_type = match row.get::<String, _>(1).as_str() {
-                        "smallint" => DataType::I16,
-                        "integer"  => DataType::I32,
-                        "bigint" => DataType::I64,
-                        "real" => DataType::F32,
-                        "double precision" => DataType::F64,
-                        "text" | "character" | "character varying" => DataType::Str,
-                        "bytea" => DataType::Bin,
-                        "boolean" => DataType::Bool,
-                        "date" => DataType::Date(TimeUnit::Second),
-                        "time without time zone" => DataType::Time(TimeUnit::Second),
-                        "json" => DataType::RawJson,
-                        "jsonb" => DataType::RawJson,
-                        "money" => DataType::Decimal,
-                        "numeric" => DataType::Decimal,
-                        "time with time zone" => DataType::Str, // legacy type
-                        "timestamp without time zone" => DataType::TimeStamp(TimeUnit::Microsecond),
-                        "timestamp with time zone" => DataType::TimeStamp(TimeUnit::Microsecond),
-                        "uuid" => DataType::Uuid,
-                        ty => unimplemented!("unsupported column type '{}' for column '{}' in table '{}'", ty, col_name, name)
-                    };
-                    TableColumn { name: col_name.into(), data_type }
-                })
-                .collect();
-            //let query = format!("SELECT * FROM \"{}\".\"{name}\" LIMIT=$1 OFFSET=$2", self.schema);
-            // FIXME: no batching for now
-            let query = format!(
-                "SELECT {} FROM \"{}\".\"{name}\"",
-                columns
-                    .iter()
-                    .map(|col| col.name.as_ref())
-                    .collect::<Vec<_>>()
-                    .join(", "),
-                self.schema,
-            );
-            let table = Table {
-                name,
-                query,
-                columns: columns.into(),
-                limit: 1024,
-                offset: 0,
-            };
-            tables.push(table);
+    async fn send_chunk(
+        &self,
+        tx: &mut Sender<Result<Chunk, SectionError>>,
+        buf: &mut Vec<PgRow>,
+    ) -> Result<(), SectionError> {
+        if !buf.is_empty() {
+            let chunk = Chunk::DataFrame(Box::new(self.build_payload(buf.as_slice())?));
+            tx.send(Ok(chunk)).await.map_err(|_| "send error")?;
+            buf.truncate(0);
         }
-        Ok(tables)
+        Ok(())
     }
 
-    fn build_payload(
-        &self,
-        table: &Table,
-        rows: Vec<PgRow>,
-    ) -> Result<PostgresPayload, SectionError> {
-        let values = match rows.is_empty() {
-            true => vec![],
-            false => {
-                let mut values: Vec<Vec<Value>> =
-                    vec![Vec::with_capacity(rows[0].len()); table.columns.len()];
-                for row in rows.iter() {
-                    for col in row.columns() {
-                        let pos = col.ordinal();
-                        let raw_value = row.try_get_raw(pos)?;
-                        let pg_value: PgValue = ValueRef::to_owned(&raw_value);
-                        let type_info = raw_value.type_info();
-                        let value = match type_info.name() {
-                            "INT2" => pg_value.try_decode::<Option<i16>>()?.map(Value::I16),
-                            "INT4" => pg_value.try_decode::<Option<i32>>()?.map(Value::I32),
-                            "INT8" => pg_value.try_decode::<Option<i64>>()?.map(Value::I64),
-                            "BYTEA" => pg_value.try_decode::<Option<Vec<u8>>>()?.map(Value::from),
-                            "CHAR" | "VARCHAR" | "TEXT" => {
-                                pg_value.try_decode::<Option<String>>()?.map(Value::from)
-                            }
-                            "DATE" => pg_value.try_decode::<Option<NaiveDate>>()?.map(|v| {
-                                Value::Date(
-                                    TimeUnit::Second,
-                                    v.and_hms_opt(0, 0, 0).unwrap().timestamp(),
-                                )
-                            }),
-                            "TIME" => pg_value.try_decode::<Option<NaiveTime>>()?.map(|v| {
-                                let micros = NaiveDateTime::from_timestamp_opt(
-                                    v.num_seconds_from_midnight() as _,
-                                    v.nanosecond(),
-                                )
-                                .unwrap()
-                                .timestamp_micros();
-                                Value::Time(TimeUnit::Microsecond, micros)
-                            }),
-                            "TIMETZ" => pg_value
-                                .try_decode::<Option<PgTimeTz>>()?
-                                .map(|v| format!("{} {}", v.time, v.offset).into()),
-                            "TIMESTAMP" => {
-                                pg_value.try_decode::<Option<NaiveDateTime>>()?.map(|v| {
-                                    Value::TimeStamp(TimeUnit::Microsecond, v.timestamp_micros())
-                                })
-                            }
-                            "TIMESTAMPTZ" => {
-                                pg_value.try_decode::<Option<DateTime<Utc>>>()?.map(|v| {
-                                    Value::TimeStampUTC(TimeUnit::Microsecond, v.timestamp_micros())
-                                })
-                            }
-                            "FLOAT4" => pg_value.try_decode::<Option<f32>>()?.map(Value::F32),
-                            "FLOAT8" => pg_value.try_decode::<Option<f64>>()?.map(Value::F64),
-                            "JSON" => pg_value
-                                .try_decode::<Option<Json<Box<JsonRawValue>>>>()?
-                                .map(|v| Value::Str(v.0.into())),
-                            "JSONB" => pg_value
-                                .try_decode::<Option<Json<Box<JsonRawValue>>>>()?
-                                .map(|v| Value::Str(v.0.into())),
-                            "MONEY" => pg_value
-                                .try_decode::<Option<PgMoney>>()?
-                                .map(|v| Value::Decimal(v.to_decimal(2))),
-                            "NUMERIC" => pg_value
-                                .try_decode::<Option<decimal::Decimal>>()?
-                                .map(Value::Decimal),
-                            "UUID" => pg_value
-                                .try_decode::<Option<uuid::Uuid>>()?
-                                .map(Value::Uuid),
-                            name => panic!("{}", name),
-                        }
-                        .unwrap_or(Value::Null);
-                        values[pos].push(value)
-                    }
-                }
-                values
+    fn build_payload(&self, rows: &[PgRow]) -> Result<PostgresPayload, SectionError> {
+        if rows.is_empty() {
+            Err("no rows")?
+        }
+        let raw_columns = rows[0].columns();
+        let (columns, parse_funcs) =
+            raw_columns
+                .iter()
+                .fold((vec![], vec![]), |(mut columns, mut funcs), col| {
+                    let (dt, func) = from_pg_type_name(col.type_info().name());
+                    let column = PostgresColumn::new(col.name(), dt);
+                    columns.push(column);
+                    funcs.push(func);
+                    (columns, funcs)
+                });
+        let mut values: Vec<Vec<Value>> = vec![Vec::with_capacity(rows[0].len()); columns.len()];
+        for row in rows.iter() {
+            for (col, parse_func) in raw_columns.iter().zip(parse_funcs.iter()) {
+                let pos = col.ordinal();
+                let raw_value = row.try_get_raw(pos)?;
+                let pg_value: PgValue = ValueRef::to_owned(&raw_value);
+                let value = parse_func(pg_value)?;
+                values[pos].push(value)
             }
-        };
-        Ok(PostgresPayload {
-            columns: Arc::clone(&table.columns),
-            values,
-        })
+        }
+        Ok(PostgresPayload { columns, values })
+    }
+}
+
+#[allow(clippy::type_complexity)]
+pub(crate) fn from_pg_type_name(
+    type_name: &str,
+) -> (DataType, fn(PgValue) -> Result<Value, SectionError>) {
+    match type_name {
+        "INT2" => (DataType::I16, |pg_value| {
+            Ok(pg_value
+                .try_decode::<Option<i16>>()?
+                .map(Value::I16)
+                .unwrap_or(Value::Null))
+        }),
+        "INT4" => (DataType::I32, |pg_value| {
+            Ok(pg_value
+                .try_decode::<Option<i32>>()?
+                .map(Value::I32)
+                .unwrap_or(Value::Null))
+        }),
+        "INT8" => (DataType::I64, |pg_value| {
+            Ok(pg_value
+                .try_decode::<Option<i64>>()?
+                .map(Value::I64)
+                .unwrap_or(Value::Null))
+        }),
+        "BYTEA" => (DataType::Bin, |pg_value| {
+            Ok(pg_value
+                .try_decode::<Option<Vec<u8>>>()?
+                .map(Value::from)
+                .unwrap_or(Value::Null))
+        }),
+        "CHAR" | "VARCHAR" | "TEXT" => (DataType::Str, |pg_value| {
+            Ok(pg_value
+                .try_decode::<Option<String>>()?
+                .map(Value::from)
+                .unwrap_or(Value::Null))
+        }),
+        "DATE" => (DataType::Date(TimeUnit::Second), |pg_value| {
+            let value = pg_value.try_decode::<Option<NaiveDate>>()?.map(|v| {
+                Value::Date(
+                    TimeUnit::Second,
+                    v.and_hms_opt(0, 0, 0).unwrap().timestamp(),
+                )
+            });
+            Ok(value.unwrap_or(Value::Null))
+        }),
+        "TIME" => (DataType::Time(TimeUnit::Microsecond), |pg_value| {
+            let value = pg_value.try_decode::<Option<NaiveTime>>()?.map(|v| {
+                let micros = NaiveDateTime::from_timestamp_opt(
+                    v.num_seconds_from_midnight() as _,
+                    v.nanosecond(),
+                )
+                .unwrap()
+                .timestamp_micros();
+                Value::Time(TimeUnit::Microsecond, micros)
+            });
+            Ok(value.unwrap_or(Value::Null))
+        }),
+        "TIMETZ" => (DataType::Str, |pg_value| {
+            let value = pg_value
+                .try_decode::<Option<PgTimeTz>>()?
+                .map(|v| format!("{} {}", v.time, v.offset).into());
+            Ok(value.unwrap_or(Value::Null))
+        }),
+        "TIMESTAMP" => (DataType::TimeStamp(TimeUnit::Microsecond), |pg_value| {
+            let value = pg_value
+                .try_decode::<Option<NaiveDateTime>>()?
+                .map(|v| Value::TimeStamp(TimeUnit::Microsecond, v.timestamp_micros()));
+            Ok(value.unwrap_or(Value::Null))
+        }),
+        "TIMESTAMPTZ" => (DataType::TimeStampUTC(TimeUnit::Microsecond), |pg_value| {
+            let value = pg_value
+                .try_decode::<Option<DateTime<Utc>>>()?
+                .map(|v| Value::TimeStampUTC(TimeUnit::Microsecond, v.timestamp_micros()));
+            Ok(value.unwrap_or(Value::Null))
+        }),
+        "FLOAT4" => (DataType::F32, |pg_value| {
+            let value = pg_value
+                .try_decode::<Option<f32>>()?
+                .map(Value::F32)
+                .unwrap_or(Value::Null);
+            Ok(value)
+        }),
+        "FLOAT8" => (DataType::F64, |pg_value| {
+            let value = pg_value
+                .try_decode::<Option<f64>>()?
+                .map(Value::F64)
+                .unwrap_or(Value::Null);
+            Ok(value)
+        }),
+        "JSON" => (DataType::RawJson, |pg_value| {
+            let value = pg_value
+                .try_decode::<Option<Json<Box<JsonRawValue>>>>()?
+                .map(|v| Value::Str(v.0.into()))
+                .unwrap_or(Value::Null);
+            Ok(value)
+        }),
+        "JSONB" => (DataType::RawJson, |pg_value| {
+            let value = pg_value
+                .try_decode::<Option<Json<Box<JsonRawValue>>>>()?
+                .map(|v| Value::Str(v.0.into()))
+                .unwrap_or(Value::Null);
+            Ok(value)
+        }),
+        "MONEY" => (DataType::Decimal, |pg_value| {
+            let value = pg_value
+                .try_decode::<Option<PgMoney>>()?
+                .map(|v| Value::Decimal(v.to_decimal(2)))
+                .unwrap_or(Value::Null);
+            Ok(value)
+        }),
+        "NUMERIC" => (DataType::Decimal, |pg_value| {
+            let value = pg_value
+                .try_decode::<Option<decimal::Decimal>>()?
+                .map(Value::Decimal)
+                .unwrap_or(Value::Null);
+            Ok(value)
+        }),
+        "UUID" => (DataType::Uuid, |pg_value| {
+            let value = pg_value
+                .try_decode::<Option<uuid::Uuid>>()?
+                .map(Value::Uuid)
+                .unwrap_or(Value::Null);
+            Ok(value)
+        }),
+        name => unimplemented!("unsupported postgres data type: {}", name),
     }
 }
 
