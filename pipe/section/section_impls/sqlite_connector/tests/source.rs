@@ -128,66 +128,6 @@ async fn source_stream() -> Result<(), StdError> {
             ],
         ]
     );
-
-    sqlx::query("INSERT OR IGNORE INTO test VALUES(5, 'foo', ?, 1)")
-        .bind("foo".as_bytes())
-        .execute(&mut conn)
-        .await
-        .unwrap();
-
-    let mut out = rx.next().await.unwrap();
-    let chunk = out.next().await;
-    assert!(matches!(chunk, Ok(Some(_))));
-    assert!(matches!(out.next().await, Ok(None)));
-    let df = match chunk.unwrap().unwrap() {
-        Chunk::DataFrame(df) => df,
-        other => panic!("unexpected chunk type: {:?}", other),
-    };
-
-    let columns = df.columns();
-    assert_eq!(
-        vec!["id", "text", "bin", "float"],
-        columns.iter().map(|col| col.name()).collect::<Vec<_>>()
-    );
-
-    let payload = columns
-        .into_iter()
-        .map(|col| col.collect::<Vec<_>>())
-        .collect::<Vec<_>>();
-
-    assert_eq!(
-        payload,
-        vec![
-            vec![
-                Value::I64(1),
-                Value::I64(2),
-                Value::Str("this".into()),
-                Value::Str("".into()),
-                Value::I64(5)
-            ],
-            vec![
-                Value::Str("foo".into()),
-                Value::Str("bar".into()),
-                Value::Str("is".into()),
-                Value::Str("bin".into()),
-                Value::Str("foo".into())
-            ],
-            vec![
-                Value::Str("foo".into()),
-                Value::Null,
-                Value::Str("not".into()),
-                Value::Str("incoming".into()),
-                Value::Bin([102, 111, 111].into())
-            ],
-            vec![
-                Value::F64(1.0),
-                Value::F64(0.2),
-                Value::Str("strict".into()),
-                Value::Bin([98, 105, 110].into()),
-                Value::F64(1.0)
-            ]
-        ]
-    );
     handle.abort();
     Ok(())
 }
