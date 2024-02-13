@@ -4,6 +4,7 @@
 //!     - server dumbly returns all existing pipes
 //! - schedules and runs pipes
 mod constructors;
+mod daemon_storage;
 mod http_client;
 mod runtime;
 mod storage;
@@ -56,8 +57,9 @@ async fn run() -> Result<()> {
     let config = read_config(&cli.config)?;
 
     let storage_handle = storage::new(config.node.storage_path.clone()).await?;
-    let runtime_handle = runtime::new(storage_handle);
-    let client_handle = http_client::new(config, runtime_handle);
+    let runtime_handle = runtime::new(storage_handle.clone());
+    let daemon_storage = daemon_storage::new("./.mycelial_daemon".to_string()).await?; // no idea if this is a good spot to store this info...
+    let client_handle = http_client::new(config, runtime_handle, daemon_storage);
     client_handle.await??;
     Ok(())
 }

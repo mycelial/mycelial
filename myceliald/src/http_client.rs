@@ -4,10 +4,10 @@
 
 use std::{collections::HashSet, time::Duration};
 
+use crate::daemon_storage::Storage;
 use base64::engine::{general_purpose::STANDARD as BASE64, Engine};
 use common::{
-    ClientConfig, IssueTokenRequest, IssueTokenResponse, PipeConfig, PipeConfigs,
-    ProvisionClientRequest, ProvisionClientResponse,
+    ClientConfig, PipeConfig, PipeConfigs, ProvisionClientRequest, ProvisionClientResponse,
 };
 use pipe::{
     config::{Config, Value},
@@ -17,15 +17,13 @@ use section::SectionError;
 use tokio::task::JoinHandle;
 
 /// Http Client
-#[derive(Debug)]
 struct Client {
     config: ClientConfig,
 
-    /// Client token
-    client_token: String,
-
     /// SchedulerHandle
     scheduler_handle: SchedulerHandle,
+
+    storage_handle: Storage,
 }
 
 fn is_for_client(config: &Config, name: &str) -> bool {
@@ -35,53 +33,66 @@ fn is_for_client(config: &Config, name: &str) -> bool {
 }
 
 impl Client {
-    fn new(config: ClientConfig, scheduler_handle: SchedulerHandle) -> Self {
-        let client_token = config.server.token.clone();
-
+    fn new(
+        config: ClientConfig,
+        scheduler_handle: SchedulerHandle,
+        storage_handle: Storage,
+    ) -> Self {
         Self {
             config,
-            client_token,
             scheduler_handle,
+            storage_handle,
         }
     }
 
+    // Client should register only once. Subsequently, it should use the client_id and client_secret it gets back from the registration to authenticate itself.
+    async fn register_if_not_registered(&mut self) -> Result<(), SectionError> {
+        let state = self.storage_handle.retrieve_client_creds().await?;
+        match state {
+            Some((_client_id, _client_secret)) => {}
+            None => {
+                return self.register().await;
+            }
+        }
+        Ok(())
+    }
+
+    // Client should register only once. Subsequently, it should use the client_id and client_secret it gets back from the registration to authenticate itself.
     async fn register(&mut self) -> Result<(), SectionError> {
         let client = reqwest::Client::new();
         let url = format!("{}/api/client", self.config.server.endpoint.as_str());
-        let _x: ProvisionClientResponse = client
+        let resp = client
             .post(url)
             .header("Authorization", self.basic_auth())
             .json(&ProvisionClientRequest {
                 client_config: self.config.clone(),
             })
             .send()
-            .await?
-            .json()
             .await?;
+        if resp.status() != 200 {
+            return Err(format!(
+                "failed to register client - status code: {:?}",
+                resp.status()
+            )
+            .into());
+        }
+        let provision_client_resp: ProvisionClientResponse = resp.json().await?;
 
-        let url = format!("{}/api/tokens", self.config.server.endpoint.as_str());
-        let token: IssueTokenResponse = client
-            .post(url)
-            .header("Authorization", self.basic_auth())
-            .json(&IssueTokenRequest {
-                client_id: self.config.node.unique_id.clone(),
-            })
-            .send()
-            .await?
-            .json()
+        self.storage_handle
+            .store_client_creds(
+                provision_client_resp.client_id.clone(),
+                provision_client_resp.client_secret.clone(),
+            )
             .await?;
-
-        self.client_token = token.id;
         Ok(())
     }
 
-    async fn get_configs(&self) -> Result<Vec<PipeConfig>, SectionError> {
+    async fn get_configs(&mut self) -> Result<Vec<PipeConfig>, SectionError> {
         let client = reqwest::Client::new();
         let url = format!("{}/api/pipe", self.config.server.endpoint.as_str());
         let configs: PipeConfigs = client
             .get(url)
-            .header("Authorization", self.basic_auth())
-            .header("X-Authorization", self.client_auth())
+            .header("Authorization", self.daemon_auth().await?)
             .send()
             .await?
             .json()
@@ -89,15 +100,22 @@ impl Client {
         Ok(configs.configs)
     }
 
+    async fn daemon_auth(&mut self) -> Result<String, SectionError> {
+        let state = self.storage_handle.retrieve_client_creds().await?;
+        if let Some((client_id, client_secret)) = state {
+            return Ok(format!(
+                "Basic {}",
+                BASE64.encode(format!("{}:{}", client_id, client_secret))
+            ));
+        }
+        Err(SectionError::from("no state found"))
+    }
+
     fn basic_auth(&self) -> String {
         format!(
             "Basic {}",
-            BASE64.encode(format!("{}:", self.config.server.token))
+            BASE64.encode(format!("{}:", self.config.node.auth_token))
         )
-    }
-
-    fn client_auth(&self) -> String {
-        format!("Bearer {}", self.client_token)
     }
 
     // spawns client
@@ -106,7 +124,7 @@ impl Client {
     }
 
     async fn enter_loop(&mut self) -> Result<(), SectionError> {
-        while let Err(e) = self.register().await {
+        while let Err(e) = self.register_if_not_registered().await {
             log::error!("failed to register client: {:?}", e);
             tokio::time::sleep(Duration::from_secs(3)).await;
         }
@@ -151,6 +169,7 @@ impl Client {
 pub fn new(
     config: ClientConfig,
     scheduler_handle: SchedulerHandle,
+    storage_handle: Storage,
 ) -> JoinHandle<Result<(), SectionError>> {
-    Client::new(config, scheduler_handle).spawn()
+    Client::new(config, scheduler_handle, storage_handle).spawn()
 }

@@ -9,19 +9,45 @@ import { useFormik } from 'formik';
 import TextField from '@mui/material/TextField';
 import TableHead from '@mui/material/TableHead';
 import Paper from '@mui/material/Paper';
+import { loadWorkspaces, loadDaemonToken} from '../actions/loadWorkspaces';
+
+import { useAuth0 } from '@auth0/auth0-react';
 
 const Workspaces = () => {
-  const workspacesData = useLoaderData() as WorkspacesData;
   const { setWorkspaces, addWorkspace, workspaces } = useWorkspacesStore(selector);
+  const [token, setToken] = React.useState('');
+  const [daemonAccessToken, setDaemonAccessToken] = React.useState('');
+
+  const with_auth = import.meta.env.VITE_USE_AUTH0 === "true";
+
+  const { getAccessTokenSilently } = useAuth0();
 
   useEffect(() => {
-    setWorkspaces(workspacesData);
+    if (with_auth) {
+      getAccessTokenSilently().then((token) => {
+        setToken(token);
+        loadWorkspaces(token).then((workspacesData) => {
+          setWorkspaces(workspacesData);
+        });
+        loadDaemonToken(token).then((result) => {
+          setDaemonAccessToken(result);
+        })
+      });
+    } else {
+        setToken("");
+        loadWorkspaces("").then((workspacesData) => {
+          setWorkspaces(workspacesData);
+        });
+        loadDaemonToken("").then((result) => {
+          setDaemonAccessToken(result);
+        })
+    }
   }, []);
 
   const [addNewWorkspace, setAddNewWorkspace] = React.useState(false);
 
   const handleSubmit = async (name: any) => {
-    const response = await createWorkspace(name);
+    const response = await createWorkspace(name, token);
     if (response.id) {
       addWorkspace(response);
 
@@ -41,7 +67,7 @@ const Workspaces = () => {
 
   const onDelete = (id: string) => {
     if (confirm('Are you sure you want to delete this node?')) {
-      deleteWorkspace(id);
+      deleteWorkspace(id, token);
       const updatedWorkspaces = workspaces.filter((space) => space.id !== id);
       return setWorkspaces(updatedWorkspaces);
     }
@@ -149,6 +175,9 @@ const Workspaces = () => {
           </Button>
         </Box>
       )}
+      <Box>
+        To add daemons to your workspaces, use the following token: {daemonAccessToken}
+      </Box>
     </Container>
   );
 };

@@ -60,7 +60,7 @@ impl<R: RootChannel + Send + 'static> TryFrom<(&'_ Config, &'_ Registry<R::Secti
             .get_sections()
             .iter()
             .map(
-                |section_cfg| -> Result<Box<dyn DynSection<R::SectionChannel>>, SectionError> {
+                |section_cfg: &std::collections::HashMap<String, crate::config::Value>| -> Result<Box<dyn DynSection<R::SectionChannel>>, SectionError> {
                     let name: &str = section_cfg
                         .get("name")
                         .ok_or("section needs to have a name")?

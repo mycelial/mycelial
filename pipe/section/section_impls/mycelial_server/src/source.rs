@@ -13,7 +13,6 @@ use section::{
 };
 use tokio::time::{Instant, Interval};
 
-use base64::engine::{general_purpose::STANDARD as BASE64, Engine};
 use std::time::Duration;
 use std::{
     io::Cursor,
@@ -24,9 +23,6 @@ use std::{
 pub struct Mycelial {
     /// endpoint URL
     endpoint: String,
-
-    /// basic auth token
-    token: String,
 
     /// topic
     topic: String,
@@ -69,14 +65,9 @@ impl Stream for IntervalStream {
 }
 
 impl Mycelial {
-    pub fn new(
-        endpoint: impl Into<String>,
-        token: impl Into<String>,
-        topic: impl Into<String>,
-    ) -> Self {
+    pub fn new(endpoint: impl Into<String>, topic: impl Into<String>) -> Self {
         Self {
             endpoint: endpoint.into(),
-            token: token.into(),
             topic: topic.into(),
         }
     }
@@ -144,7 +135,6 @@ impl Mycelial {
                 self.topic,
                 offset
             ))
-            .header("Authorization", self.basic_auth())
             .send()
             .await?;
 
@@ -206,10 +196,6 @@ impl Mycelial {
             }
             _ => Err(format!("unsupported stream_type '{stream_type}'"))?,
         }
-    }
-
-    fn basic_auth(&self) -> String {
-        format!("Basic {}", BASE64.encode(format!("{}:", self.token)))
     }
 }
 

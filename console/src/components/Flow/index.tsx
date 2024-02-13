@@ -27,6 +27,9 @@ import 'reactflow/dist/style.css';
 import useFlowStore, { selector } from '../../stores/flowStore.tsx';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import { nodeTypes, edgeTypes } from '../../utils/constants.ts';
+import loadWorkspaceData from '../../actions/loadWorkspaceData.ts';
+
+import { useAuth0 } from "@auth0/auth0-react";
 
 const styles = {
   rfWrapper: {
@@ -69,9 +72,38 @@ const Flow: React.FC = () => {
     updatePipeHeadWithId,
     setShowActiveNode,
   } = useFlowStore(selector);
-  const { clients, data, workspace } = useLoaderData() as WorkspaceData;
+  const { workspaceId } = useLoaderData();
+  const [clients, setClients] = useState<Client[]>([]);
+  const [data, setData] = useState<any>({ nodes: [], edges: [] });
+  const [workspace, setWorkspace] = useState<any>({});
+
   const [published, setPublished] = useState(false);
+  const [token, setToken] = useState<string>("");
   const rfWrapper = useRef<HTMLDivElement>(null);
+
+  const { getIdTokenClaims, getAccessTokenSilently } = useAuth0();
+
+  const with_auth = import.meta.env.VITE_USE_AUTH0 === "true";
+
+  useEffect(() => {
+    if (with_auth) {
+      getAccessTokenSilently().then((token) => {
+        setToken(token);
+        loadWorkspaceData({params: {workspaceId}}, token).then((res) => {
+          setClients(res.clients);
+          setData(res.data);
+          setWorkspace(res.workspace);
+        });
+      });
+    } else {
+      setToken("");
+      loadWorkspaceData({params: {workspaceId}}, "").then((res) => {
+        setClients(res.clients);
+        setData(res.data);
+        setWorkspace(res.workspace);
+      });
+    }
+  }, []);
 
   const getLayoutedElements = (nodes: DataNodeType[], edges: Edge[]) => {
     const g = new dagre.graphlib.Graph();
@@ -86,7 +118,7 @@ const Flow: React.FC = () => {
     });
     g.setDefaultEdgeLabel(() => ({}));
 
-    if (!nodes.length || !edges.length) {
+    if (!nodes.length && !edges.length) {
       return { nodes, edges };
     }
 
@@ -169,7 +201,7 @@ const Flow: React.FC = () => {
         workspace_id: parseInt(workspace.id),
         id,
         pipe,
-      });
+      }, token);
       if (response === 200) {
         for (const edgeID of allPipes[i].edges) {
           updateEdgeAnimation(edgeID);
@@ -190,7 +222,7 @@ const Flow: React.FC = () => {
 
     for (const deleted of edgesToDelete) {
       try {
-        await deletePipe(deleted);
+        await deletePipe(deleted, token);
       } catch (error) {
         console.error('Error:', error);
       }
@@ -218,6 +250,10 @@ const Flow: React.FC = () => {
       });
       const nodeClient = clients.filter((client: Client) => client.id === clientId)[0];
       const origin = nodeClient.sections.filter((node) => node.display_name === display_name)[0];
+      // this feels super hacky, but mycelial server sections should have unique topics and this is the easiest place to do that
+      if (origin.type === 'mycelial_server') {
+        origin.topic = Math.random().toString(36).substring(2);
+      }
 
       const newNode = {
         id: getId(),
@@ -237,7 +273,7 @@ const Flow: React.FC = () => {
       setEditDrawerOpen(true);
       setShowActiveNode(true);
     },
-    [nodes, edges]
+    [nodes, edges, clients]
   );
 
   useEffect(() => {
@@ -249,7 +285,7 @@ const Flow: React.FC = () => {
     );
     setNodes([...initialNodes]);
     setEdges([...initialEdges]);
-  }, []);
+  }, [data]);
 
   const onRefresh = useCallback(() => {
     const { nodes: layoutedNodes, edges: layoutedEdges } = getLayoutedElements(nodes, edges);

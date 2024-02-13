@@ -4,7 +4,6 @@
 use arrow::ipc::writer::StreamWriter;
 use arrow_msg::df_to_recordbatch;
 use async_stream::stream;
-use base64::engine::{general_purpose::STANDARD as BASE64, Engine};
 use reqwest::Body;
 use section::{
     command_channel::{Command, SectionChannel},
@@ -22,7 +21,6 @@ use std::{
 #[derive(Debug)]
 pub struct Mycelial {
     endpoint: String,
-    token: String,
     topic: String,
 }
 
@@ -95,14 +93,9 @@ impl<T: Stream> Stream for S<T> {
 }
 
 impl Mycelial {
-    pub fn new(
-        endpoint: impl Into<String>,
-        token: impl Into<String>,
-        topic: impl Into<String>,
-    ) -> Self {
+    pub fn new(endpoint: impl Into<String>, topic: impl Into<String>) -> Self {
         Self {
             endpoint: endpoint.into(),
-            token: token.into(),
             topic: topic.into(),
         }
     }
@@ -160,7 +153,6 @@ impl Mycelial {
                             self.endpoint.as_str().trim_end_matches('/'),
                             self.topic
                         ))
-                        .header("Authorization", self.basic_auth())
                         .header("x-message-origin", origin)
                         .header("x-stream-type", stream_type)
                         .body(body)
@@ -170,10 +162,6 @@ impl Mycelial {
                 },
             }
         }
-    }
-
-    fn basic_auth(&self) -> String {
-        format!("Basic {}", BASE64.encode(format!("{}:", self.token)))
     }
 }
 

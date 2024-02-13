@@ -1,14 +1,22 @@
-import * as React from 'react';
-import Table from '@mui/material/Table';
-import TableBody from '@mui/material/TableBody';
-import TableCell from '@mui/material/TableCell';
-import TableContainer from '@mui/material/TableContainer';
-import TableHead from '@mui/material/TableHead';
-import TableRow from '@mui/material/TableRow';
-import Paper from '@mui/material/Paper';
-import Container from '@mui/material/Container';
-import { useLoaderData } from 'react-router-dom';
-import './index.css';
+import React, { MouseEventHandler, useEffect } from "react";
+import { useFormik } from "formik";
+import {
+  Box,
+  Button,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableRow,
+} from "@mui/material";
+import TableHead from "@mui/material/TableHead";
+import TextField from "@mui/material/TextField";
+import Paper from "@mui/material/Paper";
+import Container from "@mui/material/Container";
+import { useLoaderData } from "react-router-dom";
+import "./index.css";
+import { createDaemonToken } from "../../actions/clients";
+import { useAuth0 } from "@auth0/auth0-react";
 
 // MuiTableCell-root MuiTableCell-head MuiTableCell-sizeMedium css-ysjy7b-MuiTableCell-root
 // margin: 0 auto;
@@ -24,11 +32,14 @@ function createData(
 
 const styles = {
   table: { minWidth: 650 },
-  tableContainer: { backgroundColor: 'white' },
+  tableContainer: { backgroundColor: "white" },
 };
 
 export default function ClientsTable() {
   const { clients } = useLoaderData();
+  const [token, setToken] = React.useState("");
+  const with_auth = import.meta.env.VITE_USE_AUTH0 === "true";
+  const { getAccessTokenSilently } = useAuth0();
   const createRows = (clients) =>
     clients.map((client) =>
       createData(
@@ -39,6 +50,18 @@ export default function ClientsTable() {
       )
     );
   const rows = clients && clients.length ? createRows(clients) : [];
+
+  useEffect(() => {
+    if (with_auth) {
+      getAccessTokenSilently().then((token) => {
+        setToken(token);
+      });
+    }
+  }, []);
+
+  function createData(id: string, name: string, created_at: string) {
+    return { id, name, created_at };
+  }
 
   return (
     <>
@@ -54,7 +77,7 @@ export default function ClientsTable() {
                 <TableCell align="right">Path</TableCell>
                 <TableCell align="right">Workspace IDs</TableCell>
                 <TableCell align="right">Active?</TableCell>
-                <TableCell align="right" sx={{ maxWidth: '115px' }}>
+                <TableCell align="right" sx={{ maxWidth: "115px" }}>
                   Last Mycelial Activity
                 </TableCell>
               </TableRow>
@@ -63,7 +86,7 @@ export default function ClientsTable() {
               {rows.map((row) => (
                 <TableRow
                   key={row.display_name}
-                  sx={{ '&:last-child td, &:last-child th': { border: 0 } }}
+                  sx={{ "&:last-child td, &:last-child th": { border: 0 } }}
                 >
                   <TableCell
                     component="th"
@@ -76,7 +99,7 @@ export default function ClientsTable() {
                   <TableCell align="right">{row.journal_path}</TableCell>
                   <TableCell align="right">{row.path}</TableCell>
                   <TableCell align="right"></TableCell>
-                  <TableCell align="right" sx={{ color: 'green' }}>
+                  <TableCell align="right" sx={{ color: "green" }}>
                     ●
                   </TableCell>
                   <TableCell align="right"></TableCell>

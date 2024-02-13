@@ -6,14 +6,13 @@ use axum::{
     middleware::{self, Next},
     response::{IntoResponse, Response},
     routing::{get, post},
-    Json, Router, Server, TypedHeader,
+    Extension, Json, Router, Server, TypedHeader,
 };
 use base64::engine::{general_purpose::STANDARD as BASE64, Engine};
 use chrono::{DateTime, Utc};
 use clap::Parser;
 use common::{
-    Destination, IssueTokenRequest, IssueTokenResponse, PipeConfig, PipeConfigs,
-    ProvisionClientRequest, ProvisionClientResponse, Source,
+    Destination, PipeConfig, PipeConfigs, ProvisionClientRequest, ProvisionClientResponse, Source,
 };
 use futures::{Stream, StreamExt};
 use rust_embed::RustEmbed;
@@ -30,6 +29,144 @@ use tokio::sync::{Mutex, MutexGuard};
 use uuid::Uuid;
 
 mod error;
+
+use jsonwebtoken::{decode, DecodingKey, Validation};
+
+// This struct represents the claims you expect in your Auth0 token.
+#[derive(Debug, Deserialize, Serialize)]
+struct MyClaims {
+    // Define your claims here, for example:
+    sub: String, // Subject (User ID)
+                 // Add other fields as needed.
+}
+
+// Token validation logic
+fn validate_token(token: &str) -> Result<MyClaims, jsonwebtoken::errors::Error> {
+    // maybe use DecodingKey::from_jwk instead?
+    // these are publicly available, so hardcoding temporarily is ok,
+    // from https://dev-uywfm0nh3k5xxcjz.us.auth0.com/.well-known/jwks.json
+    let n = "ug9u8warbVfm7nxqrpmj7msiALDb5zvNnQVjgDhO2yfF3dA4L4o7JxQEWdwdgeyjGGfnrnYXU55tqi7wIO7_cgTZXUjvWoQ3Xs8_iz5sQ2r7UbO3_-f3uBHx6mX13Ti-hKwoK5iDQ4sMCT5GaeDJmcUYNX4QXpvU2n4bg6gu0nUKNHsyr1VuKf2xzyxi8x-m9-e8Qsyskzefo_GxNvmlMI0622s1g4JLV2WWjk1dYUZFwRLBXhN72k9b4YvzOrv-NHsDizFUeAgEIyTKLkgOVEx1NQC9W_UotPweEkH9352aF3mEF5xG2yGXvZ6PoFoLNZNnCMbUWgzGMBeW2FFIkQ";
+    let e = "AQAB";
+    let decoding_key = DecodingKey::from_rsa_components(n, e)?;
+    let mut validation = Validation::new(jsonwebtoken::Algorithm::RS256);
+    validation.set_audience(&["test"]);
+    decode::<MyClaims>(token, &decoding_key, &validation).map(|data| data.claims)
+}
+
+// middleware that checks for the token in the request and associates it with a client/daemon
+async fn daemon_auth<B>(
+    State(app): State<Arc<App>>,
+    mut req: Request<B>,
+    next: Next<B>,
+) -> Result<Response, impl IntoResponse> {
+    let auth_header = req
+        .headers()
+        .get(http::header::AUTHORIZATION)
+        .and_then(|header| header.to_str().ok());
+
+    let decoded = auth_header
+        .and_then(|header| header.strip_prefix("Basic "))
+        .and_then(|token| BASE64.decode(token).ok())
+        .and_then(|token| String::from_utf8(token).ok())
+        .and_then(|token| {
+            let parts: Vec<&str> = token.splitn(2, ':').collect();
+            match parts.as_slice() {
+                [client_id, client_secret] => {
+                    Some((client_id.to_string(), client_secret.to_string()))
+                }
+                _ => None,
+            }
+        });
+
+    if let Some((client_id, client_secret)) = decoded {
+        let user_id = app
+            .validate_client_id_and_secret(client_id.as_str(), client_secret.as_str())
+            .await;
+        let user_id = match user_id {
+            Ok(user_id) => user_id,
+            Err(_) => {
+                let response = (
+                    [(header::WWW_AUTHENTICATE, "Basic")],
+                    StatusCode::UNAUTHORIZED,
+                );
+                return Err(response);
+            }
+        };
+        let user_id = UserID(user_id);
+        req.extensions_mut().insert(user_id);
+        return Ok(next.run(req).await);
+    }
+    let response = (
+        [(header::WWW_AUTHENTICATE, "Basic")],
+        StatusCode::UNAUTHORIZED,
+    );
+    Err(response)
+}
+
+async fn validate_client_basic_auth<B>(
+    State(app): State<Arc<App>>,
+    mut req: Request<B>,
+    next: Next<B>,
+) -> Result<Response, impl IntoResponse> {
+    let auth_header = req
+        .headers()
+        .get(http::header::AUTHORIZATION)
+        .and_then(|header| header.to_str().ok());
+
+    let decoded = auth_header
+        .and_then(|header| header.strip_prefix("Basic "))
+        .and_then(|token| BASE64.decode(token).ok())
+        .and_then(|token| String::from_utf8(token).ok())
+        .and_then(|token| {
+            let parts: Vec<&str> = token.splitn(2, ':').collect();
+            match parts.as_slice() {
+                [auth_token, _] => Some(auth_token.to_string()),
+                _ => None,
+            }
+        });
+
+    if let Some(auth_token) = decoded {
+        let user_id = app.get_user_id_for_daemon_token(auth_token.as_str()).await;
+        let user_id = match user_id {
+            Ok(user_id) => user_id,
+            Err(_) => {
+                let response = (
+                    [(header::WWW_AUTHENTICATE, "Basic")],
+                    StatusCode::UNAUTHORIZED,
+                );
+                return Err(response);
+            }
+        };
+        let user_id = UserID(user_id);
+        req.extensions_mut().insert(user_id);
+        return Ok(next.run(req).await);
+    }
+    let response = (
+        [(header::WWW_AUTHENTICATE, "Basic")],
+        StatusCode::UNAUTHORIZED,
+    );
+    Err(response)
+}
+
+// validates token and adds the user_id to the request extensions
+async fn user_auth<B>(mut req: Request<B>, next: Next<B>) -> Result<Response, impl IntoResponse> {
+    let auth0_header = req
+        .headers()
+        .get("x-auth0-token")
+        .and_then(|header| header.to_str().ok());
+
+    if let Some(auth0_header) = auth0_header {
+        let validation_result = validate_token(auth0_header);
+        if validate_token(auth0_header).is_ok() {
+            let user_id = validation_result.unwrap().sub;
+            let user_id = UserID(user_id);
+            req.extensions_mut().insert(user_id);
+            return Ok(next.run(req).await);
+        }
+    }
+    let response = (StatusCode::UNAUTHORIZED, "invalid token");
+    Err(response)
+}
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Workspace {
@@ -169,64 +306,94 @@ struct Client {
     destinations: Vec<Destination>,
 }
 
-async fn get_pipe_configs(State(app): State<Arc<App>>) -> Result<impl IntoResponse, error::Error> {
-    app.get_configs().await.map(Json)
+async fn get_pipe_configs(
+    State(app): State<Arc<App>>,
+    Extension(user_id): Extension<UserID>,
+) -> Result<impl IntoResponse, error::Error> {
+    app.get_configs(user_id.0.as_str()).await.map(Json)
 }
 
 async fn get_pipe_config(
     State(app): State<Arc<App>>,
+    Extension(user_id): Extension<UserID>,
     axum::extract::Path(id): axum::extract::Path<u64>,
 ) -> Result<impl IntoResponse, error::Error> {
-    app.get_config(id).await.map(Json)
+    app.get_config(id, user_id.0.as_str()).await.map(Json)
 }
 
 // save a name and get an id assigned. it's a place to create pipes in
 async fn create_workspace(
     State(app): State<Arc<App>>,
+    Extension(user_id): Extension<UserID>,
     Json(workspace): Json<Workspace>,
 ) -> Result<impl IntoResponse, error::Error> {
-    app.create_workspace(workspace).await.map(Json)
+    app.create_workspace(workspace, user_id.0.as_str())
+        .await
+        .map(Json)
 }
 
 // gets a list of all the workspaces, ids, names, etc. not hydrated with pipe configs
-async fn get_workspaces(State(app): State<Arc<App>>) -> Result<impl IntoResponse, error::Error> {
-    app.get_workspaces().await.map(Json)
+async fn get_workspaces(
+    State(app): State<Arc<App>>,
+    Extension(user_id): Extension<UserID>,
+) -> Result<impl IntoResponse, error::Error> {
+    app.get_workspaces(user_id.0.as_str()).await.map(Json)
 }
 
 // by id, fetches a workspaces, hydrated with the pipe configs
 async fn get_workspace(
     State(app): State<Arc<App>>,
+    Extension(user_id): Extension<UserID>,
     axum::extract::Path(id): axum::extract::Path<u64>,
 ) -> Result<impl IntoResponse, error::Error> {
-    app.get_workspace(id).await.map(Json)
+    app.get_workspace(id, user_id.0.as_str()).await.map(Json)
 }
 
 // updates a workspace. updating what workspace a pipe is part of is done by updating the pipe config
 async fn update_workspace(
     State(app): State<Arc<App>>,
+    Extension(user_id): Extension<UserID>,
     axum::extract::Path(id): axum::extract::Path<u64>,
     Json(mut workspace): Json<Workspace>,
 ) -> Result<impl IntoResponse, error::Error> {
     let id: i64 = id.try_into().unwrap();
     workspace.id = id;
-    app.update_workspace(workspace).await.map(Json)
+    app.update_workspace(workspace, user_id.0.as_str())
+        .await
+        .map(Json)
+}
+
+async fn get_user_daemon_token(
+    State(app): State<Arc<App>>,
+    Extension(user_id): Extension<UserID>,
+) -> Result<impl IntoResponse, error::Error> {
+    app.get_user_daemon_token(user_id.0.as_str()).await
+}
+
+async fn rotate_user_daemon_token(
+    State(app): State<Arc<App>>,
+    Extension(user_id): Extension<UserID>,
+) -> Result<impl IntoResponse, error::Error> {
+    app.rotate_user_daemon_token(user_id.0.as_str()).await
 }
 
 // deletes a workspace by id
 async fn delete_workspace(
     State(app): State<Arc<App>>,
+    Extension(user_id): Extension<UserID>,
     axum::extract::Path(id): axum::extract::Path<u64>,
 ) -> Result<impl IntoResponse, error::Error> {
-    app.delete_workspace(id).await
+    app.delete_workspace(id, user_id.0.as_str()).await
 }
 
 async fn post_pipe_config(
     State(app): State<Arc<App>>,
+    Extension(user_id): Extension<UserID>,
     Json(configs): Json<PipeConfigs>,
 ) -> Result<impl IntoResponse, error::Error> {
     log::trace!("Configs in: {:?}", &configs);
     app.validate_configs(&configs)?;
-    let ids = app.set_configs(&configs).await?;
+    let ids = app.set_configs(&configs, user_id.0.as_str()).await?;
     Ok(Json(
         ids.iter()
             .zip(configs.configs)
@@ -242,68 +409,41 @@ async fn post_pipe_config(
 
 async fn put_pipe_configs(
     State(app): State<Arc<App>>,
+    Extension(user_id): Extension<UserID>,
     Json(configs): Json<PipeConfigs>,
 ) -> Result<impl IntoResponse, error::Error> {
     app.validate_configs(&configs)?;
-    app.update_configs(configs).await.map(Json)
+    app.update_configs(configs, user_id.0.as_str())
+        .await
+        .map(Json)
 }
 
 async fn put_pipe_config(
     State(app): State<Arc<App>>,
+    Extension(user_id): Extension<UserID>,
     axum::extract::Path(id): axum::extract::Path<u64>,
     Json(mut config): Json<PipeConfig>,
 ) -> Result<impl IntoResponse, error::Error> {
     config.id = id;
-    app.update_config(config).await.map(Json)
+    app.update_config(config, user_id.0.as_str())
+        .await
+        .map(Json)
 }
 
 async fn delete_pipe_config(
     State(app): State<Arc<App>>,
+    Extension(user_id): Extension<UserID>,
     axum::extract::Path(id): axum::extract::Path<u64>,
 ) -> Result<impl IntoResponse, error::Error> {
-    app.delete_config(id).await
+    app.delete_config(id, user_id.0.as_str()).await
 }
 
-async fn get_clients(State(app): State<Arc<App>>) -> Result<impl IntoResponse, error::Error> {
-    app.database.get_clients().await.map(Json)
-}
-
-async fn basic_auth<B>(
+async fn get_clients(
     State(app): State<Arc<App>>,
-    req: Request<B>,
-    next: Next<B>,
-) -> Result<Response, impl IntoResponse> {
-    let auth_header = req
-        .headers()
-        .get(http::header::AUTHORIZATION)
-        .and_then(|header| header.to_str().ok());
-
-    match auth_header {
-        Some(auth_header) if app.basic_auth(auth_header) => return Ok(next.run(req).await),
-        _ => (),
-    };
-    let response = (
-        [(header::WWW_AUTHENTICATE, "Basic")],
-        StatusCode::UNAUTHORIZED,
-    );
-    Err(response)
+    Extension(user_id): Extension<UserID>,
+) -> Result<impl IntoResponse, error::Error> {
+    app.database.get_clients(user_id.0.as_str()).await.map(Json)
 }
-
-// async fn client_auth<B>(
-//     State(_app): State<Arc<App>>,
-//     req: Request<B>,
-//     next: Next<B>,
-// ) -> Result<Response, StatusCode> {
-//     let auth_header = req
-//         .headers()
-//         .get("X-Authorization")
-//         .and_then(|header| header.to_str().ok());
-
-//     match auth_header {
-//         Some(_auth_header) => Ok(next.run(req).await),
-//         _ => Err(StatusCode::UNAUTHORIZED),
-//     }
-// }
 
 // log response middleware
 async fn log_middleware<B>(
@@ -341,46 +481,34 @@ async fn log_middleware<B>(
 
 async fn provision_client(
     State(state): State<Arc<App>>,
+    Extension(user_id): Extension<UserID>,
     Json(payload): Json<ProvisionClientRequest>,
 ) -> Result<impl IntoResponse, error::Error> {
     let client_id = payload.client_config.node.unique_id;
+    let unique_client_id = Uuid::new_v4().to_string();
+    let client_secret = Uuid::new_v4().to_string();
+    let client_secret_hash = bcrypt::hash(client_secret.clone(), 12).unwrap();
 
     state
         .database
         .insert_client(
+            // add the user_id here.
             &client_id,
+            user_id.0.as_str(),
             &payload.client_config.node.display_name,
             &payload.client_config.sources,
             &payload.client_config.destinations,
+            unique_client_id.as_str(),
+            client_secret_hash.as_str(),
         )
         .await
         .map(|_| {
             Json(ProvisionClientResponse {
                 id: client_id.clone(),
+                client_id: unique_client_id,
+                client_secret,
             })
         })
-}
-
-async fn issue_token(
-    State(state): State<Arc<App>>,
-    Json(payload): Json<IssueTokenRequest>,
-) -> Result<impl IntoResponse, error::Error> {
-    let client_id = payload.client_id.clone();
-
-    // todo: It'd be smarter/safer to store the salted & hashed token in the database
-    let token = Uuid::new_v4().to_string();
-
-    let result = state.database.insert_token(&client_id, &token).await;
-    match result {
-        Ok(_) => {
-            let response = IssueTokenResponse {
-                id: token,
-                client_id,
-            };
-            Ok(Json(response))
-        }
-        Err(e) => Err(e),
-    }
 }
 
 #[derive(Debug)]
@@ -404,36 +532,31 @@ impl Database {
         })
     }
 
+    #[allow(clippy::too_many_arguments)]
     async fn insert_client(
         &self,
         client_id: &str,
+        user_id: &str,
         display_name: &str,
         sources: &[Source],
         destinations: &[Destination],
+        unique_client_id: &str,
+        client_secret_hash: &str,
     ) -> Result<(), error::Error> {
         let sources = serde_json::to_string(sources)?;
         let destinations = serde_json::to_string(destinations)?;
 
         let mut connection = self.connection.lock().await;
-        let _ = sqlx::query("INSERT OR REPLACE INTO clients (id, display_name, sources, destinations) VALUES (?, ?, ?, ?)")
+        let _ = sqlx::query("INSERT OR REPLACE INTO clients (id, user_id, display_name, sources, destinations, unique_client_id, client_secret_hash) VALUES (?, ?, ?, ?, ?, ?, ?)")
             .bind(client_id)
+            .bind(user_id)
             .bind(display_name)
             .bind(sources)
             .bind(destinations)
+            .bind(unique_client_id)
+            .bind(client_secret_hash)
             .execute(&mut *connection)
             .await?;
-        Ok(())
-    }
-
-    async fn insert_token(&self, client_id: &str, token: &str) -> Result<(), error::Error> {
-        let mut connection = self.connection.lock().await;
-        let _ = sqlx::query(
-            "INSERT INTO tokens (client_id, id) VALUES (?,?) ON CONFLICT (id) DO NOTHING",
-        )
-        .bind(client_id)
-        .bind(token)
-        .execute(&mut *connection)
-        .await?;
         Ok(())
     }
 
@@ -441,36 +564,48 @@ impl Database {
         &self,
         config: &serde_json::Value,
         workspace_id: i64,
+        user_id: &str,
     ) -> Result<u64, error::Error> {
         let mut connection = self.connection.lock().await;
-        // FIXME: unwrap
         let config: String = serde_json::to_string(config)?;
-        let id = sqlx::query("INSERT INTO pipes (raw_config, workspace_id) VALUES (?, ?)")
-            .bind(config)
-            .bind(workspace_id)
-            .execute(&mut *connection)
-            .await?
-            .last_insert_rowid();
+        let id =
+            sqlx::query("INSERT INTO pipes (raw_config, workspace_id, user_id) VALUES (?, ?, ?)")
+                .bind(config)
+                .bind(workspace_id)
+                .bind(user_id)
+                .execute(&mut *connection)
+                .await?
+                .last_insert_rowid();
+        // FIXME: unwrap
         Ok(id.try_into().unwrap())
     }
 
-    async fn update_config(&self, id: u64, config: &serde_json::Value) -> Result<(), error::Error> {
+    async fn update_config(
+        &self,
+        id: u64,
+        config: &serde_json::Value,
+        user_id: &str,
+    ) -> Result<(), error::Error> {
         let mut connection = self.connection.lock().await;
         let config: String = serde_json::to_string(config)?;
+        // FIXME: unwrap
         let id: i64 = id.try_into().unwrap();
-        let _ = sqlx::query("update pipes set raw_config = ? WHERE id = ?")
+        let _ = sqlx::query("update pipes set raw_config = ? WHERE id = ? and user_id = ?")
             .bind(config)
             .bind(id)
+            .bind(user_id)
             .execute(&mut *connection)
             .await?;
         Ok(())
     }
 
-    async fn delete_config(&self, id: u64) -> Result<(), error::Error> {
+    async fn delete_config(&self, id: u64, user_id: &str) -> Result<(), error::Error> {
         let mut connection = self.connection.lock().await;
+        // FIXME: unwrap
         let id: i64 = id.try_into().unwrap();
-        let _ = sqlx::query("DELETE FROM pipes WHERE id = ?")
+        let _ = sqlx::query("DELETE FROM pipes WHERE id = ? and user_id = ?")
             .bind(id) // fixme
+            .bind(user_id)
             .execute(&mut *connection)
             .await?;
         Ok(())
@@ -519,6 +654,7 @@ impl Database {
         offset: u64,
     ) -> Result<Option<MessageStream>, error::Error> {
         let mut connection = Arc::clone(&self.connection).lock_owned().await;
+        // FIXME: unwrap
         let offset: i64 = offset.try_into().unwrap();
         let message_info = sqlx::query(
             "SELECT id, origin, stream_type FROM messages WHERE id > ? and topic = ? LIMIT 1",
@@ -562,12 +698,17 @@ impl Database {
         }))
     }
 
-    async fn get_clients(&self) -> Result<Clients, error::Error> {
+    async fn get_clients(&self, user_id: &str) -> Result<Clients, error::Error> {
         let mut connection = self.connection.lock().await;
         // todo: should we return ui as client?
-        let rows = sqlx::query("SELECT id, display_name, sources, destinations FROM clients")
-            .fetch_all(&mut *connection)
-            .await?;
+        let mut query = sqlx::query("SELECT id, display_name, sources, destinations FROM clients");
+        if cfg!(feature = "require_auth") {
+            query = sqlx::query(
+                "SELECT id, display_name, sources, destinations FROM clients where user_id = ?",
+            )
+            .bind(user_id);
+        }
+        let rows = query.fetch_all(&mut *connection).await?;
 
         let mut clients: Vec<Client> = Vec::new();
         for row in rows.iter() {
@@ -587,84 +728,100 @@ impl Database {
         Ok(Clients { clients })
     }
 
-    async fn get_workspaces(&self) -> Result<Vec<Workspace>, error::Error> {
+    async fn get_workspaces(&self, user_id: &str) -> Result<Vec<Workspace>, error::Error> {
         let mut connection = self.connection.lock().await;
         let records: Vec<Workspace> =
-            sqlx::query_as(r"SELECT id, name, created_at FROM workspaces")
+            sqlx::query_as(r"SELECT id, name, created_at FROM workspaces where user_id = ?")
+                .bind(user_id)
                 .fetch_all(&mut *connection)
-                .await
-                .unwrap();
+                .await?;
 
         Ok(records)
     }
 
-    async fn create_workspace(&self, mut workspace: Workspace) -> Result<Workspace, error::Error> {
+    async fn create_workspace(
+        &self,
+        mut workspace: Workspace,
+        user_id: &str,
+    ) -> Result<Workspace, error::Error> {
         let mut connection = self.connection.lock().await;
-        workspace.id = sqlx::query("INSERT INTO workspaces (name) VALUES (?)")
+        workspace.id = sqlx::query("INSERT INTO workspaces (name, user_id) VALUES (?, ?)")
             .bind(workspace.name.clone())
+            .bind(user_id)
             .execute(&mut *connection)
             .await?
             .last_insert_rowid();
         Ok(workspace)
     }
 
-    async fn get_workspace(&self, id: u64) -> Result<Workspace, error::Error> {
+    async fn get_workspace(&self, id: u64, user_id: &str) -> Result<Workspace, error::Error> {
         let mut connection = self.connection.lock().await;
         let id: i64 = id.try_into().unwrap();
-        let mut record: Workspace =
-            sqlx::query_as(r"SELECT id, name, created_at FROM workspaces WHERE id = ?")
-                .bind(id)
-                .fetch_one(&mut *connection)
-                .await
-                .unwrap();
+        let mut record: Workspace = sqlx::query_as(
+            r"SELECT id, name, created_at FROM workspaces WHERE id = ? and user_id = ?",
+        )
+        .bind(id)
+        .bind(user_id)
+        .fetch_one(&mut *connection)
+        .await?;
 
-        let pipes: Vec<PipeConfig> =
-            sqlx::query_as("SELECT id, raw_config, workspace_id from pipes where workspace_id = ?")
-                .bind(id)
-                .fetch_all(&mut *connection)
-                .await?;
+        let pipes: Vec<PipeConfig> = sqlx::query_as(
+            "SELECT id, raw_config, workspace_id from pipes where workspace_id = ? and user_id = ?",
+        )
+        .bind(id)
+        .bind(user_id)
+        .fetch_all(&mut *connection)
+        .await?;
 
         record.pipe_configs = pipes;
 
         Ok(record)
     }
 
-    async fn update_workspace(&self, workspace: Workspace) -> Result<Workspace, error::Error> {
+    async fn update_workspace(
+        &self,
+        workspace: Workspace,
+        user_id: &str,
+    ) -> Result<Workspace, error::Error> {
         let mut connection = self.connection.lock().await;
-        let _ = sqlx::query("UPDATE workspaces SET name = ? where id = ?")
+        let _ = sqlx::query("UPDATE workspaces SET name = ? where id = ? and user_id = ?")
             .bind(workspace.name.clone())
             .bind(workspace.id)
+            .bind(user_id)
             .execute(&mut *connection)
-            .await
-            .unwrap();
+            .await?;
         Ok(workspace)
     }
 
-    async fn delete_workspace(&self, id: u64) -> Result<(), error::Error> {
+    async fn delete_workspace(&self, id: u64, user_id: &str) -> Result<(), error::Error> {
         let mut connection = self.connection.lock().await;
         let id: i64 = id.try_into().unwrap();
-        let _ = sqlx::query("DELETE FROM workspaces WHERE id = ?")
+        let _ = sqlx::query("DELETE FROM workspaces WHERE id = ? and user_id = ?")
             .bind(id) // fixme
+            .bind(user_id)
             .execute(&mut *connection)
             .await?;
         Ok(())
     }
 
-    async fn get_config(&self, id: u64) -> Result<PipeConfig, error::Error> {
+    async fn get_config(&self, id: u64, user_id: &str) -> Result<PipeConfig, error::Error> {
         let mut connection = self.connection.lock().await;
         let id: i64 = id.try_into().unwrap();
-        let pipe: PipeConfig =
-            sqlx::query_as("SELECT id, workspace_id, raw_config from pipes WHERE id = ?")
-                .bind(id)
-                .fetch_one(&mut *connection)
-                .await?;
+        let pipe: PipeConfig = sqlx::query_as(
+            "SELECT id, workspace_id, raw_config from pipes WHERE id = ? and user_id = ?",
+        )
+        .bind(id)
+        .bind(user_id)
+        .fetch_one(&mut *connection)
+        .await?;
         Ok(pipe)
     }
 
-    async fn get_configs(&self) -> Result<PipeConfigs, error::Error> {
+    async fn get_configs(&self, user_id: &str) -> Result<PipeConfigs, error::Error> {
         let mut connection = self.connection.lock().await;
         let rows: Vec<PipeConfig> =
-            sqlx::query_as("SELECT id, raw_config, workspace_id from pipes")
+            sqlx::query_as("SELECT id, raw_config, workspace_id from pipes where user_id = ?")
+                .bind(user_id)
                 .fetch_all(&mut *connection)
                 .await?;
 
@@ -676,7 +833,6 @@ impl Database {
 #[derive(Debug)]
 pub struct App {
     database: Database,
-    token: String,
 }
 
 #[derive(RustEmbed)]
@@ -684,8 +840,8 @@ pub struct App {
 pub struct Assets;
 
 impl App {
-    async fn delete_config(&self, id: u64) -> Result<(), error::Error> {
-        self.database.delete_config(id).await?;
+    async fn delete_config(&self, id: u64, user_id: &str) -> Result<(), error::Error> {
+        self.database.delete_config(id, user_id).await?;
         Ok(())
     }
 
@@ -709,78 +865,163 @@ impl App {
     }
 
     /// Set pipe configs
-    async fn set_configs(&self, new_configs: &PipeConfigs) -> Result<Vec<u64>, error::Error> {
+    async fn set_configs(
+        &self,
+        new_configs: &PipeConfigs,
+        user_id: &str,
+    ) -> Result<Vec<u64>, error::Error> {
         let mut inserted_ids = Vec::new();
         for config in new_configs.configs.iter() {
             let id = self
                 .database
-                .insert_config(&config.pipe, config.workspace_id.try_into().unwrap())
+                .insert_config(
+                    &config.pipe,
+                    config.workspace_id.try_into().unwrap(),
+                    user_id,
+                )
                 .await?;
             inserted_ids.push(id);
         }
         Ok(inserted_ids)
     }
 
-    async fn update_configs(&self, configs: PipeConfigs) -> Result<(), error::Error> {
+    async fn update_configs(
+        &self,
+        configs: PipeConfigs,
+        user_id: &str,
+    ) -> Result<(), error::Error> {
         for config in configs.configs {
-            self.database.update_config(config.id, &config.pipe).await?
+            self.database
+                .update_config(config.id, &config.pipe, user_id)
+                .await?
         }
         Ok(())
     }
 
-    async fn update_config(&self, config: PipeConfig) -> Result<PipeConfig, error::Error> {
-        self.database.update_config(config.id, &config.pipe).await?;
+    async fn update_config(
+        &self,
+        config: PipeConfig,
+        user_id: &str,
+    ) -> Result<PipeConfig, error::Error> {
+        self.database
+            .update_config(config.id, &config.pipe, user_id)
+            .await?;
         Ok(config)
     }
 
-    async fn get_config(&self, id: u64) -> Result<PipeConfig, error::Error> {
-        self.database.get_config(id).await
+    async fn get_config(&self, id: u64, user_id: &str) -> Result<PipeConfig, error::Error> {
+        self.database.get_config(id, user_id).await
     }
 
-    async fn get_workspaces(&self) -> Result<Vec<Workspace>, error::Error> {
-        self.database.get_workspaces().await
+    async fn get_workspaces(&self, user_id: &str) -> Result<Vec<Workspace>, error::Error> {
+        self.database.get_workspaces(user_id).await
     }
 
-    async fn create_workspace(&self, workspace: Workspace) -> Result<Workspace, error::Error> {
-        self.database.create_workspace(workspace).await
+    async fn create_workspace(
+        &self,
+        workspace: Workspace,
+        user_id: &str,
+    ) -> Result<Workspace, error::Error> {
+        self.database.create_workspace(workspace, user_id).await
     }
 
-    async fn get_workspace(&self, id: u64) -> Result<Workspace, error::Error> {
-        self.database.get_workspace(id).await
+    async fn get_workspace(&self, id: u64, user_id: &str) -> Result<Workspace, error::Error> {
+        self.database.get_workspace(id, user_id).await
     }
 
-    async fn update_workspace(&self, workspace: Workspace) -> Result<Workspace, error::Error> {
-        self.database.update_workspace(workspace).await
+    async fn update_workspace(
+        &self,
+        workspace: Workspace,
+        user_id: &str,
+    ) -> Result<Workspace, error::Error> {
+        self.database.update_workspace(workspace, user_id).await
     }
 
-    async fn delete_workspace(&self, id: u64) -> Result<(), error::Error> {
-        self.database.delete_workspace(id).await
+    async fn delete_workspace(&self, id: u64, user_id: &str) -> Result<(), error::Error> {
+        self.database.delete_workspace(id, user_id).await
     }
 
-    async fn get_configs(&self) -> Result<PipeConfigs, error::Error> {
-        self.database.get_configs().await
+    async fn get_configs(&self, user_id: &str) -> Result<PipeConfigs, error::Error> {
+        self.database.get_configs(user_id).await
+    }
+
+    async fn get_user_id_for_daemon_token(&self, token: &str) -> Result<String, error::Error> {
+        let mut connection = self.database.get_connection().await;
+        let user_id: String =
+            sqlx::query("SELECT user_id FROM user_daemon_tokens WHERE daemon_token = ?")
+                .bind(token)
+                .fetch_one(&mut *connection)
+                .await
+                .map(|row| row.get(0))?;
+        Ok(user_id)
+    }
+
+    async fn get_user_daemon_token(
+        &self,
+        user_id: &str,
+    ) -> Result<impl IntoResponse, error::Error> {
+        let mut connection = self.database.get_connection().await;
+        let daemon_token =
+            sqlx::query("SELECT daemon_token FROM user_daemon_tokens WHERE user_id = ?")
+                .bind(user_id)
+                .fetch_one(&mut *connection)
+                .await?
+                .get::<String, _>(0);
+        Ok(daemon_token)
+    }
+
+    async fn rotate_user_daemon_token(
+        &self,
+        user_id: &str,
+    ) -> Result<impl IntoResponse, error::Error> {
+        // create a new token
+        let token = Uuid::new_v4().to_string();
+        let mut connection = self.database.get_connection().await;
+        // todo: Should this schema have "deleted_at" and then we only insert rows?
+        sqlx::query(
+            "INSERT OR REPLACE INTO user_daemon_tokens (user_id, daemon_token) VALUES (?, ?)",
+        )
+        .bind(user_id)
+        .bind(token.clone())
+        .execute(&mut *connection)
+        .await?;
+        Ok(token)
+    }
+
+    // should probably move this to db fn
+    async fn validate_client_id_and_secret(
+        &self,
+        client_id: &str,
+        secret: &str,
+    ) -> Result<String, error::Error> {
+        let mut connection = self.database.get_connection().await;
+        let (user_id, client_secret_hash): (String, String) = sqlx::query(
+            "SELECT user_id, client_secret_hash FROM clients WHERE unique_client_id = ?",
+        )
+        .bind(client_id)
+        .fetch_one(&mut *connection)
+        .await
+        .map(|row| (row.get(0), row.get(1)))?;
+        bcrypt::verify(secret, client_secret_hash.as_str())
+            .map_err(|_| error::Error::Str("bcrypt error"))
+            .and_then(|v| {
+                if v {
+                    Ok(user_id)
+                } else {
+                    Err(error::Error::Str("invalid client secret"))
+                }
+            })
     }
 }
 
 impl App {
-    pub async fn new(db_path: impl AsRef<str>, token: impl Into<String>) -> anyhow::Result<Self> {
+    pub async fn new(db_path: impl AsRef<str>) -> anyhow::Result<Self> {
         let db_path: &str = db_path.as_ref();
         if let Some(parent) = Path::new(db_path).parent() {
             tokio::fs::create_dir_all(parent).await?;
         };
         let database = Database::new(db_path).await?;
-        Ok(Self {
-            database,
-            token: token.into(),
-        })
-    }
-
-    fn basic_auth(&self, token: &str) -> bool {
-        token == self.basic_auth_token()
-    }
-
-    fn basic_auth_token(&self) -> String {
-        format!("Basic {}", BASE64.encode(format!("{}:", self.token)))
+        Ok(Self { database })
     }
 }
 
@@ -804,46 +1045,68 @@ async fn assets(uri: Uri) -> Result<impl IntoResponse, StatusCode> {
     }
 }
 
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct UserID(String);
+
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     pretty_env_logger::init();
 
     let cli = Cli::try_parse()?;
-    let app = App::new(cli.database_path, cli.token).await?;
+    let app = App::new(cli.database_path).await?;
     let state = Arc::new(app);
+
+    let mut protected_api = Router::new()
+        .route("/api/pipe", post(post_pipe_config).put(put_pipe_configs))
+        .route(
+            "/api/pipe/:id",
+            get(get_pipe_config)
+                .delete(delete_pipe_config)
+                .put(put_pipe_config),
+        )
+        .route(
+            "/api/workspaces/:id",
+            get(get_workspace)
+                .put(update_workspace)
+                .delete(delete_workspace),
+        )
+        .route(
+            "/api/workspaces",
+            get(get_workspaces).post(create_workspace),
+        )
+        .route(
+            "/api/daemon_token",
+            post(rotate_user_daemon_token).get(get_user_daemon_token),
+        )
+        .route("/api/clients", get(get_clients));
+    // check to see if auth feature is turned on.
+    if cfg!(feature = "require_auth") {
+        protected_api = protected_api.layer(middleware::from_fn(user_auth));
+    }
+
+    let daemon_basic_api = Router::new()
+        .route("/api/client", post(provision_client))
+        .layer(middleware::from_fn_with_state(
+            state.clone(),
+            validate_client_basic_auth,
+        ));
+
+    // daemon uses its client_id and client_secret to auth, regardless of whether user auth is turned on
+    let daemon_protected_api = Router::new()
+        .route("/api/pipe", get(get_pipe_configs))
+        .layer(middleware::from_fn_with_state(state.clone(), daemon_auth));
+
+    // ingestion api is "security by obscurity" for now, and relies on the topic being secret
+    let ingestion_api = Router::new()
+        .route("/ingestion/:topic", post(ingestion))
+        .route("/ingestion/:topic/:offset", get(get_message));
 
     // FIXME: consistent endpoint namings
     let api = Router::new()
-        .route("/api/client", post(provision_client)) // no client auth needed
-        .route("/api/tokens", post(issue_token)) // no client auth needed
-        .route("/ingestion/:topic", post(ingestion))
-        .route("/ingestion/:topic/:offset", get(get_message))
-        .merge(
-            Router::new()
-                .route(
-                    "/api/pipe",
-                    get(get_pipe_configs)
-                        .post(post_pipe_config)
-                        .put(put_pipe_configs),
-                )
-                .route(
-                    "/api/pipe/:id",
-                    get(get_pipe_config)
-                        .delete(delete_pipe_config)
-                        .put(put_pipe_config),
-                )
-                .route(
-                    "/api/workspaces/:id",
-                    get(get_workspace)
-                        .put(update_workspace)
-                        .delete(delete_workspace),
-                )
-                .route(
-                    "/api/workspaces",
-                    get(get_workspaces).post(create_workspace),
-                )
-                .route("/api/clients", get(get_clients)),
-        )
+        .merge(protected_api)
+        .merge(daemon_basic_api)
+        .merge(daemon_protected_api)
+        .merge(ingestion_api)
         .with_state(state.clone());
 
     let assets = Router::new().fallback(assets);
@@ -851,7 +1114,6 @@ async fn main() -> anyhow::Result<()> {
     let router = Router::new()
         .merge(api)
         .merge(assets)
-        .layer(middleware::from_fn_with_state(state.clone(), basic_auth))
         .layer(middleware::from_fn(log_middleware));
 
     let addr: SocketAddr = cli.listen_addr.as_str().parse()?;
