@@ -59,6 +59,7 @@ export const nodePresets = {
 export const fieldNames: { [key: string]: string } = {
   interval_milis: 'number',
   strict: 'boolean',
+  truncate: 'boolean',
   message: 'text',
   url: 'text',
   topic: 'text',
