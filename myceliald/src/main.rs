@@ -58,7 +58,7 @@ async fn run() -> Result<()> {
 
     let storage_handle = storage::new(config.node.storage_path.clone()).await?;
     let runtime_handle = runtime::new(storage_handle.clone());
-    let daemon_storage = daemon_storage::new("./.mycelial_daemon".to_string()).await?; // no idea if this is a good spot to store this info...
+    let daemon_storage = daemon_storage::new(config.node.storage_path.clone()).await?;
     let client_handle = http_client::new(config, runtime_handle, daemon_storage);
     client_handle.await??;
     Ok(())
