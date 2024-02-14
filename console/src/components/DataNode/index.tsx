@@ -115,7 +115,6 @@ const DataNode: FC<DataNodeProps> = memo(function DataNode(props) {
             {data.destination && <DataChip flowType="destination" />}
             <CloseButton
               onClick={(e) => {
-                console.log(e);
                 e.stopPropagation();
                 onRemove();
               }}
