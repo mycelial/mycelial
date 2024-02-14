@@ -208,8 +208,8 @@ pub struct MysqlConnectorSourceConfig {
     #[serde(flatten)]
     pub common_attrs: CommonAttrs,
     pub url: String,
-    pub schema: String,
-    pub tables: String,
+    pub origin: String,
+    pub query: String,
     pub poll_interval: i64,
 }
 
@@ -225,6 +225,7 @@ pub struct MysqlConnectorDestinationConfig {
     #[serde(flatten)]
     pub common_attrs: CommonAttrs,
     pub url: String,
+    pub truncate: bool,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]

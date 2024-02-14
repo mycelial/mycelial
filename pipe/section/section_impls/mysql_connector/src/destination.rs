@@ -16,11 +16,15 @@ use std::str::FromStr;
 #[derive(Debug)]
 pub struct Mysql {
     url: String,
+    truncate: bool,
 }
 
 impl Mysql {
-    pub fn new(url: impl Into<String>) -> Self {
-        Self { url: url.into() }
+    pub fn new(url: impl Into<String>, truncate: bool) -> Self {
+        Self {
+            url: url.into(),
+            truncate,
+        }
     }
 
     async fn enter_loop<Input, Output, SectionChan>(
@@ -41,6 +45,11 @@ impl Mysql {
             .connect()
             .await?;
 
+        // set connection session timezone to UTC so mysql will treat incoming timestamps as UTC
+        sqlx::query("SET time_zone = \"+00:00\"")
+            .execute(&mut *connection)
+            .await?;
+
         loop {
             futures::select! {
                 cmd = section_chan.recv().fuse() => {
@@ -53,19 +62,27 @@ impl Mysql {
                     };
                     let name = escape_table_name(message.origin());
                     let mut transaction = connection.begin().await?;
-
+                    let mut initialized = false;
+                    let mut insert_query = String::new();
                     while let Some(chunk) = message.next().await? {
                         let df = match chunk{
                             Chunk::DataFrame(df) => df,
                             _ => Err("expected dataframe chunk".to_string())?
                         };
-                        let schema = generate_schema(name.as_str(), df.as_ref())?;
                         let mut columns = df.columns();
-                        sqlx::query(&schema).execute(&mut *transaction).await?;
-                        let values_placeholder = columns.iter().map(|_| "?").collect::<Vec<_>>().join(",");
-                        let insert = format!("INSERT INTO `{name}` VALUES({values_placeholder})");
+                        if !initialized {
+                            initialized = true;
+                            let schema = generate_schema(name.as_str(), df.as_ref())?;
+                            sqlx::query(&schema).execute(&mut *transaction).await?;
+                            if self.truncate {
+                                sqlx::query(&format!("TRUNCATE `{name}`"))
+                                    .execute(&mut *transaction).await?;
+                            }
+                            let values_placeholder = columns.iter().map(|_| "?").collect::<Vec<_>>().join(",");
+                            insert_query = format!("INSERT INTO `{name}` VALUES({values_placeholder})");
+                        }
                         'outer: loop {
-                            let mut query = sqlx::query(&insert);
+                            let mut query = sqlx::query(&insert_query);
                             for col in columns.iter_mut() {
                                 let next = col.next();
                                 if next.is_none() {
