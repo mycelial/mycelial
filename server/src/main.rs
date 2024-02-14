@@ -1110,6 +1110,10 @@ async fn main() -> anyhow::Result<()> {
     // check to see if auth feature is turned on.
     if cfg!(feature = "require_auth") {
         protected_api = protected_api.layer(middleware::from_fn(user_auth));
+    } else {
+        // add a dummy user_id to the request extensions, so the Extension<UserID> extractor doesn't fail
+        let u = UserID("".to_string());
+        protected_api = protected_api.layer(Extension(u))
     }
 
     let daemon_basic_api = Router::new()
