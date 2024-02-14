@@ -113,7 +113,12 @@ const DataNode: FC<DataNodeProps> = memo(function DataNode(props) {
           <Box>
             {data.source && <DataChip flowType="source" />}
             {data.destination && <DataChip flowType="destination" />}
-            <CloseButton onClick={onRemove} />
+            <CloseButton
+              onClick={(e) => {
+                e.stopPropagation();
+                onRemove();
+              }}
+            />
           </Box>
           <br />
           <Box sx={{ display: 'flex', flexDirection: 'column', width: '100%' }} my={1}>
