@@ -9,12 +9,14 @@ use axum::{
     Extension, Json, Router, Server, TypedHeader,
 };
 use base64::engine::{general_purpose::STANDARD as BASE64, Engine};
+use chrono::NaiveDateTime;
 use chrono::{DateTime, Utc};
 use clap::Parser;
 use common::{
     Destination, PipeConfig, PipeConfigs, ProvisionClientRequest, ProvisionClientResponse, Source,
 };
 use futures::{Stream, StreamExt};
+use jsonwebtoken::{decode, jwk, DecodingKey, Validation};
 use rust_embed::RustEmbed;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -29,8 +31,6 @@ use tokio::sync::{Mutex, MutexGuard};
 use uuid::Uuid;
 
 mod error;
-
-use jsonwebtoken::{decode, jwk, DecodingKey, Validation};
 
 // This struct represents the claims you expect in your Auth0 token.
 #[derive(Debug, Deserialize, Serialize)]
@@ -186,11 +186,11 @@ pub struct Workspace {
 
 impl FromRow<'_, SqliteRow> for Workspace {
     fn from_row(row: &SqliteRow) -> sqlx::Result<Self> {
+        let created_at: NaiveDateTime = row.get("created_at");
         Ok(Self {
             id: row.get("id"),
             name: row.get("name"),
-            created_at: Utc::now(), // TODO: get from db
-            // created_at: row.get("created_at"),
+            created_at: chrono::TimeZone::from_utc_datetime(&Utc, &created_at),
             pipe_configs: Vec::new(),
         })
     }
@@ -762,6 +762,7 @@ impl Database {
             .execute(&mut *connection)
             .await?
             .last_insert_rowid();
+        workspace.created_at = Utc::now();
         Ok(workspace)
     }
 
