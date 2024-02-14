@@ -63,7 +63,7 @@ async fn run() -> Result<()> {
 
 #[tokio::main]
 async fn main() {
-    tracing_subscriber::fmt::init();
+    env_logger::init();
     if let Err(e) = run().await {
         eprintln!("{}", e);
     }

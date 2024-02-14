@@ -33,5 +33,5 @@ tagging_transformer = { path = "../pipe/section/section_impls/tagging_transforme
 typecast_transformer = { path = "../pipe/section/section_impls/typecast_transformer" }
 mysql_connector = { path = "../pipe/section/section_impls/mysql_connector/" }
 file = { path = "../pipe/section/section_impls/file/" }
-tracing-subscriber = "0.3.18"
+env_logger = "0.11.2"
 #sqlite_physical_replication = { path = "../pipe/section/section_impls/sqlite_physical_replication/" }
