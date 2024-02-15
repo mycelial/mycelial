@@ -74,8 +74,8 @@ delay = 5
 type = "postgres_connector"
 display_name = "postgres source"
 url = "postgres://user:password@localhost:5432/test"
-schema = "public"
-tables = "*"
+origin = "*"
+query = "select * from test"
 poll_interval = 5
 
 [[sources]]
@@ -127,6 +127,8 @@ schema = "schema"
 type = "postgres_connector"
 display_name = "postgres destination"
 url = "postgres://user:password@127.0.0.1:5432/test"
+schema = "replica"
+truncate = false
 
 [[sources]]
 type = "mysql_connector"

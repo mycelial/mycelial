@@ -14,11 +14,17 @@ use std::str::FromStr;
 #[derive(Debug)]
 pub struct Postgres {
     url: String,
+    schema: String,
+    truncate: bool,
 }
 
 impl Postgres {
-    pub fn new(url: impl Into<String>) -> Self {
-        Self { url: url.into() }
+    pub fn new(url: impl Into<String>, schema: impl Into<String>, truncate: bool) -> Self {
+        Self {
+            url: url.into(),
+            schema: schema.into(),
+            truncate,
+        }
     }
 
     async fn enter_loop<Input, Output, SectionChan>(
@@ -52,27 +58,39 @@ impl Postgres {
                     };
                     let name = escape_table_name(message.origin());
                     let mut transaction = connection.begin().await?;
+                    let mut initialized = false;
+                    let mut insert_query = String::new();
                     while let Some(chunk) = message.next().await? {
                         let df = match chunk{
                             Chunk::DataFrame(df) => df,
                             _ => Err("expected dataframe chunk".to_string())?
                         };
-                        let schema = generate_schema(name.as_str(), df.as_ref())?;
                         let mut columns = df.columns();
-                        sqlx::query(&schema).execute(&mut *transaction).await?;
-                        let values_placeholder = columns.iter().enumerate()
-                            .map(|(pos, col)|  {
-                                let suffix = match col.data_type() {
-                                    DataType::RawJson => "::json",
-                                    _ => "",
-                                };
-                                format!("${}{}", pos + 1, suffix)
-                            })
-                            .collect::<Vec<_>>()
-                            .join(",");
-                        let insert = format!("INSERT INTO \"{name}\" VALUES({values_placeholder})");
+                        if !initialized {
+                            initialized = true;
+                            let schema = generate_schema(self.schema.as_str(), name.as_str(), df.as_ref())?;
+                            sqlx::query(&schema).execute(&mut *transaction).await?;
+                            if self.truncate {
+                                sqlx::query(&format!("TRUNCATE \"{}\".\"{name}\"", self.schema))
+                                    .execute(&mut *transaction)
+                                    .await?;
+                            }
+                            let values_placeholder = columns.iter().enumerate()
+                                .map(|(pos, col)|  {
+                                    // without explicit suffix to placeholder parameter Postgres
+                                    // will error out with very cryptic error about trailing junk
+                                    let suffix = match col.data_type() {
+                                        DataType::RawJson => "::json",
+                                        _ => "",
+                                    };
+                                    format!("${}{}", pos + 1, suffix)
+                                })
+                                .collect::<Vec<_>>()
+                                .join(",");
+                            insert_query = format!("INSERT INTO \"{}\".\"{name}\" VALUES({values_placeholder})", self.schema);
+                        }
                         'outer: loop {
-                            let mut query = sqlx::query(&insert);
+                            let mut query = sqlx::query(&insert_query);
                             for col in columns.iter_mut() {
                                 let next = col.next();
                                 if next.is_none() {

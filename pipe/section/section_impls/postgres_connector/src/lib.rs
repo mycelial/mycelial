@@ -4,6 +4,7 @@ use section::{
     message::{Ack, Chunk, Column, DataFrame, DataType, Message, Value},
     SectionError,
 };
+use tokio::sync::mpsc::Receiver;
 
 pub mod destination;
 pub mod source;
@@ -12,7 +13,7 @@ pub mod source;
 #[allow(unused)]
 pub(crate) struct Table {
     name: Arc<str>,
-    columns: Arc<[TableColumn]>,
+    columns: Arc<[PostgresColumn]>,
     query: String,
     offset: i64,
     limit: i64,
@@ -20,15 +21,24 @@ pub(crate) struct Table {
 
 #[derive(Debug)]
 #[allow(unused)]
-pub(crate) struct TableColumn {
-    name: Arc<str>,
+pub(crate) struct PostgresColumn {
+    name: String,
     data_type: DataType,
+}
+
+impl PostgresColumn {
+    fn new(name: impl Into<String>, data_type: impl Into<DataType>) -> Self {
+        Self {
+            name: name.into(),
+            data_type: data_type.into(),
+        }
+    }
 }
 
 #[derive(Debug)]
 pub(crate) struct PostgresPayload {
     /// column names
-    columns: Arc<[TableColumn]>,
+    columns: Vec<PostgresColumn>,
 
     /// values
     values: Vec<Vec<Value>>,
@@ -52,17 +62,12 @@ impl DataFrame for PostgresPayload {
 
 pub struct PostgresMessage {
     origin: Arc<str>,
-    payload: Option<Box<dyn DataFrame>>,
-    ack: Option<Ack>,
+    stream: Receiver<Result<Chunk, SectionError>>,
 }
 
 impl PostgresMessage {
-    fn new(origin: Arc<str>, payload: impl DataFrame, ack: Option<Ack>) -> Self {
-        Self {
-            origin,
-            payload: Some(Box::new(payload)),
-            ack,
-        }
+    fn new(origin: Arc<str>, stream: Receiver<Result<Chunk, SectionError>>) -> Self {
+        Self { origin, stream }
     }
 }
 
@@ -70,7 +75,6 @@ impl std::fmt::Debug for PostgresMessage {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("PostgresMessage")
             .field("origin", &self.origin)
-            .field("payload", &self.payload)
             .finish()
     }
 }
@@ -81,12 +85,17 @@ impl Message for PostgresMessage {
     }
 
     fn next(&mut self) -> section::message::Next<'_> {
-        let v = self.payload.take().map(Chunk::DataFrame);
-        Box::pin(async move { Ok(v) })
+        Box::pin(async move {
+            match self.stream.recv().await {
+                Some(Ok(df)) => Ok(Some(df)),
+                Some(Err(e)) => Err(e),
+                None => Ok(None),
+            }
+        })
     }
 
     fn ack(&mut self) -> Ack {
-        self.ack.take().unwrap_or(Box::pin(async {}))
+        Box::pin(async {})
     }
 }
 
@@ -105,7 +114,11 @@ pub fn escape_table_name(name: impl AsRef<str>) -> String {
 }
 
 /// generate create table command for provided record batch
-pub fn generate_schema(table_name: &str, df: &dyn DataFrame) -> Result<String, SectionError> {
+pub fn generate_schema(
+    schema: &str,
+    table_name: &str,
+    df: &dyn DataFrame,
+) -> Result<String, SectionError> {
     let name = escape_table_name(table_name);
     let columns = df
         .columns()
@@ -132,5 +145,7 @@ pub fn generate_schema(table_name: &str, df: &dyn DataFrame) -> Result<String, S
         })
         .collect::<Result<Vec<_>, _>>()?
         .join(",");
-    Ok(format!("CREATE TABLE IF NOT EXISTS \"{name}\" ({columns})"))
+    Ok(format!(
+        "CREATE TABLE IF NOT EXISTS \"{schema}\".\"{name}\" ({columns})"
+    ))
 }

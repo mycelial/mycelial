@@ -94,8 +94,8 @@ pub struct PostgresConnectorConfig {
     #[serde(flatten)]
     pub common_attrs: CommonAttrs,
     pub url: String,
-    pub schema: String,
-    pub tables: String,
+    pub origin: String,
+    pub query: String,
     pub poll_interval: u64,
 }
 
@@ -203,6 +203,8 @@ pub struct PostgresConnectorDestinationConfig {
     #[serde(flatten)]
     pub common_attrs: CommonAttrs,
     pub url: String,
+    pub schema: String,
+    pub truncate: bool,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]

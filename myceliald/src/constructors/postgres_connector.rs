@@ -6,16 +6,6 @@ use pipe::{
 };
 use section::{command_channel::SectionChannel, SectionError};
 
-/// constructor for postgres source
-///
-/// # Config example:
-/// ```toml
-/// [[section]]
-/// url = "postgres://user:password@host:port/database
-/// schema = "public"
-/// tables = "foo,bar,baz"
-/// poll_interval = 5
-/// ```
 pub fn source_ctor<S: SectionChannel>(
     config: &Map,
 ) -> Result<Box<dyn DynSection<S>>, SectionError> {
@@ -24,20 +14,16 @@ pub fn source_ctor<S: SectionChannel>(
         .ok_or("postgres section requires 'url'")?
         .as_str()
         .ok_or("url should be string")?;
-    let schema = config
-        .get("schema")
-        .ok_or("postgres source requires schema")?
+    let origin = config
+        .get("origin")
+        .ok_or("postgres section requires 'origin'")?
         .as_str()
-        .ok_or("schema should be string")?;
-    let tables = config
-        .get("tables")
-        .ok_or("postgres  section requires 'tables'")?
+        .ok_or("'origin' should be string")?;
+    let query = config
+        .get("query")
+        .ok_or("postgres section requires 'query'")?
         .as_str()
-        .ok_or("'tables' should be string")?
-        .split(',')
-        .map(|x| x.trim())
-        .filter(|x| !x.is_empty())
-        .collect::<Vec<&str>>();
+        .ok_or("'query' should be string")?;
     let poll_interval = match config
         .get("poll_interval")
         .ok_or("postgres source requires poll interval")?
@@ -48,19 +34,12 @@ pub fn source_ctor<S: SectionChannel>(
     };
     Ok(Box::new(postgres_connector::source::Postgres::new(
         url,
-        schema,
-        tables.as_slice(),
+        origin,
+        query,
         Duration::from_secs(poll_interval),
     )))
 }
 
-/// constructor for postgres destination
-///
-/// # Config example:
-/// ```toml
-/// [[section]]
-/// url = "postgres://user:password@host:port/database
-/// ```
 pub fn destination_ctor<S: SectionChannel>(
     config: &Map,
 ) -> Result<Box<dyn DynSection<S>>, SectionError> {
@@ -69,8 +48,21 @@ pub fn destination_ctor<S: SectionChannel>(
         .ok_or("postgres destination section requires 'url'")?
         .as_str()
         .ok_or("path should be string")?;
+    let schema = config
+        .get("schema")
+        .ok_or("postgres source requires schema")?
+        .as_str()
+        .ok_or("schema should be string")?;
+    let truncate = config
+        .get("truncate")
+        .ok_or("sqlite destination section requires 'truncate'")?;
+    let truncate = match truncate {
+        Value::Bool(b) => *b,
+        Value::String(s) => s.to_lowercase() == "true",
+        _ => Err("truncate should be either bool or bool string")?,
+    };
     Ok(Box::new(postgres_connector::destination::Postgres::new(
-        url,
+        url, schema, truncate,
     )))
 }
 
