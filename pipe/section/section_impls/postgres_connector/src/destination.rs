@@ -77,6 +77,8 @@ impl Postgres {
                             }
                             let values_placeholder = columns.iter().enumerate()
                                 .map(|(pos, col)|  {
+                                    // without explicit suffix to placeholder parameter Postgres
+                                    // will error out with very cryptic error about trailing junk
                                     let suffix = match col.data_type() {
                                         DataType::RawJson => "::json",
                                         _ => "",
