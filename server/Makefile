@@ -1,7 +1,6 @@
 SHELL := bash
 TAG ?= server
 RUST_LOG ?= INFO
-include .env
 
 .PHONY: all
 all:
