@@ -121,7 +121,10 @@ pub fn generate_schema(table_name: &str, df: &dyn DataFrame) -> Result<String, S
                 DataType::U64 => "BIGINT UNSIGNED",
                 DataType::F32 => "REAL",
                 DataType::F64 => "DOUBLE",
-                DataType::Decimal => "NUMERIC",
+                // FIXME:
+                // 65 total len with 10 being used by scale
+                // in future we can have advanced section configuration for such values
+                DataType::Decimal => "NUMERIC(55, 10)",
                 DataType::RawJson => "JSON",
                 DataType::Str => "TEXT",
                 DataType::Bin => "BLOB",
