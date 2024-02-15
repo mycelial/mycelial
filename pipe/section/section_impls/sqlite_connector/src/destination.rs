@@ -8,19 +8,23 @@ use section::{
 use std::pin::{pin, Pin};
 
 use crate::{escape_table_name, generate_schema};
+use sqlx::types::chrono::NaiveDateTime;
 use sqlx::{sqlite::SqliteConnectOptions, ConnectOptions};
-use sqlx::{types::chrono::NaiveDateTime, Connection};
 use std::future::Future;
 use std::str::FromStr;
 
 #[derive(Debug)]
 pub struct Sqlite {
     path: String,
+    truncate: bool,
 }
 
 impl Sqlite {
-    pub fn new(path: impl Into<String>) -> Self {
-        Self { path: path.into() }
+    pub fn new(path: impl Into<String>, truncate: bool) -> Self {
+        Self {
+            path: path.into(),
+            truncate,
+        }
     }
 
     async fn enter_loop<Input, Output, SectionChan>(
@@ -52,8 +56,17 @@ impl Sqlite {
                         None => Err("input closed")?,
                         Some(message) => message,
                     };
+                    // Manually start transaction.
+                    // Immediate transaction will acquire database exclusive lock at the beginning
+                    // of transaction, instead of when transaction will want to write something.
+                    // This approach prevents 'database locked' errors, which happen on transaction
+                    // commit.
+                    // Sqlx doesn't provide support immediate transactions, so instead we just
+                    // maintain transaction by ourself
+                    sqlx::query("BEGIN IMMEDIATE").execute(&mut *connection).await?;
                     let name = escape_table_name(message.origin());
-                    let mut transaction = connection.begin().await?;
+                    let mut initialized = false;
+                    let mut insert_query = String::new();
                     loop {
                         futures::select! {
                             chunk = message.next().fuse() => {
@@ -62,13 +75,22 @@ impl Sqlite {
                                     Some(Chunk::DataFrame(df)) => df,
                                     Some(ch) => Err(format!("unexpected chunk type: {:?}", ch))?,
                                 };
-                                let schema = generate_schema(&name, df.as_ref());
-                                sqlx::query(&schema).execute(&mut *transaction).await?;
                                 let columns = &mut df.columns();
-                                let values_placeholder = (0..columns.len()).map(|_| "?").collect::<Vec<_>>().join(",");
-                                let insert = format!("INSERT OR IGNORE INTO \"{name}\" VALUES({values_placeholder})");
+                                // generate schema, maybe truncate and prepare insert query
+                                if !initialized {
+                                    initialized = true;
+                                    let schema = generate_schema(&name, df.as_ref());
+                                    sqlx::query(&schema).execute(&mut *connection).await?;
+                                    if self.truncate {
+                                        sqlx::query(&format!("DELETE FROM \"{name}\""))
+                                            .execute(&mut *connection)
+                                            .await?;
+                                    }
+                                    let values_placeholder = (0..columns.len()).map(|_| "?").collect::<Vec<_>>().join(",");
+                                    insert_query = format!("INSERT OR IGNORE INTO \"{name}\" VALUES({values_placeholder})");
+                                }
                                 'outer: loop {
-                                    let mut query = sqlx::query(&insert);
+                                    let mut query = sqlx::query(&insert_query);
                                     for col in columns.iter_mut() {
                                         let next = col.next();
                                         if next.is_none() {
@@ -110,7 +132,8 @@ impl Sqlite {
                                             unimplemented => unimplemented!("unimplemented value: {:?}", unimplemented),
                                         };
                                     }
-                                    query.execute(&mut *transaction).await?;
+                                    // FIXME: add batch support?
+                                    query.execute(&mut *connection).await.map_err(|_| "failed to finish transaction")?;
                                 }
                             },
                             cmd = section_chan.recv().fuse() => {
@@ -118,7 +141,7 @@ impl Sqlite {
                             },
                         }
                     }
-                    transaction.commit().await?;
+                    sqlx::query("COMMIT").execute(&mut *connection).await?;
                     message.ack().await;
                 }
             }

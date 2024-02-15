@@ -65,7 +65,7 @@ async fn source_stream() -> Result<(), StdError> {
 
     let section_chan = DummySectionChannel::new();
 
-    let sqlite_source = source::Sqlite::new(db_path.as_str(), &["*"]);
+    let sqlite_source = source::Sqlite::new(db_path.as_str(), "test", "SELECT * FROM test");
     let (output, mut rx) = channel(1);
     let output = output.sink_map_err(|_| "chan closed".into());
     let input = Stub::<SectionMessage, StdError>::new();
@@ -126,42 +126,6 @@ async fn source_stream() -> Result<(), StdError> {
                 Value::Str("strict".into()),
                 Value::Bin("bin".as_bytes().into()),
             ],
-        ]
-    );
-
-    sqlx::query("INSERT OR IGNORE INTO test VALUES(5, 'foo', ?, 1)")
-        .bind("foo".as_bytes())
-        .execute(&mut conn)
-        .await
-        .unwrap();
-
-    let mut out = rx.next().await.unwrap();
-    let chunk = out.next().await;
-    assert!(matches!(chunk, Ok(Some(_))));
-    assert!(matches!(out.next().await, Ok(None)));
-    let df = match chunk.unwrap().unwrap() {
-        Chunk::DataFrame(df) => df,
-        other => panic!("unexpected chunk type: {:?}", other),
-    };
-
-    let columns = df.columns();
-    assert_eq!(
-        vec!["id", "text", "bin", "float"],
-        columns.iter().map(|col| col.name()).collect::<Vec<_>>()
-    );
-
-    let payload = columns
-        .into_iter()
-        .map(|col| col.collect::<Vec<_>>())
-        .collect::<Vec<_>>();
-
-    assert_eq!(
-        payload,
-        vec![
-            vec![Value::I64(5)],
-            vec![Value::Str("foo".into())],
-            vec![Value::Bin("foo".as_bytes().into())],
-            vec![Value::F64(1.0)],
         ]
     );
     handle.abort();

@@ -18,8 +18,9 @@ endpoint = "http://localhost:7777" # Default Sqlite Physical Replication Server 
 [[sources]]
 type = "sqlite_connector"
 display_name = "Sqlite Source"
-tables = "*"
 path = "test.sqlite"
+origin = "origin"
+query = "select * from test"
 
 [[sources]]
 type = "excel_connector"
@@ -102,6 +103,7 @@ display_name = "Hello World Dest"
 type = "sqlite_connector"
 display_name = "Sqlite Destination"
 path = "test_dest.sqlite"
+truncate = false
 
 # This kafka connector is a work in progress alpha version. Uncomment to use.
 [[destinations]]

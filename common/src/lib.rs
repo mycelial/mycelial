@@ -77,7 +77,8 @@ pub struct SqliteSourceConfig {
     #[serde(flatten)]
     pub common_attrs: CommonAttrs,
     pub path: String,
-    pub tables: String,
+    pub origin: String,
+    pub query: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
@@ -85,6 +86,7 @@ pub struct SqliteDestinationConfig {
     #[serde(flatten)]
     pub common_attrs: CommonAttrs,
     pub path: String,
+    pub truncate: bool,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]

@@ -49,8 +49,8 @@ type SqlitePhysicalReplicationNodeData = BaseNodeData & {
 
 type SqliteConnectorNodeData = BaseNodeData & {
   path: string;
-  strict: boolean;
-  table: string;
+  origin: string;
+  query: string;
 };
 
 type PostgresConnectorNodeData = BaseNodeData & {
@@ -124,6 +124,7 @@ export interface SqliteConnector {
   type: string;
   display_name: string;
   path: string;
+  truncate: bool;
 }
 
 export interface SqlitePhysicalReplication {
