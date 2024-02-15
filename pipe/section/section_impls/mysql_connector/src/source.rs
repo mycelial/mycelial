@@ -1,52 +1,43 @@
-use chrono::{NaiveDate, NaiveDateTime, NaiveTime, Timelike};
+use chrono::{DateTime, NaiveDate, NaiveDateTime, NaiveTime, Timelike, Utc};
 use section::{
     command_channel::{Command, SectionChannel},
     decimal,
     futures::{self, FutureExt, Sink, SinkExt, Stream, StreamExt},
-    message::{DataType, TimeUnit, Value},
+    message::{Chunk, DataType, TimeUnit, Value},
     section::Section,
-    SectionError, SectionFuture, SectionMessage,
+    uuid, SectionError, SectionFuture, SectionMessage,
 };
 use sqlx::{
-    mysql::{MySqlConnectOptions, MySqlConnection, MySqlRow, MySqlValue},
+    mysql::{MySqlConnectOptions, MySqlRow, MySqlValue},
     types::{Json, JsonRawValue},
     Column, ConnectOptions, Row, TypeInfo, Value as _, ValueRef,
 };
 use std::sync::Arc;
 use std::time::Duration;
 use std::{pin::pin, str::FromStr};
+use tokio::sync::mpsc::Sender;
 
-use crate::{MysqlMessage, MysqlPayload, TableColumn};
+use crate::{MysqlColumn, MysqlMessage, MysqlPayload};
 
 #[derive(Debug)]
 pub struct Mysql {
     url: String,
-    schema: String,
-    tables: Vec<String>,
+    origin: Arc<str>,
+    query: String,
     poll_interval: Duration,
-}
-
-#[derive(Debug)]
-#[allow(unused)]
-pub(crate) struct Table {
-    pub name: Arc<str>,
-    pub columns: Arc<[TableColumn]>,
-    pub query: String,
-    pub offset: i64,
-    pub limit: i64,
 }
 
 impl Mysql {
     pub fn new(
         url: impl Into<String>,
-        schema: impl Into<String>,
-        tables: &[&str],
+        origin: impl AsRef<str>,
+        query: impl Into<String>,
         poll_interval: Duration,
     ) -> Self {
         Self {
             url: url.into(),
-            schema: schema.into(),
-            tables: tables.iter().map(|&x| x.into()).collect(),
+            origin: Arc::from(origin.as_ref()),
+            query: query.into(),
             poll_interval,
         }
     }
@@ -66,10 +57,13 @@ impl Mysql {
             .connect()
             .await?;
 
+        // set connection session timezone to UTC so we can treat all returned timestamps/datetimes as timestamp UTC
+        sqlx::query("SET time_zone = \"+00:00\"")
+            .execute(&mut *connection)
+            .await?;
+
         let mut _input = pin!(input.fuse());
         let mut output = pin!(output);
-
-        let mut tables = self.init_tables(&mut *connection).await?;
 
         let mut interval = tokio::time::interval(self.poll_interval);
         loop {
@@ -78,192 +72,239 @@ impl Mysql {
                    if let Command::Stop = cmd? { return Ok(()) };
                 },
                 _ = interval.tick().fuse() => {
-                    for table in tables.iter_mut() {
-                        // FIXME: full table selected
-                        let rows = sqlx::query(table.query.as_str())
-                          //.bind(table.limit)
-                          //.bind(table.offset)
-                            .fetch_all(&mut *connection)
-                            .await?;
+                    let mut row_stream = sqlx::query(self.query.as_str())
+                        .fetch(&mut *connection);
 
-                        if rows.is_empty() {
-                            continue
+                    // check if row stream contains any result
+                    let mut row_stream = match row_stream.next().await {
+                        Some(res) => futures::stream::once(async { res }).chain(row_stream),
+                        None => continue
+                    };
+
+                    let mut row_stream = pin!(row_stream);
+                    let mut buf = Vec::with_capacity(256);
+                    let (mut tx, rx) = tokio::sync::mpsc::channel(1);
+                    let message = MysqlMessage::new(Arc::clone(&self.origin), rx);
+                    output.send(Box::new(message)).await.map_err(|_| "failed to send data to sink")?;
+
+                    'stream: loop {
+                        if buf.len() == buf.capacity() {
+                            self.send_chunk(&mut tx, &mut buf).await?;
                         }
-
-                        let payload = self.build_payload(table, rows)?;
-                        let message = Box::new(MysqlMessage::new(Arc::clone(&table.name), payload, None));
-                        output.send(message).await?;
+                        match row_stream.next().await {
+                            Some(Ok(row)) => buf.push(row),
+                            Some(Err(e)) => {
+                                tx.send(Err("error".into())).await.ok();
+                                Err(e)?
+                            },
+                            None => {
+                                self.send_chunk(&mut tx, &mut buf).await?;
+                                break 'stream;
+                            },
+                        }
                     }
                 },
             }
         }
     }
 
-    async fn init_tables(
+    async fn send_chunk(
         &self,
-        connection: &mut MySqlConnection,
-    ) -> Result<Vec<Table>, SectionError> {
-        let all = self.tables.iter().any(|t| t == "*");
-        let names =
-            sqlx::query("SELECT table_name FROM information_schema.tables WHERE table_schema = ?")
-                .bind(self.schema.as_str())
-                .fetch_all(&mut *connection)
-                .await?
-                .into_iter()
-                .map(|row| row.get::<String, _>(0))
-                .filter(|table_name| all || self.tables.contains(table_name));
-
-        let mut tables = vec![];
-        for name in names {
-            let name: Arc<str> = name.into();
-            let columns: Vec<TableColumn> = sqlx::query(
-                "SELECT column_name, data_type FROM information_schema.columns WHERE table_name = ? and table_schema = ?"
-            )
-                .bind(name.as_ref())
-                .bind(self.schema.as_str())
-                .fetch_all(&mut *connection)
-                .await?
-                .into_iter()
-                .map(|row| {
-                    let col_name = row.get::<String, _>(0);
-                    let data_type = match row.get::<String, _>(1).as_str() {
-                        "smallint" => DataType::I16,
-                        "bigint" => DataType::I64,
-                        "text" => DataType::Str,
-                        "date" => DataType::Date(TimeUnit::Microsecond),
-                        "json" => DataType::RawJson,
-                        "numeric" => DataType::Decimal,
-                        "uuid" => DataType::Uuid,
-                        "binary" => DataType::Bin,
-                        "bit" => DataType::Bool,
-                        "blob" => DataType::Bin,
-                        "char" => DataType::Str,
-                        "datetime" => DataType::TimeStamp(TimeUnit::Microsecond),
-                        "decimal" => DataType::Decimal,
-                        "double" => DataType::F64,
-                        "enum" => DataType::Str,
-                        "float" => DataType::F32,
-                        "int" => DataType::I32,
-                        "longblob" => DataType::Bin,
-                        "longtext" => DataType::Str,
-                        "mediumblob" => DataType::Bin,
-                        "mediumtext" => DataType::Str,
-                        "mediumint" => DataType::I32,
-                        "set" => DataType::Str,
-                        "time" => DataType::Time(TimeUnit::Microsecond),
-                        // FIXME: it is TimestampUTC?
-                        "timestamp" => DataType::TimeStamp(TimeUnit::Microsecond),
-                        "tinyblob" => DataType::Bin,
-                        "tinytext" => DataType::Str,
-                        "tinyint" => DataType::I8,
-                        "varbinary" => DataType::Bin,
-                        "varchar" => DataType::Str,
-                        "year" => DataType::Str,
-                        ty => unimplemented!("unsupported column type '{}' for column '{}' in table '{}'", ty, col_name, name)
-                    };
-                    TableColumn { name: col_name.into(), data_type }
-                })
-                .collect();
-            //let query = format!("SELECT * FROM \"{}\".\"{name}\" LIMIT=$1 OFFSET=$2", self.schema);
-            // FIXME: no batching for now
-            let query = format!(
-                "SELECT {} FROM `{}`.`{name}`",
-                columns
-                    .iter()
-                    .map(|col| col.name.as_ref())
-                    .collect::<Vec<_>>()
-                    .join(", "),
-                self.schema,
-            );
-            let table = Table {
-                name,
-                query,
-                columns: columns.into(),
-                limit: 1024,
-                offset: 0,
-            };
-            tables.push(table);
+        tx: &mut Sender<Result<Chunk, SectionError>>,
+        buf: &mut Vec<MySqlRow>,
+    ) -> Result<(), SectionError> {
+        if !buf.is_empty() {
+            let chunk = Chunk::DataFrame(Box::new(self.build_payload(buf.as_slice())?));
+            tx.send(Ok(chunk)).await.map_err(|_| "send error")?;
+            buf.truncate(0);
         }
-        Ok(tables)
+        Ok(())
     }
 
-    fn build_payload(
-        &self,
-        table: &Table,
-        rows: Vec<MySqlRow>,
-    ) -> Result<MysqlPayload, SectionError> {
-        let values = match rows.is_empty() {
-            true => vec![],
-            false => {
-                let mut values: Vec<Vec<Value>> =
-                    vec![Vec::with_capacity(rows[0].len()); table.columns.len()];
-                for row in rows.iter() {
-                    for col in row.columns() {
-                        let pos = col.ordinal();
-                        let raw_value = row.try_get_raw(pos)?;
-                        let mysql_value: MySqlValue = ValueRef::to_owned(&raw_value);
-                        let type_info = raw_value.type_info();
-                        let value = match type_info.name() {
-                            "TINYINT" => mysql_value.try_decode::<Option<i8>>()?.map(Value::I8),
-                            "SMALLINT" => mysql_value.try_decode::<Option<i16>>()?.map(Value::I16),
-                            "MEDIUMINT" | "INT" => {
-                                mysql_value.try_decode::<Option<i32>>()?.map(Value::I32)
-                            }
-                            "BIGINT" => mysql_value.try_decode::<Option<i64>>()?.map(Value::I64),
-                            "DECIMAL" | "NUMERIC" => mysql_value
-                                .try_decode::<Option<decimal::Decimal>>()?
-                                .map(Value::Decimal),
-                            "FLOAT" => mysql_value.try_decode::<Option<f32>>()?.map(Value::F32),
-                            "DOUBLE" => mysql_value.try_decode::<Option<f64>>()?.map(Value::F64),
-                            "BIT" => mysql_value.try_decode::<Option<bool>>()?.map(Value::Bool),
-                            "DATE" => mysql_value.try_decode::<Option<NaiveDate>>()?.map(|v| {
-                                Value::Date(
-                                    TimeUnit::Microsecond,
-                                    v.and_hms_opt(0, 0, 0).unwrap().timestamp_micros(),
-                                )
-                            }),
-                            "TIME" => mysql_value.try_decode::<Option<NaiveTime>>()?.map(|v| {
-                                let micros = NaiveDateTime::from_timestamp_opt(
-                                    v.num_seconds_from_midnight() as _,
-                                    v.nanosecond(),
-                                )
-                                .unwrap()
-                                .timestamp_micros();
-                                Value::Time(TimeUnit::Microsecond, micros)
-                            }),
-                            "CHAR" | "VARCHAR" | "TEXT" | "ENUM" | "LONGTEXT" | "MEDIUMTEXT"
-                            | "MULTILINESTRING" => {
-                                mysql_value.try_decode::<Option<String>>()?.map(Value::from)
-                            }
-                            "BINARY" | "VARBINARY" => mysql_value
-                                .try_decode::<Option<Vec<u8>>>()?
-                                .map(Value::from),
-                            "BLOB" => mysql_value
-                                .try_decode::<Option<Vec<u8>>>()?
-                                .map(Value::from),
-                            "DATETIME" => {
-                                mysql_value.try_decode::<Option<NaiveDateTime>>()?.map(|v| {
-                                    Value::TimeStamp(TimeUnit::Microsecond, v.timestamp_micros())
-                                })
-                            }
-                            "JSON" => mysql_value
-                                .try_decode::<Option<Json<Box<JsonRawValue>>>>()?
-                                .map(|v| Value::Str(v.0.into())),
-                            "YEAR" => mysql_value.try_decode::<Option<u32>>()?.map(Value::U32),
-
-                            name => panic!("{}", name),
-                        }
-                        .unwrap_or(Value::Null);
-                        values[pos].push(value)
-                    }
-                }
-                values
-            }
+    fn build_payload(&self, rows: &[MySqlRow]) -> Result<MysqlPayload, SectionError> {
+        let first_row = match rows.first() {
+            Some(row) => row,
+            None => Err("no rows")?,
         };
-        Ok(MysqlPayload {
-            columns: Arc::clone(&table.columns),
-            values,
-        })
+        let columns = first_row.columns();
+        let mut values: Vec<Vec<Value>> = vec![Vec::with_capacity(rows.len()); columns.len()];
+        let (columns, funcs) = columns.iter().fold(
+            (
+                Vec::with_capacity(columns.len()),
+                Vec::with_capacity(columns.len()),
+            ),
+            |(mut cols, mut funcs), col| {
+                let (dt, func) = from_mysql_type_name(col.type_info().name());
+                cols.push(MysqlColumn::new(col.name(), dt));
+                funcs.push(func);
+                (cols, funcs)
+            },
+        );
+        for row in rows.iter() {
+            for (col, parse) in row.columns().iter().zip(funcs.iter()) {
+                let pos = col.ordinal();
+                let raw_value = row.try_get_raw(pos)?;
+                let mysql_value: MySqlValue = ValueRef::to_owned(&raw_value);
+                values[pos].push(parse(mysql_value)?);
+            }
+        }
+        Ok(MysqlPayload { columns, values })
+    }
+}
+
+#[allow(clippy::type_complexity)]
+pub(crate) fn from_mysql_type_name(
+    type_name: &str,
+) -> (DataType, fn(MySqlValue) -> Result<Value, SectionError>) {
+    match type_name {
+        "TINYINT UNSIGNED" => (DataType::U8, |mysql_value| {
+            Ok(mysql_value
+                .try_decode::<Option<u8>>()?
+                .map(Value::U8)
+                .unwrap_or(Value::Null))
+        }),
+        "SMALLINT UNSIGNED" => (DataType::U16, |mysql_value| {
+            Ok(mysql_value
+                .try_decode::<Option<u16>>()?
+                .map(Value::U16)
+                .unwrap_or(Value::Null))
+        }),
+        "INT UNSIGNED" => (DataType::U32, |mysql_value| {
+            Ok(mysql_value
+                .try_decode::<Option<u32>>()?
+                .map(Value::U32)
+                .unwrap_or(Value::Null))
+        }),
+        "BIGINT UNSIGNED" => (DataType::U64, |mysql_value| {
+            Ok(mysql_value
+                .try_decode::<Option<u64>>()?
+                .map(Value::U64)
+                .unwrap_or(Value::Null))
+        }),
+        "TINYINT" => (DataType::I8, |mysql_value| {
+            Ok(mysql_value
+                .try_decode::<Option<i8>>()?
+                .map(Value::I8)
+                .unwrap_or(Value::Null))
+        }),
+        "SMALLINT" => (DataType::I16, |mysql_value| {
+            Ok(mysql_value
+                .try_decode::<Option<i16>>()?
+                .map(Value::I16)
+                .unwrap_or(Value::Null))
+        }),
+        "INT" => (DataType::I32, |mysql_value| {
+            Ok(mysql_value
+                .try_decode::<Option<i32>>()?
+                .map(Value::I32)
+                .unwrap_or(Value::Null))
+        }),
+        "BIGINT" => (DataType::I64, |mysql_value| {
+            Ok(mysql_value
+                .try_decode::<Option<i64>>()?
+                .map(Value::I64)
+                .unwrap_or(Value::Null))
+        }),
+        "BLOB" => (DataType::Bin, |mysql_value| {
+            Ok(mysql_value
+                .try_decode::<Option<Vec<u8>>>()?
+                .map(Value::from)
+                .unwrap_or(Value::Null))
+        }),
+        "CHAR" | "VARCHAR" | "TEXT" => (DataType::Str, |mysql_value| {
+            Ok(mysql_value
+                .try_decode::<Option<String>>()?
+                .map(Value::from)
+                .unwrap_or(Value::Null))
+        }),
+        "DATE" => (DataType::Date(TimeUnit::Second), |mysql_value| {
+            let value = mysql_value.try_decode::<Option<NaiveDate>>()?.map(|v| {
+                Value::Date(
+                    TimeUnit::Second,
+                    v.and_hms_opt(0, 0, 0).unwrap().timestamp(),
+                )
+            });
+            Ok(value.unwrap_or(Value::Null))
+        }),
+        "YEAR" => (DataType::U32, |mysql_value| {
+            Ok(mysql_value
+                .try_decode::<Option<u32>>()?
+                .map(Value::U32)
+                .unwrap_or(Value::Null))
+        }),
+        "TIME" => (DataType::Time(TimeUnit::Microsecond), |mysql_value| {
+            let value = mysql_value.try_decode::<Option<NaiveTime>>()?.map(|v| {
+                let micros = NaiveDateTime::from_timestamp_opt(
+                    v.num_seconds_from_midnight() as _,
+                    v.nanosecond(),
+                )
+                .unwrap()
+                .timestamp_micros();
+                Value::Time(TimeUnit::Microsecond, micros)
+            });
+            Ok(value.unwrap_or(Value::Null))
+        }),
+        "TIMESTAMP" => (
+            DataType::TimeStampUTC(TimeUnit::Microsecond),
+            |mysql_value| {
+                let value = mysql_value
+                    .try_decode::<Option<DateTime<Utc>>>()?
+                    .map(|v| Value::TimeStampUTC(TimeUnit::Microsecond, v.timestamp_micros()));
+                Ok(value.unwrap_or(Value::Null))
+            },
+        ),
+        "DATETIME" => (
+            DataType::TimeStampUTC(TimeUnit::Microsecond),
+            |mysql_value| {
+                let value = mysql_value
+                    .try_decode::<Option<DateTime<Utc>>>()?
+                    .map(|v| Value::TimeStampUTC(TimeUnit::Microsecond, v.timestamp_micros()));
+                Ok(value.unwrap_or(Value::Null))
+            },
+        ),
+        "FLOAT" => (DataType::F32, |mysql_value| {
+            let value = mysql_value
+                .try_decode::<Option<f32>>()?
+                .map(Value::F32)
+                .unwrap_or(Value::Null);
+            Ok(value)
+        }),
+        "DOUBLE" => (DataType::F64, |mysql_value| {
+            let value = mysql_value
+                .try_decode::<Option<f64>>()?
+                .map(Value::F64)
+                .unwrap_or(Value::Null);
+            Ok(value)
+        }),
+        "JSON" => (DataType::RawJson, |mysql_value| {
+            let value = mysql_value
+                .try_decode::<Option<Json<Box<JsonRawValue>>>>()?
+                .map(|v| Value::Str(v.0.into()))
+                .unwrap_or(Value::Null);
+            Ok(value)
+        }),
+        "JSONB" => (DataType::RawJson, |mysql_value| {
+            let value = mysql_value
+                .try_decode::<Option<Json<Box<JsonRawValue>>>>()?
+                .map(|v| Value::Str(v.0.into()))
+                .unwrap_or(Value::Null);
+            Ok(value)
+        }),
+        "DECIMAL" => (DataType::Decimal, |mysql_value| {
+            let value = mysql_value
+                .try_decode::<Option<decimal::Decimal>>()?
+                .map(Value::Decimal)
+                .unwrap_or(Value::Null);
+            Ok(value)
+        }),
+        "UUID" => (DataType::Uuid, |mysql_value| {
+            let value = mysql_value
+                .try_decode::<Option<uuid::Uuid>>()?
+                .map(Value::Uuid)
+                .unwrap_or(Value::Null);
+            Ok(value)
+        }),
+        name => unimplemented!("unsupported mysql data type: {:?}", name),
     }
 }
 

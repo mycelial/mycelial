@@ -6,16 +6,6 @@ use pipe::{
 };
 use section::{command_channel::SectionChannel, SectionError};
 
-/// constructor for mysql source
-///
-/// # Config example:
-/// ```toml
-/// [[section]]
-/// url = "mysql://user:password@host:port/database
-/// schema = "public"
-/// tables = "foo,bar,baz"
-/// poll_interval = 5
-/// ```
 pub fn source_ctor<S: SectionChannel>(
     config: &Map,
 ) -> Result<Box<dyn DynSection<S>>, SectionError> {
@@ -24,20 +14,16 @@ pub fn source_ctor<S: SectionChannel>(
         .ok_or("mysql section requires 'url'")?
         .as_str()
         .ok_or("url should be string")?;
-    let schema = config
-        .get("schema")
-        .ok_or("mysql source requires schema")?
+    let origin = config
+        .get("origin")
+        .ok_or("mysql source requires 'origin'")?
         .as_str()
-        .ok_or("schema should be string")?;
-    let tables = config
-        .get("tables")
-        .ok_or("mysql  section requires 'tables'")?
+        .ok_or("'origin' should be string")?;
+    let query = config
+        .get("query")
+        .ok_or("mysql  section requires 'query'")?
         .as_str()
-        .ok_or("'tables' should be string")?
-        .split(',')
-        .map(|x| x.trim())
-        .filter(|x| !x.is_empty())
-        .collect::<Vec<&str>>();
+        .ok_or("'query' should be string")?;
     let poll_interval = match config
         .get("poll_interval")
         .ok_or("mysql source requires poll interval")?
@@ -48,19 +34,12 @@ pub fn source_ctor<S: SectionChannel>(
     };
     Ok(Box::new(mysql_connector::source::Mysql::new(
         url,
-        schema,
-        tables.as_slice(),
+        origin,
+        query,
         Duration::from_secs(poll_interval),
     )))
 }
 
-/// constructor for mysql destination
-///
-/// # Config example:
-/// ```toml
-/// [[section]]
-/// url = "mysql://user:password@host:port/database
-/// ```
 pub fn destination_ctor<S: SectionChannel>(
     config: &Map,
 ) -> Result<Box<dyn DynSection<S>>, SectionError> {
@@ -69,7 +48,17 @@ pub fn destination_ctor<S: SectionChannel>(
         .ok_or("mysql destination section requires 'url'")?
         .as_str()
         .ok_or("path should be string")?;
-    Ok(Box::new(mysql_connector::destination::Mysql::new(url)))
+    let truncate = config
+        .get("truncate")
+        .ok_or("mysql destination section requires 'truncate'")?;
+    let truncate = match truncate {
+        Value::Bool(b) => *b,
+        Value::String(s) => s.to_lowercase() == "true",
+        _ => Err("truncate should be either bool or bool string")?,
+    };
+    Ok(Box::new(mysql_connector::destination::Mysql::new(
+        url, truncate,
+    )))
 }
 
 #[cfg(test)]
@@ -90,7 +79,7 @@ mod test {
 
         let config: Map = c.drain().map(|(k, v)| (k, v.try_into().unwrap())).collect();
 
-        let _section = source_ctor::<DummySectionChannel>(&config).unwrap();
+        assert!(source_ctor::<DummySectionChannel>(&config).is_ok())
     }
 
     #[test]
@@ -101,6 +90,6 @@ mod test {
 
         let config: Map = c.drain().map(|(k, v)| (k, v.try_into().unwrap())).collect();
 
-        let _section = destination_ctor::<DummySectionChannel>(&config).unwrap();
+        assert!(destination_ctor::<DummySectionChannel>(&config).is_ok())
     }
 }

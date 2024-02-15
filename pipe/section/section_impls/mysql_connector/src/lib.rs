@@ -4,31 +4,30 @@ use section::{
     message::{Ack, Chunk, Column, DataFrame, DataType, Message, Value},
     SectionError,
 };
+use tokio::sync::mpsc::Receiver;
 
 pub mod destination;
 pub mod source;
 
 #[derive(Debug)]
-#[allow(unused)]
-pub(crate) struct Table {
-    name: Arc<str>,
-    columns: Arc<[TableColumn]>,
-    query: String,
-    offset: i64,
-    limit: i64,
-}
-
-#[derive(Debug)]
-#[allow(unused)]
-pub(crate) struct TableColumn {
-    name: Arc<str>,
+pub(crate) struct MysqlColumn {
+    name: String,
     data_type: DataType,
 }
 
-#[derive(Debug, Clone)]
+impl MysqlColumn {
+    fn new(name: impl Into<String>, data_type: DataType) -> Self {
+        Self {
+            name: name.into(),
+            data_type,
+        }
+    }
+}
+
+#[derive(Debug)]
 pub struct MysqlPayload {
     /// column names
-    columns: Arc<[TableColumn]>,
+    columns: Vec<MysqlColumn>,
 
     /// values
     values: Vec<Vec<Value>>,
@@ -52,17 +51,12 @@ impl DataFrame for MysqlPayload {
 
 pub struct MysqlMessage {
     origin: Arc<str>,
-    payload: Option<Box<dyn DataFrame>>,
-    ack: Option<Ack>,
+    stream: Receiver<Result<Chunk, SectionError>>,
 }
 
 impl MysqlMessage {
-    fn new(origin: Arc<str>, payload: impl DataFrame, ack: Option<Ack>) -> Self {
-        Self {
-            origin,
-            payload: Some(Box::new(payload)),
-            ack,
-        }
+    fn new(origin: Arc<str>, stream: Receiver<Result<Chunk, SectionError>>) -> Self {
+        Self { origin, stream }
     }
 }
 
@@ -70,7 +64,6 @@ impl std::fmt::Debug for MysqlMessage {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("MysqlMessage")
             .field("origin", &self.origin)
-            .field("payload", &self.payload)
             .finish()
     }
 }
@@ -81,12 +74,17 @@ impl Message for MysqlMessage {
     }
 
     fn next(&mut self) -> section::message::Next<'_> {
-        let v = self.payload.take().map(Chunk::DataFrame);
-        Box::pin(async move { Ok(v) })
+        Box::pin(async move {
+            match self.stream.recv().await {
+                Some(Ok(df)) => Ok(Some(df)),
+                Some(Err(e)) => Err(e),
+                None => Ok(None),
+            }
+        })
     }
 
     fn ack(&mut self) -> Ack {
-        self.ack.take().unwrap_or(Box::pin(async {}))
+        Box::pin(async {})
     }
 }
 
@@ -112,27 +110,30 @@ pub fn generate_schema(table_name: &str, df: &dyn DataFrame) -> Result<String, S
         .iter()
         .map(|col| {
             let dtype = match col.data_type() {
-                DataType::I8 | DataType::I16 => "SMALLINT",
+                DataType::Bool => "TINYINT",
+                DataType::I8 => "TINYINT",
+                DataType::I16 => "SMALLINT",
                 DataType::I32 => "INTEGER",
                 DataType::I64 => "BIGINT",
+                DataType::U8 => "TINYINT UNSIGNED",
+                DataType::U16 => "SMALLINT UNSIGNED",
+                DataType::U32 => "INT UNSIGNED",
+                DataType::U64 => "BIGINT UNSIGNED",
                 DataType::F32 => "REAL",
                 DataType::F64 => "DOUBLE",
-                DataType::Decimal => "NUMERIC",
+                // FIXME:
+                // 65 total len with 10 being used by scale
+                // in future we can have advanced section configuration for such values
+                DataType::Decimal => "NUMERIC(55, 10)",
                 DataType::RawJson => "JSON",
                 DataType::Str => "TEXT",
                 DataType::Bin => "BLOB",
                 DataType::Time(_) => "TIME",
                 DataType::Date(_) => "DATE",
-                DataType::TimeStamp(_) => "TIMESTAMP",
-                DataType::TimeStampUTC(_) => "TIMESTAMP",
+                DataType::TimeStamp(_) => "DATETIME",
+                DataType::TimeStampUTC(_) => "DATETIME",
                 DataType::Uuid => "UUID",
-                DataType::Bool => "TINYINT",
-                DataType::U8 => "SMALLINT",
-                DataType::U16 => "INT",
-                DataType::U32 => "BIGINT",
-                DataType::U64 => "DOUBLE",
-                DataType::Any => "TEXT", // I don't think this is fully valid but it kinda works?
-                v => return Err(format!("unsupported type {v:?}")),
+                v => return Err(format!("failed to generate schema, unsupported type {v:?}")),
             };
             Ok(format!("{} {}", col.name(), dtype))
         })
