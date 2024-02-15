@@ -209,10 +209,10 @@ struct Cli {
     #[clap(short, long, env = "DATABASE_PATH", default_value = "mycelial.db")]
     database_path: String,
 
-    #[clap(long, env = "AUTH0_AUTHORITY")]
+    #[clap(long, env = "AUTH0_AUTHORITY", default_value = "")]
     auth0_authority: String,
 
-    #[clap(long, env = "AUTH0_AUDIENCE")]
+    #[clap(long, env = "AUTH0_AUDIENCE", default_value = "")]
     auth0_audience: String,
 }
 
