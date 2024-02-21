@@ -1,6 +1,5 @@
 use axum::{
-    body::StreamBody,
-    extract::{BodyStream, State},
+    extract::State,
     headers::{authorization::Basic, Authorization},
     http::{self, header, Method, Request, StatusCode, Uri},
     middleware::{self, Next},
@@ -16,13 +15,14 @@ use common::{
     Destination, PipeConfig, PipeConfigs, ProvisionClientRequest, ProvisionClientResponse, Source,
 };
 use futures::{Stream, StreamExt};
+use ingestion::ingestion_api;
 use jsonwebtoken::{decode, jwk, DecodingKey, Validation};
 use rust_embed::RustEmbed;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use sqlx::{
-    sqlite::SqliteConnectOptions, sqlite::SqliteRow, ConnectOptions, Connection, FromRow, Row,
-    Sqlite, SqliteConnection, Transaction,
+    sqlite::SqliteConnectOptions, sqlite::SqliteRow, ConnectOptions, FromRow, Row, Sqlite,
+    SqliteConnection, Transaction,
 };
 use std::pin::Pin;
 use std::{net::SocketAddr, path::Path};
@@ -30,7 +30,8 @@ use std::{str::FromStr, sync::Arc};
 use tokio::sync::{Mutex, MutexGuard};
 use uuid::Uuid;
 
-mod error;
+pub mod error;
+mod ingestion;
 
 // This struct represents the claims you expect in your Auth0 token.
 #[derive(Debug, Deserialize, Serialize)]
@@ -169,8 +170,7 @@ async fn user_auth<B>(
             return Ok(next.run(req).await);
         }
     }
-    let response = (StatusCode::UNAUTHORIZED, "invalid token");
-    Err(response)
+    Err((StatusCode::UNAUTHORIZED, "invalid token"))
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -221,85 +221,6 @@ struct MessageStream {
     origin: String,
     stream_type: String,
     stream: Pin<Box<dyn Stream<Item = Result<Vec<u8>, error::Error>> + Send>>,
-}
-
-async fn ingestion(
-    State(app): State<Arc<App>>,
-    axum::extract::Path(topic): axum::extract::Path<String>,
-    headers: axum::http::header::HeaderMap,
-    mut body: BodyStream,
-) -> Result<impl IntoResponse, error::Error> {
-    let origin = match headers.get("x-message-origin") {
-        Some(origin) => origin
-            .to_str()
-            .map_err(|_| "bad x-message-origin header value")?,
-        None => Err(StatusCode::BAD_REQUEST)?,
-    };
-
-    let stream_type = match headers.get("x-stream-type") {
-        Some(origin) => origin
-            .to_str()
-            .map_err(|_| "bad x-message-origin header value")?,
-        None => "dataframe", // by default
-    };
-
-    let mut connection = app.database.get_connection().await;
-    let mut transaction = connection.begin().await?;
-
-    let message_id = app
-        .database
-        .new_message(&mut transaction, topic.as_str(), origin, stream_type)
-        .await?;
-
-    let mut stored = 0;
-    while let Some(chunk) = body.next().await {
-        // FIXME: accumulate into buffer
-        let chunk = chunk?;
-        app.database
-            .store_chunk(&mut transaction, message_id, chunk.as_ref())
-            .await?;
-        stored += 1;
-    }
-    // don't store empty messages
-    match stored {
-        0 => transaction.rollback().await?,
-        _ => transaction.commit().await?,
-    };
-    Ok(Json("ok"))
-}
-
-async fn get_message(
-    State(app): State<Arc<App>>,
-    axum::extract::Path((topic, offset)): axum::extract::Path<(String, u64)>,
-) -> Result<impl IntoResponse, error::Error> {
-    let response = match app.database.get_message(&topic, offset).await? {
-        None => {
-            let stream: Pin<Box<dyn Stream<Item = _> + Send>> =
-                Box::pin(futures::stream::empty::<Result<Vec<u8>, error::Error>>());
-            (
-                [
-                    ("x-message-id", offset.to_string()),
-                    ("x-message-origin", "".into()),
-                    ("x-stream-type", "".into()),
-                ],
-                StreamBody::new(stream),
-            )
-        }
-        Some(MessageStream {
-            id,
-            origin,
-            stream_type,
-            stream,
-        }) => (
-            [
-                ("x-message-id", id.to_string()),
-                ("x-message-origin", origin),
-                ("x-stream-type", stream_type),
-            ],
-            StreamBody::new(stream),
-        ),
-    };
-    Ok(response)
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -1129,17 +1050,12 @@ async fn main() -> anyhow::Result<()> {
         .route("/api/pipe", get(get_pipe_configs))
         .layer(middleware::from_fn_with_state(state.clone(), daemon_auth));
 
-    // ingestion api is "security by obscurity" for now, and relies on the topic being secret
-    let ingestion_api = Router::new()
-        .route("/ingestion/:topic", post(ingestion))
-        .route("/ingestion/:topic/:offset", get(get_message));
-
     // FIXME: consistent endpoint namings
     let api = Router::new()
         .merge(protected_api)
         .merge(daemon_basic_api)
         .merge(daemon_protected_api)
-        .merge(ingestion_api)
+        .merge(ingestion_api())
         .layer(Extension(jwks))
         .layer(Extension(audience))
         .with_state(state.clone());
