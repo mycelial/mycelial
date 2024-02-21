@@ -23,8 +23,30 @@ pub struct Scheduler<T: Storage<<R::SectionChannel as SectionChannel>::State>, R
     registry: Registry<<R as RootChannel>::SectionChannel>,
     storage: T,
     pipe_configs: HashMap<u64, Config>,
-    pipes: HashMap<u64, Option<JoinHandle<Result<(), SectionError>>>>,
+    pipes: HashMap<u64, PipeState>,
     root_chan: R,
+    restart_delay: Duration,
+}
+
+#[derive(Debug)]
+enum PipeState {
+    Running(JoinHandle<Result<(), SectionError>>),
+    Restarting(JoinHandle<()>),
+}
+
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub enum PipeStatus {
+    Running,
+    Restarting,
+}
+
+impl From<&PipeState> for PipeStatus {
+    fn from(value: &PipeState) -> Self {
+        match value {
+            PipeState::Running(_) => Self::Running,
+            PipeState::Restarting(_) => Self::Restarting,
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -52,6 +74,11 @@ pub enum Message {
         reply_to: OneshotSender<Result<Vec<u64>, SectionError>>,
     },
 
+    /// List pipe statuses
+    ListStatus {
+        reply_to: OneshotSender<Result<Vec<(u64, PipeStatus)>, SectionError>>,
+    },
+
     /// Reschedule pipe
     Reschedule { id: u64 },
 }
@@ -71,11 +98,7 @@ pub enum ScheduleResult {
 impl<T, R> Scheduler<T, R>
 where
     R: RootChannel,
-    T: Storage<<R::SectionChannel as SectionChannel>::State>
-        + std::fmt::Debug
-        + Clone
-        + Send
-        + 'static,
+    T: Storage<<R::SectionChannel as SectionChannel>::State> + std::fmt::Debug + Send + 'static,
 {
     pub fn new(registry: Registry<R::SectionChannel>, storage: T) -> Self {
         Self {
@@ -84,7 +107,14 @@ where
             pipe_configs: HashMap::new(),
             pipes: HashMap::new(),
             root_chan: RootChannel::new(),
+            restart_delay: Duration::from_secs(3),
         }
+    }
+
+    // Set restart delay
+    pub fn with_restart_delay(mut self, d: Duration) -> Self {
+        self.restart_delay = d;
+        self
     }
 
     pub fn spawn(mut self) -> SchedulerHandle {
@@ -127,8 +157,15 @@ where
                                 .send(Ok(self.pipe_configs.keys().copied().collect()))
                                 .ok();
                         }
+                        Message::ListStatus { reply_to } => {
+                            let statuses = self.pipes
+                                .iter()
+                                .map(|(id, state)| (*id, state.into()))
+                                .collect();
+                            reply_to.send(Ok(statuses)).ok();
+                        }
                         Message::Reschedule{ id } => {
-                            if !self.pipes.contains_key(&id) {
+                            if let Some(PipeState::Restarting(_)) = self.pipes.get(&id) {
                                 self.schedule(id).ok();
                             }
                         }
@@ -144,12 +181,11 @@ where
                             reply_to.reply(()).await.ok();
                         },
                         SectionRequest::Log { id, message } => {
-                            // FIXME: use proper logger
                             log::info!("pipe<{id}>: {message}");
                         },
                         SectionRequest::Stopped{ id } => {
                             let finished = match self.pipes.get(&id) {
-                                Some(Some(handle)) => handle.is_finished(),
+                                Some(PipeState::Running(handle)) => handle.is_finished(),
                                 _ => true,
                             };
                             if finished {
@@ -177,6 +213,7 @@ where
             None => ScheduleResult::New,
         };
         self.pipe_configs.insert(id, config);
+        self.unschedule(id).await;
         self.schedule(id).map(|_| schedule_result)
     }
 
@@ -194,7 +231,7 @@ where
                 Stub::<_, SectionError>::new(),
                 section_chan,
             );
-            let handle = Some(tokio::spawn(pipe));
+            let handle = PipeState::Running(tokio::spawn(pipe));
             self.pipes.insert(id, handle);
         }
         Ok(())
@@ -203,33 +240,31 @@ where
     /// Stop pipe by removing it from pipes list
     async fn unschedule(&mut self, pipe_id: u64) {
         self.root_chan.send(pipe_id, Command::Stop).await.ok();
-        if let Some(Some(handle)) = self.pipes.remove(&pipe_id) {
-            handle.abort();
+        match self.pipes.remove(&pipe_id) {
+            Some(PipeState::Running(handle)) => handle.abort(),
+            Some(PipeState::Restarting(handle)) => handle.abort(),
+            _ => (),
         }
         self.root_chan.remove_section(pipe_id).ok();
     }
 
     /// reschedule failed pipe
-    fn reschedule(&self, id: u64, weak_tx: WeakSender<Message>) {
-        tokio::spawn(async move {
-            tokio::time::sleep(Duration::from_secs(3)).await;
+    fn reschedule(&mut self, id: u64, weak_tx: WeakSender<Message>) {
+        let restart_delay = self.restart_delay;
+        let future = async move {
+            tokio::time::sleep(restart_delay).await;
             if let Some(tx) = weak_tx.upgrade() {
                 tx.send(Message::Reschedule { id }).await.ok();
             }
-        });
+        };
+        let handle = PipeState::Restarting(tokio::spawn(future));
+        self.pipes.insert(id, handle);
     }
 
     /// retrieve pipe error, if any
     async fn retrieve_pipe_error(&mut self, pipe_id: u64) -> Result<(), SectionError> {
         match self.pipes.get_mut(&pipe_id) {
-            Some(handle) if handle.is_some() => {
-                if handle.as_mut().map(|handle| handle.is_finished()).unwrap() {
-                    let handle = handle.take().unwrap();
-                    handle.await?
-                } else {
-                    Ok(())
-                }
-            }
+            Some(PipeState::Running(handle)) => handle.await?,
             _ => Ok(()),
         }
     }
@@ -288,6 +323,11 @@ impl SchedulerHandle {
     /// List pipes ids
     pub async fn list_ids(&self) -> Result<Vec<u64>, SectionError> {
         call!(self, Message::ListIds {})
+    }
+
+    /// List pipe states
+    pub async fn list_status(&self) -> Result<Vec<(u64, PipeStatus)>, SectionError> {
+        call!(self, Message::ListStatus {})
     }
 
     /// Shutdown scheduler
