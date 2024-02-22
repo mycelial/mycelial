@@ -11,11 +11,8 @@ use base64::engine::{general_purpose::STANDARD as BASE64, Engine};
 use chrono::NaiveDateTime;
 use chrono::{DateTime, Utc};
 use clap::Parser;
-use common::{
-    Destination, PipeConfig, PipeConfigs, ProvisionClientRequest, ProvisionClientResponse, Source,
-};
+use common::{Destination, PipeConfig, PipeConfigs, Source};
 use futures::{Stream, StreamExt};
-use ingestion::ingestion_api;
 use jsonwebtoken::{decode, jwk, DecodingKey, Validation};
 use rust_embed::RustEmbed;
 use serde::{Deserialize, Serialize};
@@ -30,6 +27,8 @@ use std::{str::FromStr, sync::Arc};
 use tokio::sync::{Mutex, MutexGuard};
 use uuid::Uuid;
 
+mod daemon_auth;
+mod daemon_basic_auth;
 pub mod error;
 mod ingestion;
 
@@ -52,56 +51,6 @@ fn validate_token(
     let mut validation = Validation::new(jsonwebtoken::Algorithm::RS256);
     validation.set_audience(&[audience]);
     decode::<MyClaims>(token, &decoding_key, &validation).map(|data| data.claims)
-}
-
-// middleware that checks for the token in the request and associates it with a client/daemon
-async fn daemon_auth<B>(
-    State(app): State<Arc<App>>,
-    mut req: Request<B>,
-    next: Next<B>,
-) -> Result<Response, impl IntoResponse> {
-    let auth_header = req
-        .headers()
-        .get(http::header::AUTHORIZATION)
-        .and_then(|header| header.to_str().ok());
-
-    let decoded = auth_header
-        .and_then(|header| header.strip_prefix("Basic "))
-        .and_then(|token| BASE64.decode(token).ok())
-        .and_then(|token| String::from_utf8(token).ok())
-        .and_then(|token| {
-            let parts: Vec<&str> = token.splitn(2, ':').collect();
-            match parts.as_slice() {
-                [client_id, client_secret] => {
-                    Some((client_id.to_string(), client_secret.to_string()))
-                }
-                _ => None,
-            }
-        });
-
-    if let Some((client_id, client_secret)) = decoded {
-        let user_id = app
-            .validate_client_id_and_secret(client_id.as_str(), client_secret.as_str())
-            .await;
-        let user_id = match user_id {
-            Ok(user_id) => user_id,
-            Err(_) => {
-                let response = (
-                    [(header::WWW_AUTHENTICATE, "Basic")],
-                    StatusCode::UNAUTHORIZED,
-                );
-                return Err(response);
-            }
-        };
-        let user_id = UserID(user_id);
-        req.extensions_mut().insert(user_id);
-        return Ok(next.run(req).await);
-    }
-    let response = (
-        [(header::WWW_AUTHENTICATE, "Basic")],
-        StatusCode::UNAUTHORIZED,
-    );
-    Err(response)
 }
 
 async fn validate_client_basic_auth<B>(
@@ -236,13 +185,6 @@ struct Client {
     sources: Vec<Source>,
     #[serde(default)]
     destinations: Vec<Destination>,
-}
-
-async fn get_pipe_configs(
-    State(app): State<Arc<App>>,
-    Extension(user_id): Extension<UserID>,
-) -> Result<impl IntoResponse, error::Error> {
-    app.get_configs(user_id.0.as_str()).await.map(Json)
 }
 
 async fn get_pipe_config(
@@ -409,38 +351,6 @@ async fn log_middleware<B>(
     });
     log::info!("{}", log);
     response
-}
-
-async fn provision_client(
-    State(state): State<Arc<App>>,
-    Extension(user_id): Extension<UserID>,
-    Json(payload): Json<ProvisionClientRequest>,
-) -> Result<impl IntoResponse, error::Error> {
-    let client_id = payload.client_config.node.unique_id;
-    let unique_client_id = Uuid::new_v4().to_string();
-    let client_secret = Uuid::new_v4().to_string();
-    let client_secret_hash = bcrypt::hash(client_secret.clone(), 12).unwrap();
-
-    state
-        .database
-        .insert_client(
-            // add the user_id here.
-            &client_id,
-            user_id.0.as_str(),
-            &payload.client_config.node.display_name,
-            &payload.client_config.sources,
-            &payload.client_config.destinations,
-            unique_client_id.as_str(),
-            client_secret_hash.as_str(),
-        )
-        .await
-        .map(|_| {
-            Json(ProvisionClientResponse {
-                id: client_id.clone(),
-                client_id: unique_client_id,
-                client_secret,
-            })
-        })
 }
 
 #[derive(Debug)]
@@ -1039,7 +949,7 @@ async fn main() -> anyhow::Result<()> {
     }
 
     let daemon_basic_api = Router::new()
-        .route("/api/client", post(provision_client))
+        .route("/api/client", post(daemon_basic_auth::provision_client))
         .layer(middleware::from_fn_with_state(
             state.clone(),
             validate_client_basic_auth,
@@ -1047,15 +957,23 @@ async fn main() -> anyhow::Result<()> {
 
     // daemon uses its client_id and client_secret to auth, regardless of whether user auth is turned on
     let daemon_protected_api = Router::new()
-        .route("/api/pipe", get(get_pipe_configs))
-        .layer(middleware::from_fn_with_state(state.clone(), daemon_auth));
+        .route("/api/pipe", get(daemon_auth::get_pipe_configs))
+        .layer(middleware::from_fn_with_state(
+            state.clone(),
+            daemon_auth::daemon_auth,
+        ));
+
+    // ingestion api is "security by obscurity" for now, and relies on the topic being secret
+    let ingestion_api = Router::new()
+        .route("/ingestion/:topic", post(ingestion::ingestion))
+        .route("/ingestion/:topic/:offset", get(ingestion::get_message));
 
     // FIXME: consistent endpoint namings
     let api = Router::new()
         .merge(protected_api)
         .merge(daemon_basic_api)
         .merge(daemon_protected_api)
-        .merge(ingestion_api())
+        .merge(ingestion_api)
         .layer(Extension(jwks))
         .layer(Extension(audience))
         .with_state(state.clone());
