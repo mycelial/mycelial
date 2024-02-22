@@ -1,10 +1,7 @@
 //! Mycelial Net
 //!
 //! network section, dumps incoming messages to provided http endpoint
-use arrow_msg::{
-    df_to_recordbatch,
-    arrow::ipc::writer::StreamWriter,
-};
+use arrow_msg::{arrow::ipc::writer::StreamWriter, df_to_recordbatch};
 use async_stream::stream;
 use reqwest::Body;
 use section::{

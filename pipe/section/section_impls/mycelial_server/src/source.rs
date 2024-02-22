@@ -1,9 +1,6 @@
 //! Mycelial Net
 
-use arrow_msg::{
-    ArrowMsg,
-    arrow::ipc::reader::StreamReader,
-};
+use arrow_msg::{arrow::ipc::reader::StreamReader, ArrowMsg};
 use reqwest::Client;
 use section::{
     command_channel::{Command, SectionChannel, WeakSectionChannel},

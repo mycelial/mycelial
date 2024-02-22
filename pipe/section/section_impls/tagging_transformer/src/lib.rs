@@ -1,15 +1,10 @@
 use std::pin::pin;
 use std::sync::Arc;
 
-
 use arrow_msg::{
-    df_to_recordbatch,
-    ArrowMsg,
-    arrow::array::StringArray,
-    arrow::datatypes::DataType as ArrowDataType,
-    arrow::datatypes::Field,
-    arrow::datatypes::SchemaBuilder,
-    arrow::record_batch::RecordBatch as ArrowRecordBatch,
+    arrow::array::StringArray, arrow::datatypes::DataType as ArrowDataType,
+    arrow::datatypes::Field, arrow::datatypes::SchemaBuilder,
+    arrow::record_batch::RecordBatch as ArrowRecordBatch, df_to_recordbatch, ArrowMsg,
 };
 
 use section::command_channel::{Command, SectionChannel};

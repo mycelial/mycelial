@@ -1,6 +1,5 @@
 use arrow_msg::{
-    arrow::{datatypes::DataType, record_batch::RecordBatch, util::pretty::pretty_format_batches},
-    ArrowMsg
+    ArrowMsg,
 };
 use section::{
     command_channel::{Command, SectionChannel},
@@ -22,26 +21,6 @@ pub struct SnowflakeSource {
     schema: String,
     query: String,
     delay: Duration,
-}
-
-// Redo record batch received from snowflake
-// - cast timestamp ntz to proper timestamp
-fn rebatch(rb: RecordBatch) -> Result<RecordBatch, SectionError> {
-    let schema = rb.schema();
-    let needs_rebatch = schema.fields().iter().any(|field| match field.data_type() {
-        DataType::Struct(_fields) => {
-            field.metadata().get("logicalType").map(|s| s.as_str()) == Some("TIMESTAMP_NTZ")
-        }
-        _ => {
-            println!("field: {:?}", field);
-            false
-        }
-    });
-    if !needs_rebatch {
-        return Ok(rb);
-    };
-
-    unimplemented!()
 }
 
 impl SnowflakeSource {
@@ -106,11 +85,10 @@ impl SnowflakeSource {
                     let query_result = api.exec(&self.query).await?;
                     match query_result {
                         QueryResult::Arrow(batches) => {
-                            println!("{}", pretty_format_batches(batches.as_slice()).unwrap());
                             let batches = batches
                                 .into_iter()
-                                .map(|batch| rebatch(batch).map(|b| Some(b.into())))
-                                .collect::<Result<Vec<_>, _>>()?;
+                                .map(|batch| Some(batch.into()))
+                                .collect::<Vec<_>>();
                             let message = ArrowMsg::new("snowflake_src", batches, None);
                             output.send(Box::new(message)).await?;
                         }

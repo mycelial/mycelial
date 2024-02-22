@@ -160,7 +160,6 @@ impl SnowflakeDestination {
             "CREATE OR REPLACE TEMPORARY FILE FORMAT CUSTOM_PARQUET_FORMAT TYPE = PARQUET COMPRESSION = AUTO TRIM_SPACE = TRUE REPLACE_INVALID_CHARACTERS = TRUE BINARY_AS_TEXT = FALSE USE_LOGICAL_TYPE = TRUE;"
         ).await?;
 
-        
         if self.truncate {
             api.exec(&format!("TRUNCATE TABLE {};", table_name)).await?;
         }

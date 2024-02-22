@@ -61,7 +61,7 @@ impl Drop for DropFile {
 #[tokio::test]
 async fn source_stream() -> Result<(), StdError> {
     let db_path = NamedTempFile::new()?.path().to_string_lossy().to_string();
-    let mut conn = init_sqlite(db_path.as_str()).await?;
+    let _conn = init_sqlite(db_path.as_str()).await?;
 
     let section_chan = DummySectionChannel::new();
 

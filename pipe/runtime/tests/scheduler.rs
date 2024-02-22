@@ -108,11 +108,11 @@ async fn test_scheduler_restart() {
     let res = scheduler_handle
         .add_pipe(1, Config::new(vec![section_config]))
         .await;
-    assert!(matches!(res, Ok(_)), "failed to add pipe: {:?}", res);
+    assert!(res.is_ok(), "failed to add pipe: {:?}", res);
     assert_eq!(1, SECTION_COUNTER.load(Ordering::Relaxed));
     let status = scheduler_handle.list_status().await;
     assert!(
-        matches!(status, Ok(_)),
+        status.is_ok(),
         "failed to list status: {:?}",
         status
     );
@@ -124,7 +124,7 @@ async fn test_scheduler_restart() {
     assert_eq!(0, SECTION_COUNTER.load(Ordering::Relaxed));
     let status = scheduler_handle.list_status().await;
     assert!(
-        matches!(status, Ok(_)),
+        status.is_ok(),
         "failed to list status: {:?}",
         status
     );
@@ -136,7 +136,7 @@ async fn test_scheduler_restart() {
     assert_eq!(1, SECTION_COUNTER.load(Ordering::Relaxed));
     let status = scheduler_handle.list_status().await;
     assert!(
-        matches!(status, Ok(_)),
+        status.is_ok(),
         "failed to list status: {:?}",
         status
     );
@@ -151,12 +151,12 @@ async fn test_scheduler_restart() {
     let res = scheduler_handle
         .add_pipe(1, Config::new(vec![section_config]))
         .await;
-    assert!(matches!(res, Ok(_)), "failed to add pipe: {:?}", res);
+    assert!(res.is_ok(), "failed to add pipe: {:?}", res);
 
     assert_eq!(1, SECTION_COUNTER.load(Ordering::Relaxed));
     let status = scheduler_handle.list_status().await;
     assert!(
-        matches!(status, Ok(_)),
+        status.is_ok(),
         "failed to list status: {:?}",
         status
     );
@@ -168,7 +168,7 @@ async fn test_scheduler_restart() {
     assert_eq!(0, SECTION_COUNTER.load(Ordering::Relaxed));
     let status = scheduler_handle.list_status().await;
     assert!(
-        matches!(status, Ok(_)),
+        status.is_ok(),
         "failed to list status: {:?}",
         status
     );
