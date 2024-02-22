@@ -144,11 +144,7 @@ where
                             }
                             SectionRequest::Stopped { id } => {
                                 return match handles[id as usize].handle.take() {
-                                    Some(handle) => {
-                                        let err = handle.await?;
-                                        println!("err: {:?}", err);
-                                        err
-                                    },
+                                    Some(handle) => handle.await?,
                                     None => Ok(()),
                                 }
                             }

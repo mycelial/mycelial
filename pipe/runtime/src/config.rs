@@ -151,6 +151,10 @@ impl TryFrom<Value> for Config {
 }
 
 impl Config {
+    pub fn new(sections: Vec<Map>) -> Self {
+        Self { sections }
+    }
+
     pub fn get_sections(&self) -> &[HashMap<String, Value>] {
         self.sections.as_slice()
     }
