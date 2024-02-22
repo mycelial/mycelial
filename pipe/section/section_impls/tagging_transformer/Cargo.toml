@@ -7,6 +7,5 @@ edition = "2021"
 
 [dependencies]
 section = { path = "../../" }
-arrow = { version = "49", features = ["prettyprint"] }
 arrow_msg = { path = "../../../arrow_msg" }
 futures = "0.3"

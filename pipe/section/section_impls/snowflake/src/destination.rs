@@ -1,5 +1,10 @@
-use arrow::datatypes::{DataType, SchemaRef};
-use arrow_msg::df_to_recordbatch;
+use arrow_msg::{
+    arrow::{
+        datatypes::{DataType, SchemaRef},
+        record_batch::RecordBatch,
+    },
+    df_to_recordbatch,
+};
 use parquet::arrow::AsyncArrowWriter;
 use parquet::errors::ParquetError;
 use section::{
@@ -36,7 +41,7 @@ pub struct SnowflakeDestination {
     warehouse: String,
     database: String,
     schema: String,
-    // destination
+    truncate: bool,
 }
 
 impl SnowflakeDestination {
@@ -49,6 +54,7 @@ impl SnowflakeDestination {
         warehouse: impl Into<String>,
         database: impl Into<String>,
         schema: impl Into<String>,
+        truncate: bool,
     ) -> Self {
         Self {
             username: username.into(),
@@ -58,6 +64,7 @@ impl SnowflakeDestination {
             warehouse: warehouse.into(),
             database: database.into(),
             schema: schema.into(),
+            truncate,
         }
     }
 
@@ -75,7 +82,7 @@ impl SnowflakeDestination {
         let mut input = pin!(input.fuse());
         let mut api = SnowflakeApi::with_password_auth(
             &self.account_identifier,
-            &self.warehouse,
+            Some(&self.warehouse),
             Some(&self.database),
             Some(&self.schema),
             &self.username,
@@ -97,8 +104,15 @@ impl SnowflakeDestination {
                     let mut msg = msg.unwrap();
                     while let Some(chunk) = msg.next().await? {
                         let batch = match chunk {
-                            Chunk::DataFrame(df) => df_to_recordbatch(df.as_ref())?,
-                            _ => panic!("unsupported chunk: {:?}", chunk),
+                            Chunk::DataFrame(df) => {
+                                for column in df.columns() {
+                                    if column.data_type() == section::message::DataType::Any {
+                                        Err(format!("snowflake destination can't handle column '{}' with DataType::Any", column.name()))?
+                                    }
+                                }
+                                df_to_recordbatch(df.as_ref())?
+                            },
+                            _ => Err(format!("unsupported chunk: {:?}", chunk))?,
                         };
                         self.destructive_load_batch(&mut api, &batch, msg.origin()).await?;
                     }
@@ -111,7 +125,7 @@ impl SnowflakeDestination {
     async fn destructive_load_batch(
         &self,
         api: &mut SnowflakeApi,
-        batch: &arrow::record_batch::RecordBatch,
+        batch: &RecordBatch,
         origin: &str,
     ) -> Result<(), SnowflakeDestinationError> {
         // fixme: race condition on multiple batches in succession, disambiguate file names?
@@ -146,11 +160,14 @@ impl SnowflakeDestination {
             "CREATE OR REPLACE TEMPORARY FILE FORMAT CUSTOM_PARQUET_FORMAT TYPE = PARQUET COMPRESSION = AUTO TRIM_SPACE = TRUE REPLACE_INVALID_CHARACTERS = TRUE BINARY_AS_TEXT = FALSE USE_LOGICAL_TYPE = TRUE;"
         ).await?;
 
-        api.exec(&format!("TRUNCATE TABLE {};", table_name)).await?;
+        
+        if self.truncate {
+            api.exec(&format!("TRUNCATE TABLE {};", table_name)).await?;
+        }
 
-        api.exec(
-            &format!("COPY INTO {} FILE_FORMAT = CUSTOM_PARQUET_FORMAT PURGE = TRUE MATCH_BY_COLUMN_NAME = CASE_INSENSITIVE;", table_name)
-        ).await?;
+        api.exec(&format!(
+            "COPY INTO {table_name} FILE_FORMAT = CUSTOM_PARQUET_FORMAT PURGE = TRUE MATCH_BY_COLUMN_NAME = CASE_INSENSITIVE;"
+        )).await?;
 
         Ok(())
     }

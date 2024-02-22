@@ -1,5 +1,7 @@
-use arrow::{datatypes::DataType, record_batch::RecordBatch, util::pretty::pretty_format_batches};
-use arrow_msg::ArrowMsg;
+use arrow_msg::{
+    arrow::{datatypes::DataType, record_batch::RecordBatch, util::pretty::pretty_format_batches},
+    ArrowMsg
+};
 use section::{
     command_channel::{Command, SectionChannel},
     futures::{self, FutureExt, Sink, SinkExt, Stream, StreamExt},
@@ -82,7 +84,7 @@ impl SnowflakeSource {
         // todo: move this before the loop to make it fail early? or verify configuration somehow
         let api = SnowflakeApi::with_password_auth(
             &self.account_identifier,
-            &self.warehouse,
+            Some(&self.warehouse),
             Some(&self.database),
             Some(&self.schema),
             &self.username,

@@ -7,7 +7,7 @@ edition = "2021"
 
 [dependencies]
 section = { path = "../section/" }
-arrow = "49"
+arrow = { version = "50", features = ["prettyprint"] }
 chrono = "0.4"
 
 [dev-dependencies]

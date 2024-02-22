@@ -1,14 +1,16 @@
 use std::pin::pin;
 use std::sync::Arc;
 
-use arrow::array::StringArray;
-use arrow::datatypes::DataType as ArrowDataType;
-use arrow::datatypes::Field;
-use arrow::datatypes::SchemaBuilder;
-use arrow::record_batch::RecordBatch as ArrowRecordBatch;
 
-use arrow_msg::df_to_recordbatch;
-use arrow_msg::ArrowMsg;
+use arrow_msg::{
+    df_to_recordbatch,
+    ArrowMsg,
+    arrow::array::StringArray,
+    arrow::datatypes::DataType as ArrowDataType,
+    arrow::datatypes::Field,
+    arrow::datatypes::SchemaBuilder,
+    arrow::record_batch::RecordBatch as ArrowRecordBatch,
+};
 
 use section::command_channel::{Command, SectionChannel};
 use section::futures::{self, Sink, SinkExt, Stream};

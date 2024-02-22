@@ -142,6 +142,7 @@ pub struct SnowflakeDestinationConfig {
     pub warehouse: String,
     pub database: String,
     pub schema: String,
+    pub truncate: bool,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]

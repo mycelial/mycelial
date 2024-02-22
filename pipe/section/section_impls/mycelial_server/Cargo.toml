@@ -6,7 +6,6 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-arrow = { version = "49", features = ["prettyprint"] }
 arrow_msg = { path = "../../../arrow_msg" }
 async-stream = "0.3.5"
 base64 = "0.21.5"

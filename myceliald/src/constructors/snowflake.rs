@@ -108,6 +108,14 @@ pub fn destination_ctor<S: SectionChannel>(
         .ok_or("schema required")?
         .as_str()
         .ok_or("'schema' should be a string")?;
+    let truncate = config
+        .get("truncate")
+        .ok_or("snowflake destination section requires 'truncate'")?;
+    let truncate = match truncate {
+        Value::Bool(b) => *b,
+        Value::String(s) => s.to_lowercase() == "true",
+        _ => Err("truncate should be either bool or bool string")?,
+    };
     Ok(Box::new(snowflake::destination::SnowflakeDestination::new(
         username,
         password,
@@ -116,6 +124,7 @@ pub fn destination_ctor<S: SectionChannel>(
         warehouse,
         database,
         schema,
+        truncate,
     )))
 }
 
