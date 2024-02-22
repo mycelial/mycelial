@@ -1,6 +1,4 @@
-use arrow_msg::{
-    ArrowMsg,
-};
+use arrow_msg::ArrowMsg;
 use section::{
     command_channel::{Command, SectionChannel},
     futures::{self, FutureExt, Sink, SinkExt, Stream, StreamExt},
