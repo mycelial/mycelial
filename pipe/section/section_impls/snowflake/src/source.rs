@@ -61,7 +61,7 @@ impl SnowflakeSource {
         // todo: move this before the loop to make it fail early? or verify configuration somehow
         let api = SnowflakeApi::with_password_auth(
             &self.account_identifier,
-            &self.warehouse,
+            Some(&self.warehouse),
             Some(&self.database),
             Some(&self.schema),
             &self.username,
@@ -83,7 +83,10 @@ impl SnowflakeSource {
                     let query_result = api.exec(&self.query).await?;
                     match query_result {
                         QueryResult::Arrow(batches) => {
-                            let batches = batches.into_iter().map(|batch| Some(batch.into())).collect();
+                            let batches = batches
+                                .into_iter()
+                                .map(|batch| Some(batch.into()))
+                                .collect::<Vec<_>>();
                             let message = ArrowMsg::new("snowflake_src", batches, None);
                             output.send(Box::new(message)).await?;
                         }

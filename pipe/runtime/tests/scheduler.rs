@@ -108,14 +108,10 @@ async fn test_scheduler_restart() {
     let res = scheduler_handle
         .add_pipe(1, Config::new(vec![section_config]))
         .await;
-    assert!(matches!(res, Ok(_)), "failed to add pipe: {:?}", res);
+    assert!(res.is_ok(), "failed to add pipe: {:?}", res);
     assert_eq!(1, SECTION_COUNTER.load(Ordering::Relaxed));
     let status = scheduler_handle.list_status().await;
-    assert!(
-        matches!(status, Ok(_)),
-        "failed to list status: {:?}",
-        status
-    );
+    assert!(status.is_ok(), "failed to list status: {:?}", status);
     let status = status.unwrap();
     assert_eq!(status, vec![(1, PipeStatus::Running)]);
 
@@ -123,11 +119,7 @@ async fn test_scheduler_restart() {
     tokio::time::sleep(Duration::from_millis(150)).await;
     assert_eq!(0, SECTION_COUNTER.load(Ordering::Relaxed));
     let status = scheduler_handle.list_status().await;
-    assert!(
-        matches!(status, Ok(_)),
-        "failed to list status: {:?}",
-        status
-    );
+    assert!(status.is_ok(), "failed to list status: {:?}", status);
     let status = status.unwrap();
     assert_eq!(status, vec![(1, PipeStatus::Restarting)]);
 
@@ -135,11 +127,7 @@ async fn test_scheduler_restart() {
     tokio::time::sleep(Duration::from_millis(100)).await;
     assert_eq!(1, SECTION_COUNTER.load(Ordering::Relaxed));
     let status = scheduler_handle.list_status().await;
-    assert!(
-        matches!(status, Ok(_)),
-        "failed to list status: {:?}",
-        status
-    );
+    assert!(status.is_ok(), "failed to list status: {:?}", status);
     let status = status.unwrap();
     assert_eq!(status, vec![(1, PipeStatus::Running)]);
 
@@ -151,15 +139,11 @@ async fn test_scheduler_restart() {
     let res = scheduler_handle
         .add_pipe(1, Config::new(vec![section_config]))
         .await;
-    assert!(matches!(res, Ok(_)), "failed to add pipe: {:?}", res);
+    assert!(res.is_ok(), "failed to add pipe: {:?}", res);
 
     assert_eq!(1, SECTION_COUNTER.load(Ordering::Relaxed));
     let status = scheduler_handle.list_status().await;
-    assert!(
-        matches!(status, Ok(_)),
-        "failed to list status: {:?}",
-        status
-    );
+    assert!(status.is_ok(), "failed to list status: {:?}", status);
     let status = status.unwrap();
     assert_eq!(status, vec![(1, PipeStatus::Running)]);
 
@@ -167,11 +151,7 @@ async fn test_scheduler_restart() {
     tokio::time::sleep(Duration::from_millis(75)).await;
     assert_eq!(0, SECTION_COUNTER.load(Ordering::Relaxed));
     let status = scheduler_handle.list_status().await;
-    assert!(
-        matches!(status, Ok(_)),
-        "failed to list status: {:?}",
-        status
-    );
+    assert!(status.is_ok(), "failed to list status: {:?}", status);
     let status = status.unwrap();
     assert_eq!(status, vec![(1, PipeStatus::Restarting)]);
 }

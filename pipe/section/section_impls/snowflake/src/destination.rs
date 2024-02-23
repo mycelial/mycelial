@@ -1,5 +1,10 @@
-use arrow::datatypes::{DataType, SchemaRef};
-use arrow_msg::df_to_recordbatch;
+use arrow_msg::{
+    arrow::{
+        datatypes::{DataType, SchemaRef},
+        record_batch::RecordBatch,
+    },
+    df_to_recordbatch,
+};
 use parquet::arrow::AsyncArrowWriter;
 use parquet::errors::ParquetError;
 use section::{
@@ -36,7 +41,7 @@ pub struct SnowflakeDestination {
     warehouse: String,
     database: String,
     schema: String,
-    // destination
+    truncate: bool,
 }
 
 impl SnowflakeDestination {
@@ -49,6 +54,7 @@ impl SnowflakeDestination {
         warehouse: impl Into<String>,
         database: impl Into<String>,
         schema: impl Into<String>,
+        truncate: bool,
     ) -> Self {
         Self {
             username: username.into(),
@@ -58,6 +64,7 @@ impl SnowflakeDestination {
             warehouse: warehouse.into(),
             database: database.into(),
             schema: schema.into(),
+            truncate,
         }
     }
 
@@ -75,7 +82,7 @@ impl SnowflakeDestination {
         let mut input = pin!(input.fuse());
         let mut api = SnowflakeApi::with_password_auth(
             &self.account_identifier,
-            &self.warehouse,
+            Some(&self.warehouse),
             Some(&self.database),
             Some(&self.schema),
             &self.username,
@@ -97,8 +104,15 @@ impl SnowflakeDestination {
                     let mut msg = msg.unwrap();
                     while let Some(chunk) = msg.next().await? {
                         let batch = match chunk {
-                            Chunk::DataFrame(df) => df_to_recordbatch(df.as_ref())?,
-                            _ => panic!("unsupported chunk: {:?}", chunk),
+                            Chunk::DataFrame(df) => {
+                                for column in df.columns() {
+                                    if column.data_type() == section::message::DataType::Any {
+                                        Err(format!("snowflake destination can't handle column '{}' with DataType::Any", column.name()))?
+                                    }
+                                }
+                                df_to_recordbatch(df.as_ref())?
+                            },
+                            _ => Err(format!("unsupported chunk: {:?}", chunk))?,
                         };
                         self.destructive_load_batch(&mut api, &batch, msg.origin()).await?;
                     }
@@ -111,7 +125,7 @@ impl SnowflakeDestination {
     async fn destructive_load_batch(
         &self,
         api: &mut SnowflakeApi,
-        batch: &arrow::record_batch::RecordBatch,
+        batch: &RecordBatch,
         origin: &str,
     ) -> Result<(), SnowflakeDestinationError> {
         // fixme: race condition on multiple batches in succession, disambiguate file names?
@@ -143,14 +157,16 @@ impl SnowflakeDestination {
         .await?;
 
         api.exec(
-            "CREATE OR REPLACE TEMPORARY FILE FORMAT CUSTOM_PARQUET_FORMAT TYPE = PARQUET COMPRESSION = NONE TRIM_SPACE = TRUE REPLACE_INVALID_CHARACTERS = TRUE BINARY_AS_TEXT = FALSE;"
+            "CREATE OR REPLACE TEMPORARY FILE FORMAT CUSTOM_PARQUET_FORMAT TYPE = PARQUET COMPRESSION = AUTO TRIM_SPACE = TRUE REPLACE_INVALID_CHARACTERS = TRUE BINARY_AS_TEXT = FALSE USE_LOGICAL_TYPE = TRUE;"
         ).await?;
 
-        api.exec(&format!("TRUNCATE TABLE {};", table_name)).await?;
+        if self.truncate {
+            api.exec(&format!("TRUNCATE TABLE {};", table_name)).await?;
+        }
 
-        api.exec(
-            &format!("COPY INTO {} FILE_FORMAT = CUSTOM_PARQUET_FORMAT PURGE = TRUE MATCH_BY_COLUMN_NAME = CASE_INSENSITIVE;", table_name)
-        ).await?;
+        api.exec(&format!(
+            "COPY INTO {table_name} FILE_FORMAT = CUSTOM_PARQUET_FORMAT PURGE = TRUE MATCH_BY_COLUMN_NAME = CASE_INSENSITIVE;"
+        )).await?;
 
         Ok(())
     }
@@ -159,18 +175,21 @@ impl SnowflakeDestination {
     // Since type conversion goes Arrow -> Parquet -> Snowflake
     // The Arrow schema mapping must match what Snowflake expects on load instead of being
     // logically mapped directly from Arrow types
+    // todo: use Parquet directly
     fn arrow_schema_to_snowflake_schema(&self, arrow_schema: SchemaRef) -> String {
         arrow_schema.fields.iter().map(|f| {
-            // todo: use Parquet directly
+            let tmp: String;
             let snowflake_type = match f.data_type() {
                 DataType::Boolean => "BOOLEAN",
+                DataType::Time32(_) | DataType::Time64(_) => "TIME",
                 // null encoded as int32 in parquet
                 DataType::Null |
-                // time32 and time64 denote time of day and encoded as int in parquet too
-                DataType::Time32(_) | DataType::Time64(_) |
                 // rest of ints
                 DataType::Int8 | DataType::Int16 | DataType::Int32 | DataType::Int64 | DataType::UInt8 | DataType::UInt16 | DataType::UInt32 | DataType::UInt64 => "NUMBER",
-                DataType::Float16 | DataType::Float32 | DataType::Float64 | DataType::Decimal128(_, _) | DataType::Decimal256(_, _) => "FLOAT",
+                DataType::Float16 | DataType::Float32 | DataType::Float64 => "Float",
+                DataType::Decimal128(_, scale) | DataType::Decimal256(_, scale) => {
+                    tmp = format!("NUMBER({}, {scale})", 38 - scale); &tmp
+                },
                 DataType::Date32 | DataType::Date64 => "DATE",
                 DataType::Timestamp(_, _) => "TIMESTAMP",
                 DataType::Binary | DataType::FixedSizeBinary(_) | DataType::LargeBinary => "BINARY",
