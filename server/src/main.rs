@@ -31,6 +31,7 @@ mod daemon_auth;
 mod daemon_basic_auth;
 pub mod error;
 mod ingestion;
+mod pipe;
 
 // This struct represents the claims you expect in your Auth0 token.
 #[derive(Debug, Deserialize, Serialize)]
@@ -187,14 +188,6 @@ struct Client {
     destinations: Vec<Destination>,
 }
 
-async fn get_pipe_config(
-    State(app): State<Arc<App>>,
-    Extension(user_id): Extension<UserID>,
-    axum::extract::Path(id): axum::extract::Path<u64>,
-) -> Result<impl IntoResponse, error::Error> {
-    app.get_config(id, user_id.0.as_str()).await.map(Json)
-}
-
 // save a name and get an id assigned. it's a place to create pipes in
 async fn create_workspace(
     State(app): State<Arc<App>>,
@@ -258,58 +251,6 @@ async fn delete_workspace(
     axum::extract::Path(id): axum::extract::Path<u64>,
 ) -> Result<impl IntoResponse, error::Error> {
     app.delete_workspace(id, user_id.0.as_str()).await
-}
-
-async fn post_pipe_config(
-    State(app): State<Arc<App>>,
-    Extension(user_id): Extension<UserID>,
-    Json(configs): Json<PipeConfigs>,
-) -> Result<impl IntoResponse, error::Error> {
-    log::trace!("Configs in: {:?}", &configs);
-    app.validate_configs(&configs)?;
-    let ids = app.set_configs(&configs, user_id.0.as_str()).await?;
-    Ok(Json(
-        ids.iter()
-            .zip(configs.configs)
-            .map(|(id, conf)| PipeConfig {
-                id: *id,
-                pipe: conf.pipe,
-                workspace_id: conf.workspace_id,
-            })
-            .collect::<Vec<PipeConfig>>(),
-    )
-    .into_response())
-}
-
-async fn put_pipe_configs(
-    State(app): State<Arc<App>>,
-    Extension(user_id): Extension<UserID>,
-    Json(configs): Json<PipeConfigs>,
-) -> Result<impl IntoResponse, error::Error> {
-    app.validate_configs(&configs)?;
-    app.update_configs(configs, user_id.0.as_str())
-        .await
-        .map(Json)
-}
-
-async fn put_pipe_config(
-    State(app): State<Arc<App>>,
-    Extension(user_id): Extension<UserID>,
-    axum::extract::Path(id): axum::extract::Path<u64>,
-    Json(mut config): Json<PipeConfig>,
-) -> Result<impl IntoResponse, error::Error> {
-    config.id = id;
-    app.update_config(config, user_id.0.as_str())
-        .await
-        .map(Json)
-}
-
-async fn delete_pipe_config(
-    State(app): State<Arc<App>>,
-    Extension(user_id): Extension<UserID>,
-    axum::extract::Path(id): axum::extract::Path<u64>,
-) -> Result<impl IntoResponse, error::Error> {
-    app.delete_config(id, user_id.0.as_str()).await
 }
 
 async fn get_clients(
@@ -917,12 +858,12 @@ async fn main() -> anyhow::Result<()> {
     }
 
     let mut protected_api = Router::new()
-        .route("/api/pipe", post(post_pipe_config).put(put_pipe_configs))
+        .route("/api/pipe", post(pipe::post_config).put(pipe::put_configs))
         .route(
             "/api/pipe/:id",
-            get(get_pipe_config)
-                .delete(delete_pipe_config)
-                .put(put_pipe_config),
+            get(pipe::get_config)
+                .delete(pipe::delete_config)
+                .put(pipe::put_config),
         )
         .route(
             "/api/workspaces/:id",
