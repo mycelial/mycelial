@@ -4,8 +4,7 @@ use axum::{
     body::StreamBody,
     extract::{BodyStream, State},
     response::IntoResponse,
-    routing::{get, post},
-    Json, Router,
+    Json,
 };
 use futures::{Stream, StreamExt};
 use reqwest::StatusCode;
@@ -13,14 +12,7 @@ use sqlx::Connection;
 
 use crate::{error, App, MessageStream};
 
-// ingestion api is "security by obscurity" for now, and relies on the topic being secret
-pub fn ingestion_api() -> Router<Arc<App>> {
-    Router::new()
-        .route("/ingestion/:topic", post(ingestion))
-        .route("/ingestion/:topic/:offset", get(get_message))
-}
-
-async fn ingestion(
+pub async fn ingestion(
     State(app): State<Arc<App>>,
     axum::extract::Path(topic): axum::extract::Path<String>,
     headers: axum::http::header::HeaderMap,
@@ -65,7 +57,7 @@ async fn ingestion(
     Ok(Json("ok"))
 }
 
-async fn get_message(
+pub async fn get_message(
     State(app): State<Arc<App>>,
     axum::extract::Path((topic, offset)): axum::extract::Path<(String, u64)>,
 ) -> Result<impl IntoResponse, error::Error> {
