@@ -10,7 +10,7 @@ import TextField from '@mui/material/TextField';
 import TableHead from '@mui/material/TableHead';
 import Paper from '@mui/material/Paper';
 import { loadWorkspaces, loadDaemonToken} from '../actions/loadWorkspaces';
-
+import Instructions from './Instructions';
 import { useAuth0 } from '@auth0/auth0-react';
 
 const Workspaces = () => {
@@ -175,9 +175,7 @@ const Workspaces = () => {
           </Button>
         </Box>
       )}
-      <Box>
-        To add daemons to your workspaces, use the following token: {daemonAccessToken}
-      </Box>
+      <Instructions token={daemonAccessToken} />
     </Container>
   );
 };
