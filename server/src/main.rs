@@ -163,7 +163,7 @@ struct Cli {
         short,
         long,
         env = "DATABASE_PATH",
-        default_value = "alexwilson@localhost"
+        default_value = "postgres://postgres@localhost"
     )]
     database_path: String,
 
@@ -264,7 +264,7 @@ impl Database {
     }
 
     async fn new(database_path: &str) -> Result<Self, error::Error> {
-        let database_url = format!("postgres://{database_path}");
+        let database_url  = database_path.to_string();
         let pool = PgPoolOptions::new()
             .max_connections(5)
             .connect(&database_url)
