@@ -18,8 +18,7 @@ use rust_embed::RustEmbed;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use sqlx::{
-    sqlite::SqliteConnectOptions, sqlite::SqliteRow, ConnectOptions, FromRow, Row, Sqlite,
-    SqliteConnection, Transaction,
+    pool::Pool, postgres::{PgPoolOptions, PgRow, Postgres}, sqlite::{SqliteConnectOptions, SqliteRow}, ConnectOptions, Executor, FromRow, PgConnection, Row, Sqlite, SqliteConnection, Transaction
 };
 use std::net::SocketAddr;
 use std::pin::Pin;
@@ -129,7 +128,7 @@ async fn user_auth<B>(
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Workspace {
     #[serde(default)]
-    pub id: i64,
+    pub id: i32,
     #[serde(default)]
     pub created_at: DateTime<Utc>,
     #[serde(default)]
@@ -139,6 +138,18 @@ pub struct Workspace {
 
 impl FromRow<'_, SqliteRow> for Workspace {
     fn from_row(row: &SqliteRow) -> sqlx::Result<Self> {
+        let created_at: NaiveDateTime = row.get("created_at");
+        Ok(Self {
+            id: row.get("id"),
+            name: row.get("name"),
+            created_at: chrono::TimeZone::from_utc_datetime(&Utc, &created_at),
+            pipe_configs: Vec::new(),
+        })
+    }
+}
+
+impl FromRow<'_, PgRow> for Workspace {
+    fn from_row(row: &PgRow) -> sqlx::Result<Self> {
         let created_at: NaiveDateTime = row.get("created_at");
         Ok(Self {
             id: row.get("id"),
@@ -159,7 +170,7 @@ struct Cli {
     token: String,
 
     /// Database path
-    #[clap(short, long, env = "DATABASE_PATH", default_value = "mycelial.db")]
+    #[clap(short, long, env = "DATABASE_PATH", default_value = "alexwilson@localhost")]
     database_path: String,
 
     #[clap(long, env = "AUTH0_AUTHORITY", default_value = "")]
@@ -249,21 +260,27 @@ async fn log_middleware<B>(
 #[derive(Debug)]
 #[allow(unused)]
 pub struct Database {
-    connection: Arc<Mutex<SqliteConnection>>,
+    connection:  Arc<Pool<Postgres>>,
     database_path: String,
 }
 
 impl Database {
+    async fn get_connection(&self) -> sqlx::pool::PoolConnection<Postgres> {
+        self.connection.acquire().await.unwrap()
+    }
+
     async fn new(database_path: &str) -> Result<Self, error::Error> {
-        let database_url = format!("sqlite://{database_path}");
-        let mut connection = SqliteConnectOptions::from_str(database_url.as_str())?
-            .create_if_missing(true)
-            .connect()
+        let database_url = format!("postgres://{database_path}");
+        println!("connecting to:  {}", database_url);
+        let pool = PgPoolOptions::new()
+            .max_connections(5)
+            .connect(&database_url)
             .await?;
-        sqlx::migrate!().run(&mut connection).await?;
+
+        sqlx::migrate!().run(&pool).await?;
         Ok(Self {
-            connection: Arc::new(Mutex::new(connection)),
             database_path: database_path.into(),
+            connection: Arc::new(pool),
         })
     }
 
@@ -281,8 +298,7 @@ impl Database {
         let sources = serde_json::to_string(sources)?;
         let destinations = serde_json::to_string(destinations)?;
 
-        let mut connection = self.connection.lock().await;
-        let _ = sqlx::query("INSERT OR REPLACE INTO clients (id, user_id, display_name, sources, destinations, unique_client_id, client_secret_hash) VALUES (?, ?, ?, ?, ?, ?, ?)")
+        let _ = sqlx::query("INSERT INTO clients (id, user_id, display_name, sources, destinations, unique_client_id, client_secret_hash) VALUES ($1, $2, $3, $4, $5, $6, $7) ON CONFLICT (id) DO UPDATE SET display_name = $3, sources = $4, destinations = $5, unique_client_id = $6, client_secret_hash = $7")
             .bind(client_id)
             .bind(user_id)
             .bind(display_name)
@@ -290,7 +306,7 @@ impl Database {
             .bind(destinations)
             .bind(unique_client_id)
             .bind(client_secret_hash)
-            .execute(&mut *connection)
+            .execute(&*self.connection)
             .await?;
         Ok(())
     }
@@ -298,20 +314,19 @@ impl Database {
     async fn insert_config(
         &self,
         config: &serde_json::Value,
-        workspace_id: i64,
+        workspace_id: i32,
         user_id: &str,
     ) -> Result<u64, error::Error> {
-        let mut connection = self.connection.lock().await;
         let config: String = serde_json::to_string(config)?;
-        let id =
-            sqlx::query("INSERT INTO pipes (raw_config, workspace_id, user_id) VALUES (?, ?, ?)")
+        println!("config: {}", config);
+        let result =
+            sqlx::query("INSERT INTO pipes (raw_config, workspace_id, user_id) VALUES ($1::json, $2, $3) RETURNING id")
                 .bind(config)
                 .bind(workspace_id)
                 .bind(user_id)
-                .execute(&mut *connection)
-                .await?
-                .last_insert_rowid();
-        // FIXME: unwrap
+                .fetch_one(&*self.connection)
+                .await?;
+        let id = result.get::<i32, _>(0);
         Ok(id.try_into().unwrap())
     }
 
@@ -321,44 +336,38 @@ impl Database {
         config: &serde_json::Value,
         user_id: &str,
     ) -> Result<(), error::Error> {
-        let mut connection = self.connection.lock().await;
         let config: String = serde_json::to_string(config)?;
         // FIXME: unwrap
-        let id: i64 = id.try_into().unwrap();
-        let _ = sqlx::query("update pipes set raw_config = ? WHERE id = ? and user_id = ?")
+        let id: i32 = id.try_into().unwrap();
+        let _ = sqlx::query("update pipes set raw_config = $1 WHERE id = $2 and user_id = $3")
             .bind(config)
             .bind(id)
             .bind(user_id)
-            .execute(&mut *connection)
+            .execute(&*self.connection)
             .await?;
         Ok(())
     }
 
     async fn delete_config(&self, id: u64, user_id: &str) -> Result<(), error::Error> {
-        let mut connection = self.connection.lock().await;
         // FIXME: unwrap
-        let id: i64 = id.try_into().unwrap();
-        let _ = sqlx::query("DELETE FROM pipes WHERE id = ? and user_id = ?")
+        let id: i32 = id.try_into().unwrap();
+        let _ = sqlx::query("DELETE FROM pipes WHERE id = $1 and user_id = $2")
             .bind(id) // fixme
             .bind(user_id)
-            .execute(&mut *connection)
+            .execute(&*self.connection)
             .await?;
         Ok(())
     }
 
-    async fn get_connection(&self) -> MutexGuard<'_, SqliteConnection> {
-        self.connection.lock().await
-    }
-
     async fn new_message(
         &self,
-        transaction: &mut Transaction<'_, Sqlite>,
+        transaction: &mut Transaction<'_, Postgres>,
         topic: &str,
         origin: &str,
         stream_type: &str,
     ) -> Result<i64, error::Error> {
         let id = sqlx::query(
-            "INSERT INTO messages(topic, origin, stream_type) VALUES(?, ?, ?) RETURNING ID",
+            "INSERT INTO messages(topic, origin, stream_type) VALUES($1, $2, $3) RETURNING ID",
         )
         .bind(topic)
         .bind(origin)
@@ -371,11 +380,11 @@ impl Database {
 
     async fn store_chunk(
         &self,
-        transaction: &mut Transaction<'_, Sqlite>,
+        transaction: &mut Transaction<'_, Postgres>,
         message_id: i64,
         bytes: &[u8],
     ) -> Result<(), error::Error> {
-        sqlx::query("INSERT INTO records (message_id, data) VALUES (?, ?)")
+        sqlx::query("INSERT INTO records (message_id, data) VALUES ($1, $2)")
             .bind(message_id)
             .bind(bytes)
             .execute(&mut **transaction)
@@ -388,15 +397,17 @@ impl Database {
         topic: &str,
         offset: u64,
     ) -> Result<Option<MessageStream>, error::Error> {
-        let mut connection = Arc::clone(&self.connection).lock_owned().await;
+
+        let mut con = self.get_connection().await;
+
         // FIXME: unwrap
         let offset: i64 = offset.try_into().unwrap();
         let message_info = sqlx::query(
-            "SELECT id, origin, stream_type FROM messages WHERE id > ? and topic = ? LIMIT 1",
+            "SELECT id, origin, stream_type FROM messages WHERE id > $1 and topic = $2 LIMIT 1",
         )
         .bind(offset)
         .bind(topic)
-        .fetch_optional(&mut *connection)
+        .fetch_optional(&mut *con)
         .await?
         .map(|row| {
             (
@@ -413,9 +424,9 @@ impl Database {
 
         // move connection into stream wrapper around sqlx's stream
         let stream = async_stream::stream! {
-            let mut stream = sqlx::query("SELECT data FROM records r WHERE r.message_id = ?")
+            let mut stream = sqlx::query("SELECT data FROM records r WHERE r.message_id = $1")
                 .bind(id as i64)
-                .fetch(&mut *connection)
+                .fetch(&mut *con)
                 .map(|maybe_row| {
                     maybe_row
                         .map(|row| row.get::<Vec<u8>, &str>("data"))
@@ -434,16 +445,15 @@ impl Database {
     }
 
     async fn get_clients(&self, user_id: &str) -> Result<Clients, error::Error> {
-        let mut connection = self.connection.lock().await;
         // todo: should we return ui as client?
         let mut query = sqlx::query("SELECT id, display_name, sources, destinations FROM clients");
         if cfg!(feature = "require_auth") {
             query = sqlx::query(
-                "SELECT id, display_name, sources, destinations FROM clients where user_id = ?",
+                "SELECT id, display_name, sources, destinations FROM clients where user_id = $1",
             )
             .bind(user_id);
         }
-        let rows = query.fetch_all(&mut *connection).await?;
+        let rows = query.fetch_all(&*self.connection).await?;
 
         let mut clients: Vec<Client> = Vec::new();
         for row in rows.iter() {
@@ -464,11 +474,10 @@ impl Database {
     }
 
     async fn get_workspaces(&self, user_id: &str) -> Result<Vec<Workspace>, error::Error> {
-        let mut connection = self.connection.lock().await;
         let records: Vec<Workspace> =
-            sqlx::query_as(r"SELECT id, name, created_at FROM workspaces where user_id = ?")
+            sqlx::query_as(r"SELECT id, name, created_at FROM workspaces where user_id = $1")
                 .bind(user_id)
-                .fetch_all(&mut *connection)
+                .fetch_all(&*self.connection)
                 .await?;
 
         Ok(records)
@@ -479,34 +488,33 @@ impl Database {
         mut workspace: Workspace,
         user_id: &str,
     ) -> Result<Workspace, error::Error> {
-        let mut connection = self.connection.lock().await;
-        workspace.id = sqlx::query("INSERT INTO workspaces (name, user_id) VALUES (?, ?)")
+        let result = sqlx::query("INSERT INTO workspaces (name, user_id) VALUES ($1, $2) RETURNING id")
             .bind(workspace.name.clone())
             .bind(user_id)
-            .execute(&mut *connection)
-            .await?
-            .last_insert_rowid();
+            .fetch_one(&*self.connection)
+            .await?;
+        let id = result.get::<i32, _>(0);
+        workspace.id  = id;
         workspace.created_at = Utc::now();
         Ok(workspace)
     }
 
     async fn get_workspace(&self, id: u64, user_id: &str) -> Result<Workspace, error::Error> {
-        let mut connection = self.connection.lock().await;
-        let id: i64 = id.try_into().unwrap();
+        let id: i32 = id.try_into().unwrap();
         let mut record: Workspace = sqlx::query_as(
-            r"SELECT id, name, created_at FROM workspaces WHERE id = ? and user_id = ?",
+            r"SELECT id, name, created_at FROM workspaces WHERE id = $1 and user_id = $2",
         )
         .bind(id)
         .bind(user_id)
-        .fetch_one(&mut *connection)
+        .fetch_one(&*self.connection)
         .await?;
 
         let pipes: Vec<PipeConfig> = sqlx::query_as(
-            "SELECT id, raw_config, workspace_id from pipes where workspace_id = ? and user_id = ?",
+            "SELECT id, raw_config, workspace_id from pipes where workspace_id = $1 and user_id = $2",
         )
         .bind(id)
         .bind(user_id)
-        .fetch_all(&mut *connection)
+        .fetch_all(&*self.connection)
         .await?;
 
         record.pipe_configs = pipes;
@@ -519,46 +527,42 @@ impl Database {
         workspace: Workspace,
         user_id: &str,
     ) -> Result<Workspace, error::Error> {
-        let mut connection = self.connection.lock().await;
-        let _ = sqlx::query("UPDATE workspaces SET name = ? where id = ? and user_id = ?")
+        let _ = sqlx::query("UPDATE workspaces SET name = $1 where id = $2 and user_id = $3")
             .bind(workspace.name.clone())
             .bind(workspace.id)
             .bind(user_id)
-            .execute(&mut *connection)
+            .execute(&*self.connection)
             .await?;
         Ok(workspace)
     }
 
     async fn delete_workspace(&self, id: u64, user_id: &str) -> Result<(), error::Error> {
-        let mut connection = self.connection.lock().await;
         let id: i64 = id.try_into().unwrap();
-        let _ = sqlx::query("DELETE FROM workspaces WHERE id = ? and user_id = ?")
+        let _ = sqlx::query("DELETE FROM workspaces WHERE id = $1 and user_id = $2")
             .bind(id) // fixme
             .bind(user_id)
-            .execute(&mut *connection)
+            .execute(&*self.connection)
             .await?;
         Ok(())
     }
 
     async fn get_config(&self, id: u64, user_id: &str) -> Result<PipeConfig, error::Error> {
-        let mut connection = self.connection.lock().await;
         let id: i64 = id.try_into().unwrap();
         let pipe: PipeConfig = sqlx::query_as(
-            "SELECT id, workspace_id, raw_config from pipes WHERE id = ? and user_id = ?",
+            "SELECT id, workspace_id, raw_config from pipes WHERE id = $1 and user_id = $2",
         )
         .bind(id)
         .bind(user_id)
-        .fetch_one(&mut *connection)
+        .fetch_one(&*self.connection)
         .await?;
         Ok(pipe)
     }
 
     async fn get_configs(&self, user_id: &str) -> Result<PipeConfigs, error::Error> {
-        let mut connection = self.connection.lock().await;
         let rows: Vec<PipeConfig> =
-            sqlx::query_as("SELECT id, raw_config, workspace_id from pipes where user_id = ?")
+            sqlx::query_as("SELECT id, raw_config, workspace_id from pipes where user_id = $1")
                 .bind(user_id)
-                .fetch_all(&mut *connection)
+                .fetch_all(&*self.connection)
                 .await?;
 
         let configs: PipeConfigs = PipeConfigs { configs: rows };

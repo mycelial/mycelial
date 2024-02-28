@@ -136,7 +136,7 @@ impl App {
     pub async fn get_user_id_for_daemon_token(&self, token: &str) -> Result<String, error::Error> {
         let mut connection = self.database.get_connection().await;
         let user_id: String =
-            sqlx::query("SELECT user_id FROM user_daemon_tokens WHERE daemon_token = ?")
+            sqlx::query("SELECT user_id FROM user_daemon_tokens WHERE daemon_token = $1")
                 .bind(token)
                 .fetch_one(&mut *connection)
                 .await
@@ -150,7 +150,7 @@ impl App {
     ) -> Result<impl IntoResponse, error::Error> {
         let mut connection = self.database.get_connection().await;
         let daemon_token =
-            sqlx::query("SELECT daemon_token FROM user_daemon_tokens WHERE user_id = ?")
+            sqlx::query("SELECT daemon_token FROM user_daemon_tokens WHERE user_id = $1")
                 .bind(user_id)
                 .fetch_one(&mut *connection)
                 .await?
@@ -167,7 +167,7 @@ impl App {
         let mut connection = self.database.get_connection().await;
         // todo: Should this schema have "deleted_at" and then we only insert rows?
         sqlx::query(
-            "INSERT OR REPLACE INTO user_daemon_tokens (user_id, daemon_token) VALUES (?, ?)",
+            "INSERT INTO user_daemon_tokens (user_id, daemon_token) VALUES ($1, $2) ON CONFLICT (user_id) DO UPDATE SET daemon_token = $2",
         )
         .bind(user_id)
         .bind(token.clone())
@@ -184,7 +184,7 @@ impl App {
     ) -> Result<String, error::Error> {
         let mut connection = self.database.get_connection().await;
         let (user_id, client_secret_hash): (String, String) = sqlx::query(
-            "SELECT user_id, client_secret_hash FROM clients WHERE unique_client_id = ?",
+            "SELECT user_id, client_secret_hash FROM clients WHERE unique_client_id = $1",
         )
         .bind(client_id)
         .fetch_one(&mut *connection)

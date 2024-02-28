@@ -281,7 +281,7 @@ pub struct PipeConfig {
     /// To do that - each pipe config needs to be uniquely identified, so here is i64 integer to
     /// help with that. Signed due to Sqlite backed storage
     #[serde(default)]
-    #[sqlx(try_from = "i64")]
+    #[sqlx(try_from = "i32")]
     pub id: u64,
 
     /// # Example of config

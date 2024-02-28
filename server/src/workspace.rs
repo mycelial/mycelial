@@ -39,7 +39,7 @@ pub async fn update_workspace(
     axum::extract::Path(id): axum::extract::Path<u64>,
     Json(mut workspace): Json<Workspace>,
 ) -> Result<impl IntoResponse, error::Error> {
-    let id: i64 = id.try_into().unwrap();
+    let id: i32 = id.try_into().unwrap();
     workspace.id = id;
     app.update_workspace(workspace, user_id.0.as_str())
         .await

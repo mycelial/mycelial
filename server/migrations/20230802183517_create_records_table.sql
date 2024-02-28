@@ -1,7 +1,0 @@
--- Add migration script here
-CREATE TABLE IF NOT EXISTS records (
-    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    topic TEXT NOT NULL,
-    data BLOB NOT NULL
-);
