@@ -18,12 +18,13 @@ use rust_embed::RustEmbed;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use sqlx::{
-    pool::Pool, postgres::{PgPoolOptions, PgRow, Postgres}, sqlite::{SqliteConnectOptions, SqliteRow}, ConnectOptions, Executor, FromRow, PgConnection, Row, Sqlite, SqliteConnection, Transaction
+    pool::Pool,
+    postgres::{PgPoolOptions, PgRow, Postgres},
+    FromRow, Row, Transaction,
 };
 use std::net::SocketAddr;
 use std::pin::Pin;
-use std::{str::FromStr, sync::Arc};
-use tokio::sync::{Mutex, MutexGuard};
+use std::sync::Arc;
 
 use app::App;
 
@@ -136,18 +137,6 @@ pub struct Workspace {
     pub name: String,
 }
 
-impl FromRow<'_, SqliteRow> for Workspace {
-    fn from_row(row: &SqliteRow) -> sqlx::Result<Self> {
-        let created_at: NaiveDateTime = row.get("created_at");
-        Ok(Self {
-            id: row.get("id"),
-            name: row.get("name"),
-            created_at: chrono::TimeZone::from_utc_datetime(&Utc, &created_at),
-            pipe_configs: Vec::new(),
-        })
-    }
-}
-
 impl FromRow<'_, PgRow> for Workspace {
     fn from_row(row: &PgRow) -> sqlx::Result<Self> {
         let created_at: NaiveDateTime = row.get("created_at");
@@ -170,7 +159,12 @@ struct Cli {
     token: String,
 
     /// Database path
-    #[clap(short, long, env = "DATABASE_PATH", default_value = "alexwilson@localhost")]
+    #[clap(
+        short,
+        long,
+        env = "DATABASE_PATH",
+        default_value = "alexwilson@localhost"
+    )]
     database_path: String,
 
     #[clap(long, env = "AUTH0_AUTHORITY", default_value = "")]
@@ -260,7 +254,7 @@ async fn log_middleware<B>(
 #[derive(Debug)]
 #[allow(unused)]
 pub struct Database {
-    connection:  Arc<Pool<Postgres>>,
+    connection: Arc<Pool<Postgres>>,
     database_path: String,
 }
 
@@ -395,7 +389,6 @@ impl Database {
         topic: &str,
         offset: u64,
     ) -> Result<Option<MessageStream>, error::Error> {
-
         let mut con = self.get_connection().await;
 
         // FIXME: unwrap
@@ -486,13 +479,14 @@ impl Database {
         mut workspace: Workspace,
         user_id: &str,
     ) -> Result<Workspace, error::Error> {
-        let result = sqlx::query("INSERT INTO workspaces (name, user_id) VALUES ($1, $2) RETURNING id")
-            .bind(workspace.name.clone())
-            .bind(user_id)
-            .fetch_one(&*self.connection)
-            .await?;
+        let result =
+            sqlx::query("INSERT INTO workspaces (name, user_id) VALUES ($1, $2) RETURNING id")
+                .bind(workspace.name.clone())
+                .bind(user_id)
+                .fetch_one(&*self.connection)
+                .await?;
         let id = result.get::<i32, _>(0);
-        workspace.id  = id;
+        workspace.id = id;
         workspace.created_at = Utc::now();
         Ok(workspace)
     }
