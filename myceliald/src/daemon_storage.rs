@@ -13,7 +13,6 @@ pub struct Storage {
     config: Option<Config>,
 }
 
-pub type StdError = Box<dyn std::error::Error + Send + Sync + 'static>;
 #[derive(Serialize, Deserialize)]
 pub struct Config {
     client_id: String,
@@ -21,7 +20,7 @@ pub struct Config {
 }
 
 impl Storage {
-    pub async fn new(path: impl Into<String>) -> Result<Self, StdError> {
+    pub async fn new(path: impl Into<String>) -> anyhow::Result<Self> {
         let path = path.into();
         let mut connection = SqliteConnectOptions::from_str(path.as_str())?
             .create_if_missing(true)
@@ -35,7 +34,7 @@ impl Storage {
         })
     }
 
-    pub async fn write_config(&mut self, config: &Config) -> Result<(), StdError> {
+    pub async fn write_config(&mut self, config: &Config) -> anyhow::Result<()> {
         sqlx::query("INSERT INTO client_creds (client_id, client_secret) VALUES (?, ?)")
             .bind(config.client_id.clone())
             .bind(config.client_secret.clone())
@@ -44,7 +43,7 @@ impl Storage {
         Ok(())
     }
 
-    pub async fn read_config(&mut self) -> Result<Option<Config>, StdError> {
+    pub async fn read_config(&mut self) -> anyhow::Result<Option<Config>> {
         let row = sqlx::query("SELECT client_id, client_secret FROM client_creds")
             .fetch_optional(&mut self.connection)
             .await?;
@@ -65,7 +64,7 @@ impl Storage {
         &mut self,
         client_id: String,
         client_secret: String,
-    ) -> Result<(), StdError> {
+    ) -> anyhow::Result<()> {
         self.write_config(&Config {
             client_id,
             client_secret,
@@ -74,7 +73,7 @@ impl Storage {
         Ok(())
     }
 
-    pub async fn retrieve_client_creds(&mut self) -> Result<Option<(String, String)>, StdError> {
+    pub async fn retrieve_client_creds(&mut self) -> anyhow::Result<Option<(String, String)>> {
         // Try to load the config if it's not already loaded
         if self.config.is_none() {
             if let Ok(Some(c)) = self.read_config().await {
@@ -90,6 +89,6 @@ impl Storage {
     }
 }
 
-pub async fn new(storage_path: String) -> Result<Storage, StdError> {
+pub async fn new(storage_path: String) -> anyhow::Result<Storage> {
     Storage::new(storage_path).await
 }

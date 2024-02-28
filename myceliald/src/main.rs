@@ -11,30 +11,9 @@ mod storage;
 
 use clap::Parser;
 use common::ClientConfig;
-use section::SectionError;
 use std::fs::File;
 use std::io::Read;
-use std::{io, result};
-
-#[derive(thiserror::Error, Debug)]
-pub enum Error {
-    #[error(transparent)]
-    Section(#[from] SectionError),
-
-    #[error(transparent)]
-    Io(#[from] io::Error),
-
-    #[error(transparent)]
-    Toml(#[from] toml::de::Error),
-
-    #[error(transparent)]
-    Clap(#[from] clap::Error),
-
-    #[error(transparent)]
-    TokioTask(#[from] tokio::task::JoinError),
-}
-
-pub type Result<T> = result::Result<T, Error>;
+use anyhow::{anyhow, Context, Result};
 
 #[derive(Parser)]
 struct Cli {
@@ -44,10 +23,10 @@ struct Cli {
 }
 
 fn read_config(path: &str) -> Result<ClientConfig> {
-    let mut config = String::default();
-    let mut config_file = File::open(path)?;
+    let mut config = String::new();
+    let mut config_file = File::open(path)
+        .context(format!("failed to open config file at '{path}'"))?;
     config_file.read_to_string(&mut config)?;
-
     Ok(toml::from_str(&config)?)
 }
 
@@ -59,14 +38,14 @@ async fn run() -> Result<()> {
     let runtime_handle = runtime::new(storage_handle.clone());
     let daemon_storage = daemon_storage::new(config.node.storage_path.clone()).await?;
     let client_handle = http_client::new(config, runtime_handle, daemon_storage);
-    client_handle.await??;
+    client_handle.await?.map_err(|e| anyhow!(e))?;
     Ok(())
 }
 
 #[tokio::main]
 async fn main() {
-    env_logger::init();
+    tracing_subscriber::fmt::init();
     if let Err(e) = run().await {
-        eprintln!("{}", e);
+        tracing::error!("{}", e);
     }
 }
