@@ -1,3 +1,7 @@
+// FIXME:  drop this crate
+// - sharing same structs between server and daemon is not a good idea, especially if we want to
+// support versioned API and allow older daemons to communicate with newer server
+// - section configuration should be property of section library
 use pipe::config::{Config as DynamicPipeConfig, Value as DynamicPipeValue};
 use section::SectionError;
 use serde::{Deserialize, Serialize};
@@ -25,9 +29,12 @@ pub struct Server {
 /// Generic node config
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Node {
+    // FIXME: that's property of control plane
     pub display_name: String,
+    // FIXME: that's property of control plane
     pub unique_id: String,
     pub storage_path: String,
+    // FIXME: why auth_token is here and not in Server section?
     pub auth_token: String,
 }
 
@@ -242,15 +249,17 @@ pub struct FileDestinationConfig {
 
 // requests and responses
 // todo: move to a module
-
+// FIXME: don't share daemon & server internals.
+// FIXME: redo provisioning
 #[derive(Serialize, Deserialize, Debug)]
-pub struct ProvisionClientRequest {
-    pub client_config: ClientConfig,
+pub struct ProvisionDaemonRequest {
+    // FIXME: unique_id/display_name properties of control plane
+    pub unique_id: String,
+    pub display_name: String,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-pub struct ProvisionClientResponse {
-    pub id: String,
+pub struct ProvisionDaemonResponse {
     pub client_id: String,
     pub client_secret: String,
 }
@@ -281,6 +290,7 @@ pub struct PipeConfig {
     /// To do that - each pipe config needs to be uniquely identified, so here is i64 integer to
     /// help with that. Signed due to Sqlite backed storage
     #[serde(default)]
+    // FIXME: try_from
     #[sqlx(try_from = "i32")]
     pub id: u64,
 
@@ -303,13 +313,16 @@ pub struct PipeConfig {
     ///         ]
     /// }]}
     /// ```
+    // FIXME: renaming
     #[sqlx(rename = "raw_config")]
     pub pipe: serde_json::Value,
+    // FIXME: default_id, try_from cast
     #[sqlx(try_from = "i64")]
     #[serde(default = "default_id")]
     pub workspace_id: u64,
 }
 
+// FIXME:
 fn default_id() -> u64 {
     1
 }

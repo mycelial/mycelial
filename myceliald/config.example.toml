@@ -122,6 +122,7 @@ account_identifier = "account_identifier"
 warehouse = "warehouse"
 database = "database"
 schema = "schema"
+truncate = true
 
 [[destinations]]
 type = "postgres_connector"

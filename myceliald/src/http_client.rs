@@ -1,29 +1,58 @@
 //! http client
 //!
 //! Poll mycelial server configuration endpoint
-
+#![allow(unused)]
 use std::{collections::HashSet, time::Duration};
 
-use crate::daemon_storage::Storage;
+use crate::daemon_storage::{Credentials, ServerInfo};
 use base64::engine::{general_purpose::STANDARD as BASE64, Engine};
+// FIXME: common crate
+use crate::DaemonMessage;
 use common::{
-    ClientConfig, PipeConfig, PipeConfigs, ProvisionClientRequest, ProvisionClientResponse,
+    ClientConfig, Destination, PipeConfig, PipeConfigs, ProvisionDaemonRequest,
+    ProvisionDaemonResponse, Source,
 };
 use pipe::{
     config::{Config, Value},
     scheduler::SchedulerHandle,
 };
+use reqwest::StatusCode;
 use section::SectionError;
-use tokio::task::JoinHandle;
+use tokio::sync::{
+    mpsc::{channel, Receiver, Sender, UnboundedSender},
+    oneshot::{channel as oneshot_channel, Sender as OneshotSender},
+};
 
-/// Http Client
-struct Client {
-    config: ClientConfig,
+struct HttpClient {
+    endpoint: Option<String>,
+    token: Option<String>,
+    unique_id: Option<String>,
+    display_name: Option<String>,
+    client_id: Option<String>,
+    client_secret: Option<String>,
+    submit_request: Option<SubmitSectionRequest>,
+    tx: UnboundedSender<DaemonMessage>,
+}
 
-    /// SchedulerHandle
-    scheduler_handle: SchedulerHandle,
+#[derive(Debug)]
+pub enum HttpClientEvent {
+    Configs {
+        configs: Vec<PipeConfig>,
+    },
+    Credentials {
+        client_id: String,
+        client_secret: String,
+    },
+    SectionsSubmitted {
+        config_hash: String,
+    },
+}
 
-    storage_handle: Storage,
+#[derive(Debug)]
+struct SubmitSectionRequest {
+    config_hash: String,
+    sources: Vec<Source>,
+    destinations: Vec<Destination>,
 }
 
 fn is_for_client(config: &Config, name: &str) -> bool {
@@ -32,144 +61,301 @@ fn is_for_client(config: &Config, name: &str) -> bool {
     )
 }
 
-impl Client {
-    fn new(
-        config: ClientConfig,
-        scheduler_handle: SchedulerHandle,
-        storage_handle: Storage,
-    ) -> Self {
+impl HttpClient {
+    fn new(tx: UnboundedSender<DaemonMessage>) -> Self {
         Self {
-            config,
-            scheduler_handle,
-            storage_handle,
+            endpoint: None,
+            token: None,
+            unique_id: None,
+            display_name: None,
+            client_id: None,
+            client_secret: None,
+            submit_request: None,
+            tx,
         }
     }
 
-    // Client should register only once. Subsequently, it should use the client_id and client_secret it gets back from the registration to authenticate itself.
-    async fn register_if_not_registered(&mut self) -> Result<(), SectionError> {
-        let state = self.storage_handle.retrieve_client_creds().await?;
-        match state {
-            Some((_client_id, _client_secret)) => {}
-            None => {
-                return self.register().await;
-            }
+    async fn register(&mut self) -> Result<ProvisionDaemonResponse, SectionError> {
+        if self.endpoint.is_none() || self.token.is_none() {
+            Err("endpoint/token not set")?
         }
-        Ok(())
-    }
-
-    // Client should register only once. Subsequently, it should use the client_id and client_secret it gets back from the registration to authenticate itself.
-    async fn register(&mut self) -> Result<(), SectionError> {
+        if self.unique_id.is_none() || self.display_name.is_none() {
+            Err("unique_id/display_name not set")?
+        }
         let client = reqwest::Client::new();
-        let url = format!("{}/api/client", self.config.server.endpoint.as_str());
+        let url = format!("{}/api/daemon/provision", self.endpoint.as_ref().unwrap());
         let resp = client
             .post(url)
-            .header("Authorization", self.basic_auth())
-            .json(&ProvisionClientRequest {
-                client_config: self.config.clone(),
+            .header(
+                "Authorization",
+                self.basic_auth(self.token.as_ref().unwrap(), ""),
+            )
+            .json(&ProvisionDaemonRequest {
+                unique_id: self.unique_id.as_ref().unwrap().into(),
+                display_name: self.display_name.as_ref().unwrap().into(),
             })
             .send()
             .await?;
+
         if resp.status() != 200 {
             return Err(format!(
-                "failed to register client - status code: {:?}",
-                resp.status()
-            )
-            .into());
+                "status code {:?}, response: {:?}",
+                resp.status(),
+                resp.text().await?
+            ))?;
         }
-        let provision_client_resp: ProvisionClientResponse = resp.json().await?;
-
-        self.storage_handle
-            .store_client_creds(
-                provision_client_resp.client_id.clone(),
-                provision_client_resp.client_secret.clone(),
-            )
-            .await?;
-        Ok(())
+        Ok(resp.json::<ProvisionDaemonResponse>().await?)
     }
 
-    async fn get_configs(&mut self) -> Result<Vec<PipeConfig>, SectionError> {
+    async fn get_configs(&mut self) -> Result<PipeConfigs, SectionError> {
         let client = reqwest::Client::new();
-        let url = format!("{}/api/pipe", self.config.server.endpoint.as_str());
-        let configs: PipeConfigs = client
-            .get(url)
-            .header("Authorization", self.daemon_auth().await?)
-            .send()
-            .await?
-            .json()
-            .await?;
-        Ok(configs.configs)
-    }
+        let url = format!("{}/api/pipe", self.endpoint.as_ref().unwrap());
+        let auth = self.basic_auth(
+            self.client_id.as_ref().unwrap(),
+            self.client_secret.as_ref().unwrap(),
+        );
+        let response = client.get(url).header("Authorization", auth).send().await?;
 
-    async fn daemon_auth(&mut self) -> Result<String, SectionError> {
-        let state = self.storage_handle.retrieve_client_creds().await?;
-        if let Some((client_id, client_secret)) = state {
-            return Ok(format!(
-                "Basic {}",
-                BASE64.encode(format!("{}:{}", client_id, client_secret))
-            ));
+        match response.status() {
+            StatusCode::OK => Ok(response.json::<PipeConfigs>().await?),
+            status => Err(format!(
+                "failed to fetch pipe configs, status_code: {status}, response: {}",
+                response.text().await?
+            ))?,
         }
-        Err(SectionError::from("no state found"))
     }
 
-    fn basic_auth(&self) -> String {
-        format!(
-            "Basic {}",
-            BASE64.encode(format!("{}:", self.config.node.auth_token))
-        )
+    fn basic_auth(&self, user: &str, pass: &str) -> String {
+        format!("Basic {}", BASE64.encode(format!("{user}:{pass}")))
+    }
+
+    async fn poll_configs(&mut self) {
+        match self.get_configs().await {
+            Ok(PipeConfigs { configs }) => {
+                self.tx
+                    .send(DaemonMessage::HttpClient(HttpClientEvent::Configs {
+                        configs,
+                    }))
+                    .ok();
+            }
+            Err(e) => {
+                tracing::error!("failed to get configs: {e}")
+            }
+        }
+    }
+
+    async fn maybe_register(&mut self) -> bool {
+        if self.client_id.is_some() && self.client_secret.is_some() {
+            return true;
+        }
+        match self.register().await {
+            Ok(ProvisionDaemonResponse {
+                client_id,
+                client_secret,
+                ..
+            }) => {
+                self.client_id = Some(client_id.clone());
+                self.client_secret = Some(client_secret.clone());
+                self.tx
+                    .send(DaemonMessage::HttpClient(HttpClientEvent::Credentials {
+                        client_id,
+                        client_secret,
+                    }))
+                    .ok();
+                true
+            }
+            Err(e) => {
+                tracing::error!("failed to register: {e}");
+                false
+            }
+        }
+    }
+
+    async fn maybe_submit_sections(&mut self) {
+        if self.submit_request.is_none() {
+            return;
+        }
+        let submit_request = self.submit_request.as_ref().unwrap();
+        let client = reqwest::Client::new();
+        let url = format!(
+            "{}/api/daemon/submit_sections",
+            self.endpoint.as_ref().unwrap()
+        );
+        let auth = self.basic_auth(
+            self.client_id.as_ref().unwrap(),
+            self.client_secret.as_ref().unwrap(),
+        );
+        let response = client
+            .post(url)
+            .header("Authorization", auth)
+            .json(&serde_json::json!({
+                "unique_id": self.unique_id.as_ref().unwrap(),
+                "sources": submit_request.sources.as_slice(),
+                "destinations": submit_request.destinations.as_slice(),
+            }))
+            .send()
+            .await;
+        match response {
+            Ok(response) if response.status() == StatusCode::OK => {
+                let req = self.submit_request.take().unwrap();
+                self.tx
+                    .send(DaemonMessage::HttpClient(
+                        HttpClientEvent::SectionsSubmitted {
+                            config_hash: req.config_hash,
+                        },
+                    ))
+                    .ok();
+                tracing::info!("sections where submitted");
+            }
+            Ok(response) => {
+                let status = response.status();
+                let text = response.text().await;
+                let text = text.as_ref().map(|x| x.as_str()).unwrap_or("");
+                tracing::error!(
+                    "failed to submit sections, status code: {status}, response: {text}"
+                );
+            }
+            Err(e) => {
+                tracing::error!("failed to submit sections: {e}");
+            }
+        }
     }
 
     // spawns client
-    pub fn spawn(mut self) -> JoinHandle<Result<(), SectionError>> {
-        tokio::spawn(async move { self.enter_loop().await })
+    pub fn spawn(mut self) -> HttpClientHandle {
+        let (tx, mut rx) = channel(1);
+        tokio::spawn(async move { self.enter_loop(&mut rx).await });
+        HttpClientHandle { tx }
     }
 
-    async fn enter_loop(&mut self) -> Result<(), SectionError> {
-        while let Err(e) = self.register_if_not_registered().await {
-            log::error!("failed to register client: {:?}", e);
-            tokio::time::sleep(Duration::from_secs(3)).await;
-        }
+    async fn enter_loop(
+        &mut self,
+        rx: &mut Receiver<HttpClientMessage>,
+    ) -> Result<(), SectionError> {
+        let mut interval = tokio::time::interval(Duration::from_secs(5));
         loop {
-            let pipe_configs = match self.get_configs().await {
-                Ok(pipe_configs) => pipe_configs,
-                Err(e) => {
-                    log::error!("failed to contact server: {:?}", e);
-                    tokio::time::sleep(Duration::from_secs(5)).await;
-                    continue;
+            tokio::select! {
+                msg = rx.recv() => {
+                    let message = match msg {
+                        None => {
+                            tracing::info!("handle was dropped, shutting down");
+                            return Ok(())
+                        },
+                        Some(message) => message,
+                    };
+                    match message {
+                        HttpClientMessage::SetConnection{
+                            endpoint, token, unique_id, display_name, client_id, client_secret, reply_to
+                        } => {
+                            tracing::info!("setting connection info");
+                            self.endpoint = Some(endpoint);
+                            self.token = Some(token);
+                            self.unique_id = Some(unique_id);
+                            self.display_name = Some(display_name);
+                            self.client_id = client_id;
+                            self.client_secret = client_secret;
+                            reply_to.send(()).ok();
+                        },
+                        HttpClientMessage::SubmitSections { submit_request, reply_to } => {
+                            tracing::info!("submit section request registered");
+                            self.submit_request = Some(submit_request);
+                            reply_to.send(()).ok();
+                        },
+                        HttpClientMessage::Shutdown{ reply_to } => {
+                            tracing::info!("shutting down");
+                            return Ok(())
+                        }
+                    };
                 }
-            };
-
-            log::debug!("pipe configs: {:#?}", pipe_configs);
-            let mut ids: HashSet<u64> =
-                HashSet::from_iter(self.scheduler_handle.list_ids().await?.into_iter());
-            for pipe_config in pipe_configs.into_iter() {
-                let id = pipe_config.id;
-                let config: Config = match pipe_config.try_into() {
-                    Ok(c) => c,
-                    Err(e) => {
-                        log::error!("bad pipe config: {:?}", e);
-                        continue;
+                _tick = interval.tick() => {
+                    if !self.maybe_register().await {
+                        continue
                     }
-                };
-                if is_for_client(&config, &self.config.node.unique_id) {
-                    if let Err(e) = self.scheduler_handle.add_pipe(id, config).await {
-                        log::error!("failed to schedule pipe: {:?}", e);
-                    }
-                    ids.remove(&id);
+                    self.maybe_submit_sections().await;
+                    self.poll_configs().await;
                 }
             }
-            for id in ids.into_iter() {
-                self.scheduler_handle.remove_pipe(id).await?;
-            }
-
-            tokio::time::sleep(Duration::from_secs(5)).await
         }
     }
 }
 
-pub fn new(
-    config: ClientConfig,
-    scheduler_handle: SchedulerHandle,
-    storage_handle: Storage,
-) -> JoinHandle<Result<(), SectionError>> {
-    Client::new(config, scheduler_handle, storage_handle).spawn()
+#[derive(Debug)]
+enum HttpClientMessage {
+    SetConnection {
+        endpoint: String,
+        token: String,
+        unique_id: String,
+        display_name: String,
+        client_id: Option<String>,
+        client_secret: Option<String>,
+        reply_to: OneshotSender<()>,
+    },
+    SubmitSections {
+        submit_request: SubmitSectionRequest,
+        reply_to: OneshotSender<()>,
+    },
+    Shutdown {
+        reply_to: OneshotSender<()>,
+    },
+}
+
+#[derive(Debug)]
+pub struct HttpClientHandle {
+    tx: Sender<HttpClientMessage>,
+}
+
+impl HttpClientHandle {
+    pub async fn set_connection(
+        &self,
+        endpoint: &str,
+        token: &str,
+        unique_id: &str,
+        display_name: &str,
+        client_id: Option<&str>,
+        client_secret: Option<&str>,
+    ) -> anyhow::Result<()> {
+        let (reply_to, rx) = oneshot_channel();
+        let message = HttpClientMessage::SetConnection {
+            endpoint: endpoint.into(),
+            token: token.into(),
+            unique_id: unique_id.into(),
+            display_name: display_name.into(),
+            client_id: client_id.map(Into::into),
+            client_secret: client_secret.map(Into::into),
+            reply_to,
+        };
+        self.tx.send(message).await?;
+        Ok(rx.await?)
+    }
+
+    pub async fn submit_sections(
+        &self,
+        config_hash: String,
+        sources: Vec<Source>,
+        destinations: Vec<Destination>,
+    ) -> anyhow::Result<()> {
+        let (reply_to, rx) = oneshot_channel();
+        let submit_request = SubmitSectionRequest {
+            config_hash,
+            sources,
+            destinations,
+        };
+        let message = HttpClientMessage::SubmitSections {
+            submit_request,
+            reply_to,
+        };
+        self.tx.send(message).await?;
+        Ok(())
+    }
+
+    pub async fn shutdown(&self) -> anyhow::Result<()> {
+        let (reply_to, rx) = oneshot_channel();
+        let message = HttpClientMessage::Shutdown { reply_to };
+        self.tx.send(message).await?;
+        Ok(rx.await?)
+    }
+}
+
+pub fn new(tx: UnboundedSender<crate::DaemonMessage>) -> HttpClientHandle {
+    HttpClient::new(tx).spawn()
 }
