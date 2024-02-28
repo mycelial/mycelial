@@ -271,7 +271,6 @@ impl Database {
 
     async fn new(database_path: &str) -> Result<Self, error::Error> {
         let database_url = format!("postgres://{database_path}");
-        println!("connecting to:  {}", database_url);
         let pool = PgPoolOptions::new()
             .max_connections(5)
             .connect(&database_url)
@@ -318,7 +317,6 @@ impl Database {
         user_id: &str,
     ) -> Result<u64, error::Error> {
         let config: String = serde_json::to_string(config)?;
-        println!("config: {}", config);
         let result =
             sqlx::query("INSERT INTO pipes (raw_config, workspace_id, user_id) VALUES ($1::json, $2, $3) RETURNING id")
                 .bind(config)
@@ -365,7 +363,7 @@ impl Database {
         topic: &str,
         origin: &str,
         stream_type: &str,
-    ) -> Result<i64, error::Error> {
+    ) -> Result<i32, error::Error> {
         let id = sqlx::query(
             "INSERT INTO messages(topic, origin, stream_type) VALUES($1, $2, $3) RETURNING ID",
         )
@@ -374,14 +372,14 @@ impl Database {
         .bind(stream_type)
         .fetch_one(&mut **transaction)
         .await
-        .map(|row| row.get::<i64, _>(0))?;
+        .map(|row| row.get::<i32, _>(0))?;
         Ok(id)
     }
 
     async fn store_chunk(
         &self,
         transaction: &mut Transaction<'_, Postgres>,
-        message_id: i64,
+        message_id: i32,
         bytes: &[u8],
     ) -> Result<(), error::Error> {
         sqlx::query("INSERT INTO records (message_id, data) VALUES ($1, $2)")
@@ -401,7 +399,7 @@ impl Database {
         let mut con = self.get_connection().await;
 
         // FIXME: unwrap
-        let offset: i64 = offset.try_into().unwrap();
+        let offset: i32 = offset.try_into().unwrap();
         let message_info = sqlx::query(
             "SELECT id, origin, stream_type FROM messages WHERE id > $1 and topic = $2 LIMIT 1",
         )
@@ -411,7 +409,7 @@ impl Database {
         .await?
         .map(|row| {
             (
-                row.get::<i64, _>(0) as u64,
+                row.get::<i32, _>(0) as u64,
                 row.get::<String, _>(1),
                 row.get::<String, _>(2),
             )
@@ -425,7 +423,7 @@ impl Database {
         // move connection into stream wrapper around sqlx's stream
         let stream = async_stream::stream! {
             let mut stream = sqlx::query("SELECT data FROM records r WHERE r.message_id = $1")
-                .bind(id as i64)
+                .bind(id as i32)
                 .fetch(&mut *con)
                 .map(|maybe_row| {
                     maybe_row
