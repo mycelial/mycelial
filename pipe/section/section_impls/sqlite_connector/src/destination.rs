@@ -7,7 +7,7 @@ use section::{
 };
 use std::pin::{pin, Pin};
 
-use crate::{escape_table_name, generate_schema, generate_column_names};
+use crate::{escape_table_name, generate_column_names, generate_schema};
 use sqlx::types::chrono::NaiveDateTime;
 use sqlx::{sqlite::SqliteConnectOptions, ConnectOptions};
 use std::future::Future;
