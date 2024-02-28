@@ -264,7 +264,7 @@ impl Database {
     }
 
     async fn new(database_path: &str) -> Result<Self, error::Error> {
-        let database_url  = database_path.to_string();
+        let database_url = database_path.to_string();
         let pool = PgPoolOptions::new()
             .max_connections(5)
             .connect(&database_url)
