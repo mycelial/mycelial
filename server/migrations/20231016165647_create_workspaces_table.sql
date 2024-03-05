@@ -1,9 +1,0 @@
-CREATE TABLE IF NOT EXISTS workspaces (
-    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
-    name TEXT NOT NULL,
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-);
-INSERT INTO workspaces (id, name) VALUES (1, 'Default');
-
-ALTER TABLE pipes ADD COLUMN workspace_id INTEGER REFERENCES workspaces(id) ON DELETE CASCADE;
-UPDATE pipes SET workspace_id = 1;
