@@ -135,6 +135,9 @@ const ClientDrawer: React.FC<ClientDrawerProps> = ({ clients, onClose, open }) =
                                   display: 'flex',
                                   flexGrow: 4,
                                   justifyContent: 'center',
+                                  textAlign: 'center',
+                                  paddingLeft: '4px',
+                                  marginRight: '-4px',
                                 }}
                               >
                                 <Box sx={{ display: 'flex', fontSize: '0.8rem' }}>
