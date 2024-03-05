@@ -112,8 +112,7 @@ pub fn generate_schema(table_name: &str, df: &dyn DataFrame) -> String {
 }
 
 pub fn generate_column_names(df: &dyn DataFrame) -> String {
-    let columns = df
-        .columns()
+    df.columns()
         .iter()
         .map(|col| col.name())
         .map(|name| {
@@ -125,6 +124,5 @@ pub fn generate_column_names(df: &dyn DataFrame) -> String {
             format!("\"{}\"", name)
         })
         .collect::<Vec<_>>()
-        .join(",");
-    columns
+        .join(",")
 }
