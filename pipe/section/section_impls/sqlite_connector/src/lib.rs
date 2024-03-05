@@ -107,11 +107,19 @@ pub fn escape_table_name(name: impl AsRef<str>) -> String {
 /// generate create table command for provided record batch
 pub fn generate_schema(table_name: &str, df: &dyn DataFrame) -> String {
     let name = escape_table_name(table_name);
-    let columns = df
-        .columns()
+    let columns = generate_column_names(df);
+    format!("CREATE TABLE IF NOT EXISTS \"{name}\" ({columns})",)
+}
+
+pub fn generate_column_names(df: &dyn DataFrame) -> String {
+    df.columns()
         .iter()
         .map(|col| col.name())
+        .map(|name| {
+            // wrap the name in quotes
+            // escape all quotes by replacing with a double quote
+            format!("\"{}\"", name.replace('\"', "\"\""))
+        })
         .collect::<Vec<_>>()
-        .join(",");
-    format!("CREATE TABLE IF NOT EXISTS \"{name}\" ({columns})",)
+        .join(",")
 }
