@@ -116,12 +116,9 @@ pub fn generate_column_names(df: &dyn DataFrame) -> String {
         .iter()
         .map(|col| col.name())
         .map(|name| {
-            // escape all quotes by replacing with a double quote
-            name.replace('\"', "\"\"")
-        })
-        .map(|name| {
             // wrap the name in quotes
-            format!("\"{}\"", name)
+            // escape all quotes by replacing with a double quote
+            format!("\"{}\"", name.replace('\"', "\"\""))
         })
         .collect::<Vec<_>>()
         .join(",")
