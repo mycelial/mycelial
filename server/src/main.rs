@@ -331,7 +331,7 @@ impl Database {
         let config: String = serde_json::to_string(config)?;
         // FIXME: unwrap
         let id: i32 = id.try_into().unwrap();
-        let _ = sqlx::query("update pipes set raw_config = $1 WHERE id = $2 and user_id = $3")
+        let _ = sqlx::query("update pipes set raw_config = $1::json WHERE id = $2 and user_id = $3")
             .bind(config)
             .bind(id)
             .bind(user_id)
