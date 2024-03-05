@@ -163,7 +163,7 @@ struct Cli {
         short,
         long,
         env = "DATABASE_PATH",
-        default_value = "postgres://postgres@localhost"
+        default_value = "postgres://mycelial@localhost/mycelial_server_dev"
     )]
     database_path: String,
 
