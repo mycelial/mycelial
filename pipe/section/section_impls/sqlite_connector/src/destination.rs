@@ -7,7 +7,7 @@ use section::{
 };
 use std::pin::{pin, Pin};
 
-use crate::{escape_table_name, generate_schema};
+use crate::{escape_table_name, generate_column_names, generate_schema};
 use sqlx::types::chrono::NaiveDateTime;
 use sqlx::{sqlite::SqliteConnectOptions, ConnectOptions};
 use std::future::Future;
@@ -87,7 +87,8 @@ impl Sqlite {
                                             .await?;
                                     }
                                     let values_placeholder = (0..columns.len()).map(|_| "?").collect::<Vec<_>>().join(",");
-                                    insert_query = format!("INSERT OR IGNORE INTO \"{name}\" VALUES({values_placeholder})");
+                                    let columns = generate_column_names(df.as_ref());
+                                    insert_query = format!("INSERT OR IGNORE INTO \"{name}\" ({columns}) VALUES({values_placeholder})");
                                 }
                                 'outer: loop {
                                     let mut query = sqlx::query(&insert_query);

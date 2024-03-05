@@ -7,7 +7,7 @@ const styles = {
     flexDirection: 'column',
     fontSize: '.8rem',
     fontWeight: '550',
-    height: '100px',
+    minHeight: '100px',
     width: '200px',
   },
   gradient: {

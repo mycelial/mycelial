@@ -9,6 +9,9 @@ const loadWorkspaces = async (token: string): Promise<WorkspacesData> => {
 
 const loadDaemonToken = async(token: string): Promise<string> => {
   const daemonToken = await getDaemonToken(token);
+  if (!daemonToken) {
+    return createDaemonToken(token);
+  }
   return daemonToken
 }
 
