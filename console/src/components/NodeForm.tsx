@@ -128,6 +128,7 @@ const NodeForm = () => {
               '& .MuiFormLabel-input': { fontSize: '1rem' },
             }}
             onSubmit={formik.handleSubmit}
+            onBlur={formik.handleSubmit}
           >
             {Object.keys(sortedFields).map((key) => renderNodeFormField({ key, formik }))}
 
