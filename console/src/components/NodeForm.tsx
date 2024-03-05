@@ -132,27 +132,6 @@ const NodeForm = () => {
           >
             {Object.keys(sortedFields).map((key) => renderNodeFormField({ key, formik }))}
 
-            <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
-              <Button
-                variant="contained"
-                type="submit"
-                sx={{
-                  boxShadow: 3,
-                  '&:hover': {
-                    boxShadow: 6,
-                  },
-                }}
-              >
-                {staged ? (
-                  <>
-                    Staged
-                    <DoneIcon />
-                  </>
-                ) : (
-                  'Stage'
-                )}
-              </Button>
-            </Box>
           </Box>
         </Box>
       </Paper>
