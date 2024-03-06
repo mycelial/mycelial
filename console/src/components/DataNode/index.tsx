@@ -7,6 +7,7 @@ import {
   Position,
   useStore,
   useReactFlow,
+  useOnSelectionChange,
   getConnectedEdges,
 } from 'reactflow';
 import styles from './styles.js';
@@ -89,6 +90,16 @@ const DataNode: FC<DataNodeProps> = memo(function DataNode(props) {
       setActiveNode(null);
     }
   }, [id]);
+
+  useOnSelectionChange({
+    onChange: ({ nodes, edges }) => {
+      console.log('useOnSelectionChange', nodes);
+      nodes.forEach((node) => setActiveNode(node));
+      if (nodes.length === 0) {
+        setActiveNode(null);
+      };
+    },
+  });
 
   return (
     <Box
