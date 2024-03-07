@@ -17,9 +17,7 @@ pub struct App {
 impl App {
     pub async fn new(db_path: impl AsRef<str>) -> anyhow::Result<Self> {
         let db_path: &str = db_path.as_ref();
-        if let Some(parent) = Path::new(db_path).parent() {
-            tokio::fs::create_dir_all(parent).await?;
-        };
+
         let database = Database::new(db_path).await?;
         Ok(Self { database })
     }
