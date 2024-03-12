@@ -85,7 +85,7 @@ where
                                                 .iter()
                                                 .map(std::borrow::ToOwned::to_owned)
                                                 .collect::<Vec<_>>();
-                                            let tag = Arc::new(StringArray::from(vec![self.text.clone()]));
+                                            let tag = Arc::new(StringArray::from(vec![self.text.clone(); values[0].len()]));
                                             values.push(tag);
 
                                             // create a new arrow RecordBatch from the schema and columns
