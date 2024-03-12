@@ -279,11 +279,11 @@ impl Database {
             "INSERT INTO clients (id, user_id, display_name, sources, destinations, unique_client_id, client_secret_hash) \
             VALUES ($1, $2, $3, '[]', '[]', $4, $5) \
             ON CONFLICT (id) DO UPDATE SET \
-            display_name = $3, \
-            sources = $4, \
-            destinations = $5, \
-            unique_client_id = $6, \
-            client_secret_hash = $7"
+            display_name=excluded.display_name, \
+            sources=excluded.sources, \
+            destinations=excluded.destinations, \
+            unique_client_id=excluded.unique_client_id, \
+            client_secret_hash=excluded.client_secret_hash"
         )
             .bind(unique_id)
             .bind(user_id)

@@ -229,7 +229,7 @@ impl DaemonStorage {
 
     pub async fn reset_state(&mut self) -> anyhow::Result<()> {
         let queries = &[
-            "DELETE FROM connections",
+            "DELETE FROM connection",
             "DELETE FROM daemon",
             "DELETE FROM config",
             "DELETE FROM pipe",
