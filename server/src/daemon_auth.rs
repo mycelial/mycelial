@@ -1,15 +1,15 @@
 use std::sync::Arc;
 
-use crate::BASE64;
 use axum::{
     extract::State,
-    http::{self, Request},
+    headers::{authorization::Basic, Authorization},
+    http::Request,
     middleware::Next,
     response::{IntoResponse, Response},
-    Extension, Json,
+    Extension, Json, TypedHeader,
 };
-use base64::Engine;
 use reqwest::{header, StatusCode};
+use serde::Deserialize;
 
 use crate::{error, App, UserID};
 
@@ -23,49 +23,49 @@ pub async fn get_pipe_configs(
 // middleware that checks for the token in the request and associates it with a client/daemon
 pub async fn daemon_auth<B>(
     State(app): State<Arc<App>>,
+    TypedHeader(auth): TypedHeader<Authorization<Basic>>,
     mut req: Request<B>,
     next: Next<B>,
 ) -> Result<Response, impl IntoResponse> {
-    let auth_header = req
-        .headers()
-        .get(http::header::AUTHORIZATION)
-        .and_then(|header| header.to_str().ok());
-
-    let decoded = auth_header
-        .and_then(|header| header.strip_prefix("Basic "))
-        .and_then(|token| BASE64.decode(token).ok())
-        .and_then(|token| String::from_utf8(token).ok())
-        .and_then(|token| {
-            let parts: Vec<&str> = token.splitn(2, ':').collect();
-            match parts.as_slice() {
-                [client_id, client_secret] => {
-                    Some((client_id.to_string(), client_secret.to_string()))
-                }
-                _ => None,
-            }
-        });
-
-    if let Some((client_id, client_secret)) = decoded {
-        let user_id = app
-            .validate_client_id_and_secret(client_id.as_str(), client_secret.as_str())
-            .await;
-        let user_id = match user_id {
-            Ok(user_id) => user_id,
-            Err(_) => {
-                let response = (
-                    [(header::WWW_AUTHENTICATE, "Basic")],
-                    StatusCode::UNAUTHORIZED,
-                );
-                return Err(response);
-            }
-        };
-        let user_id = UserID(user_id);
-        req.extensions_mut().insert(user_id);
-        return Ok(next.run(req).await);
+    match app
+        .validate_client_id_and_secret(auth.username(), auth.password())
+        .await
+    {
+        Ok(user_id) => {
+            let user_id = UserID(user_id);
+            req.extensions_mut().insert(user_id);
+            Ok(next.run(req).await)
+        }
+        Err(_) => Err((
+            [(header::WWW_AUTHENTICATE, "Basic")],
+            StatusCode::UNAUTHORIZED,
+        )),
     }
-    let response = (
-        [(header::WWW_AUTHENTICATE, "Basic")],
-        StatusCode::UNAUTHORIZED,
-    );
-    Err(response)
+}
+
+// FIXME: common crate
+#[derive(Debug, Deserialize)]
+pub struct Submit {
+    // FIXME:
+    unique_id: String,
+    sources: Vec<common::Source>,
+    destinations: Vec<common::Destination>,
+}
+
+// FIXME: common crate
+pub async fn submit_sections(
+    State(state): State<Arc<App>>,
+    Extension(UserID(user_id)): Extension<UserID>,
+    Json(payload): Json<Submit>,
+) -> Result<impl IntoResponse, error::Error> {
+    state
+        .database
+        .submit_sections(
+            payload.unique_id.as_str(),
+            user_id.as_str(),
+            &serde_json::to_string(payload.sources.as_slice())?,
+            &serde_json::to_string(payload.destinations.as_slice())?,
+        )
+        .await?;
+    Ok("")
 }

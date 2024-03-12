@@ -10,7 +10,7 @@ pub async fn post_config(
     Extension(user_id): Extension<UserID>,
     Json(configs): Json<PipeConfigs>,
 ) -> Result<impl IntoResponse, error::Error> {
-    log::trace!("Configs in: {:?}", &configs);
+    tracing::trace!("Configs in: {:?}", &configs);
     app.validate_configs(&configs)?;
     let ids = app.set_configs(&configs, user_id.0.as_str()).await?;
     Ok(Json(

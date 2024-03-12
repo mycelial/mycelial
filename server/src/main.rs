@@ -1,11 +1,10 @@
 use axum::{
     extract::State,
-    headers::{authorization::Basic, Authorization},
     http::{self, header, Method, Request, StatusCode, Uri},
     middleware::{self, Next},
     response::{IntoResponse, Response},
     routing::{get, post},
-    Extension, Json, Router, Server, TypedHeader,
+    Extension, Json, Router, Server,
 };
 use base64::engine::{general_purpose::STANDARD as BASE64, Engine};
 use chrono::NaiveDateTime;
@@ -16,7 +15,7 @@ use futures::{Stream, StreamExt};
 use jsonwebtoken::{decode, jwk, DecodingKey, Validation};
 use rust_embed::RustEmbed;
 use serde::{Deserialize, Serialize};
-use serde_json::json;
+
 use sqlx::{
     pool::Pool,
     postgres::{PgPoolOptions, PgRow, Postgres},
@@ -27,7 +26,6 @@ use std::pin::Pin;
 use std::sync::Arc;
 
 use app::App;
-
 mod app;
 mod daemon_auth;
 mod daemon_basic_auth;
@@ -221,7 +219,6 @@ async fn get_clients(
 async fn log_middleware<B>(
     method: Method,
     uri: Uri,
-    maybe_auth: Option<TypedHeader<Authorization<Basic>>>,
     request: Request<B>,
     next: Next<B>,
 ) -> Response {
@@ -231,23 +228,14 @@ async fn log_middleware<B>(
         .signed_duration_since(timestamp)
         .num_milliseconds();
 
-    let token = match maybe_auth.as_ref() {
-        None => "",
-        Some(TypedHeader(Authorization(basic))) => basic.username(),
-    };
-
     let error: Option<&error::Error> = response.extensions().get();
-    // FIXME: do not log token
-    let log = json!({
-        "token": token,
-        "timestamp": timestamp,
-        "request_time_ms": request_time_ms,
-        "method": method.as_str(),
-        "status_code": response.status().as_u16(),
-        "path": uri.path(),
-        "error": error.map(|e| format!("{:?}", e)),
-    });
-    log::info!("{}", log);
+    tracing::info!(
+        request_time_ms = request_time_ms,
+        method = method.as_str(),
+        status_code = response.status().as_u16(),
+        path = uri.path(),
+        error = error.map(|e| format!("{:?}", e)),
+    );
     response
 }
 
@@ -278,27 +266,46 @@ impl Database {
     }
 
     #[allow(clippy::too_many_arguments)]
-    async fn insert_client(
+    async fn provision_daemon(
         &self,
-        client_id: &str,
+        unique_id: &str,
         user_id: &str,
         display_name: &str,
-        sources: &[Source],
-        destinations: &[Destination],
         unique_client_id: &str,
         client_secret_hash: &str,
     ) -> Result<(), error::Error> {
-        let sources = serde_json::to_string(sources)?;
-        let destinations = serde_json::to_string(destinations)?;
-
-        let _ = sqlx::query("INSERT INTO clients (id, user_id, display_name, sources, destinations, unique_client_id, client_secret_hash) VALUES ($1, $2, $3, $4, $5, $6, $7) ON CONFLICT (id) DO UPDATE SET display_name = $3, sources = $4, destinations = $5, unique_client_id = $6, client_secret_hash = $7")
-            .bind(client_id)
+        sqlx::query(
+            "INSERT INTO clients (id, user_id, display_name, sources, destinations, unique_client_id, client_secret_hash) \
+            VALUES ($1, $2, $3, '[]', '[]', $4, $5) \
+            ON CONFLICT (id) DO UPDATE SET \
+            display_name=excluded.display_name, \
+            sources=excluded.sources, \
+            destinations=excluded.destinations, \
+            unique_client_id=excluded.unique_client_id, \
+            client_secret_hash=excluded.client_secret_hash"
+        )
+            .bind(unique_id)
             .bind(user_id)
             .bind(display_name)
-            .bind(sources)
-            .bind(destinations)
             .bind(unique_client_id)
             .bind(client_secret_hash)
+            .execute(&*self.connection)
+            .await?;
+        Ok(())
+    }
+
+    async fn submit_sections(
+        &self,
+        unique_id: &str,
+        user_id: &str,
+        sources: &str,
+        destinations: &str,
+    ) -> Result<(), error::Error> {
+        sqlx::query("UPDATE clients SET sources=$1, destinations=$2 WHERE id=$3 AND user_id=$4")
+            .bind(sources)
+            .bind(destinations)
+            .bind(unique_id)
+            .bind(user_id)
             .execute(&*self.connection)
             .await?;
         Ok(())
@@ -600,7 +607,7 @@ pub struct Auth0Audience(String);
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    pretty_env_logger::init();
+    tracing_subscriber::fmt::init();
 
     let cli = Cli::try_parse()?;
     let app = App::new(cli.database_path).await?;
@@ -648,7 +655,10 @@ async fn main() -> anyhow::Result<()> {
     }
 
     let daemon_basic_api = Router::new()
-        .route("/api/client", post(daemon_basic_auth::provision_client))
+        .route(
+            "/api/daemon/provision",
+            post(daemon_basic_auth::provision_daemon),
+        )
         .layer(middleware::from_fn_with_state(
             state.clone(),
             validate_client_basic_auth,
@@ -657,6 +667,10 @@ async fn main() -> anyhow::Result<()> {
     // daemon uses its client_id and client_secret to auth, regardless of whether user auth is turned on
     let daemon_protected_api = Router::new()
         .route("/api/pipe", get(daemon_auth::get_pipe_configs))
+        .route(
+            "/api/daemon/submit_sections",
+            post(daemon_auth::submit_sections),
+        )
         .layer(middleware::from_fn_with_state(
             state.clone(),
             daemon_auth::daemon_auth,

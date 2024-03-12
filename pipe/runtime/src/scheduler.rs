@@ -331,7 +331,7 @@ impl SchedulerHandle {
     }
 
     /// Shutdown scheduler
-    pub async fn shutdown(self) -> Result<(), SectionError> {
+    pub async fn shutdown(&self) -> Result<(), SectionError> {
         call!(self, Message::Shutdown {})
     }
 

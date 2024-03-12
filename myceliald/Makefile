@@ -20,10 +20,12 @@ clean:
 
 .PHONY: dev
 dev:
-	RUST_LOG=$(RUST_LOG) cargo-watch -c -q \
-		-i myceliald_state.sqlite \
-		-i myceliald_state.sqlite-journal \
-		-s 'cargo run -r -- --config=config.example.toml'
+	RUST_LOG=$(RUST_LOG) cargo-watch \
+		--why \
+		-i client.db \
+		-i client.db-journal \
+		-i config.toml \
+		-s 'cargo run -r -- --config=config.toml'
 
 .PHONY: vendor
 vendor:
