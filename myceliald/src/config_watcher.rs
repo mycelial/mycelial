@@ -121,12 +121,16 @@ impl ConfigWatcher {
                     }
                     FsEvent::Removed => {
                         tracing::info!("config was removed");
-                        if let Some(d) = maybe_debouncer.take() { d.stop_nonblocking() }
+                        if let Some(d) = maybe_debouncer.take() {
+                            d.stop_nonblocking()
+                        }
                         LastState::ConfigRemoved
                     }
                     FsEvent::Error => {
                         tracing::info!("fs watcher encountered errors");
-                        if let Some(d) = maybe_debouncer.take() { d.stop_nonblocking() }
+                        if let Some(d) = maybe_debouncer.take() {
+                            d.stop_nonblocking()
+                        }
                         LastState::Failed
                     }
                 },

@@ -1,11 +1,10 @@
 use axum::{
     extract::State,
-    headers::{authorization::Basic, Authorization},
     http::{self, header, Method, Request, StatusCode, Uri},
     middleware::{self, Next},
     response::{IntoResponse, Response},
     routing::{get, post},
-    Extension, Json, Router, Server, TypedHeader,
+    Extension, Json, Router, Server,
 };
 use base64::engine::{general_purpose::STANDARD as BASE64, Engine};
 use chrono::NaiveDateTime;
@@ -16,7 +15,7 @@ use futures::{Stream, StreamExt};
 use jsonwebtoken::{decode, jwk, DecodingKey, Validation};
 use rust_embed::RustEmbed;
 use serde::{Deserialize, Serialize};
-use serde_json::json;
+
 use sqlx::{
     pool::Pool,
     postgres::{PgPoolOptions, PgRow, Postgres},
