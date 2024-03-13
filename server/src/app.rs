@@ -1,6 +1,5 @@
 use axum::response::IntoResponse;
 use common::{PipeConfig, PipeConfigs};
-use sqlx::Row;
 use uuid::Uuid;
 
 use crate::{error, Clients, Database, Workspace};
