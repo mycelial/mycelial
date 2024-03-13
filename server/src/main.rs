@@ -568,6 +568,56 @@ impl Database {
         let configs: PipeConfigs = PipeConfigs { configs: rows };
         Ok(configs)
     }
+
+    async fn get_user_id_for_daemon_token(&self, token: &str) -> Result<String, error::Error> {
+        let user_id: String =
+            sqlx::query("SELECT user_id FROM user_daemon_tokens WHERE daemon_token = $1")
+                .bind(token)
+                .fetch_one(&*self.connection)
+                .await
+                .map(|row| row.get(0))?;
+        Ok(user_id)
+    }
+
+    async fn get_user_daemon_token(&self, user_id: &str) -> Result<String, error::Error> {
+        let daemon_token =
+            sqlx::query("SELECT daemon_token FROM user_daemon_tokens WHERE user_id = $1")
+                .bind(user_id)
+                .fetch_one(&*self.connection)
+                .await?
+                .get::<String, _>(0);
+        Ok(daemon_token)
+    }
+
+    async fn rotate_user_daemon_token(
+        &self,
+        user_id: &str,
+        new_token: &str,
+    ) -> Result<(), error::Error> {
+        // todo: Should this schema have "deleted_at" and then we only insert rows?
+        sqlx::query(
+            "INSERT INTO user_daemon_tokens (user_id, daemon_token) VALUES ($1, $2) ON CONFLICT (user_id) DO UPDATE SET daemon_token = $2"
+        )
+        .bind(user_id)
+        .bind(new_token)
+        .execute(&*self.connection)
+        .await?;
+        Ok(())
+    }
+
+    async fn get_user_id_and_secret_hash(
+        &self,
+        client_id: &str,
+    ) -> Result<(String, String), error::Error> {
+        let (user_id, client_secret_hash): (String, String) = sqlx::query(
+            "SELECT user_id, client_secret_hash FROM clients WHERE unique_client_id = $1",
+        )
+        .bind(client_id)
+        .fetch_one(&*self.connection)
+        .await
+        .map(|row| (row.get(0), row.get(1)))?;
+        Ok((user_id, client_secret_hash))
+    }
 }
 
 #[derive(RustEmbed)]
