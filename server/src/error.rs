@@ -1,18 +1,13 @@
-use arrow::error::ArrowError;
 use axum::{
     http::StatusCode,
     response::{IntoResponse, Response},
 };
-use sqlx::migrate::MigrateError;
 
 // TODO: figure out this error stuff, I just copied and pasted this for now.
 #[derive(Debug)]
 pub enum Error {
     // status code wrap, probably not needed
     StatusCode(StatusCode),
-
-    // sqlx migration error
-    SqlxMigration(MigrateError),
 
     // sqlx error
     Sqlx(sqlx::Error),
@@ -34,9 +29,6 @@ pub enum Error {
 
     // &'static str error
     Str(&'static str),
-
-    // Arrow Error
-    Arrow(ArrowError),
 }
 
 impl std::fmt::Display for Error {

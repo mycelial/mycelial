@@ -17,7 +17,7 @@ clean:
 dev:
 	RUST_LOG=$(RUST_LOG) cargo-watch -q -c \
 		-i mycelial.db \
-		-s 'cargo run -r -- --token=token'
+		-s 'cargo run -- --token=token --database-url=sqlite://mycelial.db'
 
 .PHONY: vendor
 vendor:

@@ -1,92 +1,79 @@
-use std::{pin::Pin, sync::Arc};
-
+use std::{convert::Infallible, pin::Pin, sync::Arc};
 use axum::{
-    body::StreamBody,
-    extract::{BodyStream, State},
+    body::{Body, Bytes},
+    extract::State,
     response::IntoResponse,
     Json,
 };
-use futures::{Stream, StreamExt};
-use reqwest::StatusCode;
+use futures::{stream::BoxStream, Stream, StreamExt};
 use sqlx::Connection;
-
-use crate::{error, App, MessageStream};
+use crate::{model::MessageStream, App, AppError};
 
 pub async fn ingestion(
     State(app): State<Arc<App>>,
     axum::extract::Path(topic): axum::extract::Path<String>,
     headers: axum::http::header::HeaderMap,
-    mut body: BodyStream,
-) -> Result<impl IntoResponse, error::Error> {
+    body: Body,
+) -> crate::Result<impl IntoResponse> {
     let origin = match headers.get("x-message-origin") {
         Some(origin) => origin
             .to_str()
-            .map_err(|_| "bad x-message-origin header value")?,
-        None => Err(StatusCode::BAD_REQUEST)?,
+            .map_err(|_| anyhow::anyhow!("bad x-message-origin header value"))?,
+        None => Err(anyhow::anyhow!("bad request"))?,
     };
 
     let stream_type = match headers.get("x-stream-type") {
         Some(origin) => origin
             .to_str()
-            .map_err(|_| "bad x-message-origin header value")?,
+            .map_err(|_| anyhow::anyhow!("bad x-message-origin header value"))?,
         None => "dataframe", // by default
     };
 
-    let mut connection = app.database.get_connection().await;
-    let mut transaction = connection.begin().await?;
-
-    let message_id = app
-        .database
-        .new_message(&mut transaction, topic.as_str(), origin, stream_type)
-        .await?;
-
-    let mut stored = 0;
-    while let Some(chunk) = body.next().await {
-        // FIXME: accumulate into buffer
-        let chunk = chunk?;
-        app.database
-            .store_chunk(&mut transaction, message_id, chunk.as_ref())
-            .await?;
-        stored += 1;
-    }
-    // don't store empty messages
-    match stored {
-        0 => transaction.rollback().await?,
-        _ => transaction.commit().await?,
-    };
+    let stream: BoxStream<crate::Result<Vec<u8>>> = Box::pin(
+        body.into_data_stream()
+            .map(|chunk| chunk
+                 .map(|bytes| bytes.to_vec())
+                 .map_err(|e| -> AppError { e.into() })
+             )
+    );
+    // FIXME: do not touch db
+    app.db.new_message(topic.as_str(), origin, stream_type, stream).await?;
     Ok(Json("ok"))
 }
 
 pub async fn get_message(
     State(app): State<Arc<App>>,
     axum::extract::Path((topic, offset)): axum::extract::Path<(String, u64)>,
-) -> Result<impl IntoResponse, error::Error> {
-    let response = match app.database.get_message(&topic, offset).await? {
-        None => {
-            let stream: Pin<Box<dyn Stream<Item = _> + Send>> =
-                Box::pin(futures::stream::empty::<Result<Vec<u8>, error::Error>>());
-            (
-                [
-                    ("x-message-id", offset.to_string()),
-                    ("x-message-origin", "".into()),
-                    ("x-stream-type", "".into()),
-                ],
-                StreamBody::new(stream),
-            )
-        }
-        Some(MessageStream {
-            id,
-            origin,
-            stream_type,
-            stream,
-        }) => (
-            [
-                ("x-message-id", id.to_string()),
-                ("x-message-origin", origin),
-                ("x-stream-type", stream_type),
-            ],
-            StreamBody::new(stream),
-        ),
-    };
-    Ok(response)
+) -> crate::Result<impl IntoResponse> {
+    Err(anyhow::anyhow!("unimplemented"))?;
+    Ok("")
+
+  //let response = match app.database.get_message(&topic, offset).await? {
+  //    None => {
+  //        let stream: Pin<Box<dyn Stream<Item = _> + Send>> =
+  //            Box::pin(futures::stream::empty::<Result<Vec<u8>, Infallible>>());
+  //        (
+  //            [
+  //                ("x-message-id", offset.to_string()),
+  //                ("x-message-origin", "".into()),
+  //                ("x-stream-type", "".into()),
+  //            ],
+  //            Body::from_stream(stream),
+  //        )
+  //    }
+  //    Some(MessageStream {
+  //        id,
+  //        origin,
+  //        stream_type,
+  //        stream,
+  //    }) => (
+  //        [
+  //            ("x-message-id", id.to_string()),
+  //            ("x-message-origin", origin),
+  //            ("x-stream-type", stream_type),
+  //        ],
+  //        Body::from_stream(stream),
+  //    ),
+  //};
+  //Ok(response)
 }

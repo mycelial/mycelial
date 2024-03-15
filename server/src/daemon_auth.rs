@@ -1,31 +1,31 @@
 use std::sync::Arc;
-
 use axum::{
+    body::Body,
     extract::State,
-    headers::{authorization::Basic, Authorization},
-    http::Request,
+    http::{header, Request, StatusCode},
     middleware::Next,
     response::{IntoResponse, Response},
-    Extension, Json, TypedHeader,
+    Extension,
+    Json
 };
-use reqwest::{header, StatusCode};
+use axum_extra::{headers::{authorization::Basic, Authorization}, TypedHeader};
 use serde::Deserialize;
 
-use crate::{error, App, UserID};
+use crate::{App, UserID};
 
 pub async fn get_pipe_configs(
     State(app): State<Arc<App>>,
     Extension(user_id): Extension<UserID>,
-) -> Result<impl IntoResponse, error::Error> {
-    app.get_configs(user_id.0.as_str()).await.map(Json)
+) -> crate::Result<impl IntoResponse> {
+    Ok(Json(app.get_configs(user_id.0.as_str()).await?))
 }
 
-// middleware that checks for the token in the request and associates it with a client/daemon
-pub async fn daemon_auth<B>(
+// check client_id/client_secret from daemon, associate with user_id
+pub async fn auth(
     State(app): State<Arc<App>>,
     TypedHeader(auth): TypedHeader<Authorization<Basic>>,
-    mut req: Request<B>,
-    next: Next<B>,
+    mut req: Request<Body>,
+    next: Next,
 ) -> Result<Response, impl IntoResponse> {
     match app
         .validate_client_id_and_secret(auth.username(), auth.password())
@@ -57,14 +57,14 @@ pub async fn submit_sections(
     State(state): State<Arc<App>>,
     Extension(UserID(user_id)): Extension<UserID>,
     Json(payload): Json<Submit>,
-) -> Result<impl IntoResponse, error::Error> {
+) -> crate::Result<impl IntoResponse> {
     state
-        .database
+        .db
         .submit_sections(
             payload.unique_id.as_str(),
             user_id.as_str(),
-            &serde_json::to_string(payload.sources.as_slice())?,
-            &serde_json::to_string(payload.destinations.as_slice())?,
+            &serde_json::to_value(payload.sources)?,
+            &serde_json::to_value(payload.destinations)?,
         )
         .await?;
     Ok("")
