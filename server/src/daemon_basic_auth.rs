@@ -13,7 +13,7 @@ pub async fn provision_daemon(
     Extension(UserID(user_id)): Extension<UserID>,
     Json(payload): Json<ProvisionDaemonRequest>,
 ) -> Result<impl IntoResponse, error::Error> {
-    let unique_id = payload.unique_id;
+    let serial_number = payload.unique_id;
     let display_name = payload.display_name;
     let unique_client_id = Uuid::new_v4().to_string();
     let client_secret = Uuid::new_v4().to_string();
@@ -22,7 +22,7 @@ pub async fn provision_daemon(
     state
         .database
         .provision_daemon(
-            &unique_id,
+            &serial_number,
             &user_id,
             &display_name,
             &unique_client_id,

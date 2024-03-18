@@ -1,16 +1,18 @@
 CREATE TABLE clients (
-    id TEXT PRIMARY KEY,
+    id SERIAL PRIMARY KEY,
+    serial_number TEXT,
     sources TEXT,
     display_name TEXT,
     destinations TEXT,
     user_id TEXT DEFAULT '',
     unique_client_id VARCHAR(255),
-    client_secret_hash VARCHAR(255)
+    client_secret_hash VARCHAR(255),
+    UNIQUE(serial_number, user_id)
 );
 
 CREATE TABLE tokens (
     id TEXT PRIMARY KEY,
-    client_id TEXT NOT NULL REFERENCES clients(id),
+    client_id INTEGER NOT NULL REFERENCES clients(id),
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 

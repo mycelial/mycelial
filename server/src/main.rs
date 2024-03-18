@@ -79,6 +79,8 @@ async fn validate_client_basic_auth<B>(
 
     if let Some(auth_token) = decoded {
         let user_id = app.get_user_id_for_daemon_token(auth_token.as_str()).await;
+        println!("---------");
+        println!("{:?}:{:?}", auth_token.as_str(), user_id);
         let user_id = match user_id {
             Ok(user_id) => user_id,
             Err(_) => {
@@ -268,23 +270,23 @@ impl Database {
     #[allow(clippy::too_many_arguments)]
     async fn provision_daemon(
         &self,
-        unique_id: &str,
+        serial_number: &str,
         user_id: &str,
         display_name: &str,
         unique_client_id: &str,
         client_secret_hash: &str,
     ) -> Result<(), error::Error> {
         sqlx::query(
-            "INSERT INTO clients (id, user_id, display_name, sources, destinations, unique_client_id, client_secret_hash) \
+            "INSERT INTO clients (serial_number, user_id, display_name, sources, destinations, unique_client_id, client_secret_hash) \
             VALUES ($1, $2, $3, '[]', '[]', $4, $5) \
-            ON CONFLICT (id) DO UPDATE SET \
+            ON CONFLICT (serial_number, user_id) DO UPDATE SET \
             display_name=excluded.display_name, \
             sources=excluded.sources, \
             destinations=excluded.destinations, \
             unique_client_id=excluded.unique_client_id, \
             client_secret_hash=excluded.client_secret_hash"
         )
-            .bind(unique_id)
+            .bind(serial_number)
             .bind(user_id)
             .bind(display_name)
             .bind(unique_client_id)
@@ -296,18 +298,20 @@ impl Database {
 
     async fn submit_sections(
         &self,
-        unique_id: &str,
+        serial_number: &str,
         user_id: &str,
         sources: &str,
         destinations: &str,
     ) -> Result<(), error::Error> {
-        sqlx::query("UPDATE clients SET sources=$1, destinations=$2 WHERE id=$3 AND user_id=$4")
-            .bind(sources)
-            .bind(destinations)
-            .bind(unique_id)
-            .bind(user_id)
-            .execute(&*self.connection)
-            .await?;
+        sqlx::query(
+            "UPDATE clients SET sources=$1, destinations=$2 WHERE serial_number=$3 AND user_id=$4",
+        )
+        .bind(sources)
+        .bind(destinations)
+        .bind(serial_number)
+        .bind(user_id)
+        .execute(&*self.connection)
+        .await?;
         Ok(())
     }
 
