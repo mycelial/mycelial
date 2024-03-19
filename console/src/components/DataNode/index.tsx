@@ -124,7 +124,10 @@ const DataNode: FC<DataNodeProps> = memo(function DataNode(props) {
   const hasChanges = () => {
     let savedNodeData = getSavedNodeData(id)?.data;
     let currentNodeData = getNode(id)?.data;
-    return savedNodeData === undefined || JSON.stringify(savedNodeData) != JSON.stringify(currentNodeData);
+    return (
+      savedNodeData === undefined ||
+      JSON.stringify(savedNodeData) != JSON.stringify(currentNodeData)
+    );
   };
 
   return (
@@ -133,7 +136,9 @@ const DataNode: FC<DataNodeProps> = memo(function DataNode(props) {
       sx={{
         ...styles.gradient,
         border: `${
-          props.selected ? "2.5px solid transparent" : "1.5px solid transparent"
+          props.selected
+            ? "2.75px solid transparent"
+            : "1.5px solid transparent"
         }`,
         boxShadow: `${props.selected ? "2px 2px 2px #dadada" : "none"}`,
       }}
@@ -142,9 +147,6 @@ const DataNode: FC<DataNodeProps> = memo(function DataNode(props) {
         className="dataNode"
         sx={{
           ...styles.node,
-          boxShadow: `${
-            props.selected ? `0 0 0 0.5px ${theme.palette.forest.dark}` : "none"
-          }`,
           bgcolor: `${hasConnection ? "white" : "#dadada"}`,
         }}
       >
@@ -152,9 +154,9 @@ const DataNode: FC<DataNodeProps> = memo(function DataNode(props) {
         {data.source && renderHandle("source", !isConnectedSource)}
         <Box>
           <Box
-          sx = {{
-            position: "relative",
-          }}
+            sx={{
+              position: "relative",
+            }}
           >
             {data.source && <DataChip flowType="source" />}
             {data.destination && <DataChip flowType="destination" />}
