@@ -79,8 +79,6 @@ async fn validate_client_basic_auth<B>(
 
     if let Some(auth_token) = decoded {
         let user_id = app.get_user_id_for_daemon_token(auth_token.as_str()).await;
-        println!("---------");
-        println!("{:?}:{:?}", auth_token.as_str(), user_id);
         let user_id = match user_id {
             Ok(user_id) => user_id,
             Err(_) => {
