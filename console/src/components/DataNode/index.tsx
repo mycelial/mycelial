@@ -124,10 +124,7 @@ const DataNode: FC<DataNodeProps> = memo(function DataNode(props) {
   const hasChanges = () => {
     let savedNodeData = getSavedNodeData(id)?.data;
     let currentNodeData = getNode(id)?.data;
-    return (
-      savedNodeData === undefined ||
-      JSON.stringify(savedNodeData) != JSON.stringify(currentNodeData)
-    );
+    return savedNodeData === undefined || JSON.stringify(savedNodeData) != JSON.stringify(currentNodeData);
   };
 
   return (
@@ -135,8 +132,10 @@ const DataNode: FC<DataNodeProps> = memo(function DataNode(props) {
       className="gradient"
       sx={{
         ...styles.gradient,
-        border: "2px solid transparent",
-        boxShadow: `${props.selected ? "6px 6px 6px #c4c4c4" : "none"}`,
+        border: `${
+          props.selected ? "2.5px solid transparent" : "1.5px solid transparent"
+        }`,
+        boxShadow: `${props.selected ? "2px 2px 2px #dadada" : "none"}`,
       }}
     >
       <Box
@@ -153,9 +152,9 @@ const DataNode: FC<DataNodeProps> = memo(function DataNode(props) {
         {data.source && renderHandle("source", !isConnectedSource)}
         <Box>
           <Box
-            sx={{
-              position: "relative",
-            }}
+          sx = {{
+            position: "relative",
+          }}
           >
             {data.source && <DataChip flowType="source" />}
             {data.destination && <DataChip flowType="destination" />}
