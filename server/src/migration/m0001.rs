@@ -130,7 +130,7 @@ impl Pipes {
     fn into_query(schema_builder: &dyn SchemaBuilder) -> String {
         Table::create()
             .table(Pipes::Table)
-            .col(ColumnDef::new(Pipes::Id).integer().primary_key())
+            .col(ColumnDef::new(Pipes::Id).big_integer().primary_key().auto_increment())
             .col(ColumnDef::new(Pipes::UserId).string())
             .col(ColumnDef::new(Pipes::WorkspaceId).integer())
             .col(ColumnDef::new(Pipes::RawConfig).json())
