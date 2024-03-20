@@ -158,7 +158,11 @@ impl App {
             Some((user_id, client_secret_hash)) => (user_id, client_secret_hash),
             None => Err(anyhow::anyhow!("client_id {client_id} not found"))?,
         };
-        match bcrypt::verify(secret, client_secret_hash.as_str())? {
+        let secret: String = secret.into();
+        let verify_result = tokio::task::spawn_blocking(move || {
+            bcrypt::verify(secret, client_secret_hash.as_str())
+        }).await??;
+        match verify_result {
             true => Ok(user_id),
             false => Err(anyhow::anyhow!("auth failed"))?
         }
