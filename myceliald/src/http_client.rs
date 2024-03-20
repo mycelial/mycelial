@@ -18,10 +18,10 @@ use pipe::{
 };
 use reqwest::StatusCode;
 use section::SectionError;
-use tokio::sync::{
+use tokio::{sync::{
     mpsc::{channel, Receiver, Sender, UnboundedSender},
     oneshot::{channel as oneshot_channel, Sender as OneshotSender},
-};
+}, time::Instant};
 
 struct HttpClient {
     endpoint: Option<String>,
@@ -233,6 +233,11 @@ impl HttpClient {
         rx: &mut Receiver<HttpClientMessage>,
     ) -> Result<(), SectionError> {
         let mut interval = tokio::time::interval(Duration::from_secs(5));
+        // set first tick to 50ms from now, allowing main application to set sonnection details
+        // before first loop iteration
+        if let Some(delay) = tokio::time::Instant::now().checked_add(Duration::from_millis(50)) {
+            interval.reset_at(delay);
+        }
         loop {
             tokio::select! {
                 msg = rx.recv() => {
@@ -260,6 +265,7 @@ impl HttpClient {
                             tracing::info!("submit section request registered");
                             self.submit_request = Some(submit_request);
                             reply_to.send(()).ok();
+                            interval.reset_immediately();
                         },
                         HttpClientMessage::Shutdown{ reply_to } => {
                             tracing::info!("shutting down");

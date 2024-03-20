@@ -108,10 +108,8 @@ impl App {
         Ok(self.db.create_workspace(workspace, user_id).await?)
     }
 
-    pub async fn get_workspace(&self, id: i32, user_id: &str) -> Result<Workspace> {
-        let workspace = self.db.get_workspace(id, user_id).await?;
-        tracing::debug!("workspace: {workspace:?}");
-        Ok(workspace)
+    pub async fn get_workspace(&self, id: i32, user_id: &str) -> Result<Option<Workspace>> {
+        Ok(self.db.get_workspace(id, user_id).await?)
     }
 
     pub async fn update_workspace(
@@ -131,12 +129,11 @@ impl App {
         Ok(PipeConfigs{ configs } )
     }
 
-    pub async fn get_user_id_for_daemon_token(&self, token: &str) -> Result<String> {
+    pub async fn get_user_id_for_daemon_token(&self, token: &str) -> Result<Option<String>> {
         Ok(self.db.get_user_id_for_daemon_token(token).await?)
     }
 
-    // FIXME: axum details should not leak into app
-    pub async fn get_user_daemon_token(&self, user_id: &str) -> Result<String> {
+    pub async fn get_user_daemon_token(&self, user_id: &str) -> Result<Option<String>> {
         Ok(self.db.get_user_daemon_token(user_id).await?)
     }
 
@@ -150,9 +147,17 @@ impl App {
     }
 
     // should probably move this to db fn
+    // FIXME: bcrypt is very expensive hash to check
+    // usual flow is to exchange user/password into some sort of temporary token (e.g. session
+    // cookie)
+    // currently daemon is not able to make more than 4 rps per core against server
+    // current approach is a bottleneck
     pub async fn validate_client_id_and_secret(&self, client_id: &str, secret: &str) -> Result<String> {
         let (user_id, client_secret_hash) =
-            self.db.get_user_id_and_secret_hash(client_id).await?;
+        match self.db.get_user_id_and_secret_hash(client_id).await? {
+            Some((user_id, client_secret_hash)) => (user_id, client_secret_hash),
+            None => Err(anyhow::anyhow!("client_id {client_id} not found"))?,
+        };
         match bcrypt::verify(secret, client_secret_hash.as_str())? {
             true => Ok(user_id),
             false => Err(anyhow::anyhow!("auth failed"))?

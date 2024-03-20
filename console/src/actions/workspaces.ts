@@ -3,7 +3,7 @@ import { WORKSPACE_URL, DAEMON_TOKEN_URL, headers } from '../utils/constants';
 import { create } from '@mui/material/styles/createTransitions';
 
 
-
+// FIXME: return error properly
 async function createDaemonToken(token: string) {
   try {
     const response = await axios({ url: DAEMON_TOKEN_URL,  method: 'post', headers: {'x-auth0-token': token, ...headers} });
@@ -11,8 +11,9 @@ async function createDaemonToken(token: string) {
   } catch (error) {
     console.error(error);
   }
-
 }
+
+// FIXME: check response properly
 async function getDaemonToken(token: string) {
   try {
     const response = await axios({ url: DAEMON_TOKEN_URL, headers: {'x-auth0-token': token, ...headers} });

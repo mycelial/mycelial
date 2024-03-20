@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{sync::Arc, time::Instant};
 use axum::{
     body::Body, 
     extract::State,
@@ -24,8 +24,11 @@ pub async fn provision_daemon(
     let unique_id = payload.unique_id;
     let display_name = payload.display_name;
     let unique_client_id = Uuid::new_v4().to_string();
-    let client_secret = Uuid::new_v4().to_string();
-    let client_secret_hash = bcrypt::hash(client_secret.clone(), 12).unwrap();
+    let client_secret: Arc<String> = Arc::from(Uuid::new_v4().to_string());
+    let client_secret_clone = Arc::clone(&client_secret);
+    let client_secret_hash: String = tokio::task::spawn_blocking(
+        move || bcrypt::hash(&*client_secret_clone.as_bytes(), 12)
+    ).await??;
 
     Ok(state
         .db
@@ -40,7 +43,7 @@ pub async fn provision_daemon(
         .map(|_| {
             Json(ProvisionDaemonResponse {
                 client_id: unique_client_id,
-                client_secret,
+                client_secret: Arc::into_inner(client_secret).unwrap(),
             })
         })?)
 }
@@ -55,12 +58,12 @@ pub async fn auth(
     next: Next,
 ) -> Result<Response, impl IntoResponse> {
     match app.get_user_id_for_daemon_token(auth.username()).await {
-        Ok(user_id) => {
+        Ok(Some(user_id)) => {
             let user_id = UserID(user_id);
             req.extensions_mut().insert(user_id);
             Ok(next.run(req).await)
         },
-        Err(_) => 
+        _ => 
             Err(([(header::WWW_AUTHENTICATE, "Basic")], StatusCode::UNAUTHORIZED))
     }
 }

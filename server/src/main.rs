@@ -30,7 +30,7 @@ use sea_query::{PostgresQueryBuilder, SqliteQueryBuilder};
 use serde::{Deserialize, Serialize};
 use sqlx::{Postgres, Sqlite};
 
-use std::net::SocketAddr;
+use std::{borrow::Cow, net::SocketAddr};
 use std::sync::Arc;
 use app::App;
 
@@ -123,7 +123,10 @@ async fn get_user_daemon_token(
     State(app): State<Arc<App>>,
     Extension(user_id): Extension<UserID>,
 ) -> Result<impl IntoResponse> {
-    Ok(app.get_user_daemon_token(user_id.0.as_str()).await?)
+    match app.get_user_daemon_token(user_id.0.as_str()).await? {
+        Some(token) => Ok((StatusCode::OK, Cow::Owned(token))),
+        None => Ok((StatusCode::NOT_FOUND, Cow::Borrowed(""))),
+    }
 }
 
 async fn rotate_user_daemon_token(

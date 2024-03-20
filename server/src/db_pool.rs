@@ -185,19 +185,19 @@ pub trait DbTrait: Send + Sync {
 
     async fn create_workspace(&self, workspace: model::Workspace, user_id: &str) -> Result<model::Workspace>;
 
-    async fn get_workspace(&self, id: i32, user_id: &str) -> Result<model::Workspace>;
+    async fn get_workspace(&self, id: i32, user_id: &str) -> Result<Option<model::Workspace>>;
 
     async fn update_workspace(&self, workspace: model::Workspace, user_id: &str) -> Result<model::Workspace>;
 
     async fn delete_workspace(&self, id: i32, user_id: &str) -> Result<()>;
 
-    async fn get_user_id_for_daemon_token(&self, token: &str) -> Result<String>;
+    async fn get_user_id_for_daemon_token(&self, token: &str) -> Result<Option<String>>;
 
-    async fn get_user_daemon_token(&self, user_id: &str) -> Result<String>;
+    async fn get_user_daemon_token(&self, user_id: &str) -> Result<Option<String>>;
 
     async fn rotate_user_daemon_token(&self, user_id: &str, token: &str) -> Result<()>;
 
-    async fn get_user_id_and_secret_hash(&self, user_id: &str) -> Result<(String, String)>;
+    async fn get_user_id_and_secret_hash(&self, user_id: &str) -> Result<Option<(String, String)>>;
 
     async fn new_message(&self, topic: &str, origin: &str, stream_type: &str, stream: BoxStream<'static, Result<Vec<u8>>>) -> Result<()>;
     // async fn store_chunk(&self, message_id: i32, bytes: 
@@ -419,7 +419,7 @@ impl<D> DbTrait for Db<D>
         Ok(workspace)
     }
 
-    async fn get_workspace(&self, id: i32, user_id: &str) -> Result<model::Workspace> {
+    async fn get_workspace(&self, id: i32, user_id: &str) -> Result<Option<model::Workspace>> {
         // FIXME: use join
         let (query, values) = Query::select()
             .columns([Pipes::Id, Pipes::WorkspaceId, Pipes::RawConfig])
@@ -436,7 +436,7 @@ impl<D> DbTrait for Db<D>
                 PipeConfig {
                     id: row.get::<i64, _>(0) as u64,
                     workspace_id: row.get::<i32, _>(1),
-                    pipe: serde_json::from_str(&row.get::<String, _>(2)).unwrap(),
+                    pipe: row.get(2),
                 }
             })
             .collect();
@@ -449,16 +449,16 @@ impl<D> DbTrait for Db<D>
             .build_any_sqlx(&*self.query_builder);
         tracing::debug!("{query}");
         let workspace = sqlx::query_with(&query, values)
-            .fetch_one(&self.pool)
+            .fetch_optional(&self.pool)
             .await
-            .map(move |row| {
+            .map(move |maybe_row| maybe_row.map(|row| {
                 model::Workspace { 
                     id: row.get(0),
                     name: row.get(1),
                     created_at: row.get(2), 
                     pipe_configs: pipes
                 }
-            })?;
+            }))?;
         Ok(workspace)
     }
 
@@ -477,7 +477,7 @@ impl<D> DbTrait for Db<D>
         Ok(())
     }
 
-    async fn get_user_id_for_daemon_token(&self, token: &str) -> Result<String> {
+    async fn get_user_id_for_daemon_token(&self, token: &str) -> Result<Option<String>> {
         let (query, values) = Query::select()
             .columns([UserDaemonTokens::UserId])
             .from(UserDaemonTokens::Table)
@@ -485,19 +485,19 @@ impl<D> DbTrait for Db<D>
             .build_any_sqlx(&*self.query_builder);
         tracing::debug!("{query}");
         Ok(sqlx::query_with(&query, values)
-            .fetch_one(&self.pool)
+            .fetch_optional(&self.pool)
             .await
-            .map(|row| row.get(0))?)
+            .map(|maybe_row| maybe_row.map(|row| row.get(0)))?)
     }
 
-    async fn get_user_daemon_token(&self, user_id: &str) -> Result<String> {
+    async fn get_user_daemon_token(&self, user_id: &str) -> Result<Option<String>> {
         let (query, values) = Query::select()
             .columns([UserDaemonTokens::DaemonToken])
             .from(UserDaemonTokens::Table)
             .and_where(Expr::col(UserDaemonTokens::UserId).eq(user_id))
             .build_any_sqlx(&*self.query_builder);
         tracing::debug!("{query}");
-        Ok(sqlx::query_with(&query, values).fetch_one(&self.pool).await.map(|row| row.get(0))?)
+        Ok(sqlx::query_with(&query, values).fetch_optional(&self.pool).await.map(|row| row.map(|row| row.get(0)))?)
     }
 
     async fn rotate_user_daemon_token(&self, user_id: &str, token: &str) -> Result<()> {
@@ -518,7 +518,7 @@ impl<D> DbTrait for Db<D>
         Ok(())
     }
 
-    async fn get_user_id_and_secret_hash(&self, user_id: &str) -> Result<(String, String)> {
+    async fn get_user_id_and_secret_hash(&self, user_id: &str) -> Result<Option<(String, String)>> {
         let (query, values) = Query::select()
             .columns([Clients::UserId, Clients::ClientSecretHash])
             .from(Clients::Table)
@@ -526,9 +526,9 @@ impl<D> DbTrait for Db<D>
             .build_any_sqlx(&*self.query_builder);
         tracing::debug!("{query}"); 
         Ok(sqlx::query_with(&query, values)
-            .fetch_one(&self.pool)
+            .fetch_optional(&self.pool)
             .await
-            .map(|row| (row.get(0), row.get(1)))?)
+            .map(|maybe_row| maybe_row.map(|row| (row.get(0), row.get(1))))?)
     }
 
     // FIXME: rename
