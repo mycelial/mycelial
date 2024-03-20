@@ -45,6 +45,9 @@ type RFState = {
   addUnconnectedNode: (id: string) => void;
   setUnconnectedNodes: (ids: DataNode[]) => void;
   noEdits: boolean;
+  savedNodeData: Node[];
+  setSavedNodeData: (nodes: Node[]) => void;
+  getSavedNodeData: (id: string) => Node | undefined;
   setNoEdits: (noEdits: boolean) => void;
   deletedNodes: Node[];
   setDeletedNodes: (nodes: Node[]) => void;
@@ -65,17 +68,20 @@ const useFlowStore = create<RFState>((set, get) => ({
   noEdits: true,
   deletedNodes: [],
   nodes: [],
+  savedNodeData:[],
   edges: [],
   edgesToBeDeleted: [],
   unconnectedNodes: [],
   setDeletedNodes: (nodes: Node[]) => set({ deletedNodes: nodes }),
   getNode: (id: string) => get().nodes.filter((node) => node.id === id)[0],
+  getSavedNodeData: (id: string) => get().savedNodeData.filter((node) => node.id === id)[0],
   getEdge: (id: string) => get().edges.filter((edge) => edge.id === id)[0],
   addNodeToBeDeleted: (deleted: Node | undefined) => {
     if (!deleted) return;
     return set({ deletedNodes: get().deletedNodes.concat([deleted]) });
   },
   setNoEdits: (noEdits: boolean) => set({ noEdits }),
+  setSavedNodeData: (nodes: Node[]) => set({ savedNodeData: nodes }),
   setClientDrawerOpen: (open: boolean) => {
     set({ clientDrawerOpen: open });
   },
@@ -185,6 +191,9 @@ export const selector = (store: RFState) => ({
   showActiveNode: store.showActiveNode,
   unconnectedNodes: store.unconnectedNodes,
   deletedNodes: store.deletedNodes,
+  savedNodeData: store.savedNodeData,
+  setSavedNodeData: store.setSavedNodeData,
+  getSavedNodeData: store.getSavedNodeData,
   setEdges: store.setEdges,
   setNodes: store.setNodes,
   onNodesChange: store.onNodesChange,

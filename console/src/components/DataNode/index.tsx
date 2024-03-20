@@ -1,5 +1,12 @@
-import React, { memo, FC, useCallback, ReactElement, useEffect } from 'react';
-import { Box } from '@mui/material';
+import React, {
+  useMemo,
+  memo,
+  FC,
+  useCallback,
+  ReactElement,
+  useEffect,
+} from "react";
+import { Box, Chip } from "@mui/material";
 import {
   NodeProps,
   Handle,
@@ -7,14 +14,16 @@ import {
   Position,
   useStore,
   useReactFlow,
+  useOnSelectionChange,
   getConnectedEdges,
-} from 'reactflow';
-import styles from './styles.js';
-import DataChip from '../DataChip.tsx';
-import CloseButton from '../CloseButton.tsx';
-import { toTitleCase } from '../../utils/index.ts';
-import useFlowStore, { selector } from '../../stores/flowStore.tsx';
-import { useTheme } from '@mui/material/styles';
+} from "reactflow";
+import styles from "./styles.js";
+import DataChip from "../DataChip.tsx";
+import CloseButton from "../CloseButton.tsx";
+import { toTitleCase } from "../../utils/index.ts";
+import useFlowStore, { selector } from "../../stores/flowStore.tsx";
+import { useTheme } from "@mui/material/styles";
+import { Warning, Info } from "@mui/icons-material";
 interface DataNodeProps extends NodeProps {
   data: {
     display_name: string;
@@ -29,14 +38,20 @@ interface DataNodeProps extends NodeProps {
   };
 }
 
-const renderHandle = (handleType: string, isConnectable: boolean): ReactElement => {
+const renderHandle = (
+  handleType: string,
+  isConnectable: boolean
+): ReactElement => {
   const theme = useTheme();
-  const typeColor = handleType === 'source' ? theme.palette.forest.main : theme.palette.forest.dark;
+  const typeColor =
+    handleType === "source"
+      ? theme.palette.forest.main
+      : theme.palette.forest.dark;
   return (
     <Handle
       type={handleType as HandleType}
       id={handleType}
-      position={handleType === 'source' ? Position.Right : Position.Left}
+      position={handleType === "source" ? Position.Right : Position.Left}
       isConnectable={isConnectable}
       style={{
         ...styles.handle,
@@ -57,7 +72,10 @@ const DataNode: FC<DataNodeProps> = memo(function DataNode(props) {
     addNodeToBeDeleted,
     edges,
     getNode,
+    getSavedNodeData,
     addUnconnectedNode,
+    setShowActiveNode,
+    setEditDrawerOpen,
   } = useFlowStore(selector);
 
   const hasConnection = useStore((s) =>
@@ -74,7 +92,7 @@ const DataNode: FC<DataNodeProps> = memo(function DataNode(props) {
   }, [hasConnection]);
 
   const onRemove = useCallback(() => {
-    if (confirm('Are you sure you want to delete this node?')) {
+    if (confirm("Are you sure you want to delete this node?")) {
       const deleted = getNode(id);
       if (!deleted) return;
 
@@ -90,29 +108,70 @@ const DataNode: FC<DataNodeProps> = memo(function DataNode(props) {
     }
   }, [id]);
 
+  useOnSelectionChange({
+    onChange: ({ nodes, edges }) => {
+      nodes.forEach((node) => {
+        setActiveNode(node);
+        setShowActiveNode(true);
+        setEditDrawerOpen(true);
+      });
+      if (nodes.length === 0) {
+        setActiveNode(null);
+      }
+    },
+  });
+
+  const hasChanges = () => {
+    let savedNodeData = getSavedNodeData(id)?.data;
+    let currentNodeData = getNode(id)?.data;
+    return (
+      savedNodeData === undefined ||
+      JSON.stringify(savedNodeData) != JSON.stringify(currentNodeData)
+    );
+  };
+
   return (
     <Box
       className="gradient"
       sx={{
         ...styles.gradient,
-        border: `${props.selected ? '2.5px solid transparent' : '1.5px solid transparent'}`,
-        boxShadow: `${props.selected ? '2px 2px 2px #dadada' : 'none'}`,
+        border: `${
+          props.selected
+            ? "2.75px solid transparent"
+            : "1.5px solid transparent"
+        }`,
+        boxShadow: `${props.selected ? "2px 2px 2px #dadada" : "none"}`,
       }}
     >
       <Box
         className="dataNode"
         sx={{
           ...styles.node,
-          boxShadow: `${props.selected ? `0 0 0 0.5px ${theme.palette.forest.dark}` : 'none'}`,
-          bgcolor: `${hasConnection ? 'white' : '#dadada'}`,
+          bgcolor: `${hasConnection ? "white" : "#dadada"}`,
         }}
       >
-        {data.destination && renderHandle('target', !isConnectedTarget)}
-        {data.source && renderHandle('source', !isConnectedSource)}
+        {data.destination && renderHandle("target", !isConnectedTarget)}
+        {data.source && renderHandle("source", !isConnectedSource)}
         <Box>
-          <Box>
+          <Box
+            sx={{
+              position: "relative",
+            }}
+          >
             {data.source && <DataChip flowType="source" />}
             {data.destination && <DataChip flowType="destination" />}
+            {hasChanges() && (
+              <Info
+                sx={{
+                  color: theme.palette.warning.main,
+                  fontSize: "1rem",
+                  position: "absolute",
+                  top: "50%",
+                  transform: "translateY(-50%)",
+                  right: "1",
+                }}
+              />
+            )}
             <CloseButton
               onClick={(e) => {
                 e.stopPropagation();
@@ -121,9 +180,17 @@ const DataNode: FC<DataNodeProps> = memo(function DataNode(props) {
             />
           </Box>
           <br />
-          <Box sx={{ display: 'flex', flexDirection: 'column', width: '100%' }} my={1}>
-            <Box sx={{ fontSize: '0.6rem' }}>{toTitleCase(data.clientName)}</Box>
-            <Box role="contentinfo" sx={{ fontSize: '0.9rem', color: 'forest.dark' }}>
+          <Box
+            sx={{ display: "flex", flexDirection: "column", width: "100%" }}
+            my={1}
+          >
+            <Box sx={{ fontSize: "0.6rem" }}>
+              {toTitleCase(data.clientName)}
+            </Box>
+            <Box
+              role="contentinfo"
+              sx={{ fontSize: "0.9rem", color: "forest.dark" }}
+            >
               {toTitleCase(data.display_name)}
             </Box>
           </Box>

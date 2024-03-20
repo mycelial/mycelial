@@ -66,11 +66,11 @@ const Flow: React.FC = () => {
     handleDrawerClose,
     handleDrawerOpen,
     onEdgesChange,
-    onNodeClick,
     clientDrawerOpen,
     updateEdgeAnimation,
     updatePipeHeadWithId,
     setShowActiveNode,
+    setSavedNodeData,
   } = useFlowStore(selector);
   const { workspaceId } = useLoaderData();
   const [clients, setClients] = useState<Client[]>([]);
@@ -92,6 +92,7 @@ const Flow: React.FC = () => {
         loadWorkspaceData({params: {workspaceId}}, token).then((res) => {
           setClients(res.clients);
           setData(res.data);
+          setSavedNodeData(res.data.nodes);
           setWorkspace(res.workspace);
         });
       });
@@ -100,6 +101,7 @@ const Flow: React.FC = () => {
       loadWorkspaceData({params: {workspaceId}}, "").then((res) => {
         setClients(res.clients);
         setData(res.data);
+        setSavedNodeData(res.data.nodes);
         setWorkspace(res.workspace);
       });
     }
@@ -230,6 +232,7 @@ const Flow: React.FC = () => {
     setEdgesToBeDeleted([]);
 
     setEdges(currentEdges);
+    setSavedNodeData(currentNodes.map((node) => {return {...node};}));
   }, [edgesToBeDeleted, edges, nodes]);
 
   const onDrop = useCallback(
@@ -307,7 +310,6 @@ const Flow: React.FC = () => {
           deleteKeyCode={[]}
           onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}
-          onNodeClick={onNodeClick}
           onConnect={onConnect}
           nodeTypes={nodeTypes}
           edgeTypes={edgeTypes}

@@ -13,8 +13,10 @@ import useFlowStore, { selector } from '../stores/flowStore';
 import { FlowType } from '../types';
 
 const NodeForm = () => {
-  const { setNodes, activeNode, nodes, setShowActiveNode } = useFlowStore(selector);
-  const [staged, setStaged] = useState(false);
+  const { setNodes, activeNode, nodes, setShowActiveNode, getSavedNodeData } = useFlowStore(selector);
+
+  if (!activeNode) return null;
+  const original = getSavedNodeData(activeNode?.id);
 
   const id = activeNode?.id ?? '';
   const {
@@ -32,31 +34,6 @@ const NodeForm = () => {
 
   const handleSubmit = async (values: any) => {
     const nodeData = { ...activeNode?.data, ...values };
-    // const connectedEdges = getConnectedEdges([node], edges);
-    // for (const edge of connectedEdges) {
-    //   let response;
-    //   if (edge.source === id) {
-    //     const targetNodeData = getNode(edge.target)?.data;
-    //     response = await createPipe({
-    //       id: edge.data.id,
-    //       sourceNodeData: nodeData,
-    //       targetNodeData,
-    //     });
-    //   }
-
-    //   if (edge.target === id) {
-    //     const sourceNodeData = getNode(edge.source)?.data;
-    //     response = await createPipe({
-    //       id: edge.data.id,
-    //       sourceNodeData,
-    //       targetNodeData: nodeData,
-    //     });
-    //   }
-    //   if (response === 200) {
-    //     setUpdated(true);
-    //     setTimeout(() => setUpdated(false), 2000);
-    //   }
-    // }
     const updated = nodes.map((node) => {
       if (node.id === id) {
         node.data = nodeData;
@@ -64,9 +41,6 @@ const NodeForm = () => {
       return node;
     });
     setNodes(updated);
-
-    setStaged(true);
-    setTimeout(() => setStaged(false), 2000);
   };
 
   const formik = useFormik({
@@ -128,30 +102,11 @@ const NodeForm = () => {
               '& .MuiFormLabel-input': { fontSize: '1rem' },
             }}
             onSubmit={formik.handleSubmit}
+            onBlur={formik.handleSubmit}
+            onChange={formik.handleSubmit}
           >
-            {Object.keys(sortedFields).map((key) => renderNodeFormField({ key, formik }))}
+            {Object.keys(sortedFields).map((key) => renderNodeFormField({ key, formik, original: original?.data}))}
 
-            <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
-              <Button
-                variant="contained"
-                type="submit"
-                sx={{
-                  boxShadow: 3,
-                  '&:hover': {
-                    boxShadow: 6,
-                  },
-                }}
-              >
-                {staged ? (
-                  <>
-                    Staged
-                    <DoneIcon />
-                  </>
-                ) : (
-                  'Stage'
-                )}
-              </Button>
-            </Box>
           </Box>
         </Box>
       </Paper>
