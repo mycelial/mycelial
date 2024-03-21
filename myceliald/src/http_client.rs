@@ -18,9 +18,12 @@ use pipe::{
 };
 use reqwest::StatusCode;
 use section::SectionError;
-use tokio::sync::{
-    mpsc::{channel, Receiver, Sender, UnboundedSender},
-    oneshot::{channel as oneshot_channel, Sender as OneshotSender},
+use tokio::{
+    sync::{
+        mpsc::{channel, Receiver, Sender, UnboundedSender},
+        oneshot::{channel as oneshot_channel, Sender as OneshotSender},
+    },
+    time::Instant,
 };
 
 struct HttpClient {
@@ -224,7 +227,11 @@ impl HttpClient {
     // spawns client
     pub fn spawn(mut self) -> HttpClientHandle {
         let (tx, mut rx) = channel(1);
-        tokio::spawn(async move { self.enter_loop(&mut rx).await });
+        tokio::spawn(async move {
+            // add small delay allowing main application to set connection details before first iteration of inner loop
+            tokio::time::sleep(Duration::from_millis(10)).await;
+            self.enter_loop(&mut rx).await
+        });
         HttpClientHandle { tx }
     }
 
@@ -260,6 +267,7 @@ impl HttpClient {
                             tracing::info!("submit section request registered");
                             self.submit_request = Some(submit_request);
                             reply_to.send(()).ok();
+                            interval.reset_immediately();
                         },
                         HttpClientMessage::Shutdown{ reply_to } => {
                             tracing::info!("shutting down");

@@ -1,9 +1,9 @@
 import axios, { AxiosResponse } from 'axios';
-import { CLIENT_URL, DAEMON_TOKEN_URL, headers, mycelialServer } from '../utils/constants';
+import { CLIENT_URL, DAEMON_TOKEN_URL, mycelialServer } from '../utils/constants';
 
 async function getClients(token: string) {
   try {
-    const response = await axios.get(CLIENT_URL, { headers: { 'x-auth0-token': token, ...headers }});
+    const response = await axios.get(CLIENT_URL, { headers: { 'x-auth0-token': token }});
     return formatClients(response);
   } catch (error) {
     console.error(error);
@@ -12,7 +12,7 @@ async function getClients(token: string) {
 
 async function createDaemonToken(token: string) {
   try {
-    const response = await axios.post(DAEMON_TOKEN_URL, {}, { headers: { 'x-auth0-token': token, ...headers }});
+    const response = await axios.post(DAEMON_TOKEN_URL, {}, { headers: { 'x-auth0-token': token }});
     return response;
   } catch (error) {
     console.error(error);

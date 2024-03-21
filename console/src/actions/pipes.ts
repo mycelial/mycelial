@@ -4,7 +4,6 @@ import {
   PIPE_URL,
   edgePresets,
   nodePresets,
-  headers,
 } from "../utils/constants";
 import { Node, Position } from "reactflow";
 import { NodeData } from "../types";
@@ -12,7 +11,6 @@ import { useAuth0 } from "@auth0/auth0-react";
 
 async function getPipes() {
   let h = {
-    ...headers,
     "x-auth0-token": "",
   }
   if (import.meta.env.VITE_USE_AUTH0 === "true") {
@@ -20,7 +18,6 @@ async function getPipes() {
     const token = await getIdTokenClaims();
 
     h = {
-      ...headers,
       "x-auth0-token": token?.__raw || "",
     }
   }
@@ -71,7 +68,6 @@ const createPipe = async ({ workspace_id, id, pipe }: pipeData, token: string) =
       data: payload,
       headers: {
         'x-auth0-token': token,
-        ...headers
       },
     });
     if (method === "post") {
@@ -88,7 +84,7 @@ const deletePipe = async (id: string, token: string) => {
     const response = await axios({
       method: "delete",
       url: `${PIPE_URL}/${id}`,
-      headers: {'x-auth0-token': token, ...headers},
+      headers: {'x-auth0-token': token },
     });
     return response;
   } catch (error) {
