@@ -52,8 +52,7 @@ pub async fn put_config(
 ) -> Result<impl IntoResponse> {
     // FIXME: what is that?
     config.id = id;
-    app
-        .update_config(config, user_id.0.as_str())
+    app.update_config(config, user_id.0.as_str())
         .await
         .map(Json)
 }

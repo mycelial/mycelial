@@ -139,8 +139,7 @@ impl TryFrom<Value> for Config {
             .iter()
             .map(|section_cfg| {
                 section_cfg
-                    .as_map()
-                    .map(Clone::clone)
+                    .as_map().cloned()
                     .ok_or::<SectionError>(
                         "pipe section configuration should be of map type".into(),
                     )
