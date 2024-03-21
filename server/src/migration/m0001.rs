@@ -44,6 +44,17 @@ impl ClientsUserIdIndex {
     }
 }
 
+struct ClientsUniqueClientIdIndex;
+impl ClientsUniqueClientIdIndex {
+    fn into_query(schema_builder: &dyn SchemaBuilder) -> String {
+        Index::create()
+            .name("clients_unique_client_id_idx")
+            .table(Clients::Table)
+            .col(Clients::UniqueClientId)
+            .build_any(schema_builder)
+    }
+}
+
 #[derive(Iden)]
 enum Messages {
     Table,
@@ -159,6 +170,17 @@ impl Workspaces {
     }
 }
 
+struct WorkspacesUserIdIndex;
+impl WorkspacesUserIdIndex {
+    fn into_query(schema_builder: &dyn SchemaBuilder) -> String {
+        Index::create()
+            .name("workspaces_user_id_idx")
+            .table(Workspaces::Table)
+            .col(Workspaces::UserId)
+            .build_any(schema_builder)
+    }
+}
+
 #[derive(Iden)]
 enum Pipes {
     Table,
@@ -192,13 +214,23 @@ impl Pipes {
 }
 
 struct PipesUserIdIndex;
-
 impl PipesUserIdIndex {
     fn into_query(schema_builder: &dyn SchemaBuilder) -> String {
         Index::create()
             .name("pipes_user_id_idx")
             .table(Pipes::Table)
             .col(Pipes::UserId)
+            .build_any(schema_builder)
+    }
+}
+
+struct PipesWorkspaceIdIndex;
+impl PipesWorkspaceIdIndex {
+    fn into_query(schema_builder: &dyn SchemaBuilder) -> String {
+        Index::create()
+            .name("pipes_workspace_id_idx")
+            .table(Pipes::Table)
+            .col(Pipes::WorkspaceId)
             .build_any(schema_builder)
     }
 }
@@ -229,8 +261,8 @@ impl UserDaemonTokensIndexDaemonToken {
     fn into_query(schema_builder: &dyn SchemaBuilder) -> String {
         Index::create()
             .name("user_daemon_tokens_daemon_token_idx")
-            .table(Messages::Table)
-            .col(Messages::Topic)
+            .table(UserDaemonTokens::Table)
+            .col(UserDaemonTokens::DaemonToken)
             .build_any(schema_builder)
     }
 }
@@ -246,11 +278,14 @@ pub fn into_migration(schema_builder: &dyn SchemaBuilder) -> Migration {
         UserDaemonTokens::into_query(schema_builder),
         // indices
         ClientsUserIdIndex::into_query(schema_builder),
+        ClientsUniqueClientIdIndex::into_query(schema_builder),
         MessagesTopicIndex::into_query(schema_builder),
         MessageChunksMessageIdIndex::into_query(schema_builder),
         MessageChunksChunkIdIndex::into_query(schema_builder),
         PipesUserIdIndex::into_query(schema_builder),
+        PipesWorkspaceIdIndex::into_query(schema_builder),
         UserDaemonTokensIndexDaemonToken::into_query(schema_builder),
+        WorkspacesUserIdIndex::into_query(schema_builder),
     ]
     .join(";\n");
     Migration::new(1, "initial".into(), MigrationType::Simple, sql.into())
