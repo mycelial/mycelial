@@ -1,3 +1,4 @@
+use chrono::DateTime;
 use section::{
     command_channel::{Command, SectionChannel},
     futures::{self, FutureExt, Sink, Stream, StreamExt},
@@ -142,13 +143,11 @@ impl Postgres {
 // FIXME: move this function to lib
 fn to_naive_date(tu: TimeUnit, t: i64) -> Option<NaiveDateTime> {
     match tu {
-        TimeUnit::Second => NaiveDateTime::from_timestamp_opt(t, 0),
-        TimeUnit::Millisecond => NaiveDateTime::from_timestamp_micros(t * 1000),
-        TimeUnit::Microsecond => NaiveDateTime::from_timestamp_micros(t),
-        TimeUnit::Nanosecond => {
-            NaiveDateTime::from_timestamp_opt(t / 1_000_000_000, (t % 1_000_000_000) as _)
-        }
-    }
+        TimeUnit::Second => DateTime::from_timestamp(t, 0),
+        TimeUnit::Millisecond => DateTime::from_timestamp_micros(t * 1000),
+        TimeUnit::Microsecond => DateTime::from_timestamp_micros(t),
+        TimeUnit::Nanosecond => DateTime::from_timestamp(t / 1_000_000_000, (t % 1_000_000_000) as _),
+    }.map(|d| d.naive_utc())
 }
 
 impl<Input, Output, SectionChan> Section<Input, Output, SectionChan> for Postgres

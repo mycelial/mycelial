@@ -1,4 +1,4 @@
-use chrono::{DateTime, NaiveDate, NaiveDateTime, NaiveTime, Timelike, Utc};
+use chrono::{DateTime, NaiveDate, NaiveTime, Timelike, Utc};
 use section::{
     command_channel::{Command, SectionChannel},
     decimal,
@@ -221,7 +221,7 @@ pub(crate) fn from_mysql_type_name(
             let value = mysql_value.try_decode::<Option<NaiveDate>>()?.map(|v| {
                 Value::Date(
                     TimeUnit::Second,
-                    v.and_hms_opt(0, 0, 0).unwrap().timestamp(),
+                    v.and_hms_opt(0, 0, 0).unwrap().and_utc().timestamp(),
                 )
             });
             Ok(value.unwrap_or(Value::Null))
@@ -234,7 +234,7 @@ pub(crate) fn from_mysql_type_name(
         }),
         "TIME" => (DataType::Time(TimeUnit::Microsecond), |mysql_value| {
             let value = mysql_value.try_decode::<Option<NaiveTime>>()?.map(|v| {
-                let micros = NaiveDateTime::from_timestamp_opt(
+                let micros = DateTime::from_timestamp(
                     v.num_seconds_from_midnight() as _,
                     v.nanosecond(),
                 )

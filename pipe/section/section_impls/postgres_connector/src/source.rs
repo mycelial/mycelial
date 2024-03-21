@@ -188,14 +188,14 @@ pub(crate) fn from_pg_type_name(
             let value = pg_value.try_decode::<Option<NaiveDate>>()?.map(|v| {
                 Value::Date(
                     TimeUnit::Second,
-                    v.and_hms_opt(0, 0, 0).unwrap().timestamp(),
+                    v.and_hms_opt(0, 0, 0).unwrap().and_utc().timestamp(),
                 )
             });
             Ok(value.unwrap_or(Value::Null))
         }),
         "TIME" => (DataType::Time(TimeUnit::Microsecond), |pg_value| {
             let value = pg_value.try_decode::<Option<NaiveTime>>()?.map(|v| {
-                let micros = NaiveDateTime::from_timestamp_opt(
+                let micros = DateTime::from_timestamp(
                     v.num_seconds_from_midnight() as _,
                     v.nanosecond(),
                 )
@@ -214,7 +214,7 @@ pub(crate) fn from_pg_type_name(
         "TIMESTAMP" => (DataType::TimeStamp(TimeUnit::Microsecond), |pg_value| {
             let value = pg_value
                 .try_decode::<Option<NaiveDateTime>>()?
-                .map(|v| Value::TimeStamp(TimeUnit::Microsecond, v.timestamp_micros()));
+                .map(|v| Value::TimeStamp(TimeUnit::Microsecond, v.and_utc().timestamp_micros()));
             Ok(value.unwrap_or(Value::Null))
         }),
         "TIMESTAMPTZ" => (DataType::TimeStampUTC(TimeUnit::Microsecond), |pg_value| {
