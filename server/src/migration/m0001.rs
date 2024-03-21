@@ -1,4 +1,4 @@
-use sea_query::{ColumnDef, Expr, ForeignKey, Iden, SchemaBuilder, SchemaStatementBuilder, Table};
+use sea_query::{ColumnDef, Expr, ForeignKey, Iden, Index, SchemaBuilder, SchemaStatementBuilder, Table};
 use sqlx::{
     migrate::{Migration, MigrationType},
     Column,
@@ -31,27 +31,13 @@ impl Clients {
     }
 }
 
-#[derive(Iden)]
-enum Tokens {
-    Table,
-    Id,
-    ClientId,
-    CreatedAt,
-}
-
-impl Tokens {
+struct ClientsUserIdIndex;
+impl ClientsUserIdIndex {
     fn into_query(schema_builder: &dyn SchemaBuilder) -> String {
-        Table::create()
-            .table(Tokens::Table)
-            .col(ColumnDef::new(Tokens::Id).string().primary_key())
-            .col(ColumnDef::new(Tokens::ClientId).string().not_null())
-            .col(ColumnDef::new(Tokens::CreatedAt).timestamp_with_time_zone())
-            .foreign_key(
-                ForeignKey::create()
-                    .name("tokens_client_id_ref")
-                    .from(Tokens::Table, Tokens::ClientId)
-                    .to(Clients::Table, Clients::Id),
-            )
+        Index::create()
+            .name("clients_user_id_idx")
+            .table(Clients::Table)
+            .col(Clients::UserId)
             .build_any(schema_builder)
     }
 }
@@ -88,6 +74,19 @@ impl Messages {
     }
 }
 
+struct MessagesTopicIndex;
+
+impl MessagesTopicIndex {
+    fn into_query(schema_builder: &dyn SchemaBuilder) -> String {
+        Index::create()
+            .name("messages_topic_idx")
+            .table(Messages::Table)
+            .col(Messages::Topic)
+            .build_any(schema_builder)
+    }
+}
+
+
 #[derive(Iden)]
 enum MessageChunks {
     Table,
@@ -107,11 +106,25 @@ impl MessageChunks {
     }
 }
 
-struct MessageIdChunkIdIndex;
-
-impl MessageIdChunkIdIndex {
+struct MessageChunksMessageIdIndex;
+impl MessageChunksMessageIdIndex{
     fn into_query(schema_builder: &dyn SchemaBuilder) -> String {
-        "".into()
+        Index::create()
+            .name("message_chunks_message_id_idx")
+            .table(MessageChunks::Table)
+            .col(MessageChunks::MessageId)
+            .build_any(schema_builder)
+    }
+}
+
+struct MessageChunksChunkIdIndex;
+impl MessageChunksChunkIdIndex {
+    fn into_query(schema_builder: &dyn SchemaBuilder) -> String {
+        Index::create()
+            .name("message_chunks_chunk_id_idx")
+            .table(MessageChunks::Table)
+            .col(MessageChunks::ChunkId)
+            .build_any(schema_builder)
     }
 }
 
@@ -177,6 +190,18 @@ impl Pipes {
     }
 }
 
+struct PipesUserIdIndex;
+
+impl PipesUserIdIndex {
+    fn into_query(schema_builder: &dyn SchemaBuilder) -> String {
+        Index::create()
+            .name("pipes_user_id_idx")
+            .table(Pipes::Table)
+            .col(Pipes::UserId)
+            .build_any(schema_builder)
+    }
+}
+
 #[derive(Iden)]
 enum UserDaemonTokens {
     Table,
@@ -198,15 +223,35 @@ impl UserDaemonTokens {
     }
 }
 
+struct UserDaemonTokensIndexDaemonToken;
+impl UserDaemonTokensIndexDaemonToken {
+    fn into_query(schema_builder: &dyn SchemaBuilder) -> String {
+        Index::create()
+            .name("user_daemon_tokens_daemon_token_idx")
+            .table(Messages::Table)
+            .col(Messages::Topic)
+            .build_any(schema_builder)
+    }
+}
+
 pub fn into_migration(schema_builder: &dyn SchemaBuilder) -> Migration {
     let sql = [
+        // tables
         Clients::into_query(schema_builder),
-        Tokens::into_query(schema_builder),
         Messages::into_query(schema_builder),
         MessageChunks::into_query(schema_builder),
         Workspaces::into_query(schema_builder),
         Pipes::into_query(schema_builder),
         UserDaemonTokens::into_query(schema_builder),
+
+        // indices
+        ClientsUserIdIndex::into_query(schema_builder),
+        MessagesTopicIndex::into_query(schema_builder),
+        MessageChunksMessageIdIndex::into_query(schema_builder),
+        MessageChunksChunkIdIndex::into_query(schema_builder),
+        PipesUserIdIndex::into_query(schema_builder),
+        UserDaemonTokensIndexDaemonToken::into_query(schema_builder),
+
     ]
     .join(";\n");
     Migration::new(1, "initial".into(), MigrationType::Simple, sql.into())

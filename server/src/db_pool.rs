@@ -10,8 +10,7 @@ use chrono::{DateTime, NaiveDateTime, Utc};
 use common::PipeConfig;
 use futures::{future::BoxFuture, stream::BoxStream, StreamExt};
 use sea_query::{
-    Expr, Iden, OnConflict, PostgresQueryBuilder, Query, QueryBuilder, SchemaBuilder,
-    SqliteQueryBuilder,
+    Expr, Iden, OnConflict, Order, PostgresQueryBuilder, Query, QueryBuilder, SchemaBuilder, SqliteQueryBuilder
 };
 use sea_query_binder::{SqlxBinder, SqlxValues};
 use sqlx::{
@@ -92,14 +91,6 @@ enum Clients {
     Destinations,
     UniqueClientId,
     ClientSecretHash,
-}
-
-#[derive(Iden)]
-enum Tokens {
-    Table,
-    Id,
-    ClientId,
-    CreatedAt,
 }
 
 #[derive(Iden)]
@@ -633,6 +624,7 @@ where
             sqlx::query_with(&query, SqlxValues(values))
                 .execute(&mut *transaction)
                 .await?;
+            chunk_id += 1;
         }
         transaction.commit().await?;
         Ok(())
@@ -668,7 +660,9 @@ where
             .column(MessageChunks::Data)
             .from(MessageChunks::Table)
             .and_where(Expr::col(MessageChunks::MessageId).eq(id))
+            .order_by(MessageChunks::ChunkId, Order::Asc)
             .build_any_sqlx(&*self.query_builder);
+        tracing::debug!("{query}");
         let stream = async_stream::stream! {
             let mut stream = sqlx::query_with(&query, values)
                 .fetch(&mut *connection)
