@@ -60,6 +60,7 @@ enum Messages {
     Topic,
     Origin,
     StreamType,
+    CreatedAt,
 }
 
 impl Messages {
@@ -70,28 +71,35 @@ impl Messages {
             .col(ColumnDef::new(Messages::Topic).string())
             .col(ColumnDef::new(Messages::Origin).string())
             .col(ColumnDef::new(Messages::StreamType).string())
+            .col(ColumnDef::new(Messages::CreatedAt).timestamp_with_time_zone().default(Expr::current_date()))
             .build_any(schema_builder)
     }
 }
 
 #[derive(Iden)]
-enum Records {
+enum MessageChunks {
     Table,
-    Id,
     MessageId,
-    CreatedAt,
+    ChunkId,
     Data,
 }
 
-impl Records {
+impl MessageChunks {
     fn into_query(schema_builder: &dyn SchemaBuilder) -> String {
         Table::create()
-            .table(Records::Table)
-            .col(ColumnDef::new(Records::Id).big_integer().primary_key().auto_increment())
-            .col(ColumnDef::new(Records::MessageId).big_integer())
-            .col(ColumnDef::new(Records::CreatedAt).timestamp_with_time_zone())
-            .col(ColumnDef::new(Records::Data).binary())
+            .table(MessageChunks::Table)
+            .col(ColumnDef::new(MessageChunks::MessageId).big_integer())
+            .col(ColumnDef::new(MessageChunks::ChunkId).integer())
+            .col(ColumnDef::new(MessageChunks::Data).binary())
             .build_any(schema_builder)
+    }
+}
+
+struct MessageIdChunkIdIndex;
+
+impl MessageIdChunkIdIndex {
+    fn into_query(schema_builder: &dyn SchemaBuilder) -> String {
+        "".into()
     }
 }
 
@@ -161,7 +169,7 @@ pub fn into_migration(schema_builder: &dyn SchemaBuilder) -> Migration {
         Clients::into_query(schema_builder),
         Tokens::into_query(schema_builder),
         Messages::into_query(schema_builder),
-        Records::into_query(schema_builder),
+        MessageChunks::into_query(schema_builder),
         Workspaces::into_query(schema_builder),
         Pipes::into_query(schema_builder),
         UserDaemonTokens::into_query(schema_builder),

@@ -37,17 +37,20 @@ use app::App;
 pub type Result<T, E=AppError> = core::result::Result<T, E>;
 
 #[derive(Debug)]
-pub struct AppError(anyhow::Error);
+pub struct AppError{
+    pub status_code: StatusCode,
+    pub err: anyhow::Error
+}
 
 impl<E: Into<anyhow::Error>> From<E> for AppError {
     fn from(err: E) -> Self {
-        Self(err.into())
+        Self{ status_code: StatusCode::INTERNAL_SERVER_ERROR, err: err.into()}
     }
 }
 
 impl IntoResponse for AppError {
     fn into_response(self) -> Response {
-        let mut response = StatusCode::INTERNAL_SERVER_ERROR.into_response();
+        let mut response = self.status_code.into_response();
         response.extensions_mut().insert(Arc::new(self));
         response
     }
