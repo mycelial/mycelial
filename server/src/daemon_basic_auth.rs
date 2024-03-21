@@ -1,15 +1,17 @@
-use std::{sync::Arc, time::Instant};
 use axum::{
-    body::Body, 
+    body::Body,
     extract::State,
-    http::{header, StatusCode, Request},
+    http::{header, Request, StatusCode},
     middleware::Next,
     response::{IntoResponse, Response},
-    Extension,
-    Json
+    Extension, Json,
 };
-use axum_extra::{headers::{authorization::Basic, Authorization}, TypedHeader};
+use axum_extra::{
+    headers::{authorization::Basic, Authorization},
+    TypedHeader,
+};
 use common::{ProvisionDaemonRequest, ProvisionDaemonResponse};
+use std::{sync::Arc, time::Instant};
 
 use uuid::Uuid;
 
@@ -26,11 +28,11 @@ pub async fn provision_daemon(
     let unique_client_id = Uuid::new_v4().to_string();
     let client_secret: Arc<String> = Arc::from(Uuid::new_v4().to_string());
     let client_secret_clone = Arc::clone(&client_secret);
-    let client_secret_hash: String = tokio::task::spawn_blocking(
-        move || bcrypt::hash(&*client_secret_clone.as_bytes(), 12)
-    ).await??;
+    let client_secret_hash: String =
+        tokio::task::spawn_blocking(move || bcrypt::hash(client_secret_clone.as_bytes(), 12))
+            .await??;
 
-    Ok(state
+    state
         .db
         .provision_daemon(
             &unique_id,
@@ -45,7 +47,7 @@ pub async fn provision_daemon(
                 client_id: unique_client_id,
                 client_secret: Arc::into_inner(client_secret).unwrap(),
             })
-        })?)
+        })
 }
 
 // Token based auth
@@ -62,8 +64,10 @@ pub async fn auth(
             let user_id = UserID(user_id);
             req.extensions_mut().insert(user_id);
             Ok(next.run(req).await)
-        },
-        _ => 
-            Err(([(header::WWW_AUTHENTICATE, "Basic")], StatusCode::UNAUTHORIZED))
+        }
+        _ => Err((
+            [(header::WWW_AUTHENTICATE, "Basic")],
+            StatusCode::UNAUTHORIZED,
+        )),
     }
 }

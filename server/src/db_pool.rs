@@ -1,16 +1,22 @@
-use std::{borrow::Cow, collections::HashMap, ops::{Deref, DerefMut}};
+use std::{
+    borrow::Cow,
+    collections::HashMap,
+    ops::{Deref, DerefMut},
+};
 
 use crate::{migration, model, workspace, Result};
 use axum::{async_trait, body::Bytes};
 use chrono::{DateTime, NaiveDateTime, Utc};
 use common::PipeConfig;
 use futures::{future::BoxFuture, stream::BoxStream, StreamExt};
-use sea_query::{Expr, Iden, OnConflict, PostgresQueryBuilder, Query, QueryBuilder, SchemaBuilder, SqliteQueryBuilder};
+use sea_query::{
+    Expr, Iden, OnConflict, PostgresQueryBuilder, Query, QueryBuilder, SchemaBuilder,
+    SqliteQueryBuilder,
+};
 use sea_query_binder::{SqlxBinder, SqlxValues};
 use sqlx::{
-    database::HasArguments, migrate::Migrate, types::Json, ColumnIndex,
-    Database, Executor, IntoArguments, PgPool, Pool, Postgres, Row, Sqlite, SqlitePool, Transaction,
-    Connection
+    database::HasArguments, migrate::Migrate, types::Json, ColumnIndex, Connection, Database,
+    Executor, IntoArguments, PgPool, Pool, Postgres, Row, Sqlite, SqlitePool, Transaction,
 };
 use uuid::Uuid;
 
@@ -26,22 +32,30 @@ pub async fn new(url: &str) -> Result<Box<dyn DbTrait>> {
                 Some(_) => (),
                 None => {
                     params.insert("mode".into(), "rwc".into());
-                },
+                }
             };
-            let query = params.into_iter().map(|(key, value)| format!("{key}={value}")).collect::<Vec<_>>().join("&");
+            let query = params
+                .into_iter()
+                .map(|(key, value)| format!("{key}={value}"))
+                .collect::<Vec<_>>()
+                .join("&");
             url.set_query(Some(&query));
-            Box::new(Db::<Sqlite>::new(
-                &url.to_string(),
-                Box::new(SqliteQueryBuilder),
-                Box::new(SqliteQueryBuilder),
-            ).await?)
-        },
+            Box::new(
+                Db::<Sqlite>::new(
+                    url.as_ref(),
+                    Box::new(SqliteQueryBuilder),
+                    Box::new(SqliteQueryBuilder),
+                )
+                .await?,
+            )
+        }
         "postgres" => Box::new(
             Db::<Postgres>::new(
-                &url.to_string(),
+                url.as_ref(),
                 Box::new(PostgresQueryBuilder),
                 Box::new(PostgresQueryBuilder),
-            ).await?
+            )
+            .await?,
         ),
         unsupported => Err(anyhow::anyhow!("unsupported database: {unsupported}"))?,
     };
@@ -58,16 +72,15 @@ impl<D: Database> Db<D> {
     async fn new(
         url: &str,
         query_builder: Box<dyn QueryBuilder + Send + Sync>,
-        schema_builder: Box<dyn SchemaBuilder + Send + Sync>
+        schema_builder: Box<dyn SchemaBuilder + Send + Sync>,
     ) -> Result<Self> {
-        Ok(Self{ 
+        Ok(Self {
             pool: Pool::<D>::connect(url).await?,
             query_builder,
             schema_builder,
         })
     }
 }
-
 
 #[derive(Iden)]
 enum Clients {
@@ -96,7 +109,7 @@ enum Messages {
     Topic,
     Origin,
     StreamType,
-    CreatedAt
+    CreatedAt,
 }
 
 #[derive(Iden)]
@@ -106,7 +119,6 @@ enum MessageChunks {
     ChunkId,
     Data,
 }
-
 
 #[derive(Iden)]
 enum Workspaces {
@@ -118,10 +130,10 @@ enum Workspaces {
 }
 
 #[derive(Iden)]
-enum UserDaemonTokens{
+enum UserDaemonTokens {
     Table,
     UserId,
-    DaemonToken
+    DaemonToken,
 }
 
 #[derive(Iden)]
@@ -134,7 +146,6 @@ enum Pipes {
     CreatedAt,
 }
 
-
 // FIXME: auto-derive trait from impl?
 #[async_trait]
 pub trait DbTrait: Send + Sync {
@@ -146,7 +157,7 @@ pub trait DbTrait: Send + Sync {
         user_id: &str,
         display_name: &str,
         unique_client_id: &str,
-        client_secret_hash: &str
+        client_secret_hash: &str,
     ) -> Result<()>;
 
     async fn submit_sections(
@@ -161,15 +172,11 @@ pub trait DbTrait: Send + Sync {
         &self,
         config: &serde_json::Value,
         workspace_id: i32,
-        user_id: &str
+        user_id: &str,
     ) -> Result<i64>;
 
-    async fn update_config(
-        &self,
-        id: i64,
-        config: &serde_json::Value,
-        user_id: &str
-    ) -> Result<()>;
+    async fn update_config(&self, id: i64, config: &serde_json::Value, user_id: &str)
+        -> Result<()>;
 
     async fn delete_config(&self, id: i64, user_id: &str) -> Result<()>;
 
@@ -181,11 +188,19 @@ pub trait DbTrait: Send + Sync {
 
     async fn get_workspaces(&self, user_id: &str) -> Result<Vec<model::Workspace>>;
 
-    async fn create_workspace(&self, workspace: model::Workspace, user_id: &str) -> Result<model::Workspace>;
+    async fn create_workspace(
+        &self,
+        workspace: model::Workspace,
+        user_id: &str,
+    ) -> Result<model::Workspace>;
 
     async fn get_workspace(&self, id: i32, user_id: &str) -> Result<Option<model::Workspace>>;
 
-    async fn update_workspace(&self, workspace: model::Workspace, user_id: &str) -> Result<model::Workspace>;
+    async fn update_workspace(
+        &self,
+        workspace: model::Workspace,
+        user_id: &str,
+    ) -> Result<model::Workspace>;
 
     async fn delete_workspace(&self, id: i32, user_id: &str) -> Result<()>;
 
@@ -197,48 +212,58 @@ pub trait DbTrait: Send + Sync {
 
     async fn get_user_id_and_secret_hash(&self, user_id: &str) -> Result<Option<(String, String)>>;
 
-    async fn ingest_message(&self, topic: &str, origin: &str, stream_type: &str, stream: BoxStream<'_, Result<Vec<u8>>>) -> Result<()>;
+    async fn ingest_message(
+        &self,
+        topic: &str,
+        origin: &str,
+        stream_type: &str,
+        stream: BoxStream<'_, Result<Vec<u8>>>,
+    ) -> Result<()>;
 
-    async fn stream_message(&self, topic: &str, offset: i64) -> Result<Option<model::MessageStream>>;
+    async fn stream_message(
+        &self,
+        topic: &str,
+        offset: i64,
+    ) -> Result<Option<model::MessageStream>>;
 }
-
 
 #[async_trait]
 impl<D> DbTrait for Db<D>
-    where D: Database,
-          // Types, that Database should support
-          for<'e> i16: sqlx::Type<D> + sqlx::Encode<'e, D> + sqlx::Decode<'e, D>,
-          for<'e> i32: sqlx::Type<D> + sqlx::Encode<'e, D> + sqlx::Decode<'e, D>,
-          for<'e> i64: sqlx::Type<D> + sqlx::Encode<'e, D> + sqlx::Decode<'e, D>,
-          for<'e> f32: sqlx::Type<D> + sqlx::Encode<'e, D> + sqlx::Decode<'e, D>,
-          for<'e> f64: sqlx::Type<D> + sqlx::Encode<'e, D> + sqlx::Decode<'e, D>,
-          for<'e> String: sqlx::Type<D> + sqlx::Encode<'e, D> + sqlx::Decode<'e, D>,
-          for<'e> &'e str: sqlx::Type<D> + sqlx::Encode<'e, D> + sqlx::Decode<'e, D>,
-          for<'e> Vec<u8>: sqlx::Type<D> + sqlx::Encode<'e, D> + sqlx::Decode<'e, D>,
-          for<'e> Uuid: sqlx::Type<D> + sqlx::Encode<'e, D> + sqlx::Decode<'e, D>,
-          for<'e> Json<serde_json::Value>: sqlx::Type<D> + sqlx::Encode<'e, D> + sqlx::Decode<'e, D>,
-          for<'e> DateTime<Utc>: sqlx::Type<D> + sqlx::Encode<'e, D> + sqlx::Decode<'e, D>,
-          for<'e> NaiveDateTime: sqlx::Type<D> + sqlx::Encode<'e, D> + sqlx::Decode<'e, D>,
-          for<'e> serde_json::Value: sqlx::Type<D> + sqlx::Encode<'e, D> + sqlx::Decode<'e, D>,
+where
+    D: Database,
+    // Types, that Database should support
+    for<'e> i16: sqlx::Type<D> + sqlx::Encode<'e, D> + sqlx::Decode<'e, D>,
+    for<'e> i32: sqlx::Type<D> + sqlx::Encode<'e, D> + sqlx::Decode<'e, D>,
+    for<'e> i64: sqlx::Type<D> + sqlx::Encode<'e, D> + sqlx::Decode<'e, D>,
+    for<'e> f32: sqlx::Type<D> + sqlx::Encode<'e, D> + sqlx::Decode<'e, D>,
+    for<'e> f64: sqlx::Type<D> + sqlx::Encode<'e, D> + sqlx::Decode<'e, D>,
+    for<'e> String: sqlx::Type<D> + sqlx::Encode<'e, D> + sqlx::Decode<'e, D>,
+    for<'e> &'e str: sqlx::Type<D> + sqlx::Encode<'e, D> + sqlx::Decode<'e, D>,
+    for<'e> Vec<u8>: sqlx::Type<D> + sqlx::Encode<'e, D> + sqlx::Decode<'e, D>,
+    for<'e> Uuid: sqlx::Type<D> + sqlx::Encode<'e, D> + sqlx::Decode<'e, D>,
+    for<'e> Json<serde_json::Value>: sqlx::Type<D> + sqlx::Encode<'e, D> + sqlx::Decode<'e, D>,
+    for<'e> DateTime<Utc>: sqlx::Type<D> + sqlx::Encode<'e, D> + sqlx::Decode<'e, D>,
+    for<'e> NaiveDateTime: sqlx::Type<D> + sqlx::Encode<'e, D> + sqlx::Decode<'e, D>,
+    for<'e> serde_json::Value: sqlx::Type<D> + sqlx::Encode<'e, D> + sqlx::Decode<'e, D>,
 
-          // col access through usize index
-          usize: ColumnIndex<D::Row>,
+    // col access through usize index
+    usize: ColumnIndex<D::Row>,
 
-          // sea-query-binder
-          for<'e> SqlxValues: IntoArguments<'e, D>,
+    // sea-query-binder
+    for<'e> SqlxValues: IntoArguments<'e, D>,
 
-          // sqlx bounds
-          for<'c> &'c mut <D as Database>::Connection: Executor<'c, Database=D>,
-          for<'e> &'e Pool<D>: Executor<'e, Database=D>,
-          for<'q> <D as HasArguments<'q>>::Arguments: IntoArguments<'q, D>,
-          D::QueryResult: std::fmt::Debug,
+    // sqlx bounds
+    for<'c> &'c mut <D as Database>::Connection: Executor<'c, Database = D>,
+    for<'e> &'e Pool<D>: Executor<'e, Database = D>,
+    for<'q> <D as HasArguments<'q>>::Arguments: IntoArguments<'q, D>,
+    D::QueryResult: std::fmt::Debug,
 
-          // Database transactions should be deref-able into database connection
-          for<'e> Transaction<'e, D>: Deref<Target=<D as Database>::Connection>,
-          for<'e> Transaction<'e, D>: DerefMut<Target=<D as Database>::Connection>,
+    // Database transactions should be deref-able into database connection
+    for<'e> Transaction<'e, D>: Deref<Target = <D as Database>::Connection>,
+    for<'e> Transaction<'e, D>: DerefMut<Target = <D as Database>::Connection>,
 
-          // db connection should be able to run migrations
-          D::Connection: Migrate,
+    // db connection should be able to run migrations
+    D::Connection: Migrate,
 {
     async fn migrate(&self) -> Result<()> {
         migration::migrate(&self.pool, &*self.schema_builder).await?;
@@ -251,28 +276,39 @@ impl<D> DbTrait for Db<D>
         user_id: &str,
         display_name: &str,
         unique_client_id: &str,
-        client_secret_hash: &str
+        client_secret_hash: &str,
     ) -> Result<()> {
         let (query, values) = Query::insert()
             .columns([
-                Clients::Id, Clients::UserId, Clients::DisplayName,
-                Clients::Sources, Clients::Destinations,
-                Clients::UniqueClientId, Clients::ClientSecretHash
+                Clients::Id,
+                Clients::UserId,
+                Clients::DisplayName,
+                Clients::Sources,
+                Clients::Destinations,
+                Clients::UniqueClientId,
+                Clients::ClientSecretHash,
             ])
             .into_table(Clients::Table)
             .values_panic([
-                  unique_id.into(), user_id.into(), display_name.into(),
-                  serde_json::json!([]).into(), serde_json::json!([]).into(),
-                  unique_client_id.into(), client_secret_hash.into(),
+                unique_id.into(),
+                user_id.into(),
+                display_name.into(),
+                serde_json::json!([]).into(),
+                serde_json::json!([]).into(),
+                unique_client_id.into(),
+                client_secret_hash.into(),
             ])
             .on_conflict(
                 OnConflict::new()
                     .expr(Expr::col(Clients::Id))
                     .update_columns([
-                        Clients::DisplayName, Clients::Sources, Clients::Destinations, Clients::UniqueClientId,
-                        Clients::ClientSecretHash
+                        Clients::DisplayName,
+                        Clients::Sources,
+                        Clients::Destinations,
+                        Clients::UniqueClientId,
+                        Clients::ClientSecretHash,
                     ])
-                    .to_owned()
+                    .to_owned(),
             )
             .build_any_sqlx(&*self.query_builder);
         tracing::debug!("{query}");
@@ -301,7 +337,12 @@ impl<D> DbTrait for Db<D>
         Ok(())
     }
 
-    async fn insert_config(&self, config: &serde_json::Value, workspace_id: i32, user_id: &str) -> Result<i64> {
+    async fn insert_config(
+        &self,
+        config: &serde_json::Value,
+        workspace_id: i32,
+        user_id: &str,
+    ) -> Result<i64> {
         let (query, values) = Query::insert()
             .into_table(Pipes::Table)
             .columns([Pipes::RawConfig, Pipes::WorkspaceId, Pipes::UserId])
@@ -311,13 +352,18 @@ impl<D> DbTrait for Db<D>
             .build_any_sqlx(&*self.query_builder);
         tracing::debug!("{query}");
         let id = sqlx::query_with(&query, values)
-                .fetch_one(&self.pool)
-                .await
-                .map(|row| row.get(0))?;
+            .fetch_one(&self.pool)
+            .await
+            .map(|row| row.get(0))?;
         Ok(id)
     }
 
-    async fn update_config(&self, id: i64, config: &serde_json::Value, user_id: &str) -> Result<()> {
+    async fn update_config(
+        &self,
+        id: i64,
+        config: &serde_json::Value,
+        user_id: &str,
+    ) -> Result<()> {
         let (query, values) = Query::update()
             .table(Pipes::Table)
             .values([(Pipes::RawConfig, config.clone().into())])
@@ -354,12 +400,10 @@ impl<D> DbTrait for Db<D>
             .fetch_all(&self.pool)
             .await?
             .into_iter()
-            .map(|row| {
-                PipeConfig {
-                    id: row.get::<i64, _>(0) as u64,
-                    workspace_id: row.get(1),
-                    pipe: row.get(2)
-                }
+            .map(|row| PipeConfig {
+                id: row.get::<i64, _>(0) as u64,
+                workspace_id: row.get(1),
+                pipe: row.get(2),
             })
             .collect();
         Ok(configs)
@@ -368,7 +412,12 @@ impl<D> DbTrait for Db<D>
     async fn get_clients(&self, user_id: &str) -> Result<model::Clients> {
         // todo: should we return ui as client?
         let (query, values) = Query::select()
-            .columns([Clients::Id, Clients::DisplayName, Clients::Sources, Clients::Destinations])
+            .columns([
+                Clients::Id,
+                Clients::DisplayName,
+                Clients::Sources,
+                Clients::Destinations,
+            ])
             .from(Clients::Table)
             .and_where(Expr::col(Clients::UserId).eq(user_id))
             .build_any_sqlx(&*self.query_builder);
@@ -377,13 +426,11 @@ impl<D> DbTrait for Db<D>
             .fetch_all(&self.pool)
             .await?
             .into_iter()
-            .map(|row| {
-                model::Client {
-                    id: row.get(0),
-                    display_name: row.get(1),
-                    sources: serde_json::from_value(row.get::<serde_json::Value, _>(2)).unwrap(),
-                    destinations: serde_json::from_value(row.get::<serde_json::Value, _>(3)).unwrap(),
-                }
+            .map(|row| model::Client {
+                id: row.get(0),
+                display_name: row.get(1),
+                sources: serde_json::from_value(row.get::<serde_json::Value, _>(2)).unwrap(),
+                destinations: serde_json::from_value(row.get::<serde_json::Value, _>(3)).unwrap(),
             })
             .collect();
         Ok(model::Clients { clients })
@@ -412,7 +459,11 @@ impl<D> DbTrait for Db<D>
         Ok(workspaces)
     }
 
-    async fn create_workspace(&self, mut workspace: model::Workspace, user_id: &str) -> Result<model::Workspace> {
+    async fn create_workspace(
+        &self,
+        mut workspace: model::Workspace,
+        user_id: &str,
+    ) -> Result<model::Workspace> {
         let (query, values) = Query::insert()
             .into_table(Workspaces::Table)
             .columns([Workspaces::Name, Workspaces::UserId])
@@ -441,12 +492,10 @@ impl<D> DbTrait for Db<D>
             .fetch_all(&self.pool)
             .await?
             .into_iter()
-            .map(|row| {
-                PipeConfig {
-                    id: row.get::<i64, _>(0) as u64,
-                    workspace_id: row.get::<i32, _>(1),
-                    pipe: row.get(2),
-                }
+            .map(|row| PipeConfig {
+                id: row.get::<i64, _>(0) as u64,
+                workspace_id: row.get::<i32, _>(1),
+                pipe: row.get(2),
             })
             .collect();
 
@@ -460,18 +509,22 @@ impl<D> DbTrait for Db<D>
         let workspace = sqlx::query_with(&query, values)
             .fetch_optional(&self.pool)
             .await
-            .map(move |maybe_row| maybe_row.map(|row| {
-                model::Workspace { 
+            .map(move |maybe_row| {
+                maybe_row.map(|row| model::Workspace {
                     id: row.get(0),
                     name: row.get(1),
-                    created_at: row.get(2), 
-                    pipe_configs: pipes
-                }
-            }))?;
+                    created_at: row.get(2),
+                    pipe_configs: pipes,
+                })
+            })?;
         Ok(workspace)
     }
 
-    async fn update_workspace(&self, workspace: model::Workspace, user_id: &str) -> Result<model::Workspace> {
+    async fn update_workspace(
+        &self,
+        workspace: model::Workspace,
+        user_id: &str,
+    ) -> Result<model::Workspace> {
         unimplemented!()
     }
 
@@ -506,7 +559,10 @@ impl<D> DbTrait for Db<D>
             .and_where(Expr::col(UserDaemonTokens::UserId).eq(user_id))
             .build_any_sqlx(&*self.query_builder);
         tracing::debug!("{query}");
-        Ok(sqlx::query_with(&query, values).fetch_optional(&self.pool).await.map(|row| row.map(|row| row.get(0)))?)
+        Ok(sqlx::query_with(&query, values)
+            .fetch_optional(&self.pool)
+            .await
+            .map(|row| row.map(|row| row.get(0)))?)
     }
 
     async fn rotate_user_daemon_token(&self, user_id: &str, token: &str) -> Result<()> {
@@ -518,12 +574,10 @@ impl<D> DbTrait for Db<D>
                 OnConflict::new()
                     .expr(Expr::col(UserDaemonTokens::UserId))
                     .update_column(UserDaemonTokens::DaemonToken)
-                    .to_owned()
+                    .to_owned(),
             )
             .build_any_sqlx(&*self.query_builder);
-        sqlx::query_with(&query, values)
-            .execute(&self.pool)
-            .await?;
+        sqlx::query_with(&query, values).execute(&self.pool).await?;
         Ok(())
     }
 
@@ -533,14 +587,20 @@ impl<D> DbTrait for Db<D>
             .from(Clients::Table)
             .and_where(Expr::col(Clients::UniqueClientId).eq(user_id))
             .build_any_sqlx(&*self.query_builder);
-        tracing::debug!("{query}"); 
+        tracing::debug!("{query}");
         Ok(sqlx::query_with(&query, values)
             .fetch_optional(&self.pool)
             .await
             .map(|maybe_row| maybe_row.map(|row| (row.get(0), row.get(1))))?)
     }
 
-    async fn ingest_message(&self, topic: &str, origin: &str, stream_type: &str, mut stream: BoxStream<'_, Result<Vec<u8>>>) -> Result<()> {
+    async fn ingest_message(
+        &self,
+        topic: &str,
+        origin: &str,
+        stream_type: &str,
+        mut stream: BoxStream<'_, Result<Vec<u8>>>,
+    ) -> Result<()> {
         let mut connection = self.pool.acquire().await?;
         let mut transaction = connection.as_mut().begin().await?;
         let (query, values) = Query::insert()
@@ -555,7 +615,11 @@ impl<D> DbTrait for Db<D>
             .await?
             .get(0);
         let (query, _) = Query::insert()
-            .columns([MessageChunks::MessageId, MessageChunks::ChunkId, MessageChunks::Data])
+            .columns([
+                MessageChunks::MessageId,
+                MessageChunks::ChunkId,
+                MessageChunks::Data,
+            ])
             .into_table(MessageChunks::Table)
             // values are used here to just generate placeholders
             // sqlx binder will always return sql and values separately
@@ -586,9 +650,16 @@ impl<D> DbTrait for Db<D>
             .and_where(Expr::col(Messages::Topic).eq(topic))
             .limit(1)
             .build_any_sqlx(&*self.query_builder);
-        let (id, origin, stream_type) = match sqlx::query_with(&query, values).fetch_optional(&self.pool).await? {
+        let (id, origin, stream_type) = match sqlx::query_with(&query, values)
+            .fetch_optional(&self.pool)
+            .await?
+        {
             None => return Ok(None),
-            Some(row) => (row.get::<i64, _>(0), row.get::<String, _>(1), row.get::<String, _>(2))
+            Some(row) => (
+                row.get::<i64, _>(0),
+                row.get::<String, _>(1),
+                row.get::<String, _>(2),
+            ),
         };
 
         let mut connection = self.pool.acquire().await?;
@@ -616,5 +687,5 @@ impl<D> DbTrait for Db<D>
             stream_type,
             stream: Box::pin(stream),
         }))
-      }
+    }
 }

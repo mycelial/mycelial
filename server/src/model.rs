@@ -1,15 +1,15 @@
-use std::pin::Pin;
 use crate::Result;
 use chrono::{DateTime, Utc};
 use common::{Destination, PipeConfig, Source};
 use futures::{stream::BoxStream, Stream};
 use serde::{Deserialize, Serialize};
+use std::pin::Pin;
 
 pub struct MessageStream {
     pub id: i64,
     pub origin: String,
     pub stream_type: String,
-    pub stream: BoxStream<'static, Result<Vec<u8>>>
+    pub stream: BoxStream<'static, Result<Vec<u8>>>,
 }
 
 // FIXME: rename clients do daemons

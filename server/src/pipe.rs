@@ -1,5 +1,5 @@
-use std::sync::Arc;
 use crate::Result;
+use std::sync::Arc;
 
 use axum::{extract::State, response::IntoResponse, Extension, Json};
 use common::{PipeConfig, PipeConfigs};
@@ -52,7 +52,10 @@ pub async fn put_config(
 ) -> Result<impl IntoResponse> {
     // FIXME: what is that?
     config.id = id;
-    Ok(app.update_config(config, user_id.0.as_str()).await.map(Json)?)
+    app
+        .update_config(config, user_id.0.as_str())
+        .await
+        .map(Json)
 }
 
 pub async fn delete_config(
@@ -60,5 +63,5 @@ pub async fn delete_config(
     Extension(user_id): Extension<UserID>,
     axum::extract::Path(id): axum::extract::Path<u64>,
 ) -> Result<impl IntoResponse> {
-    Ok(app.delete_config(id, user_id.0.as_str()).await?)
+    app.delete_config(id, user_id.0.as_str()).await
 }

@@ -1,15 +1,17 @@
-use std::sync::Arc;
 use axum::{
     body::Body,
     extract::State,
     http::{header, Request, StatusCode},
     middleware::Next,
     response::{IntoResponse, Response},
-    Extension,
-    Json
+    Extension, Json,
 };
-use axum_extra::{headers::{authorization::Basic, Authorization}, TypedHeader};
+use axum_extra::{
+    headers::{authorization::Basic, Authorization},
+    TypedHeader,
+};
 use serde::Deserialize;
+use std::sync::Arc;
 
 use crate::{App, UserID};
 

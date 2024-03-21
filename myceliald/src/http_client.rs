@@ -18,10 +18,13 @@ use pipe::{
 };
 use reqwest::StatusCode;
 use section::SectionError;
-use tokio::{sync::{
-    mpsc::{channel, Receiver, Sender, UnboundedSender},
-    oneshot::{channel as oneshot_channel, Sender as OneshotSender},
-}, time::Instant};
+use tokio::{
+    sync::{
+        mpsc::{channel, Receiver, Sender, UnboundedSender},
+        oneshot::{channel as oneshot_channel, Sender as OneshotSender},
+    },
+    time::Instant,
+};
 
 struct HttpClient {
     endpoint: Option<String>,

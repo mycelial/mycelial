@@ -2,24 +2,22 @@
 mod app;
 mod daemon_auth;
 mod daemon_basic_auth;
+mod db_pool;
 mod ingestion;
+mod model;
 mod pipe;
 mod workspace;
-mod db_pool;
-mod model;
 //mod db;
 mod migration;
 
 use axum::{
-  body::Body,
-  extract::State,
-  http::{header, Method, Request, StatusCode, Uri},
-  middleware::{self, Next},
-  response::{IntoResponse, Response},
-  routing::{get, post},
-  Extension,
-  Json,
-  Router
+    body::Body,
+    extract::State,
+    http::{header, Method, Request, StatusCode, Uri},
+    middleware::{self, Next},
+    response::{IntoResponse, Response},
+    routing::{get, post},
+    Extension, Json, Router,
 };
 use chrono::Utc;
 use clap::Parser;
@@ -30,21 +28,24 @@ use sea_query::{PostgresQueryBuilder, SqliteQueryBuilder};
 use serde::{Deserialize, Serialize};
 use sqlx::{Postgres, Sqlite};
 
-use std::{borrow::Cow, net::SocketAddr};
-use std::sync::Arc;
 use app::App;
+use std::sync::Arc;
+use std::{borrow::Cow, net::SocketAddr};
 
-pub type Result<T, E=AppError> = core::result::Result<T, E>;
+pub type Result<T, E = AppError> = core::result::Result<T, E>;
 
 #[derive(Debug)]
-pub struct AppError{
+pub struct AppError {
     pub status_code: StatusCode,
-    pub err: anyhow::Error
+    pub err: anyhow::Error,
 }
 
 impl<E: Into<anyhow::Error>> From<E> for AppError {
     fn from(err: E) -> Self {
-        Self{ status_code: StatusCode::INTERNAL_SERVER_ERROR, err: err.into()}
+        Self {
+            status_code: StatusCode::INTERNAL_SERVER_ERROR,
+            err: err.into(),
+        }
     }
 }
 
@@ -56,7 +57,6 @@ impl IntoResponse for AppError {
     }
 }
 
-
 // This struct represents the claims you expect in your Auth0 token.
 #[derive(Debug, Deserialize, Serialize)]
 struct MyClaims {
@@ -66,11 +66,7 @@ struct MyClaims {
 }
 
 // Token validation logic
-fn validate_token(
-    token: &str,
-    jwks: Auth0Jwks,
-    audience: &str,
-) -> Result<MyClaims> {
+fn validate_token(token: &str, jwks: Auth0Jwks, audience: &str) -> Result<MyClaims> {
     let decoding_key = DecodingKey::from_jwk(&jwks.keys[0])?;
 
     let mut validation = Validation::new(jsonwebtoken::Algorithm::RS256);
@@ -101,7 +97,6 @@ async fn user_auth(
     }
     Err((StatusCode::UNAUTHORIZED, "invalid token"))
 }
-
 
 #[derive(Parser)]
 struct Cli {
@@ -136,7 +131,7 @@ async fn rotate_user_daemon_token(
     State(app): State<Arc<App>>,
     Extension(user_id): Extension<UserID>,
 ) -> Result<impl IntoResponse> {
-    Ok(app.rotate_user_daemon_token(user_id.0.as_str()).await?)
+    app.rotate_user_daemon_token(user_id.0.as_str()).await
 }
 
 async fn get_clients(
@@ -147,12 +142,7 @@ async fn get_clients(
 }
 
 // log response middleware
-async fn log_middleware(
-    method: Method,
-    uri: Uri,
-    request: Request<Body>,
-    next: Next,
-) -> Response {
+async fn log_middleware(method: Method, uri: Uri, request: Request<Body>, next: Next) -> Response {
     let timestamp = Utc::now();
     let response = next.run(request).await;
     let request_time_ms = Utc::now()
@@ -160,21 +150,19 @@ async fn log_middleware(
         .num_milliseconds();
 
     match response.extensions().get::<Arc<AppError>>() {
-        Some(error) => 
-            tracing::error!(
-                request_time_ms = request_time_ms,
-                method = method.as_str(),
-                status_code = response.status().as_u16(),
-                path = uri.path(),
-                error = ?error
-            ),
-        None => 
-            tracing::info!(
-                request_time_ms = request_time_ms,
-                method = method.as_str(),
-                status_code = response.status().as_u16(),
-                path = uri.path(),
-            ),
+        Some(error) => tracing::error!(
+            request_time_ms = request_time_ms,
+            method = method.as_str(),
+            status_code = response.status().as_u16(),
+            path = uri.path(),
+            error = ?error
+        ),
+        None => tracing::info!(
+            request_time_ms = request_time_ms,
+            method = method.as_str(),
+            status_code = response.status().as_u16(),
+            path = uri.path(),
+        ),
     };
     response
 }
@@ -187,12 +175,13 @@ async fn assets(uri: Uri) -> impl IntoResponse {
     let path = match uri.path() {
         "/" => "index.html",
         p => p,
-    }.trim_start_matches('/');
+    }
+    .trim_start_matches('/');
     match Assets::get(path) {
         Some(file) => {
             let mime = mime_guess::from_path(path).first_or_octet_stream();
             ([(header::CONTENT_TYPE, mime.as_ref())], file.data).into_response()
-        },
+        }
         None => {
             // FIXME:
             // fallback to index page
@@ -237,14 +226,14 @@ async fn main() -> Result<()> {
         .route(
             "/api/pipe/:id",
             get(pipe::get_config)
-            .delete(pipe::delete_config)
-            .put(pipe::put_config),
-            )
+                .delete(pipe::delete_config)
+                .put(pipe::put_config),
+        )
         .route(
             "/api/workspaces/:id",
             get(workspace::get_workspace)
-            .put(workspace::update_workspace)
-            .delete(workspace::delete_workspace),
+                .put(workspace::update_workspace)
+                .delete(workspace::delete_workspace),
         )
         .route(
             "/api/workspaces",
@@ -268,11 +257,11 @@ async fn main() -> Result<()> {
         .route(
             "/api/daemon/provision",
             post(daemon_basic_auth::provision_daemon),
-            )
+        )
         .layer(middleware::from_fn_with_state(
-                app.clone(),
-                daemon_basic_auth::auth,
-                ));
+            app.clone(),
+            daemon_basic_auth::auth,
+        ));
 
     // daemon uses its client_id and client_secret to auth, regardless of whether user auth is turned on
     let daemon_protected_api = Router::new()
@@ -280,13 +269,16 @@ async fn main() -> Result<()> {
         .route(
             "/api/daemon/submit_sections",
             post(daemon_auth::submit_sections),
-            )
-        .layer(middleware::from_fn_with_state(app.clone(), daemon_auth::auth));
+        )
+        .layer(middleware::from_fn_with_state(
+            app.clone(),
+            daemon_auth::auth,
+        ));
 
     // ingestion api is "security by obscurity" for now, and relies on the topic being secret
-      let ingestion_api = Router::new()
-          .route("/ingestion/:topic", post(ingestion::ingestion))
-          .route("/ingestion/:topic/:offset", get(ingestion::get_message));
+    let ingestion_api = Router::new()
+        .route("/ingestion/:topic", post(ingestion::ingestion))
+        .route("/ingestion/:topic/:offset", get(ingestion::get_message));
 
     // FIXME: consistent endpoint namings
     let api = Router::new()

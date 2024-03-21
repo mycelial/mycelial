@@ -1,6 +1,6 @@
-use std::sync::Arc;
+use crate::{model::Workspace, App, Result, UserID};
 use axum::{extract::State, http::StatusCode, response::IntoResponse, Extension, Json};
-use crate::{Result, model::Workspace, App, UserID};
+use std::sync::Arc;
 
 // save a name and get an id assigned. it's a place to create pipes in
 pub async fn create_workspace(
@@ -8,7 +8,9 @@ pub async fn create_workspace(
     Extension(user_id): Extension<UserID>,
     Json(workspace): Json<Workspace>,
 ) -> Result<Json<Workspace>> {
-    Ok(Json(app.create_workspace(workspace, user_id.0.as_str()).await?))
+    Ok(Json(
+        app.create_workspace(workspace, user_id.0.as_str()).await?,
+    ))
 }
 
 // gets a list of all the workspaces, ids, names, etc. not hydrated with pipe configs
@@ -27,7 +29,10 @@ pub async fn get_workspace(
 ) -> Result<impl IntoResponse> {
     match app.get_workspace(id, user_id.0.as_str()).await? {
         Some(workspace) => Ok((StatusCode::OK, Json(workspace).into_response())),
-        None => Ok((StatusCode::NOT_FOUND, Json(serde_json::json!({"error": "not_found"})).into_response())),
+        None => Ok((
+            StatusCode::NOT_FOUND,
+            Json(serde_json::json!({"error": "not_found"})).into_response(),
+        )),
     }
 }
 
@@ -40,7 +45,9 @@ pub async fn update_workspace(
 ) -> Result<impl IntoResponse> {
     let id: i32 = id.try_into().unwrap();
     workspace.id = id;
-    Ok(Json(app.update_workspace(workspace, user_id.0.as_str()).await?))
+    Ok(Json(
+        app.update_workspace(workspace, user_id.0.as_str()).await?,
+    ))
 }
 
 // deletes a workspace by id
@@ -49,5 +56,5 @@ pub async fn delete_workspace(
     Extension(user_id): Extension<UserID>,
     axum::extract::Path(id): axum::extract::Path<i32>,
 ) -> Result<impl IntoResponse> {
-    Ok(app.delete_workspace(id, user_id.0.as_str()).await?)
+    app.delete_workspace(id, user_id.0.as_str()).await
 }
