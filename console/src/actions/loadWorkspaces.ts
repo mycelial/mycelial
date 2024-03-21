@@ -8,12 +8,7 @@ const loadWorkspaces = async (token: string): Promise<WorkspacesData> => {
 };
 
 const loadDaemonToken = async(token: string): Promise<string> => {
-  // FIXME: getDaemonToken already invokes createDaemonToken
-  const daemonToken = await getDaemonToken(token);
-  if (!daemonToken) {
-    return createDaemonToken(token);
-  }
-  return daemonToken
+  return await getDaemonToken(token);
 }
 
 export { loadWorkspaces, loadDaemonToken} ;

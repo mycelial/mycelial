@@ -23,11 +23,6 @@ export enum NodeType {
   target = 'target',
 }
 
-export const headers = {
-  'Content-Type': 'application/json',
-  Authorization: 'Basic dG9rZW46',
-};
-
 export const edgePresets = {
   animated: true,
   id: getId(),

@@ -10,7 +10,8 @@ use chrono::{DateTime, NaiveDateTime, Utc};
 use common::PipeConfig;
 use futures::{future::BoxFuture, stream::BoxStream, StreamExt};
 use sea_query::{
-    Expr, Iden, OnConflict, Order, PostgresQueryBuilder, Query, QueryBuilder, SchemaBuilder, SqliteQueryBuilder
+    Expr, Iden, OnConflict, Order, PostgresQueryBuilder, Query, QueryBuilder, SchemaBuilder,
+    SqliteQueryBuilder,
 };
 use sea_query_binder::{SqlxBinder, SqlxValues};
 use sqlx::{

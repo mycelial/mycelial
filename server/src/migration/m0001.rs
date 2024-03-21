@@ -1,4 +1,6 @@
-use sea_query::{ColumnDef, Expr, ForeignKey, Iden, Index, SchemaBuilder, SchemaStatementBuilder, Table};
+use sea_query::{
+    ColumnDef, Expr, ForeignKey, Iden, Index, SchemaBuilder, SchemaStatementBuilder, Table,
+};
 use sqlx::{
     migrate::{Migration, MigrationType},
     Column,
@@ -86,7 +88,6 @@ impl MessagesTopicIndex {
     }
 }
 
-
 #[derive(Iden)]
 enum MessageChunks {
     Table,
@@ -107,7 +108,7 @@ impl MessageChunks {
 }
 
 struct MessageChunksMessageIdIndex;
-impl MessageChunksMessageIdIndex{
+impl MessageChunksMessageIdIndex {
     fn into_query(schema_builder: &dyn SchemaBuilder) -> String {
         Index::create()
             .name("message_chunks_message_id_idx")
@@ -243,7 +244,6 @@ pub fn into_migration(schema_builder: &dyn SchemaBuilder) -> Migration {
         Workspaces::into_query(schema_builder),
         Pipes::into_query(schema_builder),
         UserDaemonTokens::into_query(schema_builder),
-
         // indices
         ClientsUserIdIndex::into_query(schema_builder),
         MessagesTopicIndex::into_query(schema_builder),
@@ -251,7 +251,6 @@ pub fn into_migration(schema_builder: &dyn SchemaBuilder) -> Migration {
         MessageChunksChunkIdIndex::into_query(schema_builder),
         PipesUserIdIndex::into_query(schema_builder),
         UserDaemonTokensIndexDaemonToken::into_query(schema_builder),
-
     ]
     .join(";\n");
     Migration::new(1, "initial".into(), MigrationType::Simple, sql.into())
