@@ -234,12 +234,10 @@ pub(crate) fn from_mysql_type_name(
         }),
         "TIME" => (DataType::Time(TimeUnit::Microsecond), |mysql_value| {
             let value = mysql_value.try_decode::<Option<NaiveTime>>()?.map(|v| {
-                let micros = DateTime::from_timestamp(
-                    v.num_seconds_from_midnight() as _,
-                    v.nanosecond(),
-                )
-                .unwrap()
-                .timestamp_micros();
+                let micros =
+                    DateTime::from_timestamp(v.num_seconds_from_midnight() as _, v.nanosecond())
+                        .unwrap()
+                        .timestamp_micros();
                 Value::Time(TimeUnit::Microsecond, micros)
             });
             Ok(value.unwrap_or(Value::Null))

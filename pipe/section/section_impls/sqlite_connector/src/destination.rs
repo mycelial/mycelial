@@ -155,8 +155,11 @@ fn to_naive_date(tu: TimeUnit, t: i64) -> Option<NaiveDateTime> {
         TimeUnit::Second => DateTime::from_timestamp(t, 0),
         TimeUnit::Millisecond => DateTime::from_timestamp_micros(t * 1000),
         TimeUnit::Microsecond => DateTime::from_timestamp_micros(t),
-        TimeUnit::Nanosecond => DateTime::from_timestamp(t / 1_000_000_000, (t % 1_000_000_000) as _)
-    }.map(|d| d.naive_utc())
+        TimeUnit::Nanosecond => {
+            DateTime::from_timestamp(t / 1_000_000_000, (t % 1_000_000_000) as _)
+        }
+    }
+    .map(|d| d.naive_utc())
 }
 
 impl<Input, Output, SectionChan> Section<Input, Output, SectionChan> for Sqlite
