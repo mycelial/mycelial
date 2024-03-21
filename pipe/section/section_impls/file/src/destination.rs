@@ -51,6 +51,7 @@ where
                             .await??;
                         let mut fd = OpenOptions::new()
                             .create(true)
+                            .truncate(true)
                             .write(true)
                             .open(&tmp_file)
                             .await?;
