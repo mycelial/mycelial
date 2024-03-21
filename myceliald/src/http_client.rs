@@ -227,7 +227,11 @@ impl HttpClient {
     // spawns client
     pub fn spawn(mut self) -> HttpClientHandle {
         let (tx, mut rx) = channel(1);
-        tokio::spawn(async move { self.enter_loop(&mut rx).await });
+        tokio::spawn(async move {
+            // add small delay allowing main application to set connection details before first iteration of inner loop
+            tokio::time::sleep(Duration::from_millis(10)).await;
+            self.enter_loop(&mut rx).await
+        });
         HttpClientHandle { tx }
     }
 
@@ -236,11 +240,6 @@ impl HttpClient {
         rx: &mut Receiver<HttpClientMessage>,
     ) -> Result<(), SectionError> {
         let mut interval = tokio::time::interval(Duration::from_secs(5));
-        // set first tick to 50ms from now, allowing main application to set sonnection details
-        // before first loop iteration
-        if let Some(delay) = tokio::time::Instant::now().checked_add(Duration::from_millis(50)) {
-            interval.reset_at(delay);
-        }
         loop {
             tokio::select! {
                 msg = rx.recv() => {
