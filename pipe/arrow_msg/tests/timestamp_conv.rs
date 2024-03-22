@@ -11,7 +11,7 @@ use arrow::{
     record_batch::RecordBatch as ArrowRecordBatch,
 };
 use arrow_msg::{df_to_recordbatch, RecordBatch};
-use chrono::FixedOffset;
+use chrono::{DateTime, FixedOffset, Timelike, Utc};
 use quickcheck::TestResult;
 use section::message::{Column, DataFrame, DataType, TimeUnit, ValueView};
 use std::str::FromStr;
@@ -196,11 +196,10 @@ fn test_timestamps_utc_offset() {
         let timestamps = timestamps
             .into_iter()
             .map(|v| match v {
-                v if v < 0 => v % -8334632851200,
-                v => v % 8210298412800,
+                v if v < 0 => v % -DateTime::<Utc>::MIN_UTC.timestamp(),
+                v => v % DateTime::<Utc>::MAX_UTC.timestamp(),
             })
             .collect::<Vec<i64>>();
-
         let minutes = minutes % 60;
         let tz = match hours % 24 {
             hours if hours < 0 => format!("-{:02}:{:02}", hours.abs(), minutes),
