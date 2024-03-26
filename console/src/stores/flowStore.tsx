@@ -1,8 +1,8 @@
-import { MouseEvent, DragEvent } from 'react';
-import { DataNode } from '../types';
-import { getId } from '../utils';
-import { edgePresets } from '../utils/constants';
-import { create } from 'zustand';
+import { MouseEvent, DragEvent } from "react";
+import { DataNode } from "../types";
+import { getId } from "../utils";
+import { edgePresets } from "../utils/constants";
+import { create } from "zustand";
 import {
   Connection,
   Edge,
@@ -15,7 +15,7 @@ import {
   OnConnect,
   applyNodeChanges,
   applyEdgeChanges,
-} from 'reactflow';
+} from "reactflow";
 
 type RFState = {
   nodes: Node[];
@@ -33,7 +33,7 @@ type RFState = {
   setActiveNode: (node: DataNode | null | undefined) => void;
   onNodeClick: (
     event: MouseEvent<HTMLElement, MouseEvent<Element, MouseEvent>>,
-    node: DataNode
+    node: DataNode,
   ) => void;
   setEditDrawerOpen: (open: boolean) => void;
   editDrawerOpen: boolean;
@@ -68,13 +68,14 @@ const useFlowStore = create<RFState>((set, get) => ({
   noEdits: true,
   deletedNodes: [],
   nodes: [],
-  savedNodeData:[],
+  savedNodeData: [],
   edges: [],
   edgesToBeDeleted: [],
   unconnectedNodes: [],
   setDeletedNodes: (nodes: Node[]) => set({ deletedNodes: nodes }),
   getNode: (id: string) => get().nodes.filter((node) => node.id === id)[0],
-  getSavedNodeData: (id: string) => get().savedNodeData.filter((node) => node.id === id)[0],
+  getSavedNodeData: (id: string) =>
+    get().savedNodeData.filter((node) => node.id === id)[0],
   getEdge: (id: string) => get().edges.filter((edge) => edge.id === id)[0],
   addNodeToBeDeleted: (deleted: Node | undefined) => {
     if (!deleted) return;
@@ -155,9 +156,12 @@ const useFlowStore = create<RFState>((set, get) => ({
   },
   onDragOver: (event: DragEvent<HTMLDivElement>) => {
     event.preventDefault();
-    event.dataTransfer.dropEffect = 'move';
+    event.dataTransfer.dropEffect = "move";
   },
-  onNodeClick: (_: MouseEvent<HTMLElement, MouseEvent<Element, MouseEvent>>, node: DataNode) => {
+  onNodeClick: (
+    _: MouseEvent<HTMLElement, MouseEvent<Element, MouseEvent>>,
+    node: DataNode,
+  ) => {
     // onNodeClick runs after onNodesDelete so return to
     // avoid setting deleted node to activeNode
     get().setActiveNode(node);
@@ -165,20 +169,20 @@ const useFlowStore = create<RFState>((set, get) => ({
     get().setEditDrawerOpen(true);
   },
   handleDrawerOpen: (identifier: string): void =>
-    ((
-      {
+    (
+      ({
         clients: () => get().setClientDrawerOpen(true),
         edit: () => get().setEditDrawerOpen(true),
-      } as { [key: string]: () => void }
-    )[identifier]()),
+      }) as { [key: string]: () => void }
+    )[identifier](),
   handleDrawerClose: (identifier: string): void =>
-    ((
-      {
+    (
+      ({
         clients: () => get().setClientDrawerOpen(false),
         edit: () => get().setEditDrawerOpen(false),
         undefined: () => undefined,
-      } as { [key: string]: () => void }
-    )[identifier]()),
+      }) as { [key: string]: () => void }
+    )[identifier](),
 }));
 
 export const selector = (store: RFState) => ({

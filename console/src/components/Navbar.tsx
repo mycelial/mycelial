@@ -21,7 +21,7 @@ const styles = {
 };
 
 function samePageLinkNavigation(
-  event: React.MouseEvent<HTMLAnchorElement, MouseEvent>
+  event: React.MouseEvent<HTMLAnchorElement, MouseEvent>,
 ) {
   if (
     event.defaultPrevented ||
@@ -78,7 +78,7 @@ export default function Navbar() {
       event.type !== "click" ||
       (event.type === "click" &&
         samePageLinkNavigation(
-          event as unknown as React.MouseEvent<HTMLAnchorElement, MouseEvent>
+          event as unknown as React.MouseEvent<HTMLAnchorElement, MouseEvent>,
         ))
     ) {
       setValue(newValue);
@@ -155,7 +155,7 @@ export default function Navbar() {
                 onClick={handleMenu}
                 color="inherit"
               >
-                <img src={user?.picture} alt={user?.name} width={35}/>
+                <img src={user?.picture} alt={user?.name} width={35} />
               </IconButton>
               <Menu
                 id="menu-appbar"

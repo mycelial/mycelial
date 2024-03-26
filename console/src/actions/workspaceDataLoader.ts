@@ -1,11 +1,14 @@
-import { configurePipes } from './pipes.js';
-import { getClients } from './clients.js';
-import { Client, DataNode } from '../types.js';
-import { getWorkspace } from './workspaces.ts';
+import { configurePipes } from "./pipes.js";
+import { getClients } from "./clients.js";
+import { Client, DataNode } from "../types.js";
+import { getWorkspace } from "./workspaces.ts";
 
 type DataLoaderParams = { params: { workspaceId: string } };
 
-export default async function dataLoader({ params }: DataLoaderParams, token: string) {
+export default async function dataLoader(
+  { params }: DataLoaderParams,
+  token: string,
+) {
   // const [clients, workspace] = await Promise.all([getClients(token), getWorkspace(params.workspaceId, token)]);
 
   // const data = configurePipes(workspace.pipe_configs);

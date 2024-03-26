@@ -25,7 +25,7 @@ function createData(
   display_name: string,
   journal_path?: string,
   path?: string,
-  minWidth?: number
+  minWidth?: number,
 ) {
   return { type, display_name, journal_path, path };
 }
@@ -46,8 +46,8 @@ export default function ClientsTable() {
         client.type,
         client.display_name,
         client.journal_path,
-        client.path
-      )
+        client.path,
+      ),
     );
   const rows = clients && clients.length ? createRows(clients) : [];
 

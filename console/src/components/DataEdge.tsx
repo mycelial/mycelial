@@ -1,7 +1,13 @@
-import { Box, Button } from '@mui/material';
-import React, { useCallback } from 'react';
-import useFlowStore, { selector } from '../stores/flowStore';
-import { BaseEdge, EdgeLabelRenderer, EdgeProps, getBezierPath, useReactFlow } from 'reactflow';
+import { Box, Button } from "@mui/material";
+import React, { useCallback } from "react";
+import useFlowStore, { selector } from "../stores/flowStore";
+import {
+  BaseEdge,
+  EdgeLabelRenderer,
+  EdgeProps,
+  getBezierPath,
+  useReactFlow,
+} from "reactflow";
 
 export default function DataEdge({
   id,
@@ -42,36 +48,36 @@ export default function DataEdge({
         markerEnd={markerEnd}
         interactionWidth={25}
         style={{
-          stroke: 'url(#gradient)',
-          strokeLinecap: 'round',
-          strokeLinejoin: 'round',
-          strokeWidth: `${selected ? '3px' : '2px'}`,
+          stroke: "url(#gradient)",
+          strokeLinecap: "round",
+          strokeLinejoin: "round",
+          strokeWidth: `${selected ? "3px" : "2px"}`,
         }}
       />
       <EdgeLabelRenderer>
         <Box
           sx={{
-            position: 'absolute',
+            position: "absolute",
             transform: `translate(-50%, -50%) translate(${labelX}px,${labelY}px)`,
             fontSize: 12,
             // everything inside EdgeLabelRenderer has no pointer events by default
             // bc we have button, set pointer-events: all
-            pointerEvents: 'all',
+            pointerEvents: "all",
           }}
           className="nodrag nopan"
         >
           <button
             className="edgebutton"
             style={{
-              width: '20px',
-              height: '20px',
-              background: '#f6f6f6',
-              border: ' 1px solid #f6f6f6',
-              cursor: 'pointer',
-              borderRadius: '50%',
-              fontSize: '12px',
+              width: "20px",
+              height: "20px",
+              background: "#f6f6f6",
+              border: " 1px solid #f6f6f6",
+              cursor: "pointer",
+              borderRadius: "50%",
+              fontSize: "12px",
               lineHeight: 1,
-              color: 'red',
+              color: "red",
             }}
             onClick={onRemove}
           >

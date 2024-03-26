@@ -23,8 +23,10 @@ const renderNodeFormField = ({ key, formik, original }: NodeFormFieldProps) => {
 
   const theme = useTheme();
 
-  const hasChanged = original === undefined || (
-    original[key] !== formik.values[key] || original[key] === undefined);
+  const hasChanged =
+    original === undefined ||
+    original[key] !== formik.values[key] ||
+    original[key] === undefined;
 
   switch (fieldType) {
     case "number":
@@ -38,7 +40,7 @@ const renderNodeFormField = ({ key, formik, original }: NodeFormFieldProps) => {
             key={key}
             type={fieldType}
             sx={{
-              '& .MuiFormLabel-root.MuiInputLabel-root': { color: '#05386B' },
+              "& .MuiFormLabel-root.MuiInputLabel-root": { color: "#05386B" },
             }}
             variant="filled"
             margin="dense"
@@ -56,7 +58,7 @@ const renderNodeFormField = ({ key, formik, original }: NodeFormFieldProps) => {
                 zIndex: 100,
                 color: theme.palette.warning.main,
               }}
-              title={`Changed from "${original ? original[key] : ("")}"`}
+              title={`Changed from "${original ? original[key] : ""}"`}
             >
               <Info />
             </Icon>

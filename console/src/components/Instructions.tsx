@@ -9,7 +9,7 @@ function Instructions(props) {
         my: 2,
         p: 4,
         width: "70%",
-        backgroundColor: '#a5d6a7', // todo: change to theme
+        backgroundColor: "#a5d6a7", // todo: change to theme
         color: "black", // todo: change to theme
         boxShadow: 3,
         borderRadius: 1,
@@ -71,7 +71,7 @@ function CommandLineTabs(props) {
     <Paper
       sx={{
         p: 2,
-        backgroundColor: '#f6f6f6', // todo: change to theme
+        backgroundColor: "#f6f6f6", // todo: change to theme
         color: "success.light", // todo: change to theme
         boxShadow: 1,
         borderRadius: 1,
@@ -79,11 +79,7 @@ function CommandLineTabs(props) {
       }}
       elevation={3}
     >
-      <Tabs
-        value={value}
-        onChange={handleChange}
-        aria-label="OS Tabs"
-      >
+      <Tabs value={value} onChange={handleChange} aria-label="OS Tabs">
         <Tab label="Mac" {...a11yProps(0)} />
         <Tab label="Linux" {...a11yProps(1)} />
       </Tabs>

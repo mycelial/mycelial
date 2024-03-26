@@ -1,24 +1,25 @@
-import React from 'react';
-import Paper from '@mui/material/Paper';
-import Button from '@mui/material/Button';
-import { toTitleCase } from '../utils';
-import Box from '@mui/material/Box';
-import { useFormik } from 'formik';
-import { useState } from 'react';
-import DoneIcon from '@mui/icons-material/Done';
-import renderNodeFormField from './NodeFormField';
-import DataChip from './DataChip';
-import CloseButton from './CloseButton';
-import useFlowStore, { selector } from '../stores/flowStore';
-import { FlowType } from '../types';
+import React from "react";
+import Paper from "@mui/material/Paper";
+import Button from "@mui/material/Button";
+import { toTitleCase } from "../utils";
+import Box from "@mui/material/Box";
+import { useFormik } from "formik";
+import { useState } from "react";
+import DoneIcon from "@mui/icons-material/Done";
+import renderNodeFormField from "./NodeFormField";
+import DataChip from "./DataChip";
+import CloseButton from "./CloseButton";
+import useFlowStore, { selector } from "../stores/flowStore";
+import { FlowType } from "../types";
 
 const NodeForm = () => {
-  const { setNodes, activeNode, nodes, setShowActiveNode, getSavedNodeData } = useFlowStore(selector);
+  const { setNodes, activeNode, nodes, setShowActiveNode, getSavedNodeData } =
+    useFlowStore(selector);
 
   if (!activeNode) return null;
   const original = getSavedNodeData(activeNode?.id);
 
-  const id = activeNode?.id ?? '';
+  const id = activeNode?.id ?? "";
   const {
     display_name,
     id: dataId,
@@ -27,7 +28,7 @@ const NodeForm = () => {
     clientName,
     source,
     destination,
-    name, 
+    name,
     client, // todo
     ...fields
   } = activeNode?.data ?? {};
@@ -58,20 +59,20 @@ const NodeForm = () => {
 
   return (
     <>
-      <Paper elevation={6} sx={{ border: '1px solid #9e9e9e' }}>
+      <Paper elevation={6} sx={{ border: "1px solid #9e9e9e" }}>
         <Box
           m={4}
           sx={{
-            display: 'flex',
-            flexDirection: 'column',
+            display: "flex",
+            flexDirection: "column",
             gap: 2,
-            width: '88%',
+            width: "88%",
           }}
         >
           <Box>
-            <Box sx={{ display: 'inline-block' }}>
+            <Box sx={{ display: "inline-block" }}>
               {source && (
-                <Box mb={1} sx={{ float: 'left' }}>
+                <Box mb={1} sx={{ float: "left" }}>
                   <DataChip flowType={FlowType.Source} small={false} />
                 </Box>
               )}
@@ -84,29 +85,32 @@ const NodeForm = () => {
             <CloseButton onClick={() => setShowActiveNode(false)} />
           </Box>
           <Box mt={4} mb={1} ml={1}>
-            <h4 style={{ margin: 0, color: '#05386B' }}>{toTitleCase(clientName ?? '')}</h4>
+            <h4 style={{ margin: 0, color: "#05386B" }}>
+              {toTitleCase(clientName ?? "")}
+            </h4>
 
             <h3
               style={{
-                marginTop: '2px',
-                color: '#05386B',
+                marginTop: "2px",
+                color: "#05386B",
               }}
             >
-              {toTitleCase(display_name ?? '')}
+              {toTitleCase(display_name ?? "")}
             </h3>
           </Box>
           <Box
             component="form"
             sx={{
-              '& .MuiTextField-root': { m: 1, width: '95%' },
-              '& .MuiFormLabel-input': { fontSize: '1rem' },
+              "& .MuiTextField-root": { m: 1, width: "95%" },
+              "& .MuiFormLabel-input": { fontSize: "1rem" },
             }}
             onSubmit={formik.handleSubmit}
             onBlur={formik.handleSubmit}
             onChange={formik.handleSubmit}
           >
-            {Object.keys(sortedFields).map((key) => renderNodeFormField({ key, formik, original: original?.data}))}
-
+            {Object.keys(sortedFields).map((key) =>
+              renderNodeFormField({ key, formik, original: original?.data }),
+            )}
           </Box>
         </Box>
       </Paper>
