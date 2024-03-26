@@ -208,7 +208,7 @@ impl HttpClient {
                         },
                     ))
                     .ok();
-                tracing::info!("sections where submitted");
+                tracing::info!("sections submitted");
             }
             Ok(response) => {
                 let status = response.status();
