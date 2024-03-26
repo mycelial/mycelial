@@ -270,7 +270,7 @@ impl Daemon {
             _ => Reset::None,
         };
         if let Reset::State = reset_type {
-            tracing::info!("resetting state");
+            tracing::warn!("resetting state");
             self.daemon_storage.reset_state().await?;
             self.section_storage_handle
                 .reset_state()
