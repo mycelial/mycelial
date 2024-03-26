@@ -40,7 +40,7 @@ interface DataNodeProps extends NodeProps {
 
 const renderHandle = (
   handleType: string,
-  isConnectable: boolean
+  isConnectable: boolean,
 ): ReactElement => {
   const theme = useTheme();
   const typeColor =
@@ -79,13 +79,13 @@ const DataNode: FC<DataNodeProps> = memo(function DataNode(props) {
   } = useFlowStore(selector);
 
   const hasConnection = useStore((s) =>
-    s.edges.some((edge) => edge.source === id || edge.target === id)
+    s.edges.some((edge) => edge.source === id || edge.target === id),
   );
   const isConnectedSource = useStore((s) =>
-    s.edges.some((edge) => edge.source === id)
+    s.edges.some((edge) => edge.source === id),
   );
   const isConnectedTarget = useStore((s) =>
-    s.edges.some((edge) => edge.target === id)
+    s.edges.some((edge) => edge.target === id),
   );
   useEffect(() => {
     if (!hasConnection) addUnconnectedNode(id);

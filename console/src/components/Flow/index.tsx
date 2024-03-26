@@ -1,5 +1,5 @@
 /** @jsxImportSource @emotion/react */
-import React, { useRef, useCallback, useEffect, useState } from 'react';
+import React, { useRef, useCallback, useEffect, useState } from "react";
 import ReactFlow, {
   ReactFlowProvider,
   Controls,
@@ -9,38 +9,38 @@ import ReactFlow, {
   useReactFlow,
   Panel,
   ControlButton,
-} from 'reactflow';
-import Button from '@mui/material/Button';
-import { useLoaderData } from 'react-router-dom';
-import { getId } from '../../utils';
-import dagre from 'dagre';
-import { Client, DrawerType } from '../../types.ts';
-import { createPipe, deletePipe } from '../../actions/pipes';
-import { WorkspaceData, DataNode as DataNodeType } from '../../types.ts';
-import Box from '@mui/material/Box';
-import ClientDrawer from '../ClientDrawer';
-import WorkspaceAppBar from '../WorkspaceAppBar.tsx';
-import EditDrawer from '../EditDrawer.tsx';
-import ChevronRightIcon from '@mui/icons-material/ChevronRight';
-import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
-import 'reactflow/dist/style.css';
-import useFlowStore, { selector } from '../../stores/flowStore.tsx';
-import RefreshIcon from '@mui/icons-material/Refresh';
-import { nodeTypes, edgeTypes } from '../../utils/constants.ts';
-import loadWorkspaceData from '../../actions/loadWorkspaceData.ts';
+} from "reactflow";
+import Button from "@mui/material/Button";
+import { useLoaderData } from "react-router-dom";
+import { getId } from "../../utils";
+import dagre from "dagre";
+import { Client, DrawerType } from "../../types.ts";
+import { createPipe, deletePipe } from "../../actions/pipes";
+import { WorkspaceData, DataNode as DataNodeType } from "../../types.ts";
+import Box from "@mui/material/Box";
+import ClientDrawer from "../ClientDrawer";
+import WorkspaceAppBar from "../WorkspaceAppBar.tsx";
+import EditDrawer from "../EditDrawer.tsx";
+import ChevronRightIcon from "@mui/icons-material/ChevronRight";
+import ChevronLeftIcon from "@mui/icons-material/ChevronLeft";
+import "reactflow/dist/style.css";
+import useFlowStore, { selector } from "../../stores/flowStore.tsx";
+import RefreshIcon from "@mui/icons-material/Refresh";
+import { nodeTypes, edgeTypes } from "../../utils/constants.ts";
+import loadWorkspaceData from "../../actions/loadWorkspaceData.ts";
 
 import { useAuth0 } from "@auth0/auth0-react";
 
 const styles = {
   rfWrapper: {
-    height: 'calc(100% - 66px)',
-    width: '100%',
-    display: 'flex',
+    height: "calc(100% - 66px)",
+    width: "100%",
+    display: "flex",
     flexGrow: 1,
   },
   reactFlow: {
-    background: '#f6f6f6',
-    width: '100%',
+    background: "#f6f6f6",
+    width: "100%",
     height: 300,
   },
 };
@@ -89,7 +89,7 @@ const Flow: React.FC = () => {
     if (with_auth) {
       getAccessTokenSilently().then((token) => {
         setToken(token);
-        loadWorkspaceData({params: {workspaceId}}, token).then((res) => {
+        loadWorkspaceData({ params: { workspaceId } }, token).then((res) => {
           setClients(res.clients);
           setData(res.data);
           setSavedNodeData(res.data.nodes);
@@ -98,7 +98,7 @@ const Flow: React.FC = () => {
       });
     } else {
       setToken("");
-      loadWorkspaceData({params: {workspaceId}}, "").then((res) => {
+      loadWorkspaceData({ params: { workspaceId } }, "").then((res) => {
         setClients(res.clients);
         setData(res.data);
         setSavedNodeData(res.data.nodes);
@@ -109,10 +109,12 @@ const Flow: React.FC = () => {
 
   const getLayoutedElements = (nodes: DataNodeType[], edges: Edge[]) => {
     const g = new dagre.graphlib.Graph();
-    const marginForClientDrawer = Math.floor(document.documentElement.clientWidth * 0.22);
+    const marginForClientDrawer = Math.floor(
+      document.documentElement.clientWidth * 0.22,
+    );
 
     g.setGraph({
-      rankdir: 'LR',
+      rankdir: "LR",
       marginx: 40 + marginForClientDrawer,
       marginy: 40,
       nodesep: 40,
@@ -156,16 +158,17 @@ const Flow: React.FC = () => {
 
     const currentNodes = [...nodes];
 
-
     let heads = [];
     for (const node of currentNodes) {
-      const targetEdges = currentEdges.filter((edge) => edge.target === node.id);
+      const targetEdges = currentEdges.filter(
+        (edge) => edge.target === node.id,
+      );
       // nothing connects to this node, so it is a head
       if (targetEdges.length === 0) {
         heads.push(node);
       }
       // edge case: if a node is a mycelial network, then it is also a head
-      if (node.data.type === 'mycelial_server') {
+      if (node.data.type === "mycelial_server") {
         heads.push(node);
       }
     }
@@ -173,16 +176,24 @@ const Flow: React.FC = () => {
     let allPipes = [];
 
     function dfs(id: Number, currentNode, path, edges) {
-      const nextEdges = currentEdges.filter((edge) => edge.source === currentNode.id);
-      if (nextEdges.length === 0 ) {
-        allPipes.push({id, pipe: [...path], edges: edges});
+      const nextEdges = currentEdges.filter(
+        (edge) => edge.source === currentNode.id,
+      );
+      if (nextEdges.length === 0) {
+        allPipes.push({ id, pipe: [...path], edges: edges });
         return;
       }
       for (const nextEdge of nextEdges) {
-        const nextNode = currentNodes.filter((node) => node.id === nextEdge.target)[0];
+        const nextNode = currentNodes.filter(
+          (node) => node.id === nextEdge.target,
+        )[0];
         path.push(nextNode);
-        if (nextNode.data.type === 'mycelial_server') {
-          allPipes.push({id, pipe: [...path], edges: edges.concat(nextEdge.id)});
+        if (nextNode.data.type === "mycelial_server") {
+          allPipes.push({
+            id,
+            pipe: [...path],
+            edges: edges.concat(nextEdge.id),
+          });
           path.pop();
           continue;
         }
@@ -199,11 +210,14 @@ const Flow: React.FC = () => {
       edgesToDelete = edgesToDelete.filter((edge) => edge !== id);
       const pipe = p.map((node) => node.data);
 
-      const response = await createPipe({
-        workspace_id: parseInt(workspace.id),
-        id,
-        pipe,
-      }, token);
+      const response = await createPipe(
+        {
+          workspace_id: parseInt(workspace.id),
+          id,
+          pipe,
+        },
+        token,
+      );
       if (response === 200) {
         for (const edgeID of allPipes[i].edges) {
           updateEdgeAnimation(edgeID);
@@ -226,41 +240,49 @@ const Flow: React.FC = () => {
       try {
         await deletePipe(deleted, token);
       } catch (error) {
-        console.error('Error:', error);
+        console.error("Error:", error);
       }
     }
     setEdgesToBeDeleted([]);
 
     setEdges(currentEdges);
-    setSavedNodeData(currentNodes.map((node) => {return {...node};}));
+    setSavedNodeData(
+      currentNodes.map((node) => {
+        return { ...node };
+      }),
+    );
   }, [edgesToBeDeleted, edges, nodes]);
 
   const onDrop = useCallback(
     (event: React.DragEvent<HTMLDivElement>) => {
       event.preventDefault();
-      const display_name = event.dataTransfer.getData('application/reactflow');
-      const clientId = event.dataTransfer.getData('text');
+      const display_name = event.dataTransfer.getData("application/reactflow");
+      const clientId = event.dataTransfer.getData("text");
 
       if (rfWrapper === null || rf === null) return;
       if (rfWrapper.current === null) return;
-      if (typeof display_name === 'undefined' || !display_name) return;
-      if (typeof clientId === 'undefined' || !clientId) return;
+      if (typeof display_name === "undefined" || !display_name) return;
+      if (typeof clientId === "undefined" || !clientId) return;
 
       const flowBounds = rfWrapper.current.getBoundingClientRect();
       const position = rf.project({
         x: event.clientX - flowBounds.left,
         y: event.clientY - flowBounds.top,
       });
-      const nodeClient = clients.filter((client: Client) => client.id === clientId)[0];
-      const origin = nodeClient.sections.filter((node) => node.display_name === display_name)[0];
+      const nodeClient = clients.filter(
+        (client: Client) => client.id === clientId,
+      )[0];
+      const origin = nodeClient.sections.filter(
+        (node) => node.display_name === display_name,
+      )[0];
       // this feels super hacky, but mycelial server sections should have unique topics and this is the easiest place to do that
-      if (origin.type === 'mycelial_server') {
+      if (origin.type === "mycelial_server") {
         origin.topic = Math.random().toString(36).substring(2);
       }
 
       const newNode = {
         id: getId(),
-        type: 'dataNode',
+        type: "dataNode",
         position,
         data: {
           clientId: nodeClient.id,
@@ -276,7 +298,7 @@ const Flow: React.FC = () => {
       setEditDrawerOpen(true);
       setShowActiveNode(true);
     },
-    [nodes, edges, clients]
+    [nodes, edges, clients],
   );
 
   useEffect(() => {
@@ -284,14 +306,17 @@ const Flow: React.FC = () => {
 
     const { nodes: initialNodes, edges: initialEdges } = getLayoutedElements(
       data?.nodes,
-      data?.edges
+      data?.edges,
     );
     setNodes([...initialNodes]);
     setEdges([...initialEdges]);
   }, [data]);
 
   const onRefresh = useCallback(() => {
-    const { nodes: layoutedNodes, edges: layoutedEdges } = getLayoutedElements(nodes, edges);
+    const { nodes: layoutedNodes, edges: layoutedEdges } = getLayoutedElements(
+      nodes,
+      edges,
+    );
     setNodes([...layoutedNodes]);
     setEdges([...layoutedEdges]);
   }, [nodes, edges]);
@@ -301,7 +326,7 @@ const Flow: React.FC = () => {
       <WorkspaceAppBar
         onPublish={onSave}
         published={published}
-        name={workspace && workspace.name ? workspace.name : ''}
+        name={workspace && workspace.name ? workspace.name : ""}
       />
       <Box sx={styles.rfWrapper} data-testid="flow" ref={rfWrapper}>
         <ReactFlow
@@ -336,7 +361,10 @@ const Flow: React.FC = () => {
               </Button>
             </Panel>
           )}
-          <EditDrawer onClose={() => handleDrawerClose(DrawerType.Edit)} open={editDrawerOpen} />
+          <EditDrawer
+            onClose={() => handleDrawerClose(DrawerType.Edit)}
+            open={editDrawerOpen}
+          />
           {!editDrawerOpen && (
             <Panel position="top-right">
               <Button
@@ -349,14 +377,17 @@ const Flow: React.FC = () => {
               </Button>
             </Panel>
           )}
-          <Panel position="bottom-left" style={{ marginBottom: '10px', left: '23%' }}>
-            <Controls style={{ display: 'flex' }}>
+          <Panel
+            position="bottom-left"
+            style={{ marginBottom: "10px", left: "23%" }}
+          >
+            <Controls style={{ display: "flex" }}>
               <ControlButton onClick={onRefresh}>
                 <RefreshIcon />
               </ControlButton>
             </Controls>
           </Panel>
-          <svg style={{ height: '25px', width: '25px' }} id="defs">
+          <svg style={{ height: "25px", width: "25px" }} id="defs">
             <defs>
               <linearGradient id="gradient">
                 <stop offset="20%" stopColor="#a5d6a7" />

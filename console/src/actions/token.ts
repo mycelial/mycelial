@@ -1,12 +1,12 @@
-import axios from 'axios';
-import { headers } from '../utils/constants';
+import axios from "axios";
+import { headers } from "../utils/constants";
 
 async function getToken() {
   try {
-    const response = await axios.post('http://localhost:8080/api/tokens', {
-      method: 'POST',
+    const response = await axios.post("http://localhost:8080/api/tokens", {
+      method: "POST",
       headers,
-      body: JSON.stringify({ client_id: 'ui' }),
+      body: JSON.stringify({ client_id: "ui" }),
     });
     const result = response.data;
     return result;

@@ -21,6 +21,7 @@
     "@mui/material": "^5.14.8",
     "@types/react-router-dom": "^5.3.3",
     "axios": "^1.5.0",
+    "babel": "^6.23.0",
     "dagre": "^0.8.5",
     "formik": "^2.4.5",
     "formik-mui": "^5.0.0-alpha.0",

@@ -1,5 +1,5 @@
-import { Node, Edge } from 'reactflow';
-import DataNode from './components/DataNode';
+import { Node, Edge } from "reactflow";
+import DataNode from "./components/DataNode";
 
 export type Client = {
   id: string;
@@ -8,12 +8,12 @@ export type Client = {
   sections: NodeData[];
 };
 export enum DrawerType {
-  Clients = 'clients',
-  Edit = 'edit',
+  Clients = "clients",
+  Edit = "edit",
 }
 export enum FlowType {
-  Source = 'source',
-  Destination = 'destination',
+  Source = "source",
+  Destination = "destination",
 }
 
 type EdgeData = { id: number };

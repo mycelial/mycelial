@@ -1,10 +1,6 @@
 import axios from "axios";
 import { getId } from "../utils";
-import {
-  PIPE_URL,
-  edgePresets,
-  nodePresets,
-} from "../utils/constants";
+import { PIPE_URL, edgePresets, nodePresets } from "../utils/constants";
 import { Node, Position } from "reactflow";
 import { NodeData } from "../types";
 import { useAuth0 } from "@auth0/auth0-react";
@@ -12,14 +8,14 @@ import { useAuth0 } from "@auth0/auth0-react";
 async function getPipes() {
   let h = {
     "x-auth0-token": "",
-  }
+  };
   if (import.meta.env.VITE_USE_AUTH0 === "true") {
     const { getIdTokenClaims } = useAuth0();
     const token = await getIdTokenClaims();
 
     h = {
       "x-auth0-token": token?.__raw || "",
-    }
+    };
   }
 
   try {
@@ -40,7 +36,10 @@ type pipeData = {
   pipe: any[];
 };
 
-const createPipe = async ({ workspace_id, id, pipe }: pipeData, token: string) => {
+const createPipe = async (
+  { workspace_id, id, pipe }: pipeData,
+  token: string,
+) => {
   let method = "put";
   if (id === 0 || id === undefined) {
     method = "post";
@@ -67,7 +66,7 @@ const createPipe = async ({ workspace_id, id, pipe }: pipeData, token: string) =
       url: PIPE_URL,
       data: payload,
       headers: {
-        'x-auth0-token': token,
+        "x-auth0-token": token,
       },
     });
     if (method === "post") {
@@ -84,7 +83,7 @@ const deletePipe = async (id: string, token: string) => {
     const response = await axios({
       method: "delete",
       url: `${PIPE_URL}/${id}`,
-      headers: {'x-auth0-token': token },
+      headers: { "x-auth0-token": token },
     });
     return response;
   } catch (error) {
@@ -115,7 +114,10 @@ const configurePipes = (pipes: pipeData[]) => {
       const { id, ...rest } = data;
       let storedID = id;
 
-      if (nodeData.type === "mycelial_server_source" || nodeData.type === "mycelial_server_destination") {
+      if (
+        nodeData.type === "mycelial_server_source" ||
+        nodeData.type === "mycelial_server_destination"
+      ) {
         nodeData.type = "mycelial_server";
       }
 

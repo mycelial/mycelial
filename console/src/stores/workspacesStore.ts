@@ -1,4 +1,4 @@
-import { create } from 'zustand';
+import { create } from "zustand";
 
 type WorkspacesState = {
   workspaces: any[];
@@ -9,9 +9,11 @@ type WorkspacesState = {
 
 const useWorkspacesStore = create<WorkspacesState>((set, get) => ({
   workspaces: [],
-  getWorkspace: (id) => get().workspaces.filter((workspace) => workspace.id === parseInt(id))[0],
+  getWorkspace: (id) =>
+    get().workspaces.filter((workspace) => workspace.id === parseInt(id))[0],
   setWorkspaces: (workspaces) => set({ workspaces }),
-  addWorkspace: (workspace) => set({ workspaces: [...get().workspaces, workspace] }),
+  addWorkspace: (workspace) =>
+    set({ workspaces: [...get().workspaces, workspace] }),
 }));
 
 export const selector = (store: WorkspacesState) => ({

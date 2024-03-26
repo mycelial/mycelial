@@ -1,9 +1,15 @@
-import axios, { AxiosResponse } from 'axios';
-import { CLIENT_URL, DAEMON_TOKEN_URL, mycelialServer } from '../utils/constants';
+import axios, { AxiosResponse } from "axios";
+import {
+  CLIENT_URL,
+  DAEMON_TOKEN_URL,
+  mycelialServer,
+} from "../utils/constants";
 
 async function getClients(token: string) {
   try {
-    const response = await axios.get(CLIENT_URL, { headers: { 'x-auth0-token': token }});
+    const response = await axios.get(CLIENT_URL, {
+      headers: { "x-auth0-token": token },
+    });
     return formatClients(response);
   } catch (error) {
     console.error(error);
@@ -12,7 +18,11 @@ async function getClients(token: string) {
 
 async function createDaemonToken(token: string) {
   try {
-    const response = await axios.post(DAEMON_TOKEN_URL, {}, { headers: { 'x-auth0-token': token }});
+    const response = await axios.post(
+      DAEMON_TOKEN_URL,
+      {},
+      { headers: { "x-auth0-token": token } },
+    );
     return response;
   } catch (error) {
     console.error(error);
@@ -24,13 +34,17 @@ type clientFormatType = {
   sections?: any[];
 };
 
-const formatSections = (client: clientFormatType, sections: any[], sources = true) => {
+const formatSections = (
+  client: clientFormatType,
+  sections: any[],
+  sources = true,
+) => {
   if (sections.length === 0) return [];
 
   return sections.map((section) => {
     let formatted = { ...section };
     formatted.clientId = client.id;
-    formatted.name = `${section.type}_${sources ? 'source' : 'destination'}`;
+    formatted.name = `${section.type}_${sources ? "source" : "destination"}`;
     formatted.clientName = client.displayName;
     if (sources) {
       formatted.source = true;
@@ -57,7 +71,7 @@ function formatClients(response: AxiosResponse) {
   const clients = [mycelialServer];
 
   for (const client of clientResponse) {
-    if (client.id === 'ui') continue;
+    if (client.id === "ui") continue;
 
     let formattedClient = {
       id: client.id,
