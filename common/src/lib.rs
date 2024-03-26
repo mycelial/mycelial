@@ -279,7 +279,7 @@ pub struct PipeConfigs {
     pub configs: Vec<PipeConfig>,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
 pub struct PipeConfig {
     /// Scheduler needs to maintain pipe processes:
     /// - start new pipes

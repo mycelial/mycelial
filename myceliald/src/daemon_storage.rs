@@ -160,7 +160,7 @@ impl DaemonStorage {
 
     // FIXME: common crate
     // FIXME: there is a lot of garbage in pipe config
-    pub async fn store_pipes(&mut self, configs: &[PipeConfig]) -> anyhow::Result<()> {
+    pub async fn store_pipes(&mut self, configs: &[&PipeConfig]) -> anyhow::Result<()> {
         let mut transaction = self.connection.begin().await?;
         for config in configs {
             sqlx::query("INSERT INTO pipe(id, config) VALUES(?, ?) ON CONFLICT DO UPDATE set config=excluded.config")
@@ -173,15 +173,19 @@ impl DaemonStorage {
         Ok(())
     }
 
-    pub async fn remove_pipe(&mut self, id: u64) -> anyhow::Result<()> {
-        sqlx::query("DELETE FROM pipe WHERE id=?")
-            .bind(id as i64)
-            .execute(&mut self.connection)
-            .await?;
+    pub async fn remove_pipes(&mut self, ids: &[u64]) -> anyhow::Result<()> {
+        let mut transaction = self.connection.begin().await?;
+        for &id in ids {
+            sqlx::query("DELETE FROM pipe WHERE id=?")
+                .bind(id as i64)
+                .execute(&mut *transaction)
+                .await?;
+        }
+        transaction.commit().await?;
         Ok(())
     }
 
-    // FIXME: common crate
+    // FIXME: common crate usage
     pub async fn retrieve_pipes(&mut self) -> anyhow::Result<Vec<PipeConfig>> {
         let pipes = sqlx::query("SELECT id, config FROM pipe")
             .fetch_all(&mut self.connection)

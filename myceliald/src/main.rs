@@ -15,7 +15,7 @@ use daemon_storage::{DaemonInfo, DaemonStorage, ServerInfo};
 use http_client::{HttpClientEvent, HttpClientHandle};
 use pipe::{config::Config, scheduler::SchedulerHandle};
 use sha2::Digest;
-use std::collections::HashSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::env::current_dir;
 use std::path::Path;
 use std::path::PathBuf;
@@ -41,8 +41,9 @@ async fn read_config(path: &Path) -> Result<ClientConfig> {
 struct Daemon {
     config: ClientConfig,
     config_path: PathBuf,
+    // FIXME: common crate usage
+    configs_cache: BTreeMap<u64, PipeConfig>,
     storage_path: PathBuf,
-    // FIXME: common crate
     config_watcher_handle: ConfigWatcherHandle,
     daemon_storage: DaemonStorage,
     section_storage_handle: SqliteStorageHandle,
@@ -86,6 +87,7 @@ impl Daemon {
         Ok(Self {
             config,
             config_path,
+            configs_cache: BTreeMap::new(),
             storage_path,
             config_watcher_handle,
             daemon_storage,
@@ -102,6 +104,7 @@ impl Daemon {
             return Ok(reset);
         }
 
+        self.cache_configs().await?;
         self.setup_http_client().await?;
         self.maybe_resubmit_sections().await?;
         self.reschedule_pipes().await?;
@@ -128,8 +131,7 @@ impl Daemon {
                 }
                 DaemonMessage::HttpClient(HttpClientEvent::Configs { configs }) => {
                     tracing::debug!("got new configs: {configs:?}");
-                    self.daemon_storage.store_pipes(configs.as_slice()).await?;
-                    self.reschedule_pipes().await?;
+                    self.update_pipe_configs(configs).await?;
                 }
                 DaemonMessage::HttpClient(HttpClientEvent::Credentials {
                     client_id,
@@ -173,6 +175,14 @@ impl Daemon {
         Ok(())
     }
 
+    // cache persisted pipe configs
+    async fn cache_configs(&mut self) -> Result<()> {
+        for pipe in self.daemon_storage.retrieve_pipes().await? {
+            self.configs_cache.insert(pipe.id, pipe);
+        }
+        Ok(())
+    }
+
     // check if sections need to be submitted to control plane
     async fn maybe_resubmit_sections(&mut self) -> anyhow::Result<()> {
         let stored_config_hash = self.daemon_storage.retrieve_config_hash().await?;
@@ -192,12 +202,62 @@ impl Daemon {
         Ok(())
     }
 
+    // update persisted pipe configs, reschedule pipes
     //
+    // update performs diff calculation and updates only pipes with updated config
+    // removes deleted pipes
+    async fn update_pipe_configs(&mut self, configs: Vec<PipeConfig>) -> anyhow::Result<()> {
+        // build new cache and assemble pipe ids, which will require update
+        let mut reschedule = false;
+        let (cache, ids_to_update) = configs.into_iter().fold(
+            (BTreeMap::new(), vec![]),
+            |(mut cache, mut ids_to_update), pipe| {
+                let id = pipe.id;
+                match cache.insert(id, pipe) {
+                    Some(prev) if Some(&prev) != cache.get(&id) => ids_to_update.push(id),
+                    None => ids_to_update.push(id),
+                    _ => (),
+                }
+                (cache, ids_to_update)
+            },
+        );
+        let pipes_to_update = ids_to_update
+            .into_iter()
+            .map(|id| cache.get(&id).unwrap())
+            .collect::<Vec<_>>();
+        if !pipes_to_update.is_empty() {
+            self.daemon_storage
+                .store_pipes(pipes_to_update.as_slice())
+                .await?;
+            reschedule = true;
+        }
+
+        let pipes_to_delete = self
+            .configs_cache
+            .keys()
+            .copied()
+            .collect::<BTreeSet<_>>()
+            .difference(&cache.keys().copied().collect::<BTreeSet<_>>())
+            .copied()
+            .collect::<Vec<_>>();
+
+        if !pipes_to_delete.is_empty() {
+            self.daemon_storage
+                .remove_pipes(pipes_to_delete.as_slice())
+                .await?;
+            reschedule = true;
+        }
+        self.configs_cache = cache;
+        if reschedule {
+            self.reschedule_pipes().await?;
+        }
+        Ok(())
+    }
+
     async fn reschedule_pipes(&mut self) -> anyhow::Result<()> {
-        let mut started = HashSet::new();
-        for pipe in self.daemon_storage.retrieve_pipes().await? {
-            let id = pipe.id;
-            match pipe.try_into() {
+        let mut started = BTreeSet::new();
+        for (&id, pipe) in self.configs_cache.iter() {
+            match pipe.clone().try_into() {
                 Ok(conf) => {
                     self.scheduler_handle
                         .add_pipe(id, conf)
@@ -210,7 +270,7 @@ impl Daemon {
                 }
             }
         }
-        let mut scheduled = HashSet::from_iter(
+        let mut scheduled = BTreeSet::from_iter(
             self.scheduler_handle
                 .list_ids()
                 .await
