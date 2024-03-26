@@ -26,6 +26,7 @@ use tokio::{
     time::Instant,
 };
 
+#[derive(Debug)]
 struct HttpClient {
     endpoint: Option<String>,
     token: Option<String>,
@@ -56,12 +57,6 @@ struct SubmitSectionRequest {
     config_hash: String,
     sources: Vec<Source>,
     destinations: Vec<Destination>,
-}
-
-fn is_for_client(config: &Config, name: &str) -> bool {
-    config.get_sections().iter().any(
-        |section| matches!(section.get("client"), Some(Value::String(client)) if client == name),
-    )
 }
 
 impl HttpClient {
@@ -135,6 +130,21 @@ impl HttpClient {
     async fn poll_configs(&mut self) {
         match self.get_configs().await {
             Ok(PipeConfigs { configs }) => {
+                // FIXME: this should be done by control plane
+                let this_daemon = self.unique_id.clone().map(Value::String);
+                let configs = configs
+                    .into_iter()
+                    .filter(|pipe| match TryInto::<Config>::try_into(pipe.clone()) {
+                        Err(e) => {
+                            tracing::error!("invalid pipe config: {e}");
+                            false
+                        }
+                        Ok(config) => config
+                            .get_sections()
+                            .iter()
+                            .any(|section| section.get("client") == this_daemon.as_ref()),
+                    })
+                    .collect();
                 self.tx
                     .send(DaemonMessage::HttpClient(HttpClientEvent::Configs {
                         configs,
