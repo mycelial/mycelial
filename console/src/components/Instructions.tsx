@@ -17,7 +17,7 @@ function Instructions(props) {
       elevation={3}
     >
       <p>
-        To add your local daemon to this mycelial network, simply install the
+        To add your local daemon to this Mycelial network, simply install the
         daemon using the instructions found{" "}
         <a
           href="https://docs.mycelial.com/getting-started/CLI/"
