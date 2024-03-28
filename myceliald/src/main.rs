@@ -1,4 +1,3 @@
-#![allow(unused)]
 mod config_watcher;
 mod constructors;
 mod daemon_storage;
@@ -13,14 +12,14 @@ use common::PipeConfig;
 use config_watcher::ConfigWatcherHandle;
 use daemon_storage::{DaemonInfo, DaemonStorage, ServerInfo};
 use http_client::{HttpClientEvent, HttpClientHandle};
-use pipe::{config::Config, scheduler::SchedulerHandle};
+use pipe::scheduler::SchedulerHandle;
 use sha2::Digest;
 use std::collections::{BTreeMap, BTreeSet};
 use std::env::current_dir;
 use std::path::Path;
 use std::path::PathBuf;
 use storage::SqliteStorageHandle;
-use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
+use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver};
 
 use crate::config_watcher::ConfigWatcherEvent;
 
@@ -207,51 +206,52 @@ impl Daemon {
     // update performs diff calculation and updates only pipes with updated config
     // removes deleted pipes
     async fn update_pipe_configs(&mut self, configs: Vec<PipeConfig>) -> anyhow::Result<()> {
-        // build new cache and assemble pipe ids, which will require update
-        let mut reschedule = false;
-        let (cache, ids_to_update) = configs.into_iter().fold(
-            (BTreeMap::new(), vec![]),
-            |(mut cache, mut ids_to_update), pipe| {
-                let id = pipe.id;
-                match cache.insert(id, pipe) {
-                    Some(prev) if Some(&prev) != cache.get(&id) => ids_to_update.push(id),
-                    None => ids_to_update.push(id),
-                    _ => (),
-                }
-                (cache, ids_to_update)
-            },
-        );
-        let pipes_to_update = ids_to_update
-            .into_iter()
-            .map(|id| cache.get(&id).unwrap())
-            .collect::<Vec<_>>();
-        if !pipes_to_update.is_empty() {
+        let cache = configs.into_iter().fold(BTreeMap::new(), |mut acc, pipe| {
+            acc.insert(pipe.id, pipe);
+            acc
+        });
+
+        let to_update = Self::build_pipe_update_list(&self.configs_cache, &cache);
+        let to_delete = Self::build_pipe_delete_list(&self.configs_cache, &cache);
+
+        if !to_update.is_empty() {
             self.daemon_storage
-                .store_pipes(pipes_to_update.as_slice())
+                .store_pipes(to_update.as_slice())
                 .await?;
-            reschedule = true;
         }
 
-        let pipes_to_delete = self
-            .configs_cache
-            .keys()
-            .copied()
-            .collect::<BTreeSet<_>>()
-            .difference(&cache.keys().copied().collect::<BTreeSet<_>>())
-            .copied()
-            .collect::<Vec<_>>();
-
-        if !pipes_to_delete.is_empty() {
+        if !to_delete.is_empty() {
             self.daemon_storage
-                .remove_pipes(pipes_to_delete.as_slice())
+                .remove_pipes(to_delete.as_slice())
                 .await?;
-            reschedule = true;
         }
-        self.configs_cache = cache;
-        if reschedule {
+
+        if !to_update.is_empty() || !to_delete.is_empty() {
+            self.configs_cache = cache;
             self.reschedule_pipes().await?;
         }
         Ok(())
+    }
+
+    fn build_pipe_update_list<'a>(
+        old_cache: &BTreeMap<u64, PipeConfig>,
+        new_cache: &'a BTreeMap<u64, PipeConfig>,
+    ) -> Vec<&'a PipeConfig> {
+        new_cache.iter().fold(vec![], |mut acc, (id, new_config)| {
+            if old_cache.get(id) != Some(new_config) {
+                acc.push(new_config)
+            }
+            acc
+        })
+    }
+
+    fn build_pipe_delete_list(
+        old_cache: &BTreeMap<u64, PipeConfig>,
+        new_cache: &BTreeMap<u64, PipeConfig>,
+    ) -> Vec<u64> {
+        let old_keys = old_cache.keys().copied().collect::<BTreeSet<u64>>();
+        let new_keys = new_cache.keys().copied().collect::<BTreeSet<u64>>();
+        old_keys.difference(&new_keys).copied().collect()
     }
 
     async fn reschedule_pipes(&mut self) -> anyhow::Result<()> {
@@ -270,7 +270,7 @@ impl Daemon {
                 }
             }
         }
-        let mut scheduled = BTreeSet::from_iter(
+        let scheduled = BTreeSet::from_iter(
             self.scheduler_handle
                 .list_ids()
                 .await

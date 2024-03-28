@@ -3,13 +3,8 @@
 
 use anyhow::Context;
 use common::PipeConfig;
-use serde::{Deserialize, Serialize};
 use sqlx::{sqlite::SqliteConnectOptions, ConnectOptions, Connection, Row, SqliteConnection};
 use std::path::Path;
-use tokio::sync::{
-    mpsc::{channel, Receiver, Sender},
-    oneshot::{channel as oneshot_channel, Sender as OneshotSender},
-};
 
 pub struct DaemonStorage {
     connection: SqliteConnection,
@@ -199,7 +194,7 @@ impl DaemonStorage {
                     // stored separately, since it's metadata for UI
                     Ok(pipe) => Some(PipeConfig{ id, pipe, workspace_id: 1}),
                     Err(e) => {
-                        tracing::error!("failed to parse pipe configuration, pipe_id: {id}, raw_config: {raw_config}");
+                        tracing::error!("failed to parse pipe configuration, pipe_id: {id}, raw_config: {raw_config}: {e}");
                         None
                     }
                 }
@@ -225,10 +220,6 @@ impl DaemonStorage {
                 .await?
                 .map(|row| row.get::<String, _>(0)),
         )
-    }
-
-    pub async fn retrieve_configs(&self) -> anyhow::Result<Vec<()>> {
-        Ok(vec![])
     }
 
     pub async fn reset_state(&mut self) -> anyhow::Result<()> {
