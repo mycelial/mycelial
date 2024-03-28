@@ -15,20 +15,31 @@ data from a source system like SQLite, to a destination system like
 
 ## How does it work?
 
-There are two main components in Mycelial: clients and a server.
+There are two main components in Mycelial: daemons and a control plane. (Mycelial, Inc. offers a hosted control plane as well! See app.mycelial.com to sign up!)
 
-The client is installed and executed on source and destination computers. These
-clients will register with the server component, and they will receive
+The daemon is installed and executed on source and destination computers. These
+daemons will register with the control plane, and they will receive
 data pipeline specifications from the server.
 
-The server offers you a way to set up data pipeline specifications, which move
-your data from one location to another via the installed clients. You can set up
+The control plane offers you a way to set up data pipeline specifications, which move
+your data from one location to another via the installed daemons. You can set up
 these data pipelines via a drag-and-drop web interface, or you can add these
 pipelines via [api](/docs/API.md) calls.
 
-Once you've installed Mycelial (clients and server) you can easily begin moving
+![Mycelial Canvas gif](https://docs.mycelial.com/img/tutorial.gif)
+
+Once you've installed Mycelial (daemon[s] and control plane), you can easily begin moving
 your data from source systems to destination systems of your choosing. Currently
-Mycelial has adapters for SQLite but many other adapters are in the works. 
+Mycelial has connectors for:
+
+- Postgres
+- SQLite
+- MySQL
+- Kafka
+- Snowflake
+- Amazon Redshift, and
+- File streaming
+
 
 ## How do I get started?
 
