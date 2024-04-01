@@ -56,7 +56,7 @@ API [documentation](/docs/API.md)
 
 ## Community
 
-- [Discord](https://discord.gg/mycelial)
+- [Discord](https://discord.gg/q7RbA7vBWz)
 - [@mycelial](https://twitter.com/mycelial)
 - [Newsletter](https://mycelial.com/#newsletter)
 
