@@ -107,7 +107,12 @@ struct Cli {
     #[clap(short, long, env = "ENDPOINT_TOKEN")]
     token: String,
 
-    #[clap(short, long, env = "DATABASE_URL", default_value="sqlite://control_plane.db")]
+    #[clap(
+        short,
+        long,
+        env = "DATABASE_URL",
+        default_value = "sqlite://control_plane.db"
+    )]
     database_url: String,
 
     #[clap(long, env = "AUTH0_AUTHORITY", default_value = "")]
