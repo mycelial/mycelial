@@ -20,7 +20,7 @@ clean:
 
 .PHONY: dev
 dev:
-	RUST_LOG=$(RUST_LOG) cargo-watch \
+	cargo-watch \
 		--why \
 		-i client.db \
 		-i client.db-journal \

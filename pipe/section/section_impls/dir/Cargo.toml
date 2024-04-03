@@ -1,0 +1,19 @@
+[package]
+name = "dir"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+section = { path = "../../" }
+tokio = { version = "1", features = ["full"] }
+tokio-stream = { version = "0.1", features = ["fs"] }
+notify = { version = "6", default-features = false, features = ["macos_kqueue"] }
+regex = "1.10.4"
+tracing = "0.1.40"
+
+[dev-dependencies]
+clap = { version = "4", features = ["derive"]}
+stub = { path = "../stub" }
+tokio-util = "0.7"

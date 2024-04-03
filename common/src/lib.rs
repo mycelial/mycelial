@@ -54,6 +54,7 @@ pub enum Source {
     Typecast_Transformer(TypecastTransformerConfig),
     Mysql_Connector(MysqlConnectorSourceConfig),
     File(FileSourceConfig),
+    Dir(DirSourceConfig),
 }
 
 /// Internally-tagged type of a source needs to match the variant name
@@ -229,6 +230,16 @@ pub struct FileSourceConfig {
     #[serde(flatten)]
     pub common_attrs: CommonAttrs,
     pub path: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+pub struct DirSourceConfig {
+    #[serde(flatten)]
+    pub common_attrs: CommonAttrs,
+    pub path: String,
+    pub pattern: Option<String>,
+    pub start_after: Option<String>,
+    pub interval: u64,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]

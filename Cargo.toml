@@ -17,5 +17,6 @@ members = [
     "pipe/section/section_impls/tagging_transformer",
     "pipe/section/section_impls/mysql_connector",
     "pipe/section/section_impls/file",
+    "pipe/section/section_impls/dir",
 ]
 resolver = "2"
