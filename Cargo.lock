@@ -1234,6 +1234,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "dir"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "notify",
+ "regex",
+ "section",
+ "stub",
+ "tokio",
+ "tokio-stream",
+ "tokio-util",
+ "tracing",
+]
+
+[[package]]
 name = "doc-comment"
 version = "0.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2331,6 +2346,7 @@ dependencies = [
  "base64 0.21.7",
  "clap",
  "common",
+ "dir",
  "excel_connector",
  "file",
  "hello_world",

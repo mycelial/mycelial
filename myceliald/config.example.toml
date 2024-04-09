@@ -82,6 +82,14 @@ poll_interval = 5
 type = "file"
 display_name = "file source"
 path = "Cargo.toml"
+interval = 5
+
+[[sources]]
+type = "dir"
+display_name = "directory"
+path = ""
+start_after = ""
+interval = 5
 
 
 # DESTINATIONS
