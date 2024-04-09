@@ -145,8 +145,7 @@ impl DirSource {
                         entries.push(entry);
                     }
                     // sort in reverse order to preserve proper order after pushing values to front of vec deque
-                    entries
-                        .sort_by_key(|right| std::cmp::Reverse(right.file_name()));
+                    entries.sort_by_key(|right| std::cmp::Reverse(right.file_name()));
                     entries
                         .into_iter()
                         .for_each(|entry| self.walk_stack.push(entry));
