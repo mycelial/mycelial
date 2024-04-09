@@ -67,6 +67,7 @@ mod test {
         let source_config = DirSourceConfig::default();
         let mut c: HashMap<String, Value> =
             serde_json::from_str(&serde_json::to_string(&source_config).unwrap()).unwrap();
+        println!("c: {c:?}");
 
         let config: Map = c.drain().map(|(k, v)| (k, v.try_into().unwrap())).collect();
 

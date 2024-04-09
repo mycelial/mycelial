@@ -237,7 +237,9 @@ pub struct DirSourceConfig {
     #[serde(flatten)]
     pub common_attrs: CommonAttrs,
     pub path: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub pattern: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub start_after: Option<String>,
     pub interval: u64,
 }
