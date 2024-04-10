@@ -117,7 +117,25 @@ impl DirSource {
     // initiate walking stack
     async fn init_walk_stack(&mut self) -> Result<()> {
         let mut read_dir = tokio::fs::read_dir(self.path.as_path()).await?;
-        while let Some(entry) = read_dir.next_entry().await? {
+        while let Some(entry) = read_dir.next_entry().await.map_err(|e| {
+            format!(
+                "failed to initialize walking stack at {:?}: {e}",
+                self.path.as_path()
+            )
+        })? {
+            let full_path = entry.path();
+            let rel_fname = full_path
+                .strip_prefix(self.path.as_path())?
+                .to_string_lossy()
+                .to_string();
+            if Some(&rel_fname) < self.start_after.as_ref() {
+                tracing::debug!(
+                    "{:?} filtered, less than current `start_after`: {:?}",
+                    full_path,
+                    self.start_after
+                );
+                continue;
+            }
             self.walk_stack.push(entry);
         }
         // sort in reverse order
@@ -135,14 +153,24 @@ impl DirSource {
                 Some(entry) => entry,
                 None => return Ok(None),
             };
-            let entry_type = entry.file_type().await?;
+            let entry_path = entry.path();
+            let entry_path = entry_path.as_path();
+            let entry_type = entry
+                .file_type()
+                .await
+                .map_err(|e| format!("failed to read file type at {:?} : {e}", entry_path))?;
             match (entry_type.is_dir(), entry_type.is_file()) {
                 (true, _) => {
                     let mut entries = vec![];
-                    let mut entry_stream = ReadDirStream::new(read_dir(entry.path()).await?);
-                    while let Some(maybe_entry) = entry_stream.next().await {
-                        let entry = maybe_entry?;
-                        entries.push(entry);
+                    let mut entry_stream = ReadDirStream::new(
+                        read_dir(entry_path)
+                            .await
+                            .map_err(|e| format!("failed to read dir at {:?}: {e}", entry_path))?,
+                    );
+                    while let Some(inner) = entry_stream.next().await {
+                        inner.map(|inner| entries.push(inner)).map_err(|e| {
+                            format!("failed to read directory '{:?}': {e}", entry_path)
+                        })?;
                     }
                     // sort in reverse order to preserve proper order after pushing values to front of vec deque
                     entries.sort_by_key(|right| std::cmp::Reverse(right.file_name()));
@@ -151,14 +179,16 @@ impl DirSource {
                         .for_each(|entry| self.walk_stack.push(entry));
                 }
                 (_, true) => {
-                    let fname = entry.path();
-                    let rel_fname = fname
+                    let rel_fname = entry_path
                         .strip_prefix(self.path.as_path())?
                         .to_string_lossy()
                         .to_string();
-                    let fname = fname.to_string_lossy().to_string();
+                    let fname = entry_path.to_string_lossy().to_string();
                     if self.start_after.as_ref() >= Some(&fname) {
-                        tracing::debug!("{fname} less than `start_after`, filtered");
+                        tracing::debug!(
+                            "'{fname}' filtered, less than value of `start_after` {:?}",
+                            self.start_after
+                        );
                         continue;
                     }
                     if self
@@ -167,7 +197,7 @@ impl DirSource {
                         .map(|pattern| !pattern.is_match(&rel_fname))
                         .unwrap_or(false)
                     {
-                        tracing::debug!("{fname} doesn't match pattern, filtered");
+                        tracing::debug!("'{fname}' filtered, doesn't match pattern");
                         continue;
                     }
                     // updating start_after filter here
@@ -212,7 +242,7 @@ where
             // - section path was changed
             match state.get::<String>(PATH_KEY)? {
                 Some(ref path) if PathBuf::from(path) != self.path => {
-                    tracing::info!("path changed, resetting state");
+                    tracing::warn!("path changed, resetting state");
                     state = State::new();
                     section_channel.store_state(state.clone()).await?;
                 }
@@ -224,9 +254,17 @@ where
             loop {
                 futures::select! {
                     _ = interval.tick().fuse() => {
-                        tracing::info!("tick");
                         self.init_walk_stack().await?;
-                        while let Some(file) = self.walk_path().await? {
+                        loop {
+                            let file = match self.walk_path().await {
+                                Err(e) => {
+                                    tracing::error!("failed to traverse path: {}", e);
+                                    break
+                                },
+                                Ok(None) => break,
+                                Ok(Some(file)) => file,
+
+                            };
                             let weak_chan = section_channel.weak_chan();
                             let file = Arc::from(file);
                             let file_clone: Box<dyn Any + Send> = Box::new(Arc::clone(&file));
