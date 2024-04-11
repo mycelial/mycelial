@@ -33,6 +33,7 @@ typecast_transformer = { path = "../pipe/section/section_impls/typecast_transfor
 mysql_connector = { path = "../pipe/section/section_impls/mysql_connector/" }
 file = { path = "../pipe/section/section_impls/file/" }
 dir = { path = "../pipe/section/section_impls/dir/" }
+exec = { path = "../pipe/section/section_impls/exec/" }
 tracing = "0.1.40"
 tracing-subscriber = "0.3.18"
 notify = { version = "6.1.1", features = ["macos_kqueue"] }

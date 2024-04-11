@@ -52,6 +52,7 @@ pub enum Source {
     // TODO: either we need to add another enum for transformers, or merge these two into "sections" and make the section itself know it's ability to source, destination, or transform
     Tagging_Transformer(TaggingTransformerConfig),
     Typecast_Transformer(TypecastTransformerConfig),
+    Exec(ExecConfig),
     Mysql_Connector(MysqlConnectorSourceConfig),
     File(FileSourceConfig),
     Dir(DirSourceConfig),
@@ -182,6 +183,17 @@ pub struct TypecastTransformerConfig {
     pub common_attrs: CommonAttrs,
     pub column: String,
     pub target_type: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+pub struct ExecConfig {
+    #[serde(flatten)]
+    pub common_attrs: CommonAttrs,
+    pub command: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub args: Option<String>,
+    pub row_as_args: bool,
+    pub ack_passthrough: bool,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]

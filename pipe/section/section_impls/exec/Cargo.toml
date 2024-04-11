@@ -1,5 +1,5 @@
 [package]
-name = "dir"
+name = "exec"
 version = "0.1.0"
 edition = "2021"
 
@@ -8,11 +8,9 @@ edition = "2021"
 [dependencies]
 section = { path = "../../" }
 tokio = { version = "1", features = ["full"] }
-tokio-stream = { version = "0.1", features = ["fs"] }
-regex = "1.10.4"
 tracing = "0.1"
 
 [dev-dependencies]
-clap = { version = "4", features = ["derive"]}
-stub = { path = "../stub" }
+clap = { version = "4", features = ["derive"] }
 tokio-util = "0.7"
+tokio-stream = "0.1"

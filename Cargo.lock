@@ -1238,7 +1238,6 @@ name = "dir"
 version = "0.1.0"
 dependencies = [
  "clap",
- "notify",
  "regex",
  "section",
  "stub",
@@ -1337,6 +1336,18 @@ dependencies = [
  "tokio",
  "tokio-stream",
  "tokio-util",
+]
+
+[[package]]
+name = "exec"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "section",
+ "tokio",
+ "tokio-stream",
+ "tokio-util",
+ "tracing",
 ]
 
 [[package]]
@@ -2348,6 +2359,7 @@ dependencies = [
  "common",
  "dir",
  "excel_connector",
+ "exec",
  "file",
  "hello_world",
  "kafka_connector",

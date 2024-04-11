@@ -385,6 +385,35 @@ pub enum ValueView<'a> {
     Uuid(&'a uuid::Uuid),
 }
 
+// FIXME: time/date/timestamps are rendered as integer values
+impl std::fmt::Display for ValueView<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let s = match self {
+            Self::Null => "null".to_string(),
+            Self::Bool(v) => v.to_string(),
+            Self::I8(v) => v.to_string(),
+            Self::I16(v) => v.to_string(),
+            Self::I32(v) => v.to_string(),
+            Self::I64(v) => v.to_string(),
+            Self::U8(v) => v.to_string(),
+            Self::U16(v) => v.to_string(),
+            Self::U32(v) => v.to_string(),
+            Self::U64(v) => v.to_string(),
+            Self::F32(v) => v.to_string(),
+            Self::F64(v) => v.to_string(),
+            Self::Str(v) => v.to_string(),
+            Self::Bin(_v) => "<binary>".to_string(),
+            Self::Time(_unit, v) => v.to_string(),
+            Self::Date(_unit, v) => v.to_string(),
+            Self::TimeStamp(_unit, v) => v.to_string(),
+            Self::TimeStampUTC(_unit, v) => v.to_string(),
+            Self::Decimal(v) => v.to_string(),
+            Self::Uuid(v) => v.to_string(),
+        };
+        write!(f, "{s}")
+    }
+}
+
 impl ValueView<'_> {
     pub fn data_type(&self) -> DataType {
         match self {
