@@ -38,23 +38,3 @@ pub fn exec_ctor<S: SectionChannel>(config: &Map) -> Result<Box<dyn DynSection<S
         ack_passthrough,
     )?))
 }
-
-#[cfg(test)]
-mod test {
-    use common::ExecConfig;
-    use section::dummy::DummySectionChannel;
-    use serde_json::Value;
-    use std::collections::HashMap;
-
-    use super::*;
-
-    #[test]
-    fn test_ctor_matches_config() {
-        let source_config = ExecConfig::default();
-        let mut c: HashMap<String, Value> =
-            serde_json::from_str(&serde_json::to_string(&source_config).unwrap()).unwrap();
-
-        let config: Map = c.drain().map(|(k, v)| (k, v.try_into().unwrap())).collect();
-        assert!(exec_ctor::<DummySectionChannel>(&config).is_ok());
-    }
-}

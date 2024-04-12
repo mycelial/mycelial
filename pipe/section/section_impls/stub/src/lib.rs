@@ -39,8 +39,7 @@ where
             let _input = input;
             let _output = output;
             let _section_channel = section_channel;
-            pending::<()>().await;
-            Ok(())
+            Ok(pending::<()>().await)
         })
     }
 }
