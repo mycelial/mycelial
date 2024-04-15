@@ -80,7 +80,7 @@ async fn main() {
         [command, args] => (command, Some(args)),
         _ => unreachable!(),
     };
-    let source = Exec::new(command, args, true, false).unwrap();
+    let source = Exec::new(command, args, true, false, &[]).unwrap();
 
     let (tx_in, rx_in) = channel::<SectionMessage>(1);
     let rx_in = ReceiverStream::new(rx_in);

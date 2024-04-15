@@ -77,12 +77,12 @@ pub struct Exec {
 }
 
 impl Exec {
-    pub fn new<K: ToString, V: ToString>(
+    pub fn new(
         command: &str,
         args: Option<&str>,
         row_as_args: bool,
         ack_passthrough: bool,
-        env: &[(K, V)],
+        env: &[(&str, &str)],
     ) -> Result<Self> {
         if command.is_empty() {
             Err("empty commands are not allowed")?
