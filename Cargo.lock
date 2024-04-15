@@ -4257,9 +4257,8 @@ dependencies = [
 name = "tagging_transformer"
 version = "0.1.0"
 dependencies = [
- "arrow_msg",
- "futures",
  "section",
+ "tracing",
 ]
 
 [[package]]

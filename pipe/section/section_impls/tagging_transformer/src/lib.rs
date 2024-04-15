@@ -1,37 +1,109 @@
 use std::pin::pin;
 use std::sync::Arc;
 
-use arrow_msg::{
-    arrow::array::StringArray, arrow::datatypes::DataType as ArrowDataType,
-    arrow::datatypes::Field, arrow::datatypes::SchemaBuilder,
-    arrow::record_batch::RecordBatch as ArrowRecordBatch, df_to_recordbatch, ArrowMsg,
-};
-
 use section::command_channel::{Command, SectionChannel};
 use section::futures::{self, Sink, SinkExt, Stream};
 use section::futures::{FutureExt, StreamExt};
-use section::pretty_print::pretty_print;
+use section::message::{Column, DataFrame, DataType, Message, ValueView};
 use section::section::Section;
 use section::{message::Chunk, SectionError, SectionFuture, SectionMessage};
 
 #[derive(Debug)]
 pub struct TaggingTransformer {
-    column: String,
-    text: String,
-}
-
-impl Default for TaggingTransformer {
-    fn default() -> Self {
-        Self::new("tag", "text")
-    }
+    column: Arc<str>,
+    text: Arc<str>,
 }
 
 impl TaggingTransformer {
     pub fn new(column: &str, text: &str) -> Self {
         Self {
-            column: column.to_string(),
-            text: text.to_string(),
+            column: Arc::from(column),
+            text: Arc::from(text),
         }
+    }
+}
+
+#[derive(Debug)]
+struct Msg {
+    inner: SectionMessage,
+    column: Arc<str>,
+    text: Arc<str>,
+}
+
+impl Msg {
+    fn new(inner: SectionMessage, column: Arc<str>, text: Arc<str>) -> Self {
+        Self {
+            inner,
+            column,
+            text,
+        }
+    }
+}
+
+#[derive(Debug)]
+struct TaggingDf {
+    inner: Box<dyn DataFrame>,
+    column: Arc<str>,
+    text: Arc<str>,
+}
+
+impl DataFrame for TaggingDf {
+    fn columns(&self) -> Vec<Column<'_>> {
+        // FIXME: would be nice to have size hint
+        let len = self
+            .inner
+            .columns()
+            .pop()
+            .map(|col| col.count())
+            .unwrap_or(0);
+
+        let mut columns = self.inner.columns();
+        // checking if column is already present
+        match columns.iter().any(|col| col.name() == self.column.as_ref()) {
+            true => {
+                tracing::error!(
+                    "tagging transformer can't add already existing column: {}",
+                    self.column
+                )
+            }
+            false => {
+                columns.push(Column::new(
+                    &self.column,
+                    DataType::Str,
+                    Box::new(std::iter::repeat(ValueView::Str(&self.text)).take(len)),
+                ));
+            }
+        }
+        columns
+    }
+}
+
+impl Message for Msg {
+    fn ack(&mut self) -> section::message::Ack {
+        self.inner.ack()
+    }
+
+    fn origin(&self) -> &str {
+        self.inner.origin()
+    }
+
+    fn next(&mut self) -> section::message::Next<'_> {
+        Box::pin(async {
+            match self.inner.next().await {
+                Ok(None) => Ok(None),
+                Ok(Some(Chunk::DataFrame(df))) => {
+                    let df = TaggingDf {
+                        inner: df,
+                        column: Arc::clone(&self.column),
+                        text: Arc::clone(&self.text),
+                    };
+                    Ok(Some(Chunk::DataFrame(Box::new(df))))
+                }
+                // FIXME: error out
+                Ok(res @ Some(Chunk::Byte(_))) => Ok(res),
+                Err(e) => Err(e),
+            }
+        })
     }
 }
 
@@ -46,7 +118,7 @@ where
 
     fn start(self, input: Input, output: Output, mut section_channel: SectionChan) -> Self::Future {
         Box::pin(async move {
-            let mut input = pin!(input.fuse());
+            let mut input = pin!(input);
             let mut output = pin!(output);
 
             loop {
@@ -56,62 +128,14 @@ where
                             return Ok(())
                         }
                     }
-                    stream = input.next() => {
-                        let mut stream = match stream{
-                            Some(stream) => stream,
+                    msg = input.next().fuse() => {
+                        let msg = match msg{
+                            Some(msg) => msg,
                             None => Err("input stream closed")?
                         };
-                        loop {
-                            futures::select! {
-                                msg = stream.next().fuse() => {
-                                    match msg? {
-                                        Some(Chunk::DataFrame(df)) => {
-                                            section_channel.log(format!("transform got dataframe chunk from {}:\n{}",
-                                                stream.origin(),
-                                                pretty_print(&*df))).await?;
-
-                                            // Convert to a RecordBatch from the arrow crate
-                                            let rb = df_to_recordbatch(df.as_ref())?;
-                                            let old_schema = rb.schema();
-                                            let old_cols = rb.columns();
-
-                                            // Create a new schema from the old schema and push on a new field
-                                            let mut builder = SchemaBuilder::from(old_schema.fields());
-                                            builder.push(Field::new(self.column.clone(), ArrowDataType::Utf8, false));
-                                            let new_schema = builder.finish();
-
-                                            // Push a new value onto the old columns
-                                            let mut values = old_cols
-                                                .iter()
-                                                .map(std::borrow::ToOwned::to_owned)
-                                                .collect::<Vec<_>>();
-                                            let tag = Arc::new(StringArray::from(vec![self.text.clone(); values[0].len()]));
-                                            values.push(tag);
-
-                                            // create a new arrow RecordBatch from the schema and columns
-                                            let new_rb = ArrowRecordBatch::try_new(
-                                                Arc::new(new_schema),
-                                                values,
-                                            )?;
-
-                                            // create a message from the RecordBatch
-                                            let new_msg = ArrowMsg::new("tagging transformer", vec![Some(new_rb.into())], None);
-
-                                            output.send(Box::new(new_msg)).await.ok();
-                                            section_channel.log("payload sent").await?;
-
-                                        },
-                                        Some(_) => {Err("unsupported stream type, dataframe expected")?},
-                                        None => break,
-                                    }
-                                },
-                                cmd = section_channel.recv().fuse() => {
-                                    if let Command::Stop = cmd? {
-                                        return Ok(())
-                                    }
-                                }
-                            }
-                        }
+                        let msg = Msg::new(msg, Arc::clone(&self.column), Arc::clone(&self.text));
+                        println!("msg: {:?}", msg);
+                        output.send(Box::new(msg)).await?;
                     }
                 }
             }
