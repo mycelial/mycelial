@@ -73,7 +73,7 @@ pub struct Exec {
     // passthrough ack into downstream
     ack_passthrough: bool,
     // command env
-    env: Vec<(String, String)>
+    env: Vec<(String, String)>,
 }
 
 impl Exec {
@@ -87,14 +87,17 @@ impl Exec {
         if command.is_empty() {
             Err("empty commands are not allowed")?
         }
-        let env = env.iter().map(|(k, v)| (k.to_string(), v.to_string())).collect();
-        let args = shlex::split(args.unwrap_or("")).unwrap_or(vec![]);
+        let env = env
+            .iter()
+            .map(|(k, v)| (k.to_string(), v.to_string()))
+            .collect();
+        let args = shlex::split(args.unwrap_or("")).unwrap_or_default();
         Ok(Self {
             command: command.into(),
             args,
             row_as_args,
             ack_passthrough,
-            env
+            env,
         })
     }
 
@@ -120,12 +123,10 @@ impl Exec {
                 );
                 Ok(())
             }
-            false => {
-                Err(format!(
-                    "failed to execute command: {}",
-                    String::from_utf8_lossy(&output.stderr).to_string()
-                ))?
-            }
+            false => Err(format!(
+                "failed to execute command: {}",
+                String::from_utf8_lossy(&output.stderr)
+            ))?,
         }
     }
 }
