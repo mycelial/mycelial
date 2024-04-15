@@ -56,6 +56,8 @@ export const fieldNames: { [key: string]: string } = {
   interval_milis: "number",
   strict: "boolean",
   truncate: "boolean",
+  ack_passthrough: "boolean",
+  row_as_args: "boolean",
   message: "text",
   url: "text",
   topic: "text",

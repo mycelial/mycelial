@@ -1,5 +1,6 @@
 pub mod dir;
 pub mod excel_connector;
+pub mod exec;
 pub mod file;
 pub mod hello_world;
 pub mod kafka_connector;
