@@ -194,6 +194,7 @@ pub struct ExecConfig {
     pub args: Option<String>,
     pub row_as_args: bool,
     pub ack_passthrough: bool,
+    pub env: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]

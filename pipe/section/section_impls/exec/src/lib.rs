@@ -15,7 +15,7 @@
 //! NOTE: Binary streams are not yet supported.
 //! Section doesn't alter incoming message in any way and delivers it in downstream in the same shape and form.
 
-use std::{ffi::OsString, os::unix::ffi::OsStringExt, pin::pin, process::Stdio};
+use std::{pin::pin, process::Stdio};
 use tokio::sync::mpsc::{channel, Receiver};
 
 use section::{
@@ -39,11 +39,7 @@ impl std::fmt::Debug for Msg {
             .field("origin", &self.origin)
             .field(
                 "ack",
-                &if self.ack.is_some() {
-                    "Some<Ack>"
-                } else {
-                    "None"
-                },
+                &self.ack.as_ref().map(|_| "Some<Ack>").unwrap_or("None"),
             )
             .finish()
     }
@@ -76,38 +72,41 @@ pub struct Exec {
     row_as_args: bool,
     // passthrough ack into downstream
     ack_passthrough: bool,
+    // command env
+    env: Vec<(String, String)>
 }
 
 impl Exec {
-    pub fn new(
+    pub fn new<K: ToString, V: ToString>(
         command: &str,
         args: Option<&str>,
         row_as_args: bool,
         ack_passthrough: bool,
+        env: &[(K, V)],
     ) -> Result<Self> {
         if command.is_empty() {
             Err("empty commands are not allowed")?
         }
-        let args = args
-            .unwrap_or("")
-            .split(' ')
-            .filter(|v| !v.is_empty())
-            .map(|v| v.to_string())
-            .collect::<Vec<_>>();
+        let env = env.iter().map(|(k, v)| (k.to_string(), v.to_string())).collect();
+        let args = shlex::split(args.unwrap_or("")).unwrap_or(vec![]);
         Ok(Self {
             command: command.into(),
             args,
             row_as_args,
             ack_passthrough,
+            env
         })
     }
 
-    async fn run_command<'a>(&self, args: Vec<String>) -> Result<()> {
+    async fn run_command(&self, args: Vec<String>) -> Result<()> {
         let mut command = tokio::process::Command::new(&self.command);
+        let envs = self.env.iter().map(|(k, v)| (k.as_str(), v.as_str()));
         command
-            .stdin(Stdio::null())
+            .stdin(Stdio::piped())
             .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
             .kill_on_drop(true)
+            .envs(envs)
             .args(self.args.iter());
         if self.row_as_args {
             command.args(args);
@@ -115,13 +114,18 @@ impl Exec {
         let output = command.spawn()?.wait_with_output().await?;
         match output.status.success() {
             true => {
-                let os_string: OsString = OsString::from_vec(output.stdout);
-                tracing::debug!("successful exec: {}", os_string.to_string_lossy());
+                tracing::debug!(
+                    "successful exec: {}",
+                    String::from_utf8_lossy(&output.stdout)
+                );
                 Ok(())
             }
-            false => Err(OsString::from_vec(output.stderr)
-                .to_string_lossy()
-                .to_string())?,
+            false => {
+                Err(format!(
+                    "failed to execute command: {}",
+                    String::from_utf8_lossy(&output.stderr).to_string()
+                ))?
+            }
         }
     }
 }

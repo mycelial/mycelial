@@ -31,10 +31,26 @@ pub fn exec_ctor<S: SectionChannel>(config: &Map) -> Result<Box<dyn DynSection<S
         Value::Bool(b) => *b,
         _ => Err("'ack_passthrough' must be a bool")?,
     };
+    let env: Vec<_> = match config.get("env") {
+        Some(Value::String(s)) => s
+            .split(',')
+            .filter(|v| !v.is_empty())
+            .map(
+                |pair| match *pair.trim().splitn(2, '=').collect::<Vec<_>>().as_slice() {
+                    [k] => (k, ""),
+                    [k, v] => (k, v),
+                    _ => unreachable!(),
+                },
+            )
+            .collect(),
+        Some(_) => Err("'env' must be a string")?,
+        None => vec![],
+    };
     Ok(Box::new(exec::Exec::new(
         command,
         args,
         row_as_args,
         ack_passthrough,
+        env.as_slice(),
     )?))
 }

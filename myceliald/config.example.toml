@@ -38,12 +38,14 @@ column = "tag"
 text = "text"
 display_name = "Tagging Transformer"
 
-[[source]]
+[[sources]]
 type = "exec"
+display_name = "Exec"
 command = "echo"
 args = "1"
 row_as_args = false
 ack_passthrough = false
+env = ""
 
 [[sources]]
 type = "typecast_transformer"
