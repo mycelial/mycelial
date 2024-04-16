@@ -134,7 +134,6 @@ where
                             None => Err("input stream closed")?
                         };
                         let msg = Msg::new(msg, Arc::clone(&self.column), Arc::clone(&self.text));
-                        println!("msg: {:?}", msg);
                         output.send(Box::new(msg)).await?;
                     }
                 }

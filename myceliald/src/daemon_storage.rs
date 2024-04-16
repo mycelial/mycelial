@@ -6,6 +6,7 @@ use common::PipeConfig;
 use sqlx::{sqlite::SqliteConnectOptions, ConnectOptions, Connection, Row, SqliteConnection};
 use std::path::Path;
 
+#[derive(Debug)]
 pub struct DaemonStorage {
     connection: SqliteConnection,
 }
