@@ -77,6 +77,22 @@ impl<R: RootChannel + Send + 'static> TryFrom<(&'_ Config, &'_ Registry<R::Secti
     }
 }
 
+// FIXME:
+#[derive(Debug)]
+pub struct SectionErr {
+    pub id: u64,
+    pub section_name: Option<String>,
+    pub error: SectionError,
+}
+
+impl std::fmt::Display for SectionErr {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
+impl std::error::Error for SectionErr {}
+
 impl<Input, Output, RootChan> Section<Input, Output, <RootChan as RootChannel>::SectionChannel>
     for Pipe<RootChan>
 where
@@ -144,7 +160,16 @@ where
                             }
                             SectionRequest::Stopped { id } => {
                                 return match handles[id as usize].handle.take() {
-                                    Some(handle) => handle.await?,
+                                    Some(handle) => {
+                                        let config = &self.config.get_sections()[id as usize];
+                                        let section_name = config.get("name").map(|v| v.as_str().unwrap_or("").to_string());
+                                        handle
+                                            .await
+                                            .map(|res| {
+                                                res
+                                                    .map_err(|e| -> SectionError { SectionErr{ id, section_name, error: e}.into() })
+                                            })?
+                                    },
                                     None => Ok(()),
                                 }
                             }
