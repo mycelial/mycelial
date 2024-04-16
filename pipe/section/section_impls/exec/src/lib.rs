@@ -159,7 +159,10 @@ where
                             rx,
                             ack: if self.ack_passthrough { ack.take()}  else { None }
                         };
-                        output.send(Box::new(downstream_msg)).await?;
+                        // FIXME:
+                        if self.ack_passthrough {
+                            output.send(Box::new(downstream_msg)).await?;
+                        }
 
                         while let Some(chunk) = msg.next().await? {
                             match chunk {
@@ -180,14 +183,19 @@ where
                                             self.run_command(args).await?;
                                         }
                                     }
-                                    tx.send(Ok(Some(Chunk::DataFrame(df)))).await.map_err(|_| "send error")?;
+                                    // FIXME:
+                                    if self.ack_passthrough {
+                                        tx.send(Ok(Some(Chunk::DataFrame(df)))).await.map_err(|_| "send error")?;
+                                    }
                                 },
                                 Chunk::Byte(_) => {
                                     Err("byte streams are not yet supported")?;
                                 },
                             }
                         }
-                        tx.send(Ok(None)).await.map_err(|_| "send error")?;
+                        if self.ack_passthrough {
+                            tx.send(Ok(None)).await.map_err(|_| "send error")?;
+                        }
                         if let Some(ack) = ack.take() {
                             ack.await;
                         }
