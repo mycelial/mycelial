@@ -64,6 +64,8 @@ jobs:
       - name: install packages (linux)
         if: matrix.build == 'linux'
         run: |
+          ## temporary fix for https://github.com/microsoft/linux-package-repositories/issues/130
+          sudo rm /etc/apt/sources.list.d/microsoft-prod.list
           sudo apt update
           sudo apt install pkg-config libssl-dev -qy
 
