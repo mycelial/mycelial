@@ -210,7 +210,9 @@ pub struct Auth0Audience(String);
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    tracing_subscriber::fmt::init();
+    tracing_subscriber::fmt()
+        .with_ansi(false)
+        .init();
     let cli = Cli::try_parse()?;
     let db = db_pool::new(cli.database_url.as_str()).await?;
     db.migrate().await?;
