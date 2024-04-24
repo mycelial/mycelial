@@ -13,9 +13,7 @@ struct Cli {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    tracing_subscriber::fmt()
-        .with_ansi(false)
-        .init();
+    tracing_subscriber::fmt().with_ansi(false).init();
     let cli = Cli::try_parse()?;
     let mut config_path = PathBuf::from(cli.config);
     if !config_path.is_absolute() {
