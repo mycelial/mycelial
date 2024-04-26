@@ -2,7 +2,7 @@
 name = "ui"
 default_platform = "web"
 out_dir = "dist"
-asset_dir = "public"
+asset_dir = "assets"
 
 [web.app]
 title = "ui"
@@ -10,13 +10,18 @@ title = "ui"
 [web.watcher]
 watch_path = [
   "src",
+  "assets",
   "Dioxus.toml",
 ]
 
 [web.resource]
 style = [
+  "mycelial.css",
+  "AeonikFono.ttf",
+  "AeonikMono.ttf",
 ]
 script = [
+  "tailwind.js"    
 ]
 
 [web.resource.dev]
