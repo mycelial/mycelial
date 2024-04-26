@@ -1,0 +1,22 @@
+[application]
+name = "ui"
+default_platform = "web"
+out_dir = "dist"
+asset_dir = "public"
+
+[web.app]
+title = "ui"
+
+[web.watcher]
+watch_path = [
+  "src",
+  "Dioxus.toml",
+]
+
+[web.resource]
+style = [
+]
+script = [
+]
+
+[web.resource.dev]
