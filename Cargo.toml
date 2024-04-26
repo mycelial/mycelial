@@ -1,0 +1,7 @@
+[workspace]
+members = [
+    "ui",
+    "control_plane"
+]
+
+resolver = "2"
