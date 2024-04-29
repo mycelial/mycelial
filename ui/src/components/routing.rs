@@ -2,18 +2,22 @@ use dioxus::prelude::*;
 
 use crate::components::{
     daemons::Daemons, index::Index, login::Login, workspace::Workspace, workspaces::Workspaces,
+    navbar::NavBar,
 };
 
-#[derive(Clone, Debug, PartialEq, Routable)]
+#[derive(Routable, Clone, Debug)]
 pub enum Route {
-    #[route("/")]
-    Index {},
-    #[route("/workspaces")]
-    Workspaces {},
-    #[route("/workspace/:workspace")]
-    Workspace { workspace: String },
-    #[route("/login")]
-    Login {},
-    #[route("/daemons")]
-    Daemons {},
+    #[layout(NavBar)]
+        #[route("/")]
+        Index {},
+        #[nest("/workspaces")]
+            #[route("/")]
+            Workspaces {},
+            #[route("/:workspace")]
+            Workspace { workspace: String },
+        #[end_nest]
+        #[route("/login")]
+        Login {},
+        #[route("/daemons")]
+        Daemons {}
 }

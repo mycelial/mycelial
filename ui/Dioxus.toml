@@ -16,8 +16,8 @@ watch_path = [
 
 [web.resource]
 style = [
-  "mycelial.css",
-  "tailwind.css",
+  "/mycelial.css",
+  "/tailwind.css",
 ]
 script = [
 ]
