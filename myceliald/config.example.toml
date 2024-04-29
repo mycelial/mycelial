@@ -2,41 +2,17 @@
 display_name = "Dev"
 unique_id = "dev"
 storage_path = "client.db"
-auth_token = "9eba38dd-2bfa-4fe0-8da5-4df0b1a17918"
+auth_token = "d135801c-fd73-477c-b0a8-055d0d117485"
 
 [server]
 endpoint = "http://localhost:7777"
 
 [[sources]]
-type = "sqlite_connector"
-display_name = "Sqlite Source"
-path = "test.sqlite"
-origin = "origin"
-query = "select * from test"
-
-[[sources]]
-type = "excel_connector"
-display_name = "Excel Source"
-path = "test.xlsx"
-sheets = "*"
-strict = false
-
-[[sources]]
-type = "sqlite_physical_replication"
-display_name = "Sqlite Physical Replication Movie"
-journal_path = "/tmp/something.sqlite.mycelial_src"
-
-[[sources]]
-type = "hello_world"
-interval_milis = 5000
-message = "Hello World"
-display_name = "Hello World Src"
-
-[[sources]]
-type = "tagging_transformer"
-column = "tag"
-text = "text"
-display_name = "Tagging Transformer"
+type = "dir"
+display_name = "directory"
+path = ""
+start_after = ""
+interval = 5
 
 [[sources]]
 type = "exec"
@@ -48,11 +24,39 @@ ack_passthrough = false
 env = ""
 
 [[sources]]
-type = "typecast_transformer"
-display_name = "Typecast Transformer"
-from = "any"
-target_type = "string"
-column = "name"
+type = "excel_connector"
+display_name = "Excel Source"
+path = "test.xlsx"
+sheets = "*"
+strict = false
+
+[[sources]]
+type = "file"
+display_name = "file source"
+path = "Cargo.toml"
+interval = 5
+
+[[sources]]
+type = "hello_world"
+interval_milis = 5000
+message = "Hello World"
+display_name = "Hello World Src"
+
+[[sources]]
+type = "mysql_connector"
+display_name = "mysql source"
+origin = "test"
+url = "mysql://username:password@127.0.0.1:3306/test"
+query = "select * from test"
+poll_interval = 5
+
+[[sources]]
+type = "postgres_connector"
+display_name = "postgres source"
+url = "postgres://user:password@localhost:5432/test"
+origin = "*"
+query = "select * from test"
+poll_interval = 5
 
 [[sources]]
 type = "snowflake"
@@ -68,47 +72,57 @@ query = "query"
 delay = 5
 
 [[sources]]
-type = "postgres_connector"
-display_name = "postgres source"
-url = "postgres://user:password@localhost:5432/test"
-origin = "*"
+type = "sqlite_connector"
+display_name = "Sqlite Source"
+path = "test.sqlite"
+origin = "origin"
 query = "select * from test"
-poll_interval = 5
 
 [[sources]]
-type = "file"
-display_name = "file source"
-path = "Cargo.toml"
-interval = 5
-
-[[sources]]
-type = "dir"
-display_name = "directory"
-path = ""
-start_after = ""
-interval = 5
-
-[[destinations]]
 type = "sqlite_physical_replication"
 display_name = "Sqlite Physical Replication Movie"
-journal_path = "/tmp/something.sqlite.mycelial"
-database_path = "/tmp/hydrated_db.sqlite"
+journal_path = "/tmp/something.sqlite.mycelial_src"
+
+[[sources]]
+type = "tagging_transformer"
+column = "tag"
+text = "text"
+display_name = "Tagging Transformer"
+
+[[sources]]
+type = "typecast_transformer"
+display_name = "Typecast Transformer"
+from = "any"
+target_type = "string"
+column = "name"
+
+[[destinations]]
+type = "file"
+display_name = "file destination"
+path = "/tmp/Cargo.toml"
 
 [[destinations]]
 type = "hello_world"
 display_name = "Hello World Dest"
 
 [[destinations]]
-type = "sqlite_connector"
-display_name = "Sqlite Destination"
-path = "test_dest.sqlite"
-truncate = false
-
-[[destinations]]
 type = "kafka"
 display_name = "Kafka Destination"
 brokers = "localhost:9092"
 topic = "test"
+
+[[destinations]]
+type = "mysql_connector"
+display_name = "mysql destination"
+url = "mysql://username:password@127.0.0.1:3306/test"
+truncate = false
+
+[[destinations]]
+type = "postgres_connector"
+display_name = "postgres destination"
+url = "postgres://user:password@127.0.0.1:5432/test"
+schema = "replica"
+truncate = false
 
 [[destinations]]
 type = "snowflake"
@@ -123,27 +137,13 @@ schema = "schema"
 truncate = true
 
 [[destinations]]
-type = "postgres_connector"
-display_name = "postgres destination"
-url = "postgres://user:password@127.0.0.1:5432/test"
-schema = "replica"
-truncate = false
-
-[[sources]]
-type = "mysql_connector"
-display_name = "mysql source"
-origin = "test"
-url = "mysql://username:password@127.0.0.1:3306/test"
-query = "select * from test"
-poll_interval = 5
-
-[[destinations]]
-type = "mysql_connector"
-display_name = "mysql destination"
-url = "mysql://username:password@127.0.0.1:3306/test"
+type = "sqlite_connector"
+display_name = "Sqlite Destination"
+path = "test_dest.sqlite"
 truncate = false
 
 [[destinations]]
-type = "file"
-display_name = "file destination"
-path = "/tmp/Cargo.toml"
+type = "sqlite_physical_replication"
+display_name = "Sqlite Physical Replication Movie"
+journal_path = "/tmp/something.sqlite.mycelial"
+database_path = "/tmp/hydrated_db.sqlite"
