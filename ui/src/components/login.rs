@@ -1,6 +1,6 @@
 use dioxus::prelude::*;
+use serde::{Deserialize, Serialize};
 use std::rc::Rc;
-use serde::{Serialize, Deserialize};
 
 #[derive(Debug, Default, Serialize, Deserialize)]
 struct LoginForm {
@@ -17,7 +17,6 @@ impl Drop for LoginGuard {
         }
     }
 }
-
 
 pub fn Login() -> Element {
     let location: String = web_sys::window().unwrap().location().to_string().into();

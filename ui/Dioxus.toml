@@ -17,11 +17,9 @@ watch_path = [
 [web.resource]
 style = [
   "mycelial.css",
-  "AeonikFono.ttf",
-  "AeonikMono.ttf",
+  "tailwind.css",
 ]
 script = [
-  "tailwind.js"    
 ]
 
 [web.resource.dev]

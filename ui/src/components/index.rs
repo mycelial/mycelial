@@ -1,8 +1,9 @@
+use crate::components::navbar::NavBar;
 pub use dioxus::prelude::*;
 
 pub fn Index() -> Element {
-    tracing::info!("hello from index");
     rsx! {
+        NavBar{},
         "index"
     }
 }

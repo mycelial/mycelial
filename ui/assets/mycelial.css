@@ -2,7 +2,7 @@
   font-family: "AeonikFono";
   src:
     local("AeonikFono"),
-    url("./fonts/AeonikFono.ttf") format("truetype");
+    url("AeonikFono.ttf") format("truetype");
   font-weight: normal;
   font-style: normal;
 }
@@ -12,16 +12,16 @@
   font-weight: normal;
   src:
     local("AeonikMono"),
-    url("./fonts/AeonikMono.ttf") format("truetype");
+    url("AeonikMono.ttf") format("truetype");
 }
 
 * {
-  font-family: "AeonikFono", sans-serif;
+  font-family: "AeonikFono";
 }
 
 body,
 main {
-  font-family: "AeonikFono", "AeonikMono", sans-serif;
+  font-family: "AeonikFono", "AeonikMono";
   font-size: 0.8rem;
 }
 main {
