@@ -10,11 +10,11 @@ endpoint = "http://localhost:7777" # URL of the Mycelial control plane.
 [[sources]]
 # Directory source 
 type = "dir" 
-# This source will read all files in the specified directory.
+# This source will read all files in the specified directory. Files will be synced only once and will not be monitored for changes.
 display_name = "Directory Source"
 # The display_name field specifies the name of the source in the Mycelial UI.
 path = "/path/to/directory/**/*.txt"
-# Only absulute paths are supported. Supports glob patterns.
+# Only absulute paths are supported. Supports regular expressions.
 start_after = ""
 # The start_after field specifies the file name to start reading from. If this field is empty, the daemon will read from the beginning of the directory.
 interval = 5
@@ -55,7 +55,6 @@ row_as_args = false
 # +-----+------+
 # | val | val1 |
 # +-----+------+
-# 
 ack_passthrough = false
 # If set to true, section will not ack processed rows, delegating message acknowledgement to a downstream section.
 env = "foo=bar, baz=qux"
@@ -63,11 +62,15 @@ env = "foo=bar, baz=qux"
 
 
 [[sources]]
-# Deprecated. Use Directory Source instead.
+# File source
 type = "file"
-display_name = "file source"
-path = "Cargo.toml"
+# This source will read the specified file and will watch the file for changes.
+display_name = "File Source"
+# The display_name field specifies the name of the source in the Mycelial UI.
+path = "/path/to/your/file.extension"
+# The path field specifies the path to the file. Only absolute paths are supported.
 interval = 5
+# The interval field specifies how often the daemon should check for changes in the file in seconds.
 
 [[sources]]
 # Debug source
@@ -134,11 +137,17 @@ delay = 5
 # The delay field specifies how long to wait before executing the query in seconds.
 
 [[sources]]
+# SQLite source
 type = "sqlite_connector"
+# This source will read data from a SQLite database.
 display_name = "Sqlite Source"
-path = "test.sqlite"
-origin = "origin"
-query = "select * from test"
+# The display_name field specifies the name of the source in the Mycelial UI.
+path = "/path/to/your/database.sqlite"
+# The path field specifies the path to the SQLite database. Only absolute paths are supported.
+origin = "SQLite"
+# The origin field specifies the origin of the data. Downstream destination tables created with data from this query will be named this value.
+query = "select * from example;"
+# The query field specifies the query to execute.
 
 [[sources]]
 type = "sqlite_physical_replication"
@@ -146,63 +155,117 @@ display_name = "Sqlite Physical Replication Movie"
 journal_path = "/tmp/something.sqlite.mycelial_src"
 
 [[sources]]
+# Tagging Transformer
 type = "tagging_transformer"
-column = "tag"
-text = "text"
+# This source will add a column to the dataframe with the specified value.
 display_name = "Tagging Transformer"
+# The display_name field specifies the name of the source in the Mycelial UI.
+column = "tag"
+# The column field specifies the name of the column to add.
+text = "value"
+# The text field specifies the value to add to the column.
 
 [[sources]]
+# Typecast Transformer
 type = "typecast_transformer"
+# This source will cast the specified column to the specified type.
 display_name = "Typecast Transformer"
-from = "any"
+# The display_name field specifies the name of the source in the Mycelial UI.
+from = "integer"
+# The from field specifies the current type of the column.
 target_type = "string"
-column = "name"
+# The target_type field specifies the type to cast the column to.
+column = "column_name"
+# The column field specifies the name of the column to cast.
+
 
 [[destinations]]
+# File destination
 type = "file"
-display_name = "file destination"
+# This destination will write the data to the specified file.
+display_name = "File Destination"
+# The display_name field specifies the name of the destination in the Mycelial UI.
 path = "/tmp/Cargo.toml"
+# The path field specifies the path to the file. Only absolute paths are supported.
 
 [[destinations]]
+# Debug Destination
 type = "hello_world"
-display_name = "Hello World Dest"
+# This destination will print the dataframe to the console.
+display_name = "Debug Destination"
+# The display_name field specifies the name of the destination in the Mycelial UI.
 
 [[destinations]]
+# Kafka Destination
 type = "kafka"
+# This destination will write each row in a dataframe as a message to the Kafka topic specified.
+# Incoming dataframe rows are automatically converted to JSON.
 display_name = "Kafka Destination"
+# The display_name field specifies the name of the destination in the Mycelial UI.
 brokers = "localhost:9092"
-topic = "test"
+# The brokers field specifies the Kafka brokers to connect to.
+topic = "example_topic"
+# The topic field specifies the Kafka topic to write to.
 
 [[destinations]]
+# MySQL Destination
 type = "mysql_connector"
-display_name = "mysql destination"
+# This destination will write the data to a MySQL database.
+display_name = "MySQL Destination"
+# The display_name field specifies the name of the destination in the Mycelial UI.
 url = "mysql://username:password@127.0.0.1:3306/test"
-truncate = false
-
-[[destinations]]
-type = "postgres_connector"
-display_name = "postgres destination"
-url = "postgres://user:password@127.0.0.1:5432/test"
-schema = "replica"
-truncate = false
-
-[[destinations]]
-type = "snowflake"
-display_name = "snowflake destination"
-username = "username"
-password = "password"
-role = "role"
-account_identifier = "account_identifier"
-warehouse = "warehouse"
-database = "database"
-schema = "schema"
+# The url field specifies the connection string to the MySQL database.
 truncate = true
+# The truncate field specifies whether to truncate the destination table before writing the data.
 
 [[destinations]]
+# Postgres Destination
+type = "postgres_connector"
+# This destination will write the data to a Postgres database. 
+# Data will be written to the specified schema into a table named after the Origin field of the data source.
+# If the table does not exist, it will be created.
+display_name = "Postgres Destination"
+# The display_name field specifies the name of the destination in the Mycelial UI.
+url = "postgres://user:password@127.0.0.1:5432/example"
+# The url field specifies the connection string to the Postgres database.
+schema = "example"
+# The schema field specifies the schema to write to.
+truncate = true 
+# The truncate field specifies whether to truncate the destination table before writing the data.
+
+[[destinations]]
+# Snowflake Destination
+type = "snowflake"
+# This destination will write the data to a Snowflake database.
+display_name = "Snowflake Destination"
+# The display_name field specifies the name of the destination in the Mycelial UI.
+username = "username"
+# The username field specifies the username to use when connecting to the Snowflake database.
+password = "password"
+# The password field specifies the password to use when connecting to the Snowflake database.
+role = "role"
+# The role field specifies the role to use when connecting to the Snowflake database.
+account_identifier = "account_identifier"
+# The account_identifier field specifies the account identifier to use when connecting to the Snowflake database.
+warehouse = "warehouse"
+# The warehouse field specifies the data warehouse to use when connecting to the Snowflake database.
+database = "database"
+# The database field specifies the database to use when connecting to the Snowflake database.
+schema = "schema"
+# The schema field specifies the schema to use when connecting to the Snowflake database.
+truncate = true
+# The truncate field specifies whether to truncate the destination table before writing the data.
+
+[[destinations]]
+# SQLite Destination
 type = "sqlite_connector"
+# This destination will write the data to a SQLite database.
 display_name = "Sqlite Destination"
-path = "test_dest.sqlite"
-truncate = false
+# The display_name field specifies the name of the destination in the Mycelial UI.
+path = "/path/to/your/dest_database.sqlite"
+# The path field specifies the path to the SQLite database. Only absolute paths are supported.
+truncate = true 
+# The truncate field specifies whether to truncate the destination table before writing the data.
 
 [[destinations]]
 type = "sqlite_physical_replication"
