@@ -1,75 +1,137 @@
 [node]
-display_name = "Dev"
-unique_id = "dev"
-storage_path = "client.db"
-auth_token = "d135801c-fd73-477c-b0a8-055d0d117485"
+display_name = "Daemon0" # Display name of the daemon in the Mycelial UI.
+unique_id = "daemon0" # Unique identifier for the daemon. This should be unique across all daemons.
+storage_path = "client.db" # Path to the SQLite database file that the daemon will use to store state.
+auth_token = "d135801c-fd73-477c-b0a8-055d0d117485" # Auth token that the daemon will use to authenticate with the Mycelial control plane.
 
 [server]
-endpoint = "http://localhost:7777"
+endpoint = "http://localhost:7777" # URL of the Mycelial control plane.
 
 [[sources]]
-type = "dir"
-display_name = "directory"
-path = ""
+# Directory source 
+type = "dir" 
+# This source will read all files in the specified directory.
+display_name = "Directory Source"
+# The display_name field specifies the name of the source in the Mycelial UI.
+path = "/path/to/directory/**/*.txt"
+# Only absulute paths are supported. Supports glob patterns.
 start_after = ""
+# The start_after field specifies the file name to start reading from. If this field is empty, the daemon will read from the beginning of the directory.
 interval = 5
+# The interval field specifies how often the daemon should check for new files in seconds.
 
 [[sources]]
-type = "exec"
-display_name = "Exec"
-command = "echo"
-args = "1"
-row_as_args = false
-ack_passthrough = false
-env = ""
-
-[[sources]]
+# Excel workbook source
 type = "excel_connector"
+# This source will read data from an Excel workbook.
 display_name = "Excel Source"
-path = "test.xlsx"
+# The display_name field specifies the name of the source in the Mycelial UI.
+path = "/path/to/your/excel.xlsx"
+# The path field specifies the path to the Excel workbook. Only absolute paths are supported.
 sheets = "*"
+# The sheets field specifies the sheets to read from. This field is optional and defaults to all sheets.
+# 
 strict = false
+# Allows mixed data types in Excel columns.
+# If set to false, the daemon will convert all data to strings.
+# If set to true, the daemon will ignore any rows where the datatype does not match the datatype of the first row for that column.
 
 [[sources]]
+# Exec commmand source
+# NOTE: Binary streams are not yet supported.
+type = "exec"
+# This source will execute the specified command and read the output.
+display_name = "Exec Source"
+# The display_name field specifies the name of the source in the Mycelial UI.
+command = "echo"
+# The command field specifies the command to execute.
+args = "$foo $baz"
+# The args field specifies the arguments to pass to the command. This field is optional.
+row_as_args = false
+# If set to true, incoming rows will be passed as arguments to the command.
+# For example, given the dataframe below, the command  will receive 2 extra arguments as --col=val --col1=val1
+# +------------+
+# | col | col1 |
+# +-----+------+
+# | val | val1 |
+# +-----+------+
+# 
+ack_passthrough = false
+# If set to true, section will not ack processed rows, delegating message acknowledgement to a downstream section.
+env = "foo=bar, baz=qux"
+# The env field specifies the environment variables to set when executing the command. This field is optional.
+
+
+[[sources]]
+# Deprecated. Use Directory Source instead.
 type = "file"
 display_name = "file source"
 path = "Cargo.toml"
 interval = 5
 
 [[sources]]
+# Debug source
 type = "hello_world"
+# This source will emit a message at a given interval. It is intended for testing and debugging purposes.
+display_name = "Debug Source"
+# The display_name field specifies the name of the source in the Mycelial UI.
 interval_milis = 5000
+# The interval_milis field specifies how often the source should emit a message in milliseconds.
 message = "Hello World"
-display_name = "Hello World Src"
+# The message field specifies the message to emit.
 
 [[sources]]
+# MySQL source
 type = "mysql_connector"
-display_name = "mysql source"
-origin = "test"
-url = "mysql://username:password@127.0.0.1:3306/test"
-query = "select * from test"
+# This source will read data from a MySQL database.
+display_name = "MySQL Source"
+# The display_name field specifies the name of the source in the Mycelial UI.
+origin = "example"
+# The origin field specifies the origin of the data. Downstream destination tables created with data from this query will be named this value.
+url = "mysql://username:password@127.0.0.1:3306/example"
+# The url field specifies the connection string to the MySQL database.
+query = "select * from example;"
+# The query field specifies the query to execute.
 poll_interval = 5
+# The poll_interval field specifies how often the daemon should poll the database for new data in seconds.
 
 [[sources]]
 type = "postgres_connector"
-display_name = "postgres source"
+# This source will read data from a Postgres database.
+display_name = "Postgres Source"
+# The display_name field specifies the name of the source in the Mycelial UI.
 url = "postgres://user:password@localhost:5432/test"
-origin = "*"
-query = "select * from test"
+# The url field specifies the connection string to the Postgres database.
+origin = "example"
+# The origin field specifies the origin of the data. Downstream destination tables created with data from this query will be named this value.
+query = "select * from test;"
+# The query field specifies the query to execute.
 poll_interval = 5
+# The poll_interval field specifies how often the daemon should poll the database for new data in seconds.
 
 [[sources]]
 type = "snowflake"
-display_name = "snowflake query"
+# This source will read data from a Snowflake database.
+display_name = "Snowflake Source"
+# The display_name field specifies the name of the source in the Mycelial UI.
 username = "username"
+# The username field specifies the username to use when connecting to the Snowflake database.
 password = "password"
+# The password field specifies the password to use when connecting to the Snowflake database.
 role = "role"
+# The role field specifies the role to use when connecting to the Snowflake database.
 account_identifier = "account_identifier"
+# The account_identifier field specifies the account identifier to use when connecting to the Snowflake database.
 warehouse = "warehouse"
+# The warehouse field specifies the data warehouse to use when connecting to the Snowflake database.
 database = "database"
+# The database field specifies the database to use when connecting to the Snowflake database.
 schema = "schema"
+# The schema field specifies the schema to use when connecting to the Snowflake database.
 query = "query"
+# The query field specifies the query to execute.
 delay = 5
+# The delay field specifies how long to wait before executing the query in seconds.
 
 [[sources]]
 type = "sqlite_connector"
