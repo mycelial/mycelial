@@ -48,11 +48,11 @@ pub fn Login() -> Element {
                             let login = event.values().into_iter().fold(LoginForm::default(), |mut login, (key, value)| {
                                 match key.as_str() {
                                     "email" => {
-                                        login.email= value.as_slice().first().unwrap().into();
+                                        login.email= value.as_value();
                                         login
                                     },
                                     "password" => {
-                                        login.password = value.as_slice().first().unwrap().into();
+                                        login.password = value.as_value();
                                         login
                                     },
                                     bad_key => panic!("bad key: {bad_key}")
