@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug)]
 struct State {
-    workspaces: Vec<Workspace> 
+    workspaces: Vec<Workspace>
 }
 
 impl State {
@@ -113,19 +113,34 @@ pub fn Workspaces() -> Element {
                 thead {
                     tr {
                         class: "border-b border-solid p-4 font-bold",
-                        th { "Name" },
-                        th { "Created At"}
+                        th {
+                            class: "pl-3",
+                             "Name" },
+                        th { 
+                            class: "text-right",
+                            "Created At"
+                        }
                         th { }
-                    }
+                    } 
                     for workspace in state.read().workspaces.as_slice() {
                         tr {
-                            th {
+                            class: "border-b border-gray-100",
+                            td {
+                                class: "py-3 pl-3",
                                 "{workspace.name}"
                             }
-                            th {
+                            td {
+                                class: "text-right",
                                 "{workspace.created_at}"
                             }
-                            th {}
+                            td {
+                                class: "text-right",
+                                button {
+                                    class: "text-toadstool-1 border border-toadstool-1 px-4 py-1 my-1 mx-3 rounded bg-white",
+                                    "DELETE"
+                                }
+                            }
+
                         }
                     }
                 }
