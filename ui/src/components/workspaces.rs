@@ -41,8 +41,7 @@ fn NewWorkspace() -> Element {
                 onclick: move |_| {
                     *render_form_state.write() = true;
                 },
-                class: "flex-initial text-white px-4 py-2 rounded",
-                style: "background-color: #1a237e",
+                class: "flex-initial text-white px-4 py-2 rounded bg-night-1",
                 "ADD NEW WORKSPACE"
             }
         } else {
@@ -72,8 +71,7 @@ fn NewWorkspace() -> Element {
                         placeholder: "Name *",
                     }
                     button {
-                        class: "text-white px-4 py-2 rounded",
-                        style: "background-color: #1a237e",
+                        class: "text-white px-4 py-2 rounded bg-night-1",
                         "CREATE NEW WORKSPACE"
                     }
                 }
