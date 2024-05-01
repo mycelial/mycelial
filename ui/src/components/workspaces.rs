@@ -1,6 +1,8 @@
 use dioxus::prelude::*;
 use serde::{Deserialize, Serialize};
 
+use crate::components::routing::Route;
+
 #[derive(Debug)]
 struct State {
     workspaces: Vec<Workspace>
@@ -126,8 +128,11 @@ pub fn Workspaces() -> Element {
                         tr {
                             class: "border-b border-gray-100",
                             td {
-                                class: "py-3 pl-3",
-                                "{workspace.name}"
+                                Link{
+                                    class: "block py-3 pl-3",
+                                    to: Route::Workspace { workspace: workspace.name.clone() },
+                                    children: rsx! { "{workspace.name}" }
+                                }
                             }
                             td {
                                 class: "text-right",

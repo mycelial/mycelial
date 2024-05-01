@@ -1,5 +1,6 @@
 #![allow(non_snake_case)]
 pub mod app;
+pub mod graph;
 pub mod daemons;
 pub mod index;
 pub mod login;
