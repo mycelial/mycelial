@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use dioxus::prelude::*;
 use serde::{Deserialize, Serialize};
 
@@ -5,17 +7,31 @@ use crate::components::routing::Route;
 
 #[derive(Debug)]
 struct State {
-    workspaces: Vec<Workspace>
+    workspaces: HashMap<u64, Workspace>,
+    counter: u64,
 }
 
 impl State {
     fn new() -> Self {
         Self {
-            workspaces: vec![
-                Workspace::new("hello", "2020-01-01"),
-                Workspace::new("world", "2020-01-01"),
-            ]
+            workspaces: HashMap::new(),
+            counter: 0,
         }
+    }
+
+    fn add_workspace(&mut self, name: &str, _created_at: &str) {
+        let id = self.get_id();
+        self.workspaces.insert(id, Workspace::new(name, "new"));
+    }
+
+    fn remove_workspace(&mut self, id: u64) {
+        self.workspaces.remove(&id);
+    }
+
+    fn get_id(&mut self) -> u64 {
+        let id = self.counter;
+        self.counter += 1;
+        id
     }
 }
 
@@ -23,12 +39,15 @@ impl State {
 struct Workspace {
     name: String,
     // use proper date
-    created_at: String
+    created_at: String,
 }
 
 impl Workspace {
     fn new(name: &str, created_at: &str) -> Self {
-        Self { name: name.into(), created_at: created_at.into() }
+        Self {
+            name: name.into(),
+            created_at: created_at.into(),
+        }
     }
 }
 
@@ -55,10 +74,7 @@ fn NewWorkspace() -> Element {
                         *render_form_state.write() = false;
                         if let Some(name) = event.values().get("workspace_name") {
                             let name = name.as_value();
-                            workspaces_state
-                                .write()
-                                .workspaces
-                                .push(Workspace::new(&name, "new"));
+                            workspaces_state.write().add_workspace(&name, "new");
                         } else {
                             tracing::error!("failed to get value of `workspace_name` from form");
                         }
@@ -84,7 +100,12 @@ fn NewWorkspace() -> Element {
 
 #[component]
 pub fn Workspaces() -> Element {
-    let state = use_context_provider(|| Signal::new(State::new()));
+    let state = use_context_provider(|| {
+        let mut state = State::new();
+        state.add_workspace("hello", "2020-01-01");
+        state.add_workspace("world", "2020-01-01");
+        Signal::new(state)
+    });
     rsx! {
         div {
             class: "flex pt-4 m-w-max",
@@ -118,13 +139,13 @@ pub fn Workspaces() -> Element {
                         th {
                             class: "pl-3",
                              "Name" },
-                        th { 
+                        th {
                             class: "text-right",
                             "Created At"
                         }
                         th { }
-                    } 
-                    for workspace in state.read().workspaces.as_slice() {
+                    }
+                    for (&id, workspace) in state.read().workspaces.iter() {
                         tr {
                             class: "border-b border-gray-100",
                             td {
@@ -141,6 +162,10 @@ pub fn Workspaces() -> Element {
                             td {
                                 class: "text-right",
                                 button {
+                                    onclick: move |_| {
+                                        let mut state = use_context::<Signal<State>>();
+                                        state.write().remove_workspace(id);
+                                    },
                                     class: "text-toadstool-1 border border-toadstool-1 px-4 py-1 my-1 mx-3 rounded bg-white",
                                     "DELETE"
                                 }

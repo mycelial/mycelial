@@ -1,5 +1,5 @@
-use std::collections::HashMap;
 use dioxus::prelude::*;
+use std::collections::HashMap;
 
 // Simple graph
 #[derive(Debug)]
@@ -15,20 +15,20 @@ impl Graph {
         Self {
             nodes: HashMap::new(),
             edges: (),
-            counter: 0
+            counter: 0,
         }
     }
-    
+
     fn get_id(&mut self) -> u64 {
         let id = self.counter;
         self.counter += 1;
         id
     }
-    
+
     fn add_node(&mut self, id: u64, node: Signal<NodeState>) {
         self.nodes.insert(id, node);
     }
-    
+
     fn remove_node(&mut self, id: u64) {
         self.nodes.remove(&id);
     }
@@ -49,7 +49,12 @@ struct NodeState {
 
 impl NodeState {
     fn new(id: u64, node_type: &'static str, x: f64, y: f64) -> Self {
-        Self { id, node_type, x, y }
+        Self {
+            id,
+            node_type,
+            x,
+            y,
+        }
     }
 }
 
@@ -67,11 +72,8 @@ impl ViewPortState {
 
 // representation of section in sections menu, which can be dragged into viewport container
 #[component]
-fn MenuItem(
-    mut currently_dragged: Signal<Option<&'static str>>,
-    id: &'static str
-) -> Element {
-    rsx!{
+fn MenuItem(mut currently_dragged: Signal<Option<&'static str>>, id: &'static str) -> Element {
+    rsx! {
         div {
             class: "block min-w-32 min-h-24 border border-solid text-center content-center m-4",
             draggable: true,
@@ -137,10 +139,14 @@ fn ViewPort(
     dragged: Signal<Option<&'static str>>,
     graph: Signal<Graph>,
 ) -> Element {
-    let nodes = &(*graph.read()).nodes;
+    let nodes = &graph.read().nodes;
     let mut grabbed = use_signal(|| false);
-    let icon = if *grabbed.read() { "cursor: grabbing;" } else { "cursor: grab" };
-    rsx !{
+    let _icon = if *grabbed.read() {
+        "cursor: grabbing;"
+    } else {
+        "cursor: grab"
+    };
+    rsx! {
         div {
             class: "min-h-screen bg-gray-400 overflow-hidden",
             // FIXME: move to class or smth
@@ -151,7 +157,7 @@ fn ViewPort(
          //     {icon}
          // "#),
          //style: icon,
-            
+
             // prevent_default + own ondragover enable drop area on current container
             prevent_default: "ondragover",
             ondragover: move |_event| {},
@@ -166,7 +172,7 @@ fn ViewPort(
                 }
                 *dragged.write() = None;
             },
-            
+
             // panning funcs
             onmousedown: move |_event| {
                 *grabbed.write() = true;
@@ -195,14 +201,14 @@ pub fn Workspace(workspace: String) -> Element {
     let menu_items = ["one", "two", "three", "four", "five", "six"];
 
     // graph, represents set of placed nodes/edges in view port
-    let graph = use_signal(|| Graph::new());
-    
+    let graph = use_signal(Graph::new);
+
     // viewport state, current coordinates, scale, etc, synced with backend.
     // TODO:
-    let view_port_state = use_signal(|| ViewPortState::new());
-    
+    let view_port_state = use_signal(ViewPortState::new);
+
     // TODO: feels like flexbox approach is wrong here, but here we are
-    rsx! {   
+    rsx! {
         div {
             class: "flex p-4 text-white m-h-4",
             style: "background-color: #586dae",
