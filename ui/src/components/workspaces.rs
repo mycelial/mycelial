@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug)]
 struct State {
-    workspaces: Vec<Workspace> 
+    workspaces: Vec<Workspace>
 }
 
 impl State {
@@ -41,8 +41,7 @@ fn NewWorkspace() -> Element {
                 onclick: move |_| {
                     *render_form_state.write() = true;
                 },
-                class: "flex-initial text-white px-4 py-2 rounded",
-                style: "background-color: #1a237e",
+                class: "flex-initial text-white px-4 py-2 rounded bg-night-1",
                 "ADD NEW WORKSPACE"
             }
         } else {
@@ -72,8 +71,7 @@ fn NewWorkspace() -> Element {
                         placeholder: "Name *",
                     }
                     button {
-                        class: "text-white px-4 py-2 rounded",
-                        style: "background-color: #1a237e",
+                        class: "text-white px-4 py-2 rounded bg-night-1",
                         "CREATE NEW WORKSPACE"
                     }
                 }
@@ -115,19 +113,34 @@ pub fn Workspaces() -> Element {
                 thead {
                     tr {
                         class: "border-b border-solid p-4 font-bold",
-                        th { "Name" },
-                        th { "Created At"}
+                        th {
+                            class: "pl-3",
+                             "Name" },
+                        th { 
+                            class: "text-right",
+                            "Created At"
+                        }
                         th { }
-                    }
+                    } 
                     for workspace in state.read().workspaces.as_slice() {
                         tr {
-                            th {
+                            class: "border-b border-gray-100",
+                            td {
+                                class: "py-3 pl-3",
                                 "{workspace.name}"
                             }
-                            th {
+                            td {
+                                class: "text-right",
                                 "{workspace.created_at}"
                             }
-                            th {}
+                            td {
+                                class: "text-right",
+                                button {
+                                    class: "text-toadstool-1 border border-toadstool-1 px-4 py-1 my-1 mx-3 rounded bg-white",
+                                    "DELETE"
+                                }
+                            }
+
                         }
                     }
                 }
