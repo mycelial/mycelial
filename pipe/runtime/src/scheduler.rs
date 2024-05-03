@@ -181,7 +181,7 @@ where
                             reply_to.reply(()).await.ok();
                         },
                         SectionRequest::Log { id, message } => {
-                            log::info!("pipe<{id}>: {message}");
+                            tracing::info!("pipe<{id}>: {message}");
                         },
                         SectionRequest::Stopped{ id } => {
                             let finished = match self.pipes.get(&id) {
@@ -190,7 +190,7 @@ where
                             };
                             if finished {
                                 if let Err(err) = self.retrieve_pipe_error(id).await {
-                                    log::error!("pipe with id: {id} stopped: {:?}", err);
+                                    tracing::error!("pipe with id: {id} stopped: {:?}", err);
                                 };
                                 self.unschedule(id).await;
                                 self.reschedule(id, weak_tx.clone());
