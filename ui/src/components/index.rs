@@ -7,7 +7,7 @@ pub fn Index() -> Element {
             id: "index-container",   
             div {
                 id: "welcome-message",
-                class: "my-4 p-4 w-9/12 bg-forest-1 text-stem-1 shadow-lg rounded-sm mx-auto",
+                class: "my-4 p-4 w-9/12 bg-forest-1 text-stem-1 drop-shadow-md rounded-sm mx-auto",
                 h1 {
                     class: "text-2xl" ,
                     "Welcome to Mycelial!"
@@ -18,7 +18,7 @@ pub fn Index() -> Element {
                     ul {
                         class: "my-3 ml-2",
                         li {
-                            class: "mb-2",
+                            class: "mb-2 hover:text-white",
                             a {
                                 class: "underline",
                                 href: "https://docs.mycelial.com/getting-started/basic-concepts-and-system-overview",
@@ -27,7 +27,7 @@ pub fn Index() -> Element {
                             }
                         }
                         li {
-                            class: "mb-2",
+                            class: "mb-2 hover:text-white",
                             a {
                                 class: "underline",
                                 href: "https://docs.mycelial.com/getting-started/tutorial",
@@ -36,7 +36,7 @@ pub fn Index() -> Element {
                             }
                         }
                         li {
-                            class: "mb-2",
+                            class: "mb-2 hover:text-white",
                             a {
                                 class: "underline",
                                 href: "https://www.youtube.com/watch?v=LQCsAdPgVas",
@@ -45,7 +45,7 @@ pub fn Index() -> Element {
                             }
                         }
                         li {
-                            class: "mb-2",
+                            class: "mb-2 hover:text-white",
                             a {
                                 class: "underline",
                                 href: "https://www.youtube.com/watch?v=qoRvyiqWdEQ&t",
@@ -57,7 +57,7 @@ pub fn Index() -> Element {
                 }
             }
             div {
-                class: "my-2 p-4 w-9/12 bg-moss-3 text-black shadow-lg rounded-sm mx-auto",
+                class: "my-2 p-4 w-9/12 bg-moss-3 text-black drop-shadow-md rounded-sm mx-auto",
                 id: "daemon-install-instructions",
                 p {
                     "To add your local daemon to this Mycelial network, simply install the
@@ -68,8 +68,55 @@ pub fn Index() -> Element {
                         target: "_blank",
                         "here"
                     }
-                    " and copied below."
+                    " and copied below:"
                 }
+                div {
+                    //TODO: make endpoint and token dynamic
+                    id: "daemon-install-code-mac",
+                    class: "py-2 my-4 bg-white text-night-2 shadow-none",
+                    h3 {
+                        class: "text-lg ml-2 py-2 uppercase",
+                        "Mac Installation Instructions"
+                    }
+                    p {
+                        class: "ml-2",
+                        "$ brew install mycelial/tap/mycelial"
+                    }
+                    p {
+                        class: "ml-2",
+                        "$ mycelial init --daemon --endpoint \"http://localhost:7777\" --token \"d135801c-fd73-477c-b0a8-055d0d117485\""
+                    }
+                    p {
+                        class: "ml-2",
+                        "$ mycelial start --daemon"
+                    }
+
+                }
+                div {
+                    //TODO: make endpoint and token dynamic
+                    id: "daemon-install-code-linux",
+                    class: "py-2 my-2 bg-white text-night-2 shadow-none",
+                    h3 {
+                        class: "text-lg ml-2 py-2 uppercase",
+                        "Linux Installation Instructions"
+                    }
+                    p {
+                        class: "mb-2 ml-2",
+                        "Mycelial maintains CLI builds for Debian and Fedora across several x86 and ARM chip architectures."
+                    }
+                    p {
+                        class: "ml-2",
+                        "Please visit the Mycelial CLI documentation page to find the installation instructions for your system "
+                        a {
+                            href: "https://docs.mycelial.com/getting-started/CLI",
+                            target: "_blank",
+                            class: "underline",
+                            "here"
+                        }
+                        "."
+                    }
+                }
+
             }
         }
         // <CommandLineTabs token={token} />
