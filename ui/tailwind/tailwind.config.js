@@ -18,6 +18,7 @@ module.exports = {
             'toadstool-1': '#fc1717',
             'toadstool-2': '#ff6363',
             'toadstool-3': '#ff9c9c',
+            'stem-1': "#fef1dd",
             'green-bright': '#92fc95',
             'grey-bright': '#f5f5f5',
           },
