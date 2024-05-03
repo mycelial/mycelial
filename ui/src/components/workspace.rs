@@ -210,8 +210,7 @@ pub fn Workspace(workspace: String) -> Element {
     // TODO: feels like flexbox approach is wrong here, but here we are
     rsx! {
         div {
-            class: "flex p-4 text-white m-h-4",
-            style: "background-color: #586dae",
+            class: "flex p-4 text-white m-h-4 bg-night-2",
             div {
                 class: "w-2/12",
             }
