@@ -18,6 +18,8 @@ use section::{
     SectionError,
 };
 
+use tracing_test::traced_test;
+
 #[derive(Debug)]
 struct NoopStorage {}
 
@@ -60,14 +62,16 @@ struct TestSection {
     delay: u64,
 }
 
-impl<Input, Output, SectionChan: SectionChannelTrait> Section<Input, Output, SectionChan>
-    for TestSection
+impl<Input: Send + 'static, Output: Send + 'static, SectionChan: SectionChannelTrait>
+    Section<Input, Output, SectionChan> for TestSection
 {
     type Error = SectionError;
     type Future = SectionFuture;
 
-    fn start(self, _: Input, _: Output, mut section_chan: SectionChan) -> Self::Future {
+    fn start(self, input: Input, output: Output, mut section_chan: SectionChan) -> Self::Future {
         Box::pin(async move {
+            let _input = input;
+            let _output = output;
             let _counter = Counter::new();
             tokio::select! {
                 _ = tokio::time::sleep(Duration::from_millis(self.delay)) => {},
@@ -91,6 +95,7 @@ fn test_section_ctor(
 // section sleeps for period of time defined through section config
 // counter on drop decreases global atomic
 // global atomic allows to understand when section is alive
+#[traced_test]
 #[tokio::test]
 async fn test_scheduler_restart() {
     let storage = NoopStorage {};

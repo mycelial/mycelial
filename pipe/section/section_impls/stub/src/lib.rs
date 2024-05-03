@@ -1,11 +1,16 @@
 use section::{
-    futures::{Sink, Stream},
+    command_channel::{Command, SectionChannel},
+    futures::{self, FutureExt, Sink, Stream, StreamExt},
     section::Section,
+    SectionError, SectionMessage,
 };
 use std::future::Future;
 use std::marker::PhantomData;
 use std::task::{Context, Poll};
-use std::{convert::Infallible, future::pending, pin::Pin};
+use std::{
+    convert::Infallible,
+    pin::{pin, Pin},
+};
 
 #[derive(Debug)]
 pub struct Stub<T, E = Infallible> {
@@ -25,22 +30,35 @@ impl<T, E> Stub<T, E> {
     }
 }
 
-impl<T, E, Input, Output, SectionChannel> Section<Input, Output, SectionChannel> for Stub<T, E>
+impl<T, Input, Output, SectionChan> Section<Input, Output, SectionChan> for Stub<T, SectionError>
 where
-    Input: Send + 'static,
+    Input: Stream<Item = SectionMessage> + Send + 'static,
     Output: Send + 'static,
-    SectionChannel: Send + 'static,
+    SectionChan: SectionChannel + Send + 'static,
 {
-    type Error = E;
+    type Error = SectionError;
     type Future = Pin<Box<dyn Future<Output = Result<(), Self::Error>> + Send + 'static>>;
 
-    fn start(self, input: Input, output: Output, section_channel: SectionChannel) -> Self::Future {
+    fn start(self, input: Input, output: Output, mut section_channel: SectionChan) -> Self::Future {
         Box::pin(async move {
-            let _input = input;
+            let mut input = pin!(input);
             let _output = output;
-            let _section_channel = section_channel;
-            pending::<()>().await;
-            Ok(())
+            loop {
+                futures::select! {
+                    cmd = section_channel.recv().fuse() => {
+                        if let Command::Stop = cmd? {
+                            return Ok(())
+                        }
+                    },
+                    msg = input.next().fuse() => {
+                        let mut msg = match msg {
+                            None => return Ok(()),
+                            Some(msg) => msg,
+                        };
+                        while msg.next().await?.is_some() {}
+                    }
+                }
+            }
         })
     }
 }

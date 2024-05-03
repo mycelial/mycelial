@@ -109,6 +109,12 @@ where
         output: Output,
         mut section_chan: RootChan::SectionChannel,
     ) -> Self::Future {
+        // FIXME:
+        // push stub as a last section to allow '/dev/null' style output
+        self.sections
+            .as_mut()
+            .unwrap()
+            .push(Box::new(Stub::<SectionMessage, SectionError>::new()));
         let len = self.sections.as_ref().unwrap().len();
         let input: DynStream = Box::pin(input);
         let output: DynSink = Box::pin(output);
@@ -116,11 +122,12 @@ where
         let (_, _, _, handles) = self.sections.take().unwrap().into_iter().enumerate().fold(
             (None, Some(input), Some(output), vec![]),
             |(prev, mut pipe_input, mut pipe_output, mut acc), (pos, section)| {
+                let last = pos == len - 1;
                 let input: DynStream = match prev {
                     None => pipe_input.take().unwrap(),
                     Some(rx) => rx,
                 };
-                let (next_input, output): (DynStream, DynSink) = if pos == len - 1 {
+                let (next_input, output): (DynStream, DynSink) = if last {
                     // last element
                     let next_input = Box::pin(Stub::<_, SectionError>::new());
                     let output = pipe_output.take().unwrap();
@@ -161,8 +168,16 @@ where
                             SectionRequest::Stopped { id } => {
                                 return match handles[id as usize].handle.take() {
                                     Some(handle) => {
-                                        let config = &self.config.get_sections()[id as usize];
-                                        let section_name = config.get("name").map(|v| v.as_str().unwrap_or("").to_string());
+                                        let section_name = match self.config.get_sections().get(id as usize) {
+                                            None => "stub",
+                                            Some(config) => {
+                                                config
+                                                    .get("name")
+                                                    .map(|v| v.as_str().unwrap_or(""))
+                                                    .unwrap_or("")
+                                            },
+                                        };
+                                        let section_name = Some(section_name.to_string());
                                         handle
                                             .await
                                             .map(|res| {
