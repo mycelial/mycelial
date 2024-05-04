@@ -6,11 +6,12 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-dioxus = { version = "0.5.0", features = ["web", "router"] }
-futures = "0.3.30"
-reqwest = { version = "0.12.4", features = ["json"] }
-serde = { version = "1.0.198", features = ["derive"] }
-serde_json = "1.0.116"
-tracing = "0.1.40"
-tracing-wasm = "0.2.1"
+dioxus = { version = "0.5", features = ["web", "router"] }
+#dioxus-sdk = { git = "https://github.com/DioxusLabs/sdk", rev = "57ab3fa", features=["use_window_size"]}
+futures = "0.3"
+reqwest = { version = "0.12", features = ["json"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tracing = "0.1"
+tracing-wasm = "0.2"
 web-sys = { version = "0.3.69", features = ["Window"] }

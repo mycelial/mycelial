@@ -1,11 +1,11 @@
-pub use dioxus::prelude::*;
 use crate::components::routing::Route;
+pub use dioxus::prelude::*;
 
 pub fn Index() -> Element {
     rsx! {
         div {
             class: "w-full",
-            id: "index-container",   
+            id: "index-container",
             div {
                 id: "welcome-message",
                 class: "my-4 p-4 w-9/12 bg-forest-1 text-stem-1 drop-shadow-md rounded-sm mx-auto grid grid-cols-2",
@@ -63,7 +63,7 @@ pub fn Index() -> Element {
                     class: "ml-2 row-span-2 px-2 bg-forest-2 px-2 rounded-md",
                     p {
                         class: "my-3 text-stem-2 text-md",
-                        "Ready to dive in?" 
+                        "Ready to dive in?"
                     }
                     p {
                         class: "mb-5",

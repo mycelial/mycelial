@@ -1,20 +1,19 @@
 use dioxus::prelude::*;
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 // Simple graph
 #[derive(Debug)]
 struct Graph {
-    nodes: HashMap<u64, Signal<NodeState>>,
-    // FIXME:
-    edges: (),
+    nodes: BTreeMap<u64, Signal<NodeState>>,
+    edges: BTreeMap<u64, u64>,
     counter: u64,
 }
 
 impl Graph {
     fn new() -> Self {
         Self {
-            nodes: HashMap::new(),
-            edges: (),
+            nodes: BTreeMap::new(),
+            edges: BTreeMap::new(),
             counter: 0,
         }
     }
@@ -26,12 +25,17 @@ impl Graph {
     }
 
     fn add_node(&mut self, id: u64, node: Signal<NodeState>) {
+        self.add_edge(0, id);
         self.nodes.insert(id, node);
     }
 
     fn remove_node(&mut self, id: u64) {
         self.nodes.remove(&id);
     }
+
+    fn add_edge(&mut self, _from_node: u64, _to_node: u64) {}
+
+    fn remove_edge(&mut self, _from_node: u64) {}
 }
 
 // Node of the graph
@@ -45,6 +49,9 @@ struct NodeState {
     node_type: &'static str,
     x: f64,
     y: f64,
+    w: f64,
+    h: f64,
+    port_diameter: f64,
 }
 
 impl NodeState {
@@ -54,7 +61,20 @@ impl NodeState {
             node_type,
             x,
             y,
+            w: 0.0,
+            h: 0.0,
+            port_diameter: 12.0,
         }
+    }
+
+    fn input_pos(&self) -> (f64, f64) {
+        let offset = self.port_diameter / 2.0;
+        (self.x - offset, self.y + self.h / 2.0 - offset)
+    }
+
+    fn output_pos(&self) -> (f64, f64) {
+        let offset = self.port_diameter / 2.0;
+        (self.x - offset + self.w, self.y + self.h / 2.0 - offset)
     }
 }
 
@@ -72,24 +92,41 @@ impl ViewPortState {
 
 // representation of section in sections menu, which can be dragged into viewport container
 #[component]
-fn MenuItem(mut currently_dragged: Signal<Option<&'static str>>, id: &'static str) -> Element {
+fn MenuItem(
+    mut currently_dragged: Signal<Option<CurrentlyDragged>>,
+    node_type: &'static str,
+) -> Element {
+    let mut rect_data = use_signal(|| (0.0, 0.0, 0.0, 0.0));
     rsx! {
         div {
             class: "min-w-32 min-h-24 border border-solid rounded grid grid-flow-rows p-2",
             draggable: true,
-            ondragstart: move |_event| {
-                *currently_dragged.write() = Some(id);
-                tracing::info!("dragged: {id}")
+            onmounted: move |event| {
+                spawn(async move {
+                    match event.get_client_rect().await {
+                        Ok(rect) => {
+                            let (x, y) = (rect.origin.x, rect.origin.y);
+                            let (w, h) = (rect.size.width, rect.size.height);
+                            *rect_data.write() = (x, y, w, h)
+                        },
+                        Err(e) => tracing::error!("failed to read rect data: {e}"),
+                    }
+                });
+            },
+            ondragstart: move |event| {
+                let (x, y, _, _) = *rect_data.read();
+                let coords = event.client_coordinates();
+                let (delta_x, delta_y) = (coords.x - x, coords.y - y);
+                *currently_dragged.write() = Some(CurrentlyDragged::new(node_type, delta_x, delta_y));
             },
             ondragend: move |_event| {
                 *currently_dragged.write() = None;
-                tracing::info!("drag end");
             },
             div {
                 class: "grid grid-flow-col",
                 p {
                     class: "uppercase inline",
-                    "name of section with ID {id}"
+                    "name of section with ID {node_type}"
                 }
                 span {
                     class: "justify-self-end",
@@ -106,10 +143,10 @@ fn MenuItem(mut currently_dragged: Signal<Option<&'static str>>, id: &'static st
                 }
             }
             div {
-                "Type: Type of connector goes here {id}"
+                "Type: Type of connector goes here {node_type}"
             }
             div {
-                "Daemon: Name of daemon goes here {id}"
+                "Daemon: Name of daemon goes here {node_type}"
             }
         }
     }
@@ -117,42 +154,93 @@ fn MenuItem(mut currently_dragged: Signal<Option<&'static str>>, id: &'static st
 
 // section in viewport
 #[component]
-fn Node(id: u64, node: Signal<NodeState>) -> Element {
-    let (node_type, x, y) = {
+fn Node(id: u64, graph: Signal<Graph>, node: Signal<NodeState>) -> Element {
+    // current node coordinates, coordinates on input and output ports
+    let (node_type, x, y, w, _h, port_diameter, input_pos, output_pos) = {
         let node = &*node.read();
-        (node.node_type, node.x, node.y)
+        (
+            node.node_type,
+            node.x,
+            node.y,
+            node.w,
+            node.h,
+            node.port_diameter,
+            node.input_pos(),
+            node.output_pos(),
+        )
     };
+    // state for tracking delta between cursor and top-left corner to adjust element position when dragging
     let mut delta = use_signal(|| (0.0, 0.0));
+    let mut grabbed = use_signal(|| false);
+
     rsx! {
         div {
-            class: "absolute min-w-32 min-h-24 border border-solid text-center content-center",
-            //style: format!("transform: translate({x}px, {y}px)"),
-            style: format!("left: {x}px; top: {y}px;"),
-            draggable: true,
-            ondragstart: move |event| {
-                // delta between position of cursors and grabbing spot to compensate drag
+            class: "absolute min-w-32 min-h-24 border border-solid text-center content-center select-none",
+            style: "left: {x}px; top: {y}px;",
+            // recalculate positions on input/output nodes
+            onmounted: move |event| {
+                spawn(async move {
+                    match event.get_client_rect().await {
+                        Ok(rect) => {
+                            let (x, y) = (rect.origin.x, rect.origin.y);
+                            let (w, h) = (rect.size.width, rect.size.height);
+                            let node = &mut* node.write();
+                            node.x = x;
+                            node.y = y;
+                            node.w = w;
+                            node.h = h;
+                        },
+                        Err(e) => tracing::error!("failed to read rect data: {e}"),
+                    }
+                });
+            },
+            onmousedown: move |event| {
                 let coords = event.client_coordinates();
                 let node = &*node.read();
                 *delta.write() = (coords.x - node.x, coords.y - node.y);
-                tracing::info!("delta: {delta:?}")
+                *grabbed.write() = true;
             },
-            ondrag: move |event| {
-                let node = &mut *node.write();
-                let coords = event.client_coordinates();
-                let (delta_x, delta_y) = *delta.read();
-                node.x = coords.x - delta_x;
-                node.y = coords.y - delta_y;
-               // tracing::info!("{}/{} -> {}/{}", old_x, old_y, node.x, node.y);
-            },
-            ondragend: move |event| {
-                tracing::info!("delta: {:?}", *delta.read());
+            onmousemove: move |event| {
+                if !*grabbed.read() {
+                    return
+                }
                 let node = &mut *node.write();
                 let coords = event.client_coordinates();
                 let (delta_x, delta_y) = *delta.read();
                 node.x = coords.x - delta_x;
                 node.y = coords.y - delta_y;
             },
-            "id: {id}, node_type: {node_type}"
+            onmouseout: move |_| {
+                if *grabbed.read() {
+                    *grabbed.write() = false;
+                }
+            },
+            onmouseup: move |_| {
+                *grabbed.write() = false;
+            },
+            // input node
+            div {
+                class: "fixed block rounded-full bg-sky-500",
+                style: "left: {input_pos.0}px; top: {input_pos.1}px; min-width: {port_diameter}px; min-height: {port_diameter}px;",
+            },
+            // output node
+            div {
+                class: "fixed block rounded-full bg-rose-500",
+                style: "left: {output_pos.0}px; top: {output_pos.1}px; min-width: {port_diameter}px; min-height: {port_diameter}px;",
+            }
+            // delete button
+            div {
+                onclick: move |_event| {
+                    // FIXME: popup
+                    graph.write().remove_node(id);
+                },
+                class: "fixed block bg-rose-500",
+                style: "left: {x+w-10.0}px; top: {y}px; min-width: {port_diameter}px; min-height: {port_diameter}px;",
+                "x"
+            }
+            div {
+                "id: {id}, node_type: {node_type}"
+            }
         }
     }
 }
@@ -161,16 +249,11 @@ fn Node(id: u64, node: Signal<NodeState>) -> Element {
 #[component]
 fn ViewPort(
     view_port_state: Signal<ViewPortState>,
-    dragged: Signal<Option<&'static str>>,
+    dragged: Signal<Option<CurrentlyDragged>>,
     graph: Signal<Graph>,
 ) -> Element {
     let nodes = &graph.read().nodes;
     let mut grabbed = use_signal(|| false);
-    let _icon = if *grabbed.read() {
-        "cursor: grabbing;"
-    } else {
-        "cursor: grab"
-    };
     rsx! {
         div {
             class: "min-h-screen bg-grey-bright overflow-hidden",
@@ -181,45 +264,93 @@ fn ViewPort(
          //     background-size: 20px 20px;
          //     {icon}
          // "#),
-         //style: icon,
+
 
             // prevent_default + own ondragover enable drop area on current container
             prevent_default: "ondragover",
             ondragover: move |_event| {},
 
             ondrop: move |event| {
-                if let Some(node_type) = *dragged.read() {
+                if let Some(CurrentlyDragged{ node_type, delta_x, delta_y }) = *dragged.read() {
                     let graph = &mut*graph.write();
                     let id = graph.get_id();
                     let coords = event.client_coordinates();
-                    let node_state = Signal::new(NodeState::new(id, node_type, coords.x, coords.y));
+                    let node_state = Signal::new(NodeState::new(
+                        id, node_type, coords.x - delta_x, coords.y - delta_y
+                    ));
                     graph.add_node(id, node_state);
                 }
                 *dragged.write() = None;
             },
 
             // panning funcs
-            onmousedown: move |_event| {
-                *grabbed.write() = true;
-            },
-            onmousemove: move |_event| {
-             // if *grabbed.read() {
-             // }
-            },
-            onmouseup: move |_event| {
-                *grabbed.write() = false;
-            },
+          //onmousedown: move |_event| {
+          //    *grabbed.write() = true;
+          //},
+
+          //onmousemove: move |_event| {
+          //    if *grabbed.read() {
+
+          //    }
+          //},
+          //onmouseup: move |_event| {
+          //    *grabbed.write() = false;
+          //},
 
             for (&id, &node) in nodes.iter() {
-                Node{ id: id, node: node }
+                Node{ id: id, graph: graph, node: node }
             }
         }
     }
 }
 
 #[component]
+fn Edges(graph: Signal<Graph>) -> Element {
+    let graph = &*graph.read();
+    let iter = graph.nodes.iter().map(|(&_id, &node)| {
+        let node = &*node.read();
+        let (x, y) = node.input_pos();
+        (x + node.port_diameter / 2.0, y + node.port_diameter / 2.0)
+    });
+    rsx! {
+        svg {
+            class: "absolute overflow-visible top-0 left-0 z-10 select-none",
+            width: "1px",
+            height: "1px",
+            g{
+                for (x, y) in iter {
+                    path {
+                        stroke_width: "1",
+                        stroke: "red",
+                        fill: "none",
+                        //d: "M300,300 C300,300 400,400 500,500",
+                        d: "M400,300 C{x},{y} {x},{y} {x},{y}"
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+struct CurrentlyDragged {
+    node_type: &'static str,
+    delta_x: f64,
+    delta_y: f64,
+}
+
+impl CurrentlyDragged {
+    fn new(node_type: &'static str, delta_x: f64, delta_y: f64) -> Self {
+        Self {
+            node_type,
+            delta_x,
+            delta_y,
+        }
+    }
+}
+
+#[component]
 pub fn Workspace(workspace: String) -> Element {
-    // this i
     let currently_dragged = use_signal(|| None);
 
     // placeholder for sections types in section menu
@@ -251,8 +382,8 @@ pub fn Workspace(workspace: String) -> Element {
                     class: "mt-3",
                     "Pipeline Sections"
                 }
-                for id in menu_items.iter() {
-                    MenuItem { currently_dragged: currently_dragged, id: id }
+                for node_type in menu_items.iter() {
+                    MenuItem { currently_dragged: currently_dragged, node_type: node_type }
                 }
             }
             // viewport
@@ -260,6 +391,8 @@ pub fn Workspace(workspace: String) -> Element {
                 class: "",
                 ViewPort { view_port_state: view_port_state, dragged: currently_dragged, graph: graph }
             }
+            // graph edges
+            Edges{ graph: graph }
         }
     }
 }

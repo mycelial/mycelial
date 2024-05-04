@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 use dioxus::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -7,14 +7,14 @@ use crate::components::routing::Route;
 
 #[derive(Debug)]
 struct State {
-    workspaces: HashMap<u64, Workspace>,
+    workspaces: BTreeMap<u64, Workspace>,
     counter: u64,
 }
 
 impl State {
     fn new() -> Self {
         Self {
-            workspaces: HashMap::new(),
+            workspaces: BTreeMap::new(),
             counter: 0,
         }
     }
