@@ -108,76 +108,74 @@ pub fn Workspaces() -> Element {
     });
     rsx! {
         div {
-            class: "flex pt-4 m-w-max",
+            class: "container mx-auto grid grid-cols-2",
             div {
-                class: "w-1/12",
-            }
-            div {
-                class: "flex w-10/12 justify-between",
-                h2 {
-                    class: "flex-none content-center",
-                    font_size: "1.5em",
-                    font_weight: "bold",
-                    "Workspaces"
-                }
-                NewWorkspace {}
-            }
-            div {
-                class: "w-1/12",
-            }
-        }
-        div {
-            class: "flex pt-4",
-            div {
-                class: "w-1/12",
-            }
-            table {
-                class: "w-10/12 table-fix border border-solid text-left",
-                thead {
-                    tr {
-                        class: "border-b border-solid p-4 font-bold",
-                        th {
-                            class: "pl-3",
-                             "Name" },
-                        th {
-                            class: "text-right",
-                            "Created At"
-                        }
-                        th { }
+                class: "mx-auto pt-4 m-w-max",
+                div {
+                    class: "",
+                    h2 {
+                        class: "",
+                        font_size: "1.5em",
+                        font_weight: "bold",
+                        "Workspaces"
                     }
-                    for (&id, workspace) in state.read().workspaces.iter() {
+                    NewWorkspace {}
+                }
+                div {
+                    class: "w-1/12",
+                }
+            }
+            div {
+                class: "pt-4",
+                div {
+                    class: "w-1/12",
+                }
+                table {
+                    class: "w-10/12 table-fix border border-solid text-left",
+                    thead {
                         tr {
-                            class: "border-b border-gray-100",
-                            td {
-                                Link{
-                                    class: "block py-3 pl-3",
-                                    to: Route::Workspace { workspace: workspace.name.clone() },
-                                    children: rsx! { "{workspace.name}" }
+                            class: "border-b border-solid p-4 font-bold",
+                            th {
+                                class: "pl-3",
+                                "Name" },
+                                th {
+                                    class: "text-right",
+                                    "Created At"
+                                }
+                                th { }
+                            }
+                            for (&id, workspace) in state.read().workspaces.iter() {
+                                tr {
+                                    class: "border-b border-gray-100",
+                                    td {
+                                        Link{
+                                            class: "block py-3 pl-3",
+                                            to: Route::Workspace { workspace: workspace.name.clone() },
+                                            children: rsx! { "{workspace.name}" }
+                                        }
+                                    }
+                                    td {
+                                        class: "text-right",
+                                        "{workspace.created_at}"
+                                    }
+                                    td {
+                                        class: "text-right",
+                                        button {
+                                            onclick: move |_| {
+                                                let mut state = use_context::<Signal<State>>();
+                                                state.write().remove_workspace(id);
+                                            },
+                                            class: "text-toadstool-1 border border-toadstool-1 px-4 py-1 my-1 mx-3 rounded bg-white",
+                                            "DELETE"
+                                        }
+                                    }
+                                    
                                 }
                             }
-                            td {
-                                class: "text-right",
-                                "{workspace.created_at}"
-                            }
-                            td {
-                                class: "text-right",
-                                button {
-                                    onclick: move |_| {
-                                        let mut state = use_context::<Signal<State>>();
-                                        state.write().remove_workspace(id);
-                                    },
-                                    class: "text-toadstool-1 border border-toadstool-1 px-4 py-1 my-1 mx-3 rounded bg-white",
-                                    "DELETE"
-                                }
-                            }
-
                         }
                     }
                 }
             }
-            div {
-                class: "w-1/12",
-            }
         }
-    }
-}
+        }
+        
