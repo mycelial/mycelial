@@ -218,29 +218,28 @@ fn Node(id: u64, graph: Signal<Graph>, node: Signal<NodeState>) -> Element {
             onmouseup: move |_| {
                 *grabbed.write() = false;
             },
-            // input node
-            div {
-                class: "fixed block rounded-full bg-sky-500",
-                style: "left: {input_pos.0}px; top: {input_pos.1}px; min-width: {port_diameter}px; min-height: {port_diameter}px;",
+            "id: {id}, node_type: {node_type}"
+        }
+
+        // delete button
+        div {
+            onclick: move |_event| {
+                // FIXME: popup
+                graph.write().remove_node(id);
             },
-            // output node
-            div {
-                class: "fixed block rounded-full bg-rose-500",
-                style: "left: {output_pos.0}px; top: {output_pos.1}px; min-width: {port_diameter}px; min-height: {port_diameter}px;",
-            }
-            // delete button
-            div {
-                onclick: move |_event| {
-                    // FIXME: popup
-                    graph.write().remove_node(id);
-                },
-                class: "fixed block bg-rose-500",
-                style: "left: {x+w-10.0}px; top: {y}px; min-width: {port_diameter}px; min-height: {port_diameter}px;",
-                "x"
-            }
-            div {
-                "id: {id}, node_type: {node_type}"
-            }
+            class: "absolute block bg-rose-500 text-center",
+            style: "left: {x+w-10.0}px; top: {y}px; min-width: {port_diameter}px; min-height: {port_diameter}px;",
+            "x"
+        }
+        // input node
+        div {
+            class: "absolute block rounded-full bg-sky-500",
+            style: "left: {input_pos.0}px; top: {input_pos.1}px; min-width: {port_diameter}px; min-height: {port_diameter}px;",
+        },
+        // output node
+        div {
+            class: "absolute block rounded-full bg-rose-500",
+            style: "left: {output_pos.0}px; top: {output_pos.1}px; min-width: {port_diameter}px; min-height: {port_diameter}px;",
         }
     }
 }
