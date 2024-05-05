@@ -236,7 +236,7 @@ pub fn Workspace(workspace: String) -> Element {
         div {
             // TODO: implement if/then logic such that 3rd column appears (with node details) when node selected
             class: "grid",
-            style: "grid-template-columns: 35% 65%;", // exception to Tailwind only bc TW doesn't have classes to customize column widths
+            style: "grid-template-columns: auto 1fr;", // exception to Tailwind only bc TW doesn't have classes to customize column widths
             div {
                 class: "col-span-2 pl-2 py-4 text-stem-1 bg-night-2",
                 h1 {
