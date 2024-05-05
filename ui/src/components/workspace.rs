@@ -75,7 +75,7 @@ impl ViewPortState {
 fn MenuItem(mut currently_dragged: Signal<Option<&'static str>>, id: &'static str) -> Element {
     rsx! {
         div {
-            class: "block min-w-32 min-h-24 border border-solid text-center content-center",
+            class: "min-w-32 min-h-24 border border-solid rounded grid grid-flow-rows p-2",
             draggable: true,
             ondragstart: move |_event| {
                 *currently_dragged.write() = Some(id);
@@ -85,7 +85,28 @@ fn MenuItem(mut currently_dragged: Signal<Option<&'static str>>, id: &'static st
                 *currently_dragged.write() = None;
                 tracing::info!("drag end");
             },
-            "{id}"
+            div {
+                p {
+                    class: "uppercase inline",
+                    "name of section with ID {id}"
+                    // TODO: change background to grey if not source
+                    span {
+                        class: "bg-moss-1 text-night-1 rounded-full p-1 ml-1",
+                        "Source"
+                    }
+                    // TODO: change background to grey if not dest
+                    span {
+                        class: "bg-forest-2 text-stem-2 rounded-full p-1 ml-1",
+                        "Dest"
+                    }
+                }
+            }
+            div {
+                "Type: Type of connector goes here {id}"
+            }
+            div {
+                "Daemon: Name of daemon goes here {id}"
+            }
         }
     }
 }
@@ -211,7 +232,7 @@ pub fn Workspace(workspace: String) -> Element {
         div {
             // TODO: implement if/then logic such that 3rd column appears (with node details) when node selected
             class: "grid",
-            style: "grid-template-columns: 30% 70%;", // exception to Tailwind only bc TW doesn't have classes to customize column widths
+            style: "grid-template-columns: 35% 65%;", // exception to Tailwind only bc TW doesn't have classes to customize column widths
             div {
                 class: "col-span-2 pl-2 py-4 text-stem-1 bg-night-2",
                 h1 {

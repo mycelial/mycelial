@@ -98,19 +98,22 @@ pub fn Index() -> Element {
                         class: "text-lg ml-2 py-2 uppercase",
                         "Mac Installation Instructions"
                     }
-                    p {
-                        class: "ml-2",
-                        "$ brew install mycelial/tap/mycelial"
+                    div {
+                        class: "bg-grey-bright mx-2 py-2 rounded",
+                        p {
+                            class: "ml-2 font-mono",
+                            "$ brew install mycelial/tap/mycelial"
+                        }
+                        p {
+                            class: "ml-2 font-mono",
+                            "$ mycelial init --daemon --endpoint \"http://localhost:7777\" --token \"d135801c-fd73-477c-b0a8-055d0d117485\""
+                        }
+                        p {
+                            class: "ml-2 font-mono",
+                            "$ mycelial start --daemon"
+                        }
                     }
-                    p {
-                        class: "ml-2",
-                        "$ mycelial init --daemon --endpoint \"http://localhost:7777\" --token \"d135801c-fd73-477c-b0a8-055d0d117485\""
-                    }
-                    p {
-                        class: "ml-2",
-                        "$ mycelial start --daemon"
-                    }
-
+                        
                 }
                 div {
                     //TODO: make endpoint and token dynamic
@@ -120,20 +123,23 @@ pub fn Index() -> Element {
                         class: "text-lg ml-2 py-2 uppercase",
                         "Linux Installation Instructions"
                     }
-                    p {
-                        class: "mb-2 ml-2",
-                        "Mycelial maintains CLI builds for Debian and Fedora across several x86 and ARM chip architectures."
-                    }
-                    p {
-                        class: "ml-2",
-                        "Please visit the Mycelial CLI documentation page to find the installation instructions for your system "
-                        a {
-                            href: "https://docs.mycelial.com/getting-started/CLI",
-                            target: "_blank",
-                            class: "underline",
-                            "here"
+                    div {
+                        class: "bg-grey-bright mx-2 py-2 rounded",
+                        p {
+                            class: "mb-2 ml-2",
+                            "Mycelial maintains CLI builds for Debian and Fedora across several x86 and ARM chip architectures."
                         }
-                        "."
+                        p {
+                            class: "ml-2",
+                            "Please visit the Mycelial CLI documentation page to find the installation instructions for your system "
+                            a {
+                                href: "https://docs.mycelial.com/getting-started/CLI",
+                                target: "_blank",
+                                class: "underline",
+                                "here"
+                            }
+                            "."
+                        }
                     }
                 }
 

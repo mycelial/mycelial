@@ -6,6 +6,10 @@ module.exports = {
     ],
     theme: {
         extend: {
+          fontFamily: {
+            'fono': ['AeonikFono'],
+            'mono': ['AeonikMono']
+          },
           colors: {
             'night-1': '#192831',
             'night-2': '#456376',
@@ -19,6 +23,8 @@ module.exports = {
             'toadstool-2': '#ff6363',
             'toadstool-3': '#ff9c9c',
             'stem-1': "#fef1dd",
+            'stem-2': "#ffebcc",
+            'stem-3': "#ffe1b4",
             'green-bright': '#92fc95',
             'grey-bright': '#f5f5f5',
           },
