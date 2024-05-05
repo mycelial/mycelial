@@ -86,9 +86,13 @@ fn MenuItem(mut currently_dragged: Signal<Option<&'static str>>, id: &'static st
                 tracing::info!("drag end");
             },
             div {
+                class: "grid grid-flow-col",
                 p {
                     class: "uppercase inline",
                     "name of section with ID {id}"
+                }
+                span {
+                    class: "justify-self-end",
                     // TODO: change background to grey if not source
                     span {
                         class: "bg-moss-1 text-night-1 rounded-full p-1 ml-1",
