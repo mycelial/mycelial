@@ -75,7 +75,7 @@ impl ViewPortState {
 fn MenuItem(mut currently_dragged: Signal<Option<&'static str>>, id: &'static str) -> Element {
     rsx! {
         div {
-            class: "block min-w-32 min-h-24 border border-solid text-center content-center m-4",
+            class: "block min-w-32 min-h-24 border border-solid text-center content-center",
             draggable: true,
             ondragstart: move |_event| {
                 *currently_dragged.write() = Some(id);
@@ -100,7 +100,7 @@ fn Node(id: u64, node: Signal<NodeState>) -> Element {
     let mut delta = use_signal(|| (0.0, 0.0));
     rsx! {
         div {
-            class: "absolute block min-w-32 min-h-24 border border-solid text-center content-center m-4",
+            class: "absolute min-w-32 min-h-24 border border-solid text-center content-center",
             //style: format!("transform: translate({x}px, {y}px)"),
             style: format!("left: {x}px; top: {y}px;"),
             draggable: true,
@@ -148,7 +148,7 @@ fn ViewPort(
     };
     rsx! {
         div {
-            class: "min-h-screen bg-gray-400 overflow-hidden",
+            class: "min-h-screen bg-grey-bright overflow-hidden",
             // FIXME: move to class or smth
          // style: format!(r#"
          //     opacity: 0.3;
@@ -198,7 +198,7 @@ pub fn Workspace(workspace: String) -> Element {
     let currently_dragged = use_signal(|| None);
 
     // placeholder for sections types in section menu
-    let menu_items = ["one", "two", "three", "four", "five", "six"];
+    let menu_items = ["one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"];
 
     // graph, represents set of placed nodes/edges in view port
     let graph = use_signal(Graph::new);
@@ -207,33 +207,32 @@ pub fn Workspace(workspace: String) -> Element {
     // TODO:
     let view_port_state = use_signal(ViewPortState::new);
 
-    // TODO: feels like flexbox approach is wrong here, but here we are
     rsx! {
         div {
-            class: "flex p-4 text-white m-h-4 bg-night-2",
+            // TODO: implement if/then logic such that 3rd column appears (with node details) when node selected
+            class: "grid",
+            style: "grid-template-columns: 30% 70%;", // exception to Tailwind only bc TW doesn't have classes to customize column widths
             div {
-                class: "w-2/12",
-            }
-            div {
-                class: "w-8/12",
+                class: "col-span-2 pl-2 py-4 text-stem-1 bg-night-2",
                 h1 {
-                    font_size: "16px",
+                    class: "text-lg",
                     "Workspace: {workspace}"
                 }
             }
-        }
-        div {
-            class: "flex",
             // section menu
             div {
-                class: "flex-col w-2/12 border border-solid overflow-y-scroll items-center bg-white",
+                class: "border border-solid overflow-y-scroll bg-white grid grid-flow-rows gap-y-3 md:px-2",
+                h2 {
+                    class: "mt-3",
+                    "Pipeline Sections"
+                }
                 for id in menu_items.iter() {
                     MenuItem { currently_dragged: currently_dragged, id: id }
                 }
             }
             // viewport
             div {
-                class: "flex-auto",
+                class: "",
                 ViewPort { view_port_state: view_port_state, dragged: currently_dragged, graph: graph }
             }
         }
