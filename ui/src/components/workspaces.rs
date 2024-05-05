@@ -110,39 +110,33 @@ pub fn Workspaces() -> Element {
         div {
             class: "container mx-auto grid grid-cols-2",
             div {
-                class: "mx-auto pt-4 m-w-max",
-                div {
-                    class: "",
-                    h2 {
+                class: "pt-5 pl-3 font-bold",
+                h2 {
                         class: "",
                         font_size: "1.5em",
-                        font_weight: "bold",
                         "Workspaces"
-                    }
-                    NewWorkspace {}
-                }
-                div {
-                    class: "w-1/12",
                 }
             }
             div {
-                class: "pt-4",
-                div {
-                    class: "w-1/12",
-                }
+                class: "pt-5 justify-self-end pr-3",
+                NewWorkspace {}
+            }
+            div {
+                id: "table-container",
+                class: "col-span-2 pt-4 w-full",
                 table {
-                    class: "w-10/12 table-fix border border-solid text-left",
+                    class: "table-fix border border-solid text-left w-full mx-auto",
                     thead {
                         tr {
                             class: "border-b border-solid p-4 font-bold",
                             th {
                                 class: "pl-3",
                                 "Name" },
-                                th {
-                                    class: "text-right",
-                                    "Created At"
-                                }
-                                th { }
+                            th {
+                                class: "text-right",
+                                "Created At"
+                            }
+                            th { }
                             }
                             for (&id, workspace) in state.read().workspaces.iter() {
                                 tr {
@@ -177,5 +171,4 @@ pub fn Workspaces() -> Element {
                 }
             }
         }
-        }
-        
+    } 
