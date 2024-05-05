@@ -8,7 +8,7 @@ pub fn NavBar() -> Element {
         header {
             div {
                 //alternative for height here is min-h-16, which is 64 pixels in height, but that's 2 pixels less than in current console
-                class: "flex min-h-[66px] text-white bg-night-1",
+                class: "flex min-h-[66px] text-stem-1 bg-night-1",
                 div {
                     class: "flex-none m-h-max ml-8 content-center pr-6",
                     Link{ to: Route::Index{}, Logo{} },
