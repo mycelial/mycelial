@@ -62,7 +62,7 @@ fn NewWorkspace() -> Element {
                 onclick: move |_| {
                     *render_form_state.write() = true;
                 },
-                class: "flex-initial text-white px-4 py-2 rounded bg-night-1",
+                class: "text-stem-1 px-4 py-2 rounded bg-forest-2",
                 "ADD NEW WORKSPACE"
             }
         } else {
@@ -79,18 +79,20 @@ fn NewWorkspace() -> Element {
                             tracing::error!("failed to get value of `workspace_name` from form");
                         }
                     },
-                    h2 {
-                        class: "m-w-max text-left",
-                        "New Workspace",
-                    },
-                    input {
-                        class: "m-w-max",
-                        name: "workspace_name",
-                        placeholder: "Name *",
-                    }
-                    button {
-                        class: "text-white px-4 py-2 rounded bg-night-1",
-                        "CREATE NEW WORKSPACE"
+                    div {
+                        input {
+                            class: "border border-night-1 rounded mx-4 py-2 px-2",
+                            name: "workspace_name",
+                            placeholder: "New Workspace Name",
+                        }
+                        button {
+                            class: "text-stem-1 px-4 py-2 rounded bg-forest-1",
+                            "CREATE"
+                        }
+                        button {
+                            class: "text-toadstool-1 px-4 py-2 ml-2 rounded border border-toadstool-1",
+                            "CANCEL"
+                        }
                     }
                 }
             }
