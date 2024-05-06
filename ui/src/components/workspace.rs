@@ -175,7 +175,7 @@ fn Node(id: u64, graph: Signal<Graph>, node: Signal<NodeState>) -> Element {
 
     rsx! {
         div {
-            class: "absolute min-w-32 min-h-24 border border-solid text-center content-center select-none bg-white z-10",
+            class: "grid grid-flow-rows gap-2 absolute min-w-32 min-h-24 border border-solid  select-none bg-white rounded-sm px-2 z-10",
             style: "left: {x}px; top: {y}px;",
             // recalculate positions on input/output nodes
             onmounted: move |event| {
@@ -218,7 +218,18 @@ fn Node(id: u64, graph: Signal<Graph>, node: Signal<NodeState>) -> Element {
             onmouseup: move |_| {
                 *grabbed.write() = false;
             },
-            "id: {id}, node_type: {node_type}"
+            div {
+                class: "pt-5 uppercase",
+                "Name of Section with id {id}"
+            }
+            div {
+                class: "text-night-2",
+                "Daemon: Name of Daemon"   
+            }
+            div {
+                class: "pb-3",
+                "node_type: {node_type}"
+            }
         }
 
         // delete button
@@ -227,13 +238,13 @@ fn Node(id: u64, graph: Signal<Graph>, node: Signal<NodeState>) -> Element {
                 // FIXME: popup
                 graph.write().remove_node(id);
             },
-            class: "absolute block bg-rose-500 text-center select-none z-10",
-            style: "left: {x+w-10.0}px; top: {y}px; min-width: {port_diameter}px; min-height: {port_diameter}px;",
+            class: "absolute block text-center text-lg text-toadstool-2 cursor-pointer z-10 select-none",
+            style: "left: {x+w-15.0}px; top: {y-5.0}px; min-width: {port_diameter}px; min-height: {port_diameter}px;",
             "x"
         }
         // input node
         div {
-            class: "absolute block rounded-full bg-sky-500 z-10",
+            class: "absolute block rounded-full bg-moss-1 z-10",
             style: "left: {input_pos.0}px; top: {input_pos.1}px; min-width: {port_diameter}px; min-height: {port_diameter}px;",
             onmouseover: move |_event|  {
 
@@ -241,7 +252,7 @@ fn Node(id: u64, graph: Signal<Graph>, node: Signal<NodeState>) -> Element {
         },
         // output node
         div {
-            class: "absolute block rounded-full bg-rose-500 z-10",
+            class: "absolute block rounded-full bg-forest-2 z-10",
             style: "left: {output_pos.0}px; top: {output_pos.1}px; min-width: {port_diameter}px; min-height: {port_diameter}px;",
             onmousedown: move |_event| {
 
