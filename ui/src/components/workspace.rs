@@ -378,7 +378,7 @@ pub fn Workspace(workspace: String) -> Element {
             div {
                 class: "border border-solid overflow-y-scroll bg-white grid grid-flow-rows gap-y-3 md:px-2",
                 h2 {
-                    class: "mt-3",
+                    class: "justify-self-center mt-3",
                     "Pipeline Sections"
                 }
                 for node_type in menu_items.iter() {
