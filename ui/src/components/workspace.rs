@@ -175,7 +175,11 @@ fn Node(id: u64, graph: Signal<Graph>, node: Signal<NodeState>) -> Element {
 
     rsx! {
         div {
+<<<<<<< HEAD
             class: "grid grid-flow-rows gap-2 absolute min-w-32 min-h-24 border border-solid  select-none bg-white rounded-sm px-2 z-10",
+=======
+            class: "grid grid-flow-rows gap-2 absolute min-w-32 min-h-24 border border-solid  select-none bg-white rounded-sm px-2",
+>>>>>>> 3dc247c (very basic node styling)
             style: "left: {x}px; top: {y}px;",
             // recalculate positions on input/output nodes
             onmounted: move |event| {
@@ -238,13 +242,21 @@ fn Node(id: u64, graph: Signal<Graph>, node: Signal<NodeState>) -> Element {
                 // FIXME: popup
                 graph.write().remove_node(id);
             },
+<<<<<<< HEAD
             class: "absolute block text-center text-lg text-toadstool-2 cursor-pointer z-10 select-none",
+=======
+            class: "absolute block text-center text-lg text-toadstool-2 cursor-pointer",
+>>>>>>> 3dc247c (very basic node styling)
             style: "left: {x+w-15.0}px; top: {y-5.0}px; min-width: {port_diameter}px; min-height: {port_diameter}px;",
             "x"
         }
         // input node
         div {
+<<<<<<< HEAD
             class: "absolute block rounded-full bg-moss-1 z-10",
+=======
+            class: "absolute block rounded-full bg-moss-1",
+>>>>>>> 3dc247c (very basic node styling)
             style: "left: {input_pos.0}px; top: {input_pos.1}px; min-width: {port_diameter}px; min-height: {port_diameter}px;",
             onmouseover: move |_event|  {
 
@@ -252,7 +264,11 @@ fn Node(id: u64, graph: Signal<Graph>, node: Signal<NodeState>) -> Element {
         },
         // output node
         div {
+<<<<<<< HEAD
             class: "absolute block rounded-full bg-forest-2 z-10",
+=======
+            class: "absolute block rounded-full bg-forest-2",
+>>>>>>> 3dc247c (very basic node styling)
             style: "left: {output_pos.0}px; top: {output_pos.1}px; min-width: {port_diameter}px; min-height: {port_diameter}px;",
             onmousedown: move |_event| {
 
