@@ -117,7 +117,7 @@ fn MenuItem(
                 let (x, y, _, _) = *rect_data.read();
                 let coords = event.client_coordinates();
                 let (delta_x, delta_y) = (coords.x - x, coords.y - y);
-                *currently_dragged.write() = Some(CurrentlyDragged::new(node_type, delta_x, delta_y));
+                *currently_dragged.write() = Some(CurrentlyDragged::node(node_type, delta_x, delta_y));
             },
             ondragend: move |_event| {
                 *currently_dragged.write() = None;
@@ -175,7 +175,7 @@ fn Node(id: u64, graph: Signal<Graph>, node: Signal<NodeState>) -> Element {
 
     rsx! {
         div {
-            class: "absolute min-w-32 min-h-24 border border-solid text-center content-center select-none",
+            class: "absolute min-w-32 min-h-24 border border-solid text-center content-center select-none bg-white z-10",
             style: "left: {x}px; top: {y}px;",
             // recalculate positions on input/output nodes
             onmounted: move |event| {
@@ -227,19 +227,28 @@ fn Node(id: u64, graph: Signal<Graph>, node: Signal<NodeState>) -> Element {
                 // FIXME: popup
                 graph.write().remove_node(id);
             },
-            class: "absolute block bg-rose-500 text-center",
+            class: "absolute block bg-rose-500 text-center select-none z-10",
             style: "left: {x+w-10.0}px; top: {y}px; min-width: {port_diameter}px; min-height: {port_diameter}px;",
             "x"
         }
         // input node
         div {
-            class: "absolute block rounded-full bg-sky-500",
+            class: "absolute block rounded-full bg-sky-500 z-10",
             style: "left: {input_pos.0}px; top: {input_pos.1}px; min-width: {port_diameter}px; min-height: {port_diameter}px;",
+            onmouseover: move |_event|  {
+
+            }
         },
         // output node
         div {
-            class: "absolute block rounded-full bg-rose-500",
+            class: "absolute block rounded-full bg-rose-500 z-10",
             style: "left: {output_pos.0}px; top: {output_pos.1}px; min-width: {port_diameter}px; min-height: {port_diameter}px;",
+            onmousedown: move |_event| {
+
+            },
+            onmouseout: move |_event| {
+
+            },
         }
     }
 }
@@ -248,7 +257,7 @@ fn Node(id: u64, graph: Signal<Graph>, node: Signal<NodeState>) -> Element {
 #[component]
 fn ViewPort(
     view_port_state: Signal<ViewPortState>,
-    dragged: Signal<Option<CurrentlyDragged>>,
+    currently_dragged: Signal<Option<CurrentlyDragged>>,
     graph: Signal<Graph>,
 ) -> Element {
     let nodes = &graph.read().nodes;
@@ -270,7 +279,8 @@ fn ViewPort(
             ondragover: move |_event| {},
 
             ondrop: move |event| {
-                if let Some(CurrentlyDragged{ node_type, delta_x, delta_y }) = *dragged.read() {
+                let dragged = *currently_dragged.read();
+                if let Some(CurrentlyDragged::Node{ node_type, delta_x, delta_y }) = dragged {
                     let graph = &mut*graph.write();
                     let id = graph.get_id();
                     let coords = event.client_coordinates();
@@ -278,8 +288,8 @@ fn ViewPort(
                         id, node_type, coords.x - delta_x, coords.y - delta_y
                     ));
                     graph.add_node(id, node_state);
+                    *currently_dragged.write() = None;
                 }
-                *dragged.write() = None;
             },
 
             // panning funcs
@@ -313,7 +323,7 @@ fn Edges(graph: Signal<Graph>) -> Element {
     });
     rsx! {
         svg {
-            class: "absolute overflow-visible top-0 left-0 z-10 select-none",
+            class: "absolute overflow-visible top-0 left-0",
             width: "1px",
             height: "1px",
             g{
@@ -322,8 +332,9 @@ fn Edges(graph: Signal<Graph>) -> Element {
                         stroke_width: "1",
                         stroke: "red",
                         fill: "none",
-                        //d: "M300,300 C300,300 400,400 500,500",
-                        d: "M400,300 C{x},{y} {x},{y} {x},{y}"
+                        marker_end: "url(#1__color=#3a554c&height=12&type=arrowclosed&width=12)", 
+                        d: "M400,300 C{(400.0+x)/2.0},300 {(400.0+x)/2.0},{y} {x},{y}",
+                        //d: "M485,88 C519,88 519,214 553,214
                     }
                 }
             }
@@ -332,18 +343,29 @@ fn Edges(graph: Signal<Graph>) -> Element {
 }
 
 #[derive(Debug, Clone, Copy)]
-struct CurrentlyDragged {
-    node_type: &'static str,
-    delta_x: f64,
-    delta_y: f64,
+enum CurrentlyDragged {
+    Node {
+        node_type: &'static str,
+        delta_x: f64,
+        delta_y: f64,
+    },
+    Edge {
+        from_node: u64
+    }
 }
 
 impl CurrentlyDragged {
-    fn new(node_type: &'static str, delta_x: f64, delta_y: f64) -> Self {
-        Self {
+    fn node(node_type: &'static str, delta_x: f64, delta_y: f64) -> Self {
+        Self::Node {
             node_type,
             delta_x,
             delta_y,
+        }
+    }
+    
+    fn edge(from_node: u64) -> Self {
+        Self::Edge {
+            from_node
         }
     }
 }
@@ -388,7 +410,7 @@ pub fn Workspace(workspace: String) -> Element {
             // viewport
             div {
                 class: "",
-                ViewPort { view_port_state: view_port_state, dragged: currently_dragged, graph: graph }
+                ViewPort { view_port_state: view_port_state, currently_dragged: currently_dragged, graph: graph }
             }
             // graph edges
             Edges{ graph: graph }
