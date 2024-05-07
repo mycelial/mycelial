@@ -113,7 +113,7 @@ pub fn Index() -> Element {
                             "$ mycelial start --daemon"
                         }
                     }
-                        
+
                 }
                 div {
                     //TODO: make endpoint and token dynamic

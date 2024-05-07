@@ -1,0 +1,12 @@
+[profile.dev]
+debug = true
+strip = false
+incremental = false
+
+[profile.release]
+debug = true
+opt-level = "s"
+lto = true
+codegen-units = 1
+strip = true
+incremental = false
