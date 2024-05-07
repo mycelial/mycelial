@@ -1,13 +1,12 @@
-//! Run use provided command over incoming dataframe
+//! Run use provided command over incoming binary stream
 //! Current implementation of `Exec` section assumes execution per row
 
 use clap::Parser;
-use exec::Exec;
+use exec::ExecBin as Exec;
 use section::{
     dummy::DummySectionChannel,
     futures::{self, FutureExt, SinkExt},
-    message::{Ack, Chunk, Column, DataFrame, DataType, Message, ValueView},
-    pretty_print::pretty_print,
+    message::{Ack, Chunk, Message},
     section::Section,
     SectionMessage,
 };
@@ -25,28 +24,16 @@ struct Cli {
 #[derive(Debug)]
 struct Msg {
     origin: String,
-    df: Option<Box<dyn DataFrame>>,
+    payload: Vec<u8>,
 }
 
 impl Msg {
     fn new(tick: Instant) -> Box<Self> {
+        let origin = format!("{}", tick.elapsed().as_millis());
         Box::new(Self {
-            origin: format!("{}", tick.elapsed().as_millis()),
-            df: Some(Box::new(Df {})),
+            payload: "hello world".as_bytes().iter().copied().rev().collect(),
+            origin,
         })
-    }
-}
-
-#[derive(Debug)]
-struct Df;
-
-impl DataFrame for Df {
-    fn columns(&self) -> Vec<section::message::Column<'_>> {
-        vec![Column::new(
-            "key",
-            DataType::Str,
-            Box::new(std::iter::once(ValueView::Str("value"))),
-        )]
     }
 }
 
@@ -57,8 +44,8 @@ impl Message for Msg {
     }
 
     fn next(&mut self) -> section::message::Next<'_> {
-        let df = self.df.take().map(Chunk::DataFrame);
-        Box::pin(async move { Ok(df) })
+        let last = self.payload.pop().map(|byte| Chunk::Byte(vec![byte]));
+        Box::pin(async move { Ok(last) })
     }
 
     fn origin(&self) -> &str {
@@ -68,6 +55,7 @@ impl Message for Msg {
 
 #[tokio::main]
 async fn main() {
+    tracing_subscriber::fmt::init();
     let cli = Cli::parse();
     let command = cli
         .command
@@ -80,7 +68,7 @@ async fn main() {
         [command, args] => (command, Some(args)),
         _ => unreachable!(),
     };
-    let source = Exec::new(command, args, true, false, &[]).unwrap();
+    let source = Exec::new(command, args, false, &[]).unwrap();
 
     let (tx_in, rx_in) = channel::<SectionMessage>(1);
     let rx_in = ReceiverStream::new(rx_in);
@@ -103,12 +91,15 @@ async fn main() {
             msg = rx_out.recv().fuse() => {
                 let mut msg = msg.unwrap();
                 println!("got message: {:?}", msg);
+                println!("output >>>");
                 while let Some(chunk) = msg.next().await.unwrap() {
                     match chunk {
-                        Chunk::DataFrame(df) => println!("{}", pretty_print(&*df)),
-                        Chunk::Byte(_bin) => println!("bin"),
+                        Chunk::DataFrame(_) => unreachable!(),
+                        Chunk::Byte(bin) => print!("{}", String::from_utf8_lossy(&bin)),
                     }
                 }
+                println!();
+                println!("<<<");
                 msg.ack().await;
             }
         }

@@ -15,6 +15,11 @@ pub fn exec_ctor<S: SectionChannel>(config: &Map) -> Result<Box<dyn DynSection<S
         Some(Value::String(s)) => Some(s.as_str()),
         Some(_) => Err("'args' must be a string")?,
     };
+    let binary = match config.get("binary").unwrap_or(&Value::Bool(false)) {
+        Value::String(maybe_bool) => maybe_bool.to_lowercase() == "true",
+        Value::Bool(b) => *b,
+        _ => Err("'binary' must be a bool")?,
+    };
     let row_as_args = match config
         .get("row_as_args")
         .ok_or("exec requires 'row_as_args' field")?
@@ -46,11 +51,20 @@ pub fn exec_ctor<S: SectionChannel>(config: &Map) -> Result<Box<dyn DynSection<S
         Some(_) => Err("'env' must be a string")?,
         None => vec![],
     };
-    Ok(Box::new(exec::Exec::new(
-        command,
-        args,
-        row_as_args,
-        ack_passthrough,
-        env.as_slice(),
-    )?))
+    let dyn_section: Box<dyn DynSection<S>> = match binary {
+        true => Box::new(exec::ExecBin::new(
+            command,
+            args,
+            ack_passthrough,
+            env.as_slice(),
+        )?),
+        false => Box::new(exec::ExecDf::new(
+            command,
+            args,
+            row_as_args,
+            ack_passthrough,
+            env.as_slice(),
+        )?),
+    };
+    Ok(dyn_section)
 }
