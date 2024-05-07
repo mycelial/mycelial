@@ -58,16 +58,19 @@ fn NewWorkspace() -> Element {
     let render_form = *render_form_state.read();
     rsx! {
         if !render_form {
-            button {
-                onclick: move |_| {
-                    *render_form_state.write() = true;
-                },
-                class: "text-stem-1 px-4 py-2 rounded bg-forest-2",
-                "ADD NEW WORKSPACE"
+            div {
+                class: "grid",
+                button {
+                    onclick: move |_| {
+                        *render_form_state.write() = true;
+                    },
+                    class: "text-stem-1 px-4 py-2 rounded bg-forest-2 border border-forest-2",
+                    "ADD NEW WORKSPACE"
+                }
             }
         } else {
             div {
-                class: "relative",
+                class: "relative grid grid-flow-col",
                 form {
                     onsubmit: move |event| {
                         tracing::info!("button event: {event:?}");
@@ -86,14 +89,15 @@ fn NewWorkspace() -> Element {
                             placeholder: "New Workspace Name",
                         }
                         button {
-                            class: "text-stem-1 px-4 py-2 rounded bg-forest-1",
+                            class: "text-stem-1 px-4 py-2 rounded bg-forest-1 border border-forest-1",
                             "CREATE"
                         }
-                        button {
-                            class: "text-toadstool-1 px-4 py-2 ml-2 rounded border border-toadstool-1",
-                            "CANCEL"
-                        }
                     }
+                }
+                button {
+                    class: "text-toadstool-1 px-4 py-2 ml-2 rounded border border-toadstool-1",
+                    onclick: move |_| { *render_form_state.write() = false; },
+                    "CANCEL"
                 }
             }
         }
