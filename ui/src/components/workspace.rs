@@ -228,10 +228,9 @@ fn Node(id: u64, graph: Signal<Graph>, node: Signal<NodeState>) -> Element {
             }
             div {
                 class: "pb-3",
-                "node_type: {node_type}"
+                "Section Type: {node_type}"
             }
         }
-
         // delete button
         div {
             onclick: move |_event| {
