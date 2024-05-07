@@ -194,6 +194,8 @@ pub struct ExecConfig {
     pub args: Option<String>,
     pub row_as_args: bool,
     pub ack_passthrough: bool,
+    #[serde(default)]
+    pub binary: bool,
     pub env: String,
 }
 

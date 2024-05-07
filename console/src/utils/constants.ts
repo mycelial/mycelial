@@ -80,6 +80,7 @@ export const fieldNames: { [key: string]: string } = {
   delay: "number",
   text: "text",
   column: "text",
+  binary: "boolean",
 };
 
 export const mycelialServer = {
