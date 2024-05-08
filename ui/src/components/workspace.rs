@@ -240,7 +240,10 @@ fn Node(
             },
             prevent_default: "onmouseup",
             onmouseup: move |_event|  {
+                // if we already dragging node, but somehow managed to issue onmouseup event outside
+                // handle it here correctly to avoid 'sticky' nodes
                 if dragged_node.read().is_some() {
+                    dragged_node.set(None);
                     return
                 }
                 let dragged = &mut *dragged_edge.write();
