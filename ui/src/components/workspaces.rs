@@ -152,7 +152,7 @@ pub fn Workspaces() -> Element {
                                 }
                                 th { }
                             }
-                            for (&id, workspace) in state.read().workspaces.iter() {
+                            for (&_id, workspace) in state.read().workspaces.iter() {
                                 tr {
                                     class: "border-b border-gray-100",
                                     td {

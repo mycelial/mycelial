@@ -148,12 +148,12 @@ fn MenuItem(
                     class: "justify-self-end",
                     // TODO: change background to grey if not source
                     span {
-                        class: "bg-moss-1 text-night-1 rounded-full p-1 ml-1",
+                        class: "bg-moss-1 text-white rounded-full p-1 ml-1",
                         "Source"
                     }
                     // TODO: change background to grey if not dest
                     span {
-                        class: "bg-forest-2 text-stem-2 rounded-full p-1 ml-1",
+                        class: "bg-forest-2 text-white rounded-full p-1 ml-1",
                         "Dest"
                     }
                 }
@@ -346,28 +346,26 @@ fn ViewPort(
 #[component]
 fn Edges(graph: Signal<Graph>, dragged_edge: Signal<Option<DraggedEdge>>) -> Element {
     let g = &*graph.read();
-    let edges_iter = g
-        .iter_edges()
-        .filter_map(|(from_node, to_node)| {
-            let from_node = g.get_node(from_node);
-            let to_node = g.get_node(to_node);
-            match (from_node, to_node) {
-                (Some(from_node), Some(to_node)) => {
-                    let from_node = from_node.read();
-                    let output_pos = from_node.output_pos();
-                    let input_pos = to_node.read().input_pos();
-                    // FIXME: offset bs
-                    Some((
-                        from_node.id,
-                        output_pos.0 + 6.0,
-                        output_pos.1 + 6.0,
-                        input_pos.0 + 6.0,
-                        input_pos.1 + 6.0,
-                    ))
-                }
-                _ => None,
+    let edges_iter = g.iter_edges().filter_map(|(from_node, to_node)| {
+        let from_node = g.get_node(from_node);
+        let to_node = g.get_node(to_node);
+        match (from_node, to_node) {
+            (Some(from_node), Some(to_node)) => {
+                let from_node = from_node.read();
+                let output_pos = from_node.output_pos();
+                let input_pos = to_node.read().input_pos();
+                // FIXME: offset bs
+                Some((
+                    from_node.id,
+                    output_pos.0 + 6.0,
+                    output_pos.1 + 6.0,
+                    input_pos.0 + 6.0,
+                    input_pos.1 + 6.0,
+                ))
             }
-        });
+            _ => None,
+        }
+    });
     let mut dragged_edge_element = None;
     if let Some(DraggedEdge { from_node, x, y }) = &*dragged_edge.read() {
         if let Some(node) = g.get_node(*from_node) {
@@ -527,10 +525,18 @@ pub fn Workspace(workspace: String) -> Element {
             class: "grid",
             style: "grid-template-columns: auto 1fr;", // exception to Tailwind only bc TW doesn't have classes to customize column widths
             div {
-                class: "col-span-2 pl-2 py-4 text-stem-1 bg-night-2",
+                class: "col-span-2 pl-2 py-4 text-stem-1 bg-night-2 grid grid-cols-2",
                 h1 {
-                    class: "text-lg",
+                    class: "text-lg justify-self-start",
                     "Workspace: {workspace}"
+                }
+                button {
+                    class: "text-stem-1 px-4 py-2 rounded bg-forest-1 border border-forest-2 justify-self-end mr-5 uppercase hover:bg-forest-2 hover:text-white",
+                    onclick: move |_event| {
+                        // TODO: implement publish logic here
+                        tracing::info!("Publish button clicked");
+                    },
+                    "Publish"
                 }
             }
             // section menu
