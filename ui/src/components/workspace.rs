@@ -379,7 +379,6 @@ fn Edges(graph: Signal<Graph>, dragged_edge: Signal<Option<DraggedEdge>>) -> Ele
                     stroke_width: "1",
                     stroke: "red",
                     fill: "none",
-                    marker_end: "url(#1__color=#3a554c&height=12&type=arrowclosed&width=12)",
                     d: "M{out_x},{out_y} C{(out_x+x)/2.0},{out_y} {(out_x+x)/2.0},{y} {x},{y}",
                 }
             };
@@ -390,13 +389,29 @@ fn Edges(graph: Signal<Graph>, dragged_edge: Signal<Option<DraggedEdge>>) -> Ele
             class: "absolute overflow-visible top-0 left-0 z-[0]",
             width: "1px",
             height: "1px",
+            defs {
+                marker{
+                    id: "arrow",
+                    view_box: "0 0 10 10",
+                    ref_x: "11",
+                    ref_y: "5",
+                    marker_units: "strokeWidth",
+                    marker_width: "10",
+                    marker_height: "10",
+                    orient: "auto",
+                    path {
+                        d: "M 0 0 L 5 5 L 0 10 z",
+                        fill: "#f00"
+                    }
+                }
+            },
             g{
                 for (_, x0, y0, x1, y1) in edges_iter.clone() {
                     path {
                         stroke_width: "1",
                         stroke: "red",
                         fill: "none",
-                        marker_end: "",
+                        marker_end: "url(#arrow)",
                         d: if x0 < x1 {
                             format!(
                                 "M{},{} C{},{} {},{} {},{}",
