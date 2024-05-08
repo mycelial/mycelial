@@ -329,6 +329,10 @@ fn ViewPort(
 
             prevent_default: "ondrop",
             ondrop: move |event| {
+                // extra checks to avoid 'sticky' nodes
+                if dragged_node.read().is_some() || dragged_edge.read().is_some() {
+                    return
+                }
                 let dragged = *dragged_menu_item.read();
                 if let Some(DraggedMenuItem{ node_type, delta_x, delta_y }) = dragged {
                     let graph = &mut*graph.write();
