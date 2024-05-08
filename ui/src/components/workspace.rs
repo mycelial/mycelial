@@ -37,7 +37,7 @@ impl Graph {
         self.remove_edge(id);
     }
 
-    fn iter_nodes(&self) -> impl Iterator<Item = (u64, Signal<NodeState>)> + '_ {
+    fn iter_nodes(&self) -> impl Iterator<Item = (u64, Signal<NodeState>)> + Clone + '_ {
         self.nodes.iter().map(|(id, node_state)| (*id, *node_state))
     }
 
@@ -49,7 +49,7 @@ impl Graph {
         self.edges.remove(&from_node);
     }
 
-    fn iter_edges(&self) -> impl Iterator<Item = (u64, u64)> + '_ {
+    fn iter_edges(&self) -> impl Iterator<Item = (u64, u64)> + Clone + '_ {
         self.edges.iter().map(|(key, value)| (*key, *value))
     }
 }
@@ -194,7 +194,7 @@ fn Node(
 
     rsx! {
         div {
-            class: "grid grid-flow-rows gap-2 absolute min-w-31 min-h-24 border border-solid  select-none bg-white rounded-sm px-2 z-5",
+            class: "grid grid-flow-rows gap-2 absolute min-w-31 min-h-24 border border-solid  select-none bg-white rounded-sm px-2 z-[5]",
             style: "left: {x}px; top: {y}px;",
             // recalculate positions on input/output nodes
             onmounted: move |event| {
@@ -346,7 +346,7 @@ fn ViewPort(
 #[component]
 fn Edges(graph: Signal<Graph>, dragged_edge: Signal<Option<DraggedEdge>>) -> Element {
     let g = &*graph.read();
-    let edges = g
+    let edges_iter = g
         .iter_edges()
         .filter_map(|(from_node, to_node)| {
             let from_node = g.get_node(from_node);
@@ -367,8 +367,7 @@ fn Edges(graph: Signal<Graph>, dragged_edge: Signal<Option<DraggedEdge>>) -> Ele
                 }
                 _ => None,
             }
-        })
-        .collect::<Vec<_>>();
+        });
     let mut dragged_edge_element = None;
     if let Some(DraggedEdge { from_node, x, y }) = &*dragged_edge.read() {
         if let Some(node) = g.get_node(*from_node) {
@@ -388,31 +387,39 @@ fn Edges(graph: Signal<Graph>, dragged_edge: Signal<Option<DraggedEdge>>) -> Ele
     };
     rsx! {
         svg {
-            class: "absolute overflow-visible top-0 left-0",
+            class: "absolute overflow-visible top-0 left-0 z-[0]",
             width: "1px",
             height: "1px",
             g{
-                for (_from, x0, y0, x1, y1) in edges.iter() {
+                for (_, x0, y0, x1, y1) in edges_iter.clone() {
                     path {
                         stroke_width: "1",
                         stroke: "red",
                         fill: "none",
-                        //TODO:
                         marker_end: "",
-                        d: "M{x0},{y0} C{(x0 + x1)/2.0},{y0} {(x0+x1)/2.0},{y1} {x1},{y1}",
+                        d: if x0 < x1 {
+                            format!(
+                                "M{},{} C{},{} {},{} {},{}",
+                                x0, y0, (x0 + x1) / 2.0, y0, (x0 + x1) / 2.0, y1, x1, y1
+                            )
+                        } else {
+                            format!(
+                                "M{},{} C{},{} {},{} {},{}",
+                                x0, y0, (x0 * 2.0 - x1), y0, (x1 * 2.0 - x0), y1, x1, y1
+                            )
+                        }
                     }
                 }
                 { dragged_edge_element }
             }
         }
-        for &(from, x0, y0, x1, y1) in edges.iter() {
-            // FIXME: do via svg?
+        for (from, x0, y0, x1, y1) in edges_iter {
             div {
                 onclick: move |_event| {
                     graph.write().remove_edge(from);
                 },
-                class: "absolute select-none",
-                style: "left: {(x0+x1)/2.0}px; top: {(y0+y1)/2.0}px;",
+                class: "absolute select-none min-w-5 min-h-5 bg-grey-bright z-[1] text-center text-red-500",
+                style: "left: {(x0+x1)/2.0}px; top: {(y0+y1)/2.0}px; transform: translate(-50%,-50%)",
                 "x"
             }
         }
