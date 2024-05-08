@@ -213,6 +213,20 @@ fn Node(
                     }
                 });
             },
+            prevent_default: "onmouseover",
+            onmouseover: move |_event| {
+                let dragged = &mut *dragged_edge.write();
+                if let Some(dragged) = dragged {
+                    dragged.to_node = Some(id);
+                }
+            },
+            prevent_default: "onmouseout",
+            onmouseout: move |_event| {
+                let dragged = &mut *dragged_edge.write();
+                if let Some(dragged) = dragged {
+                    dragged.to_node = None
+                }
+            },
             prevent_default: "onmousedown",
             onmousedown: move |event| {
                 if dragged_node.read().is_none() {
@@ -222,6 +236,17 @@ fn Node(
                         (coords.x - node.x, coords.y - node.y)
                     };
                     *dragged_node.write() = Some(DraggedNode::new(node, delta_x, delta_y));
+                }
+            },
+            prevent_default: "onmouseup",
+            onmouseup: move |_event|  {
+                if dragged_node.read().is_some() {
+                    return
+                }
+                let dragged = &mut *dragged_edge.write();
+                if let Some(DraggedEdge{from_node, ..}) = dragged {
+                    graph.write().add_edge(*from_node, id);
+                    *dragged = None;
                 }
             },
             div {
@@ -367,11 +392,24 @@ fn Edges(graph: Signal<Graph>, dragged_edge: Signal<Option<DraggedEdge>>) -> Ele
         }
     });
     let mut dragged_edge_element = None;
-    if let Some(DraggedEdge { from_node, x, y }) = &*dragged_edge.read() {
+    if let Some(DraggedEdge {
+        from_node,
+        to_node,
+        x,
+        y,
+    }) = &*dragged_edge.read()
+    {
         if let Some(node) = g.get_node(*from_node) {
+            let offset = node.read().port_diameter / 2.0;
+            let (x, y) = match to_node.map(|to_node| g.get_node(to_node)).unwrap_or(None) {
+                Some(to_node) => {
+                    let input_pos = to_node.read().input_pos();
+                    (input_pos.0 + offset, input_pos.1 + offset)
+                }
+                None => (*x, *y),
+            };
             let output_pos = node.read().output_pos();
-            // FIXME: offset bs
-            let (out_x, out_y) = (output_pos.0 + 6.0, output_pos.1 + 6.0);
+            let (out_x, out_y) = (output_pos.0 + offset, output_pos.1 + offset);
             dragged_edge_element = rsx! {
                 path {
                     stroke_width: "1",
@@ -476,13 +514,19 @@ impl DraggedNode {
 #[derive(Debug, Clone, Copy)]
 struct DraggedEdge {
     from_node: u64,
+    to_node: Option<u64>,
     x: f64,
     y: f64,
 }
 
 impl DraggedEdge {
     fn new(from_node: u64, x: f64, y: f64) -> Self {
-        Self { from_node, x, y }
+        Self {
+            from_node,
+            to_node: None,
+            x,
+            y,
+        }
     }
 }
 

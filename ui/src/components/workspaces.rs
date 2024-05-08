@@ -60,9 +60,8 @@ impl Workspace {
 fn NewWorkspace() -> Element {
     let mut workspaces_state = use_context::<Signal<State>>();
     let mut render_form_state = use_signal(|| false);
-    let render_form = *render_form_state.read();
     rsx! {
-        if !render_form {
+        if !*render_form_state.read() {
             div {
                 class: "grid",
                 button {
