@@ -33,6 +33,11 @@ impl State {
         self.counter += 1;
         id
     }
+
+    // Function to check if there are any workspaces
+    fn has_workspaces(&self) -> bool {
+        !self.workspaces.is_empty()
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -112,6 +117,7 @@ pub fn Workspaces() -> Element {
         state.add_workspace("world", "2020-01-01");
         Signal::new(state)
     });
+    let state_ref = state.read();
     rsx! {
     div {
         class: "container mx-auto grid grid-cols-2",
@@ -127,32 +133,39 @@ pub fn Workspaces() -> Element {
             class: "pt-5 justify-self-end pr-3",
             NewWorkspace {}
         }
-        div {
-            id: "table-container",
-            class: "col-span-2 pt-4 w-full",
-            table {
-                class: "table-fix border border-solid text-left w-full mx-auto",
-                thead {
-                    tr {
-                        class: "border-b border-solid p-4 font-bold",
-                        th {
-                            class: "pl-3",
-                            "Name"
-                        },
-                        th {
-                            class: "text-right",
-                            "Created At"
-                        }
-                        th { }
-                        }
-                        for (_, workspace) in state.read().workspaces.iter() {
-                            tr {
-                                class: "border-b border-gray-100",
-                                td {
-                                    Link{
-                                        class: "block py-3 pl-3",
-                                        to: Route::Workspace { workspace: workspace.name.clone() },
-                                        children: rsx! { "{workspace.name}" }
+
+        if state_ref.has_workspaces() {
+            div {
+                id: "table-container",
+                class: "col-span-2 pt-4 w-full",
+                table {
+                    class: "table-fix border border-solid text-left w-full mx-auto",
+                    thead {
+                        tr {
+                            class: "border-b border-solid p-4 font-bold",
+                            th {
+                                class: "pl-3",
+                                "Name" },
+                                th {
+                                    class: "text-right",
+                                    "Created At"
+                                }
+                                th { }
+                            }
+                            for (&id, workspace) in state.read().workspaces.iter() {
+                                tr {
+                                    class: "border-b border-gray-100",
+                                    td {
+                                        Link{
+                                            class: "block py-3 pl-3",
+                                            to: Route::Workspace { workspace: workspace.name.clone() },
+                                            children: rsx! { "{workspace.name}" }
+                                        }
+                                    }
+                                    td {
+                                        class: "text-right",
+                                        "{workspace.created_at}"
+
                                     }
                                 }
                                 td {
@@ -169,6 +182,21 @@ pub fn Workspaces() -> Element {
                                     }
                                 }
                             }
+                        }
+                    }
+                }
+        } else {
+            div {
+                class: "mt-10 p-4 w-9/12 bg-moss-3 text-black drop-shadow-md rounded-sm mx-auto col-span-2",
+                div {
+                    class: "py-2 my-2 bg-white text-night-2 shadow-none",
+                    h3 {
+                        class: "text-lg ml-2 py-2",
+                        "Create your first workspace to start building pipelines!"
+                    }
+                    div {
+                        class: "bg-grey-bright mx-2 p-2 rounded",
+                        "Mycelial pipelines are organized into groups called Workspaces. Click the \"Add New Workspace\" button above to create your first workspace."
                         }
                     }
                 }
