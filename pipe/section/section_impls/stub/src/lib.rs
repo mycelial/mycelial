@@ -31,7 +31,8 @@ impl<T, E> Stub<T, E> {
 }
 
 async fn consume_input<Input>(input: Input) -> Result<(), SectionError>
-    where Input: Stream<Item = SectionMessage> + Send + 'static,
+where
+    Input: Stream<Item = SectionMessage> + Send + 'static,
 {
     let mut input = pin!(input);
     while let Some(mut msg) = input.next().await {
@@ -41,10 +42,13 @@ async fn consume_input<Input>(input: Input) -> Result<(), SectionError>
 }
 
 async fn wait_stop_command<SectionChan>(mut section_chan: SectionChan) -> Result<(), SectionError>
-    where SectionChan: SectionChannel + Send + 'static,
+where
+    SectionChan: SectionChannel + Send + 'static,
 {
     while let Ok(cmd) = section_chan.recv().await {
-        if let Command::Stop = cmd { break }
+        if let Command::Stop = cmd {
+            break;
+        }
     }
     Ok(())
 }
@@ -61,10 +65,7 @@ where
     fn start(self, input: Input, output: Output, section_chan: SectionChan) -> Self::Future {
         Box::pin(async move {
             let _output = output;
-            let _res = futures::join!(
-                consume_input(input),
-                wait_stop_command(section_chan),
-            );
+            let _res = futures::join!(consume_input(input), wait_stop_command(section_chan),);
             Ok(())
         })
     }
