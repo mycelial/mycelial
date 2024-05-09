@@ -44,10 +44,7 @@ async fn wait_stop_command<SectionChan>(mut section_chan: SectionChan) -> Result
     where SectionChan: SectionChannel + Send + 'static,
 {
     while let Ok(cmd) = section_chan.recv().await {
-         match cmd {
-            Command::Stop => break,
-            _ => (),
-         }
+        if let Command::Stop = cmd { break }
     }
     Ok(())
 }
