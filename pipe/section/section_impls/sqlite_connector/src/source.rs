@@ -186,7 +186,11 @@ impl Sqlite {
                     "REAL" => row.get::<Option<f64>, _>(pos).map(Value::F64),
                     "INTEGER" => row.get::<Option<i64>, _>(pos).map(Value::I64),
                     "BLOB" => row.get::<Option<Vec<u8>>, _>(pos).map(Value::from),
-                    _ => unreachable!(),
+                    // always mapped to Option::None
+                    "NULL" => row.get::<Option<bool>, _>(pos).map(Value::Bool),
+                    unsupported => {
+                        unreachable!("encountered unsupported column type: {unsupported}")
+                    }
                 }
                 .unwrap_or(Value::Null);
                 values[pos].push(value);

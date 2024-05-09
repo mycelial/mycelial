@@ -23,17 +23,17 @@ async fn init_sqlite(path: &str) -> Result<SqliteConnection, StdError> {
         .await?;
 
     sqlx::query(
-        "CREATE TABLE IF NOT EXISTS test (id INT PRIMARY KEY NOT NULL, text TEXT, bin BLOB, float DOUBLE)",
+        "CREATE TABLE IF NOT EXISTS test (id INT PRIMARY KEY NOT NULL, text TEXT, bin BLOB, float DOUBLE, some_null NULL)",
     )
     .execute(&mut conn)
     .await?;
 
     sqlx::query(
-        "INSERT OR IGNORE INTO test VALUES(1, 'foo', 'foo', 1), (2, 'bar', NULL, 0.2), ('this', 'is', 'not', 'strict')",
+        "INSERT OR IGNORE INTO test VALUES(1, 'foo', 'foo', 1, NULL), (2, 'bar', NULL, 0.2, NULL), ('this', 'is', 'not', 'strict', NULL)",
     )
         .execute(&mut conn)
         .await?;
-    sqlx::query("INSERT OR IGNORE INTO test VALUES('', 'bin', 'incoming', ?)")
+    sqlx::query("INSERT OR IGNORE INTO test VALUES('', 'bin', 'incoming', ?, NULL)")
         .bind(vec![b'b', b'i', b'n'].as_slice())
         .execute(&mut conn)
         .await?;
@@ -90,7 +90,7 @@ async fn source_stream() -> Result<(), StdError> {
 
     let columns = df.columns();
     assert_eq!(
-        vec!["id", "text", "bin", "float"],
+        vec!["id", "text", "bin", "float", "some_null"],
         columns.iter().map(|col| col.name()).collect::<Vec<_>>()
     );
 
@@ -126,6 +126,7 @@ async fn source_stream() -> Result<(), StdError> {
                 Value::Str("strict".into()),
                 Value::Bin("bin".as_bytes().into()),
             ],
+            vec![Value::Null, Value::Null, Value::Null, Value::Null]
         ]
     );
     handle.abort();
