@@ -7,7 +7,7 @@ use stub::Stub;
 async fn main() -> Result<()> {
     tracing_subscriber::fmt::init();
     let mut args = std::env::args().skip(1).rev().collect::<Vec<_>>();
-    if args.len() < 1 {
+    if args.is_empty() {
         Err(anyhow::anyhow!("example expects at least one argument"))?;
     };
     let command = args.pop().unwrap();

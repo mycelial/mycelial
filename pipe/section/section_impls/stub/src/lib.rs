@@ -1,6 +1,6 @@
 use section::{
     command_channel::{Command, SectionChannel},
-    futures::{self, FutureExt, Sink, Stream, StreamExt},
+    futures::{self, Sink, Stream, StreamExt},
     section::Section,
     SectionError, SectionMessage,
 };
@@ -30,6 +30,29 @@ impl<T, E> Stub<T, E> {
     }
 }
 
+async fn consume_input<Input>(input: Input) -> Result<(), SectionError>
+where
+    Input: Stream<Item = SectionMessage> + Send + 'static,
+{
+    let mut input = pin!(input);
+    while let Some(mut msg) = input.next().await {
+        while msg.next().await?.is_some() {}
+    }
+    Ok(())
+}
+
+async fn wait_stop_command<SectionChan>(mut section_chan: SectionChan) -> Result<(), SectionError>
+where
+    SectionChan: SectionChannel + Send + 'static,
+{
+    while let Ok(cmd) = section_chan.recv().await {
+        if let Command::Stop = cmd {
+            break;
+        }
+    }
+    Ok(())
+}
+
 impl<T, Input, Output, SectionChan> Section<Input, Output, SectionChan> for Stub<T, SectionError>
 where
     Input: Stream<Item = SectionMessage> + Send + 'static,
@@ -39,26 +62,11 @@ where
     type Error = SectionError;
     type Future = Pin<Box<dyn Future<Output = Result<(), Self::Error>> + Send + 'static>>;
 
-    fn start(self, input: Input, output: Output, mut section_channel: SectionChan) -> Self::Future {
+    fn start(self, input: Input, output: Output, section_chan: SectionChan) -> Self::Future {
         Box::pin(async move {
-            let mut input = pin!(input);
             let _output = output;
-            loop {
-                futures::select! {
-                    cmd = section_channel.recv().fuse() => {
-                        if let Command::Stop = cmd? {
-                            return Ok(())
-                        }
-                    },
-                    msg = input.next().fuse() => {
-                        let mut msg = match msg {
-                            None => return Ok(()),
-                            Some(msg) => msg,
-                        };
-                        while msg.next().await?.is_some() {}
-                    }
-                }
-            }
+            let _res = futures::join!(consume_input(input), wait_stop_command(section_chan),);
+            Ok(())
         })
     }
 }
