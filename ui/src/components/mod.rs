@@ -1,5 +1,6 @@
 #![allow(non_snake_case)]
 pub mod app;
+pub mod node_config;
 pub mod daemons;
 pub mod graph;
 pub mod index;

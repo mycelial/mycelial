@@ -1,4 +1,5 @@
 use dioxus::prelude::*;
+use crate::components::node_config::NodeConfig;
 use std::collections::BTreeMap;
 
 // Simple graph
@@ -60,9 +61,9 @@ impl Graph {
 // 1. unique Id - UUID (for now)
 // 2. set of coordinates
 #[derive(Debug)]
-struct NodeState {
-    id: u64,
-    node_type: &'static str,
+pub struct NodeState {
+    pub id: u64,
+    pub node_type: &'static str,
     x: f64,
     y: f64,
     w: f64,
@@ -175,6 +176,7 @@ fn Node(
     mut dragged_node: Signal<Option<DraggedNode>>,
     mut dragged_edge: Signal<Option<DraggedEdge>>,
     mut node: Signal<NodeState>,
+    mut selected_node: Signal<Option<Signal<NodeState>>>,
 ) -> Element {
     // current node coordinates, coordinates on input and output ports
     let (id, node_type, x, y, w, _h, port_diameter, input_pos, output_pos) = {
@@ -229,6 +231,8 @@ fn Node(
             },
             prevent_default: "onmousedown",
             onmousedown: move |event| {
+                selected_node.set(Some(node));
+                tracing::info!("selected node is {:?}", selected_node.read());
                 if dragged_node.read().is_none() {
                     let coords = event.client_coordinates();
                     let (delta_x, delta_y) = {
@@ -313,6 +317,7 @@ fn ViewPort(
     mut dragged_menu_item: Signal<Option<DraggedMenuItem>>,
     dragged_node: Signal<Option<DraggedNode>>,
     dragged_edge: Signal<Option<DraggedEdge>>,
+    selected_node: Signal<Option<Signal<NodeState>>>,
 ) -> Element {
     rsx! {
         div {
@@ -349,6 +354,8 @@ fn ViewPort(
                 *dragged_menu_item.write() = None;
             },
 
+          
+
             // panning funcs
           //onmousedown: move |_event| {
           //    *grabbed.write() = true;
@@ -369,6 +376,12 @@ fn ViewPort(
                     dragged_node: dragged_node,
                     dragged_edge: dragged_edge,
                     node: node,
+                    selected_node: selected_node,
+                }
+            }
+            if selected_node.read().is_some() {
+                NodeConfig {
+                    selected_node: selected_node,
                 }
             }
         }
@@ -543,6 +556,7 @@ pub fn Workspace(workspace: String) -> Element {
     let dragged_menu_item: Signal<Option<DraggedMenuItem>> = use_signal(|| None);
     let mut dragged_node: Signal<Option<DraggedNode>> = use_signal(|| None);
     let mut dragged_edge: Signal<Option<DraggedEdge>> = use_signal(|| None);
+    let mut selected_node: Signal<Option<Signal<NodeState>>> = use_signal(|| None);
     let menu_items = [
         "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten",
     ];
@@ -576,6 +590,10 @@ pub fn Workspace(workspace: String) -> Element {
             class: "grid",
             style: "grid-template-columns: auto 1fr;", // exception to Tailwind only bc TW doesn't have classes to customize column widths
             div {
+                prevent_default: "onclick",
+                onclick: move |_| {
+                    selected_node.set(None);
+                },
                 class: "col-span-2 pl-2 py-4 text-stem-1 bg-night-2 grid grid-cols-2",
                 h1 {
                     class: "text-lg justify-self-start",
@@ -612,6 +630,7 @@ pub fn Workspace(workspace: String) -> Element {
                     dragged_menu_item: dragged_menu_item,
                     dragged_node: dragged_node,
                     dragged_edge: dragged_edge,
+                    selected_node: selected_node,
                 }
             }
             // graph edges

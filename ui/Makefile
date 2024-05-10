@@ -1,6 +1,6 @@
 .PHONY: dev
 dev:
-	dx serve
+	dx serve --hot-reload
 
 .PHONY: watch-tailwind
 watch-tailwind:
