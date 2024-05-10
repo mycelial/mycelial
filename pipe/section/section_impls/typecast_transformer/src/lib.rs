@@ -4,180 +4,172 @@ use std::sync::Arc;
 use section::command_channel::{Command, SectionChannel};
 use section::futures::{self, Sink, SinkExt, Stream};
 use section::futures::{FutureExt, StreamExt};
-use section::pretty_print::pretty_print;
 use section::section::Section;
 use section::{
     message::{Ack, Chunk, Column, DataFrame, DataType, Message, Value},
     SectionError, SectionFuture, SectionMessage,
 };
 
-#[derive(Debug)]
-pub enum Type {
+#[derive(Debug, Clone, Copy)]
+pub enum TargetType {
     Int,
     Real,
     String,
 }
 
-#[derive(Debug)]
-pub struct TypecastTransformer {
-    target_type: DataType,
-    column: String,
+impl From<TargetType> for DataType {
+    fn from(val: TargetType) -> Self {
+        match val {
+            TargetType::Int => DataType::I64,
+            TargetType::Real => DataType::F64,
+            TargetType::String => DataType::Str,
+        }
+    }
 }
 
-impl Default for TypecastTransformer {
-    fn default() -> Self {
-        Self::new(DataType::Str, "text")
+impl TryFrom<&str> for TargetType {
+    type Error = SectionError;
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        match value {
+            "int" => Ok(TargetType::Int),
+            "real" => Ok(TargetType::Real),
+            "string" => Ok(TargetType::String),
+            _ => Err(format!("unsupported type '{value}'"))?,
+        }
     }
+}
+
+#[derive(Debug, Clone)]
+pub enum TargetColumn {
+    // all columns
+    All,
+    // specific column
+    Column(Arc<str>),
+}
+
+impl PartialEq<str> for TargetColumn {
+    fn eq(&self, other: &str) -> bool {
+        match self {
+            Self::All => true,
+            Self::Column(name) => (**name).eq(other),
+        }
+    }
+}
+
+impl From<&str> for TargetColumn {
+    fn from(value: &str) -> Self {
+        match value {
+            "*" => TargetColumn::All,
+            _ => TargetColumn::Column(Arc::from(value)),
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct TypecastTransformer {
+    target_type: TargetType,
+    target_column: TargetColumn,
 }
 
 impl TypecastTransformer {
-    pub fn new(target_type: DataType, column: &str) -> Self {
-        Self {
-            column: column.to_string(),
-            target_type,
-        }
-    }
-
-    fn df_to_tc_message(&self, origin: Arc<str>, df: &dyn DataFrame, ack: Ack) -> TypecastMessage {
-        let mut casted_column: Option<usize> = None;
-
-        let columns: Vec<TableColumn> = df
-            .columns()
-            .iter()
-            .enumerate()
-            .map(|(i, column)| {
-                let name: Arc<str> = column.name().into();
-
-                let data_type = if self.column.eq(&*name) {
-                    casted_column = Some(i);
-                    // todo: check that the column can actually be casted to
-                    //column.data_type()
-                    self.target_type
-                } else {
-                    column.data_type()
-                };
-                TableColumn { name, data_type }
-            })
-            .collect::<Vec<_>>();
-
-        let values: Vec<Vec<Value>> = df
-            .columns()
-            .into_iter()
-            .enumerate()
-            .map(|(i, col)| {
-                col.map(|val| {
-                    if casted_column == Some(i) {
-                        let value: Value = (&val).into();
-                        // we do the cast
-                        let casted = match self.target_type {
-                            DataType::I64 => value.into_i64(),
-                            DataType::F64 => value.into_f64(),
-                            // DataType::Str => value.into_string(),
-                            _ => todo!(),
-                        };
-                        casted.unwrap_or_else(|_| {
-                            let msg =
-                                format!("could not convert {:?} to {:?}", val, self.target_type);
-                            Value::Str(msg.to_owned().into_boxed_str())
-                        })
-                    } else {
-                        // we pass along the old value
-                        (&val).into()
-                    }
-                })
-                .collect::<Vec<Value>>()
-            })
-            .collect();
-
-        let payload = TypecastPayload {
-            columns: columns.into(),
-            values,
-        };
-        TypecastMessage::new(origin, payload, Some(ack))
+    pub fn new(target_type: &str, target_column: &str) -> Result<Self, SectionError> {
+        Ok(Self {
+            target_type: target_type.try_into()?,
+            target_column: target_column.into(),
+        })
     }
 }
 
-// datatype
 #[derive(Debug)]
-#[allow(unused)]
-pub(crate) struct Table {
-    name: Arc<str>,
-    columns: Arc<[TableColumn]>,
-    query: String,
-    offset: i64,
-    limit: i64,
+pub struct TypecastMessage {
+    inner: SectionMessage,
+    target_type: TargetType,
+    target_column: TargetColumn,
 }
 
 #[derive(Debug)]
-#[allow(unused)]
-pub(crate) struct TableColumn {
-    name: Arc<str>,
-    data_type: DataType,
+struct TypecastDataframe {
+    columns: Vec<(String, DataType, Vec<Value>)>,
 }
 
-#[derive(Debug)]
-pub(crate) struct TypecastPayload {
-    columns: Arc<[TableColumn]>,
-    values: Vec<Vec<Value>>,
-}
-
-impl DataFrame for TypecastPayload {
-    fn columns(&self) -> Vec<section::message::Column<'_>> {
+impl DataFrame for TypecastDataframe {
+    fn columns(&self) -> Vec<Column<'_>> {
         self.columns
             .iter()
-            .zip(self.values.iter())
-            .map(|(col, column)| {
+            .map(|(name, data_type, values)| {
                 Column::new(
-                    col.name.as_ref(),
-                    col.data_type,
-                    Box::new(column.iter().map(Into::into)),
+                    name.as_str(),
+                    *data_type,
+                    Box::new(values.iter().map(Into::into)),
                 )
             })
             .collect()
     }
 }
 
-pub struct TypecastMessage {
-    origin: Arc<str>,
-    payload: Option<Box<dyn DataFrame>>,
-    ack: Option<Ack>,
-}
-
 impl TypecastMessage {
-    fn new(origin: Arc<str>, payload: impl DataFrame, ack: Option<Ack>) -> Self {
+    fn new(inner: SectionMessage, target_type: TargetType, target_column: TargetColumn) -> Self {
         Self {
-            origin,
-            payload: Some(Box::new(payload)),
-            ack,
+            inner,
+            target_type,
+            target_column,
         }
     }
-}
 
-impl std::fmt::Debug for TypecastMessage {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("typecastMessage")
-            .field("origin", &self.origin)
-            .field("payload", &self.payload)
-            .finish()
+    fn cast_df(&self, df: Box<dyn DataFrame>) -> Result<Box<dyn DataFrame>, SectionError> {
+        let columns = df
+            .columns()
+            .into_iter()
+            .map(|col| -> Result<_, SectionError> {
+                let col_name: String = col.name().into();
+                let col_datatype = col.data_type();
+                let mut values = Vec::with_capacity(col.size_hint().0);
+                let transform = self.target_column.eq(col_name.as_str());
+                for value_view in col {
+                    let value = match (transform, self.target_type) {
+                        (false, _) => (&value_view).into(),
+                        (true, TargetType::Int) => value_view.into_i64()?,
+                        (true, TargetType::Real) => value_view.into_f64()?,
+                        (true, TargetType::String) => value_view.into_str()?,
+                    };
+                    values.push(value)
+                }
+                let data_type = match transform {
+                    true => self.target_type.into(),
+                    false => col_datatype,
+                };
+                Ok((col_name, data_type, values))
+            })
+            .collect::<Result<Vec<(String, DataType, Vec<Value>)>, _>>()?;
+        Ok(Box::new(TypecastDataframe { columns }))
     }
 }
 
 impl Message for TypecastMessage {
     fn origin(&self) -> &str {
-        self.origin.as_ref()
+        self.inner.origin()
     }
 
     fn next(&mut self) -> section::message::Next<'_> {
-        let v = self.payload.take().map(Chunk::DataFrame);
-        Box::pin(async move { Ok(v) })
+        Box::pin(async move {
+            match self.inner.next().await {
+                Ok(None) => Ok(None),
+                Ok(Some(Chunk::Byte(_))) => {
+                    Err("typecast transformer doesn't work with binary streams".into())
+                }
+                Ok(Some(Chunk::DataFrame(df))) => match self.cast_df(df) {
+                    Ok(df) => Ok(Some(Chunk::DataFrame(df))),
+                    Err(e) => Err(e),
+                },
+                Err(e) => Err(e),
+            }
+        })
     }
 
     fn ack(&mut self) -> Ack {
-        self.ack.take().unwrap_or(Box::pin(async {}))
+        self.inner.ack()
     }
 }
-
-//
 
 impl<Input, Output, SectionChan> Section<Input, Output, SectionChan> for TypecastTransformer
 where
@@ -200,40 +192,13 @@ where
                             return Ok(())
                         }
                     }
-                    stream = input.next() => {
-                        let mut stream = match stream {
-                            Some(stream) => stream,
+                    msg = input.next() => {
+                        let msg = match msg {
+                            Some(msg) => msg,
                             None => Err("input stream closed")?
                         };
-                        loop {
-                            futures::select! {
-                                msg = stream.next().fuse() => {
-                                    match msg? {
-                                        Some(Chunk::DataFrame(df)) => {
-                                            let payload = self.df_to_tc_message(
-                                                stream.origin().into(),
-                                                &*df,
-                                                stream.ack()
-                                            );
-
-                                            section_channel.log(format!("transform got dataframe chunk from {}:\n{}",
-                                                stream.origin(),
-                                                pretty_print(&*df))).await?;
-
-                                            output.send(Box::new(payload)).await.ok();
-                                            section_channel.log("payload sent").await?;
-                                        },
-                                        Some(_) => {Err("unsupported stream type, dataframe expected")?},
-                                        None => break,
-                                    }
-                                },
-                                cmd = section_channel.recv().fuse() => {
-                                    if let Command::Stop = cmd? {
-                                        return Ok(())
-                                    }
-                                }
-                            }
-                        }
+                        let msg = TypecastMessage::new(msg, self.target_type, self.target_column.clone());
+                        output.send(Box::new(msg)).await?;
                     }
                 }
             }

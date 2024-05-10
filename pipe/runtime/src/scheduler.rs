@@ -190,8 +190,10 @@ where
                             };
                             if finished {
                                 if let Err(err) = self.retrieve_pipe_error(id).await {
-                                    tracing::error!("pipe with id: {id} stopped: {:?}", err);
-                                };
+                                    tracing::error!("pipe with id: {id} stopped: {err:?}");
+                                } else {
+                                    tracing::info!("pipe with id: {id} stopped");
+                                }
                                 self.unschedule(id).await;
                                 self.reschedule(id, weak_tx.clone());
                             }
