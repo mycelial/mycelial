@@ -111,11 +111,8 @@ fn Node(
                 spawn(async move {
                     match event.get_client_rect().await {
                         Ok(rect) => {
-                            let (x, y) = (rect.origin.x, rect.origin.y);
                             let (w, h) = (rect.size.width, rect.size.height);
                             let node = &mut* node.write();
-                            node.x = x;
-                            node.y = y;
                             node.w = w;
                             node.h = h;
                         },
