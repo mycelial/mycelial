@@ -196,7 +196,7 @@ fn Node(
 
     rsx! {
         div {
-            class: "grid grid-flow-rows gap-2 absolute min-w-31 min-h-24 border border-solid  select-none bg-white rounded-sm px-2 z-[5]",
+            class: "grid grid-flow-rows gap-2 absolute min-w-31 min-h-24 border border-solid bg-white rounded-sm px-2 z-[5] select-none",
             style: "left: {x}px; top: {y}px;",
             // recalculate positions on input/output nodes
             onmounted: move |event| {
@@ -244,12 +244,6 @@ fn Node(
             },
             prevent_default: "onmouseup",
             onmouseup: move |_event|  {
-                // if we already dragging node, but somehow managed to issue onmouseup event outside
-                // handle it here correctly to avoid 'sticky' nodes
-                if dragged_node.read().is_some() {
-                    dragged_node.set(None);
-                    return
-                }
                 let dragged = &mut *dragged_edge.write();
                 if let Some(DraggedEdge{from_node, ..}) = dragged {
                     graph.write().add_edge(*from_node, id);
@@ -275,7 +269,7 @@ fn Node(
                 // FIXME: popup
                 graph.write().remove_node(id);
             },
-            class: "absolute block text-center text-lg text-toadstool-2 cursor-pointer z-10 select-none",
+            class: "absolute block text-center text-lg text-toadstool-2 cursor-pointer z-10",
             style: "left: {x+w-15.0}px; top: {y-5.0}px; min-width: {port_diameter}px; min-height: {port_diameter}px;",
             "x"
         }
@@ -321,15 +315,7 @@ fn ViewPort(
 ) -> Element {
     rsx! {
         div {
-            class: "min-h-screen bg-grey-bright overflow-hidden",
-            // FIXME: move to class or smth
-         // style: format!(r#"
-         //     opacity: 0.3;
-         //     background-image:  linear-gradient(#444cf7 1px, transparent 1px), linear-gradient(to right, #444cf7 1px, #e5e5f7 1px);
-         //     background-size: 20px 20px;
-         //     {icon}
-         // "#),
-
+            class: "min-h-screen bg-grey-bright overflow-hidden select-none",
 
             // prevent_default + own ondragover enable drop area on current container
             prevent_default: "ondragover",
@@ -337,10 +323,6 @@ fn ViewPort(
 
             prevent_default: "ondrop",
             ondrop: move |event| {
-                // extra checks to avoid 'sticky' nodes
-                if dragged_node.read().is_some() || dragged_edge.read().is_some() {
-                    return
-                }
                 let dragged = *dragged_menu_item.read();
                 if let Some(DraggedMenuItem{ node_type, delta_x, delta_y }) = dragged {
                     let graph = &mut*graph.write();
@@ -354,9 +336,7 @@ fn ViewPort(
                 *dragged_menu_item.write() = None;
             },
 
-          
-
-            // panning funcs
+            // FIXME: panning funcs
           //onmousedown: move |_event| {
           //    *grabbed.write() = true;
           //},
@@ -624,7 +604,6 @@ pub fn Workspace(workspace: String) -> Element {
             }
             // viewport
             div {
-                class: "",
                 ViewPort {
                     graph: graph,
                     dragged_menu_item: dragged_menu_item,
