@@ -1,10 +1,10 @@
 use pipe::{config::Map, types::DynSection};
-use section::{command_channel::SectionChannel, message::DataType, SectionError};
+use section::{command_channel::SectionChannel, SectionError};
 
 pub fn transformer<S: SectionChannel>(
     config: &Map,
 ) -> Result<Box<dyn DynSection<S>>, SectionError> {
-    let column = config
+    let target_column = config
         .get("column")
         .ok_or("typecasting requires a 'column' name")?
         .as_str()
@@ -15,15 +15,13 @@ pub fn transformer<S: SectionChannel>(
         .as_str()
         .ok_or("typecasting 'target_type' must be set")?
     {
-        "string" => DataType::Str,
-        "int" => DataType::I64,
-        "real" => DataType::F64,
+        "string" => "string",
+        "int" => "int",
+        "real" => "real",
         _ => return Err("target type must be string, int, or real")?,
     };
-    Ok(Box::new(typecast_transformer::TypecastTransformer::new(
-        target_type,
-        column,
-    )))
+    let section = typecast_transformer::TypecastTransformer::new(target_type, target_column)?;
+    Ok(Box::new(section))
 }
 
 #[cfg(test)]

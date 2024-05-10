@@ -201,156 +201,7 @@ impl fmt::Display for TypeCastError {
     }
 }
 
-impl Value {
-    pub fn into_u16(self) -> Result<Value, TypeCastError> {
-        match self {
-            Value::U8(v) => Ok(Value::U16(v.into())),
-            Value::U16(v) => Ok(Value::U16(v)),
-            t => Err(TypeCastError {
-                msg: format!("could not convert {:?} to Value::U8", t),
-            }),
-        }
-    }
-
-    pub fn into_u32(self) -> Result<Value, TypeCastError> {
-        match self {
-            Value::U8(v) => Ok(Value::U32(v.into())),
-            Value::U16(v) => Ok(Value::U32(v.into())),
-            Value::U32(v) => Ok(Value::U32(v)),
-            t => Err(TypeCastError {
-                msg: format!("could not convert {:?} to Value::U32", t),
-            }),
-        }
-    }
-
-    pub fn into_u64(self) -> Result<Value, TypeCastError> {
-        match self {
-            Value::U8(v) => Ok(Value::U64(v.into())),
-            Value::U16(v) => Ok(Value::U64(v.into())),
-            Value::U32(v) => Ok(Value::U64(v.into())),
-            Value::U64(v) => Ok(Value::U64(v)),
-            t => Err(TypeCastError {
-                msg: format!("could not convert {:?} to Value::U64", t),
-            }),
-        }
-    }
-
-    pub fn into_f32(self) -> Result<Value, TypeCastError> {
-        match self {
-            Value::U8(v) => Ok(Value::F32(v.into())),
-            Value::U16(v) => Ok(Value::F32(v.into())),
-            Value::I8(v) => Ok(Value::F32(v.into())),
-            Value::I16(v) => Ok(Value::F32(v.into())),
-            t => Err(TypeCastError {
-                msg: format!("could not convert {:?} to Value::F32", t),
-            }),
-        }
-    }
-
-    pub fn into_f64(self) -> Result<Value, TypeCastError> {
-        match self {
-            Value::U8(v) => Ok(Value::F64(v.into())),
-            Value::U16(v) => Ok(Value::F64(v.into())),
-            Value::U32(v) => Ok(Value::F64(v.into())),
-            Value::I8(v) => Ok(Value::F64(v.into())),
-            Value::I16(v) => Ok(Value::F64(v.into())),
-            Value::I32(v) => Ok(Value::F64(v.into())),
-            Value::F32(v) => Ok(Value::F64(v.into())),
-            t => Err(TypeCastError {
-                msg: format!("could not convert {:?} to Value::F64", t),
-            }),
-        }
-    }
-
-    pub fn into_i16(self) -> Result<Value, TypeCastError> {
-        match self {
-            Value::U8(v) => Ok(Value::I16(v.into())),
-            Value::I8(v) => Ok(Value::I16(v.into())),
-            t => Err(TypeCastError {
-                msg: format!("could not convert {:?} to Value::I16", t),
-            }),
-        }
-    }
-
-    pub fn into_i32(self) -> Result<Value, TypeCastError> {
-        match self {
-            Value::I8(v) => Ok(Value::I32(v.into())),
-            Value::I16(v) => Ok(Value::I32(v.into())),
-            Value::U8(v) => Ok(Value::I32(v.into())),
-            Value::U16(v) => Ok(Value::I32(v.into())),
-            t => Err(TypeCastError {
-                msg: format!("could not convert {:?} to Value::I32", t),
-            }),
-        }
-    }
-
-    pub fn into_i64(self) -> Result<Value, TypeCastError> {
-        match self {
-            Value::I8(v) => Ok(Value::I64(v.into())),
-            Value::I16(v) => Ok(Value::I64(v.into())),
-            Value::I32(v) => Ok(Value::I64(v.into())),
-            Value::U8(v) => Ok(Value::I64(v.into())),
-            Value::U16(v) => Ok(Value::I64(v.into())),
-            Value::U32(v) => Ok(Value::I64(v.into())),
-            t => Err(TypeCastError {
-                msg: format!("could not convert {:?} to Value::I32", t),
-            }),
-        }
-    }
-
-    pub fn into_decimal(self) -> Result<Value, TypeCastError> {
-        match self {
-            Value::I8(v) => Ok(Value::Decimal(v.into())),
-            Value::I16(v) => Ok(Value::Decimal(v.into())),
-            Value::I32(v) => Ok(Value::Decimal(v.into())),
-            Value::I64(v) => Ok(Value::Decimal(v.into())),
-            Value::U8(v) => Ok(Value::Decimal(v.into())),
-            Value::U16(v) => Ok(Value::Decimal(v.into())),
-            Value::U32(v) => Ok(Value::Decimal(v.into())),
-            Value::U64(v) => Ok(Value::Decimal(v.into())),
-            // TODO: figure out how to cast these
-            Value::F32(v) => Ok(Value::Decimal(
-                crate::decimal::Decimal::from_f32(v).ok_or_else(|| TypeCastError {
-                    msg: format!("could not convert {:?} to Decimal", v),
-                })?,
-            )),
-            Value::F64(v) => Ok(Value::Decimal(
-                crate::decimal::Decimal::from_f64(v).ok_or_else(|| TypeCastError {
-                    msg: format!("could not convert {:?} to Decimal", v),
-                })?,
-            )),
-            t => Err(TypeCastError {
-                msg: format!("could not convert {:?} to Value::I32", t),
-            }),
-        }
-    }
-
-    pub fn into_str(self) -> Result<Value, TypeCastError> {
-        Ok(match self {
-            Value::Null => Value::Str("null".into()),
-            Value::Bool(v) => Value::Str(format!("{}", v).into()),
-            Value::I8(v) => Value::Str(format!("{}", v).into()),
-            Value::I16(v) => Value::Str(format!("{}", v).into()),
-            Value::I32(v) => Value::Str(format!("{}", v).into()),
-            Value::I64(v) => Value::Str(format!("{}", v).into()),
-            Value::U8(v) => Value::Str(format!("{}", v).into()),
-            Value::U16(v) => Value::Str(format!("{}", v).into()),
-            Value::U32(v) => Value::Str(format!("{}", v).into()),
-            Value::U64(v) => Value::Str(format!("{}", v).into()),
-            Value::F32(v) => Value::Str(format!("{}", v).into()),
-            Value::F64(v) => Value::Str(format!("{}", v).into()),
-            Value::Str(v) => Value::Str(format!("{}", v).into()),
-            Value::Bin(_) => Value::Str("<binary blob>".into()),
-            Value::Time(u, v) => Value::Str(format!("{:?}({})", u, v).into()),
-            Value::Date(u, v) => Value::Str(format!("{:?}({})", u, v).into()),
-            Value::TimeStamp(u, v) => Value::Str(format!("{:?}({})", u, v).into()),
-            Value::TimeStampUTC(u, v) => Value::Str(format!("{:?}({})", u, v).into()),
-            Value::Decimal(v) => Value::Str(format!("{}", v).into()),
-            Value::Uuid(v) => Value::Str(format!("{}", v).into()),
-        })
-        //Ok(Value::Str(format!("{}", self).into()))
-    }
-}
+impl std::error::Error for TypeCastError {}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum TimeUnit {
@@ -438,6 +289,159 @@ impl ValueView<'_> {
             Self::Decimal(_) => DataType::Decimal,
             Self::Uuid(_) => DataType::Uuid,
         }
+    }
+}
+
+impl ValueView<'_> {
+    pub fn into_u16(self) -> Result<Value, TypeCastError> {
+        match self {
+            ValueView::U8(v) => Ok(Value::U16(v.into())),
+            ValueView::U16(v) => Ok(Value::U16(v)),
+            t => Err(TypeCastError {
+                msg: format!("could not convert {:?} to Value::U8", t),
+            }),
+        }
+    }
+
+    pub fn into_u32(self) -> Result<Value, TypeCastError> {
+        match self {
+            ValueView::U8(v) => Ok(Value::U32(v.into())),
+            ValueView::U16(v) => Ok(Value::U32(v.into())),
+            ValueView::U32(v) => Ok(Value::U32(v)),
+            t => Err(TypeCastError {
+                msg: format!("could not convert {:?} to Value::U32", t),
+            }),
+        }
+    }
+
+    pub fn into_u64(self) -> Result<Value, TypeCastError> {
+        match self {
+            ValueView::U8(v) => Ok(Value::U64(v.into())),
+            ValueView::U16(v) => Ok(Value::U64(v.into())),
+            ValueView::U32(v) => Ok(Value::U64(v.into())),
+            ValueView::U64(v) => Ok(Value::U64(v)),
+            t => Err(TypeCastError {
+                msg: format!("could not convert {:?} to Value::U64", t),
+            }),
+        }
+    }
+
+    pub fn into_f32(self) -> Result<Value, TypeCastError> {
+        match self {
+            ValueView::U8(v) => Ok(Value::F32(v.into())),
+            ValueView::U16(v) => Ok(Value::F32(v.into())),
+            ValueView::I8(v) => Ok(Value::F32(v.into())),
+            ValueView::I16(v) => Ok(Value::F32(v.into())),
+            t => Err(TypeCastError {
+                msg: format!("could not convert {:?} to Value::F32", t),
+            }),
+        }
+    }
+
+    pub fn into_f64(self) -> Result<Value, TypeCastError> {
+        match self {
+            ValueView::U8(v) => Ok(Value::F64(v.into())),
+            ValueView::U16(v) => Ok(Value::F64(v.into())),
+            ValueView::U32(v) => Ok(Value::F64(v.into())),
+            ValueView::I8(v) => Ok(Value::F64(v.into())),
+            ValueView::I16(v) => Ok(Value::F64(v.into())),
+            ValueView::I32(v) => Ok(Value::F64(v.into())),
+            ValueView::F32(v) => Ok(Value::F64(v.into())),
+            t => Err(TypeCastError {
+                msg: format!("could not convert {:?} to Value::F64", t),
+            }),
+        }
+    }
+
+    pub fn into_i16(self) -> Result<Value, TypeCastError> {
+        match self {
+            ValueView::U8(v) => Ok(Value::I16(v.into())),
+            ValueView::I8(v) => Ok(Value::I16(v.into())),
+            t => Err(TypeCastError {
+                msg: format!("could not convert {:?} to Value::I16", t),
+            }),
+        }
+    }
+
+    pub fn into_i32(self) -> Result<Value, TypeCastError> {
+        match self {
+            ValueView::I8(v) => Ok(Value::I32(v.into())),
+            ValueView::I16(v) => Ok(Value::I32(v.into())),
+            ValueView::U8(v) => Ok(Value::I32(v.into())),
+            ValueView::U16(v) => Ok(Value::I32(v.into())),
+            t => Err(TypeCastError {
+                msg: format!("could not convert {:?} to Value::I32", t),
+            }),
+        }
+    }
+
+    pub fn into_i64(self) -> Result<Value, TypeCastError> {
+        match self {
+            ValueView::I8(v) => Ok(Value::I64(v.into())),
+            ValueView::I16(v) => Ok(Value::I64(v.into())),
+            ValueView::I32(v) => Ok(Value::I64(v.into())),
+            ValueView::U8(v) => Ok(Value::I64(v.into())),
+            ValueView::U16(v) => Ok(Value::I64(v.into())),
+            ValueView::U32(v) => Ok(Value::I64(v.into())),
+            t => Err(TypeCastError {
+                msg: format!("could not convert {:?} to Value::I32", t),
+            }),
+        }
+    }
+
+    pub fn into_decimal(self) -> Result<Value, TypeCastError> {
+        match self {
+            ValueView::I8(v) => Ok(Value::Decimal(v.into())),
+            ValueView::I16(v) => Ok(Value::Decimal(v.into())),
+            ValueView::I32(v) => Ok(Value::Decimal(v.into())),
+            ValueView::I64(v) => Ok(Value::Decimal(v.into())),
+            ValueView::U8(v) => Ok(Value::Decimal(v.into())),
+            ValueView::U16(v) => Ok(Value::Decimal(v.into())),
+            ValueView::U32(v) => Ok(Value::Decimal(v.into())),
+            ValueView::U64(v) => Ok(Value::Decimal(v.into())),
+            // TODO: figure out how to cast these
+            ValueView::F32(v) => Ok(Value::Decimal(
+                crate::decimal::Decimal::from_f32(v).ok_or_else(|| TypeCastError {
+                    msg: format!("could not convert {:?} to Decimal", v),
+                })?,
+            )),
+            ValueView::F64(v) => Ok(Value::Decimal(
+                crate::decimal::Decimal::from_f64(v).ok_or_else(|| TypeCastError {
+                    msg: format!("could not convert {:?} to Decimal", v),
+                })?,
+            )),
+            t => Err(TypeCastError {
+                msg: format!("could not convert {:?} to Value::I32", t),
+            }),
+        }
+    }
+
+    pub fn into_str(self) -> Result<Value, TypeCastError> {
+        Ok(match self {
+            ValueView::Null => Value::Str("null".into()),
+            ValueView::Bool(v) => Value::Str(format!("{}", v).into()),
+            ValueView::I8(v) => Value::Str(format!("{}", v).into()),
+            ValueView::I16(v) => Value::Str(format!("{}", v).into()),
+            ValueView::I32(v) => Value::Str(format!("{}", v).into()),
+            ValueView::I64(v) => Value::Str(format!("{}", v).into()),
+            ValueView::U8(v) => Value::Str(format!("{}", v).into()),
+            ValueView::U16(v) => Value::Str(format!("{}", v).into()),
+            ValueView::U32(v) => Value::Str(format!("{}", v).into()),
+            ValueView::U64(v) => Value::Str(format!("{}", v).into()),
+            ValueView::F32(v) => Value::Str(format!("{}", v).into()),
+            ValueView::F64(v) => Value::Str(format!("{}", v).into()),
+            ValueView::Str(v) => Value::Str(v.to_string().into()),
+            // FIXME: dates/times to some ISO 8601
+            ValueView::Time(u, v) => Value::Str(format!("{:?}({})", u, v).into()),
+            ValueView::Date(u, v) => Value::Str(format!("{:?}({})", u, v).into()),
+            ValueView::TimeStamp(u, v) => Value::Str(format!("{:?}({})", u, v).into()),
+            ValueView::TimeStampUTC(u, v) => Value::Str(format!("{:?}({})", u, v).into()),
+            ValueView::Decimal(v) => Value::Str(format!("{}", v).into()),
+            ValueView::Uuid(v) => Value::Str(format!("{}", v).into()),
+            t => Err(TypeCastError {
+                msg: format!("could not convert {:?} to Value::Str", t),
+            })?,
+        })
     }
 }
 
@@ -576,6 +580,11 @@ impl<'a> Iterator for Column<'a> {
     fn next(&mut self) -> Option<Self::Item> {
         self.iter.next()
     }
+
+    #[inline(always)]
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.iter.size_hint()
+    }
 }
 
 #[cfg(test)]
@@ -611,299 +620,298 @@ mod test {
 
     #[rustfmt::skip]
     #[test]
-    fn upcast_value() {
+    fn upcast_valueview() {
         // we don't have into_u8, since it's a minimum size
 
         // into U16
         assert_eq!(
-            Value::U16(2), 
-            Value::U16(2).into_u16().unwrap()
+            ValueView::U16(2), 
+            ValueView::U16(2).into_u16().unwrap()
         );
         assert_eq!(
-            Value::U16(2), 
-            Value::U8(2).into_u16().unwrap()
+            ValueView::U16(2), 
+            ValueView::U8(2).into_u16().unwrap()
         );
         assert!(
-            Value::U32(2).into_u16().is_err()
+            ValueView::U32(2).into_u16().is_err()
         );
 
         // into U32
         assert_eq!(
-            Value::U32(2), 
-            Value::U32(2).into_u32().unwrap()
+            ValueView::U32(2), 
+            ValueView::U32(2).into_u32().unwrap()
         );
         assert_eq!(
-            Value::U32(2), 
-            Value::U16(2).into_u32().unwrap()
+            ValueView::U32(2), 
+            ValueView::U16(2).into_u32().unwrap()
         );
         assert_eq!(
-            Value::U32(2), 
-            Value::U8(2).into_u32().unwrap()
+            ValueView::U32(2), 
+            ValueView::U8(2).into_u32().unwrap()
         );
         assert!(
-            Value::U32(2).into_u16().is_err()
+            ValueView::U32(2).into_u16().is_err()
         );
 
         // into U64
         assert_eq!(
-            Value::U64(2), 
-            Value::U64(2).into_u64().unwrap()
+            ValueView::U64(2), 
+            ValueView::U64(2).into_u64().unwrap()
         );
         assert_eq!(
-            Value::U64(2), 
-            Value::U32(2).into_u64().unwrap()
+            ValueView::U64(2), 
+            ValueView::U32(2).into_u64().unwrap()
         );
         assert_eq!(
-            Value::U64(2), 
-            Value::U16(2).into_u64().unwrap()
+            ValueView::U64(2), 
+            ValueView::U16(2).into_u64().unwrap()
         );
         assert_eq!(
-            Value::U64(2), 
-            Value::U8(2).into_u64().unwrap()
+            ValueView::U64(2), 
+            ValueView::U8(2).into_u64().unwrap()
         );
         assert!(
-            Value::I64(2).into_u64().is_err()
+            ValueView::I64(2).into_u64().is_err()
         );
 
         // into F32
         assert_eq!(
-            Value::F32(2.), 
-            Value::U8(2).into_f32().unwrap()
+            ValueView::F32(2.), 
+            ValueView::U8(2).into_f32().unwrap()
         );
         assert_eq!(
-            Value::F32(2.), 
-            Value::U16(2).into_f32().unwrap()
+            ValueView::F32(2.), 
+            ValueView::U16(2).into_f32().unwrap()
         );
         assert_eq!(
-            Value::F32(2.), 
-            Value::I8(2).into_f32().unwrap()
+            ValueView::F32(2.), 
+            ValueView::I8(2).into_f32().unwrap()
         );
         assert_eq!(
-            Value::F32(2.), 
-            Value::I16(2).into_f32().unwrap()
+            ValueView::F32(2.), 
+            ValueView::I16(2).into_f32().unwrap()
         );
         assert!(
-            Value::I64(2).into_f32().is_err()
+            ValueView::I64(2).into_f32().is_err()
         );
 
         // into F64
         assert_eq!(
-            Value::F64(2.), 
-            Value::U8(2).into_f64().unwrap()
+            ValueView::F64(2.), 
+            ValueView::U8(2).into_f64().unwrap()
         );
         assert_eq!(
-            Value::F64(2.), 
-            Value::U16(2).into_f64().unwrap()
+            ValueView::F64(2.), 
+            ValueView::U16(2).into_f64().unwrap()
         );
         assert_eq!(
-            Value::F64(2.), 
-            Value::U32(2).into_f64().unwrap()
+            ValueView::F64(2.), 
+            ValueView::U32(2).into_f64().unwrap()
         );
         assert_eq!(
-            Value::F64(2.), 
-            Value::I8(2).into_f64().unwrap()
+            ValueView::F64(2.), 
+            ValueView::I8(2).into_f64().unwrap()
         );
         assert_eq!(
-            Value::F64(2.), 
-            Value::I16(2).into_f64().unwrap()
+            ValueView::F64(2.), 
+            ValueView::I16(2).into_f64().unwrap()
         );
         assert_eq!(
-            Value::F64(2.), 
-            Value::I32(2).into_f64().unwrap()
+            ValueView::F64(2.), 
+            ValueView::I32(2).into_f64().unwrap()
         );
         assert_eq!(
-            Value::F64(2.), 
-            Value::F32(2.).into_f64().unwrap()
+            ValueView::F64(2.), 
+            ValueView::F32(2.).into_f64().unwrap()
         );
         assert!(
-            Value::I64(2).into_f64().is_err()
+            ValueView::I64(2).into_f64().is_err()
         );
 
         // into I16
         assert_eq!(
-            Value::I16(2), 
-            Value::U8(2).into_i16().unwrap()
+            ValueView::I16(2), 
+            ValueView::U8(2).into_i16().unwrap()
         );
         assert_eq!(
-            Value::I16(2), 
-            Value::I8(2).into_i16().unwrap()
+            ValueView::I16(2), 
+            ValueView::I8(2).into_i16().unwrap()
         );
         assert!(
-            Value::I64(2).into_f64().is_err()
+            ValueView::I64(2).into_f64().is_err()
         );
 
         // into F32
         assert_eq!(
-            Value::F32(2.), 
-            Value::U8(2).into_f32().unwrap()
+            ValueView::F32(2.), 
+            ValueView::U8(2).into_f32().unwrap()
         );
         assert_eq!(
-            Value::F32(2.), 
-            Value::U16(2).into_f32().unwrap()
+            ValueView::F32(2.), 
+            ValueView::U16(2).into_f32().unwrap()
         );
         assert_eq!(
-            Value::F32(2.), 
-            Value::I8(2).into_f32().unwrap()
+            ValueView::F32(2.), 
+            ValueView::I8(2).into_f32().unwrap()
         );
         assert_eq!(
-            Value::F32(2.), 
-            Value::I16(2).into_f32().unwrap()
+            ValueView::F32(2.), 
+            ValueView::I16(2).into_f32().unwrap()
         );
         assert!(
-            Value::I64(2).into_f32().is_err()
+            ValueView::I64(2).into_f32().is_err()
         );
 
         // into F64
         assert_eq!(
-            Value::F64(2.), 
-            Value::U8(2).into_f64().unwrap()
+            ValueView::F64(2.), 
+            ValueView::U8(2).into_f64().unwrap()
         );
         assert_eq!(
-            Value::F64(2.), 
-            Value::U16(2).into_f64().unwrap()
+            ValueView::F64(2.), 
+            ValueView::U16(2).into_f64().unwrap()
         );
         assert_eq!(
-            Value::F64(2.), 
-            Value::U32(2).into_f64().unwrap()
+            ValueView::F64(2.), 
+            ValueView::U32(2).into_f64().unwrap()
         );
         assert_eq!(
-            Value::F64(2.), 
-            Value::I8(2).into_f64().unwrap()
+            ValueView::F64(2.), 
+            ValueView::I8(2).into_f64().unwrap()
         );
         assert_eq!(
-            Value::F64(2.), 
-            Value::I16(2).into_f64().unwrap()
+            ValueView::F64(2.), 
+            ValueView::I16(2).into_f64().unwrap()
         );
         assert_eq!(
-            Value::F64(2.), 
-            Value::I32(2).into_f64().unwrap()
+            ValueView::F64(2.), 
+            ValueView::I32(2).into_f64().unwrap()
         );
         assert!(
-            Value::I64(2).into_f64().is_err()
+            ValueView::I64(2).into_f64().is_err()
         );
 
         // into decimal
         assert_eq!(
-            Value::Decimal(Decimal::new(2, 0)), 
-            Value::I8(2).into_decimal().unwrap()
+            ValueView::Decimal(Decimal::new(2, 0)), 
+            ValueView::I8(2).into_decimal().unwrap()
         );
         assert_eq!(
-            Value::Decimal(Decimal::new(2, 0)), 
-            Value::I16(2).into_decimal().unwrap()
+            ValueView::Decimal(Decimal::new(2, 0)), 
+            ValueView::I16(2).into_decimal().unwrap()
         );
         assert_eq!(
-            Value::Decimal(Decimal::new(2, 0)), 
-            Value::I32(2).into_decimal().unwrap()
+            ValueView::Decimal(Decimal::new(2, 0)), 
+            ValueView::I32(2).into_decimal().unwrap()
         );
         assert_eq!(
-            Value::Decimal(Decimal::new(2, 0)), 
-            Value::I64(2).into_decimal().unwrap()
+            ValueView::Decimal(Decimal::new(2, 0)), 
+            ValueView::I64(2).into_decimal().unwrap()
         );
         assert_eq!(
-            Value::Decimal(Decimal::new(2, 0)), 
-            Value::U8(2).into_decimal().unwrap()
+            ValueView::Decimal(Decimal::new(2, 0)), 
+            ValueView::U8(2).into_decimal().unwrap()
         );
         assert_eq!(
-            Value::Decimal(Decimal::new(2, 0)), 
-            Value::U16(2).into_decimal().unwrap()
+            ValueView::Decimal(Decimal::new(2, 0)), 
+            ValueView::U16(2).into_decimal().unwrap()
         );
         assert_eq!(
-            Value::Decimal(Decimal::new(2, 0)), 
-            Value::U32(2).into_decimal().unwrap()
+            ValueView::Decimal(Decimal::new(2, 0)), 
+            ValueView::U32(2).into_decimal().unwrap()
         );
         assert_eq!(
-            Value::Decimal(Decimal::new(2, 0)), 
-            Value::U64(2).into_decimal().unwrap()
+            ValueView::Decimal(Decimal::new(2, 0)), 
+            ValueView::U64(2).into_decimal().unwrap()
         );
         assert_eq!(
-            Value::Decimal(Decimal::new(314159, 5)), 
-            Value::F32(3.14159).into_decimal().unwrap()
+            ValueView::Decimal(Decimal::new(314159, 5)), 
+            ValueView::F32(3.14159).into_decimal().unwrap()
         );
         assert_eq!(
-            Value::Decimal(Decimal::new(314159265, 8)), 
-            Value::F64(3.14159265).into_decimal().unwrap()
+            ValueView::Decimal(Decimal::new(314159265, 8)), 
+            ValueView::F64(3.14159265).into_decimal().unwrap()
         );
 
         // into str
         assert_eq!(
-            Value::Str("null".into()),
-            Value::Null.into_str().unwrap()
+            ValueView::Str("null"),
+            ValueView::Null.into_str().unwrap()
         );
         assert_eq!(
-            Value::Str("true".into()),
-            Value::Bool(true).into_str().unwrap()
+            ValueView::Str("true"),
+            ValueView::Bool(true).into_str().unwrap()
         );
         assert_eq!(
-            Value::Str("2".into()),
-            Value::I8(2).into_str().unwrap()
+            ValueView::Str("2"),
+            ValueView::I8(2).into_str().unwrap()
         );
         assert_eq!(
-            Value::Str("2".into()),
-            Value::I16(2).into_str().unwrap()
+            ValueView::Str("2"),
+            ValueView::I16(2).into_str().unwrap()
         );
         assert_eq!(
-            Value::Str("2".into()),
-            Value::I32(2).into_str().unwrap()
+            ValueView::Str("2"),
+            ValueView::I32(2).into_str().unwrap()
         );
         assert_eq!(
-            Value::Str("2".into()),
-            Value::I64(2).into_str().unwrap()
+            ValueView::Str("2"),
+            ValueView::I64(2).into_str().unwrap()
         );
         assert_eq!(
-            Value::Str("2".into()),
-            Value::U8(2).into_str().unwrap()
+            ValueView::Str("2"),
+            ValueView::U8(2).into_str().unwrap()
         );
         assert_eq!(
-            Value::Str("2".into()),
-            Value::U16(2).into_str().unwrap()
+            ValueView::Str("2"),
+            ValueView::U16(2).into_str().unwrap()
         );
         assert_eq!(
-            Value::Str("2".into()),
-            Value::U32(2).into_str().unwrap()
+            ValueView::Str("2"),
+            ValueView::U32(2).into_str().unwrap()
         );
         assert_eq!(
-            Value::Str("2".into()),
-            Value::U64(2).into_str().unwrap()
+            ValueView::Str("2"),
+            ValueView::U64(2).into_str().unwrap()
         );
         assert_eq!(
-            Value::Str("3.14".into()),
-            Value::F32(3.14).into_str().unwrap()
+            ValueView::Str("3.14"),
+            ValueView::F32(3.14).into_str().unwrap()
         );
         assert_eq!(
-            Value::Str("3.14".into()),
-            Value::F64(3.14).into_str().unwrap()
+            ValueView::Str("3.14"),
+            ValueView::F64(3.14).into_str().unwrap()
         );
         assert_eq!(
-            Value::Str("2".into()),
-            Value::Str("2".into()).into_str().unwrap()
+            ValueView::Str("2"),
+            ValueView::Str("2").into_str().unwrap()
+        );
+        assert!(
+            ValueView::Bin(&[b'1']).into_str().is_err()
         );
         assert_eq!(
-            Value::Str("<binary blob>".into()),
-            Value::Bin(vec![1].into()).into_str().unwrap()
+            ValueView::Str("Millisecond(123)"),
+            ValueView::Time(TimeUnit::Millisecond, 123).into_str().unwrap()
         );
         assert_eq!(
-            Value::Str("Millisecond(123)".into()),
-            Value::Time(TimeUnit::Millisecond, 123).into_str().unwrap()
+            ValueView::Str("Millisecond(123)"),
+            ValueView::Date(TimeUnit::Millisecond, 123).into_str().unwrap()
         );
         assert_eq!(
-            Value::Str("Millisecond(123)".into()),
-            Value::Date(TimeUnit::Millisecond, 123).into_str().unwrap()
+            ValueView::Str("Millisecond(123)"),
+            ValueView::TimeStamp(TimeUnit::Millisecond, 123).into_str().unwrap()
         );
         assert_eq!(
-            Value::Str("Millisecond(123)".into()),
-            Value::TimeStamp(TimeUnit::Millisecond, 123).into_str().unwrap()
+            ValueView::Str("Millisecond(123)"),
+            ValueView::TimeStampUTC(TimeUnit::Millisecond, 123).into_str().unwrap()
         );
         assert_eq!(
-            Value::Str("Millisecond(123)".into()),
-            Value::TimeStampUTC(TimeUnit::Millisecond, 123).into_str().unwrap()
+            ValueView::Str("3.14159"),
+            ValueView::Decimal(Decimal::new(314159, 5)).into_str().unwrap()
         );
         assert_eq!(
-            Value::Str("3.14159".into()),
-            Value::Decimal(Decimal::new(314159, 5)).into_str().unwrap()
-        );
-        assert_eq!(
-            Value::Str("a1a2a3a4-b1b2-c1c2-d1d2-d3d4d5d6d7d8".into()),
-            Value::Uuid(crate::uuid::Uuid::parse_str("a1a2a3a4b1b2c1c2d1d2d3d4d5d6d7d8").unwrap()).into_str().unwrap()
+            ValueView::Str("a1a2a3a4-b1b2-c1c2-d1d2-d3d4d5d6d7d8"),
+            ValueView::Uuid(&crate::uuid::Uuid::parse_str("a1a2a3a4b1b2c1c2d1d2d3d4d5d6d7d8").unwrap()).into_str().unwrap()
         );
     }
 }
