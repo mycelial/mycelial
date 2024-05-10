@@ -1,5 +1,5 @@
 pub use dioxus::prelude::*;
-use crate::components::workspace::NodeState;
+use crate::components::graph::NodeState;
 
 
 #[component]

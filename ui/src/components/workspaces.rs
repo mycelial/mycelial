@@ -110,7 +110,7 @@ fn NewWorkspace() -> Element {
 
 #[component]
 pub fn Workspaces() -> Element {
-    let state = use_context_provider(|| {
+    let mut state = use_context_provider(|| {
         let mut state = State::new();
         state.add_workspace("hello", "2020-01-01");
         state.add_workspace("world", "2020-01-01");
@@ -142,16 +142,17 @@ pub fn Workspaces() -> Element {
                     thead {
                         tr {
                             class: "border-b border-solid p-4 font-bold",
-                            th {
-                                class: "pl-3",
-                                "Name" },
+                                th {
+                                    class: "pl-3",
+                                    "Name"
+                                },
                                 th {
                                     class: "text-right",
                                     "Created At"
                                 }
                                 th { }
                             }
-                            for (&_id, workspace) in state.read().workspaces.iter() {
+                            for (&id, workspace) in state.read().workspaces.iter() {
                                 tr {
                                     class: "border-b border-gray-100",
                                     td {
@@ -166,18 +167,15 @@ pub fn Workspaces() -> Element {
                                         "{workspace.created_at}"
 
                                     }
-                                }
-                                td {
-                                    class: "text-right",
-                                    "{workspace.created_at}"
-                                }
-                                td {
-                                    class: "text-right",
-                                    button {
-                                        onclick: move |_| {
-                                        },
-                                        class: "text-toadstool-1 border border-toadstool-1 px-4 py-1 my-1 mx-3 rounded bg-white",
-                                        "DELETE"
+                                    td {
+                                        class: "text-right",
+                                        button {
+                                            onclick: move |_| {
+                                                state.write().remove_workspace(id);
+                                            },
+                                            class: "text-toadstool-1 border border-toadstool-1 px-4 py-1 my-1 mx-3 rounded bg-white",
+                                            "DELETE"
+                                        }
                                     }
                                 }
                             }
