@@ -15,7 +15,7 @@ data from a source system like SQLite, to a destination system like
 
 ## How does it work?
 
-There are two main components in Mycelial: daemons and a control plane. (Mycelial, Inc. offers a hosted control plane as well! See app.mycelial.com to sign up!)
+There are two main components in Mycelial: daemons and a control plane. (Mycelial, Inc. offers a hosted control plane as well! See [app.mycelial.com](https://app.mycelial.com) to sign up!)
 
 The daemon is installed and executed on source and destination computers. These
 daemons will register with the control plane, and they will receive
