@@ -9,6 +9,12 @@ pub struct Graph {
     counter: u64,
 }
 
+impl Default for Graph {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Graph {
     pub fn new() -> Self {
         Self {
@@ -63,11 +69,11 @@ impl Graph {
 pub struct NodeState {
     pub id: u64,
     pub node_type: &'static str,
-    pub  x: f64,
-    pub  y: f64,
-    pub  w: f64,
-    pub  h: f64,
-    pub  port_diameter: f64,
+    pub x: f64,
+    pub y: f64,
+    pub w: f64,
+    pub h: f64,
+    pub port_diameter: f64,
 }
 
 impl NodeState {

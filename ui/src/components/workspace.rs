@@ -1,19 +1,6 @@
-use dioxus::prelude::*;
-use crate::components::node_config::NodeConfig;
 use crate::components::graph::{Graph, NodeState};
-
-
-#[derive(Debug)]
-struct ViewPortState {
-    x: f64,
-    y: f64,
-}
-
-impl ViewPortState {
-    fn new() -> Self {
-        Self { x: 0.0, y: 0.0 }
-    }
-}
+use crate::components::node_config::NodeConfig;
+use dioxus::prelude::*;
 
 // representation of section in sections menu, which can be dragged into viewport container
 #[component]
@@ -111,6 +98,7 @@ fn Node(
                 spawn(async move {
                     match event.get_client_rect().await {
                         Ok(rect) => {
+                            let (x, y) = (rect.origin.x, rect.origin.y);
                             let (w, h) = (rect.size.width, rect.size.height);
                             let node = &mut* node.write();
                             node.w = w;
@@ -138,6 +126,7 @@ fn Node(
             onmousedown: move |event| {
                 selected_node.set(Some(node));
                 tracing::info!("selected node is {:?}", selected_node.read());
+
                 if dragged_node.read().is_none() {
                     let coords = event.client_coordinates();
                     let (delta_x, delta_y) = {
@@ -184,9 +173,6 @@ fn Node(
             style: "left: {input_pos.0}px; top: {input_pos.1}px; min-width: {port_diameter}px; min-height: {port_diameter}px;",
             prevent_default: "onmouseup",
             onmouseup: move |_event|  {
-                if dragged_node.read().is_some() {
-                    return
-                }
                 let dragged = &mut *dragged_edge.write();
                 if let Some(DraggedEdge{from_node, ..}) = dragged {
                     graph.write().add_edge(*from_node, id);
@@ -209,22 +195,72 @@ fn Node(
     }
 }
 
-// TODO: minimap
+#[derive(Debug)]
+struct ViewPortState {
+    x: f64,
+    y: f64,
+    // position of the viewport div
+    // required to compensate node placement
+    delta_x: f64,
+    delta_y: f64,
+    grabbed: bool,
+}
+
+impl ViewPortState {
+    fn new() -> Self {
+        Self {
+            x: 0.0,
+            y: 0.0,
+            delta_x: 0.0,
+            delta_y: 0.0,
+            grabbed: false,
+        }
+    }
+
+    fn delta_x(&self) -> f64 {
+        self.delta_x + self.x
+    }
+
+    fn delta_y(&self) -> f64 {
+        self.delta_y + self.y
+    }
+}
+
 #[component]
 fn ViewPort(
     mut graph: Signal<Graph>,
+    mut view_port_state: Signal<ViewPortState>,
     mut dragged_menu_item: Signal<Option<DraggedMenuItem>>,
     dragged_node: Signal<Option<DraggedNode>>,
     dragged_edge: Signal<Option<DraggedEdge>>,
     selected_node: Signal<Option<Signal<NodeState>>>,
 ) -> Element {
+    let mut grab_point = use_signal(|| (0.0, 0.0));
+    let state_ref = &*view_port_state.read();
     rsx! {
         div {
-            class: "min-h-screen bg-grey-bright overflow-hidden select-none",
+            class: "h-full w-full bg-grey-bright overflow-hidden select-none scroll-none",
 
             // prevent_default + own ondragover enable drop area on current container
             prevent_default: "ondragover",
             ondragover: move |_event| {},
+
+            // this callback required to store coordinates of div with 'content'
+            // which will be used to properly drop nodes
+            onmounted: move |event| {
+                spawn(async move {
+                    match event.get_client_rect().await {
+                        Ok(rect) => {
+                            let (x, y) = (rect.origin.x, rect.origin.y);
+                            let view_port_state = &mut *view_port_state.write();
+                            view_port_state.delta_x = x;
+                            view_port_state.delta_y = y;
+                            tracing::info!("delta_x: {x}, delta_y: {y}");
+                        },
+                        Err(e) => tracing::error!("failed to read rect data: {e}"),
+                    }
+                });
+            },
 
             prevent_default: "ondrop",
             ondrop: move |event| {
@@ -233,36 +269,63 @@ fn ViewPort(
                     let graph = &mut*graph.write();
                     let id = graph.get_id();
                     let coords = event.client_coordinates();
+                    let vps_ref = &*view_port_state.read();
                     let node_state = Signal::new(NodeState::new(
-                        id, node_type, coords.x - delta_x, coords.y - delta_y
+                        id,
+                        node_type,
+                        coords.x - delta_x - vps_ref.delta_x(),
+                        coords.y - delta_y - vps_ref.delta_y()
                     ));
                     graph.add_node(id, node_state);
                 }
                 *dragged_menu_item.write() = None;
             },
 
-            // FIXME: panning funcs
-          //onmousedown: move |_event| {
-          //    *grabbed.write() = true;
-          //},
-
-          //onmousemove: move |_event| {
-          //    if *grabbed.read() {
-
-          //    }
-          //},
-          //onmouseup: move |_event| {
-          //    *grabbed.write() = false;
-          //},
-
-            for (_, node) in (&*graph.read()).iter_nodes() {
-                Node{
-                    graph: graph,
-                    dragged_node: dragged_node,
-                    dragged_edge: dragged_edge,
-                    node: node,
-                    selected_node: selected_node,
+            prevent_default: "onmousedown",
+            onmousedown: move |event| {
+                // if node or edge is currently dragged - do nothing
+                if dragged_edge.read().is_some() || dragged_node.read().is_some() {
+                    return
                 }
+                let coords = event.client_coordinates();
+                let state = &mut* view_port_state.write();
+                grab_point.set((coords.x - state.x, coords.y - state.y));
+                state.grabbed = true;
+            },
+
+            prevent_default: "onmousemove",
+            onmousemove: move |event| {
+                // if node or edge is currently dragged - do nothing
+                if dragged_edge.read().is_some() || dragged_node.read().is_some() {
+                    return
+                }
+                let state = &mut *view_port_state.write();
+                if state.grabbed {
+                    let grab_point = *grab_point.read();
+                    let coords = event.client_coordinates();
+                    state.x = coords.x - grab_point.0;
+                    state.y = coords.y - grab_point.1;
+                }
+            },
+
+            prevent_default: "onmouseup",
+            onmouseup: move |_event| {
+                view_port_state.write().grabbed = false;
+            },
+
+            div {
+                style: "transform: translate({state_ref.x}px, {state_ref.y}px)",
+                for (_, node) in (&*graph.read()).iter_nodes() {
+                    Node{
+                        graph: graph,
+                        dragged_node: dragged_node,
+                        dragged_edge: dragged_edge,
+                        node: node,
+                        selected_node: selected_node,
+                    }
+                }
+                // graph edges
+                Edges { graph, view_port_state, dragged_edge }
             }
             if selected_node.read().is_some() {
                 NodeConfig {
@@ -274,23 +337,28 @@ fn ViewPort(
 }
 
 #[component]
-fn Edges(graph: Signal<Graph>, dragged_edge: Signal<Option<DraggedEdge>>) -> Element {
-    let g = &*graph.read();
-    let edges_iter = g.iter_edges().filter_map(|(from_node, to_node)| {
-        let from_node = g.get_node(from_node);
-        let to_node = g.get_node(to_node);
+fn Edges(
+    graph: Signal<Graph>,
+    view_port_state: Signal<ViewPortState>,
+    dragged_edge: Signal<Option<DraggedEdge>>,
+) -> Element {
+    let graph_ref = &*graph.read();
+    let view_port_state_ref = view_port_state.read();
+    let edges_iter = graph_ref.iter_edges().filter_map(|(from_node, to_node)| {
+        let from_node = graph_ref.get_node(from_node);
+        let to_node = graph_ref.get_node(to_node);
         match (from_node, to_node) {
             (Some(from_node), Some(to_node)) => {
                 let from_node = from_node.read();
+                let offset = from_node.port_diameter / 2.0;
                 let output_pos = from_node.output_pos();
                 let input_pos = to_node.read().input_pos();
-                // FIXME: offset bs
                 Some((
                     from_node.id,
-                    output_pos.0 + 6.0,
-                    output_pos.1 + 6.0,
-                    input_pos.0 + 6.0,
-                    input_pos.1 + 6.0,
+                    output_pos.0 + offset,
+                    output_pos.1 + offset,
+                    input_pos.0 + offset,
+                    input_pos.1 + offset,
                 ))
             }
             _ => None,
@@ -304,14 +372,20 @@ fn Edges(graph: Signal<Graph>, dragged_edge: Signal<Option<DraggedEdge>>) -> Ele
         y,
     }) = &*dragged_edge.read()
     {
-        if let Some(node) = g.get_node(*from_node) {
+        if let Some(node) = graph_ref.get_node(*from_node) {
             let offset = node.read().port_diameter / 2.0;
-            let (x, y) = match to_node.map(|to_node| g.get_node(to_node)).unwrap_or(None) {
+            let (x, y) = match to_node
+                .map(|to_node| graph_ref.get_node(to_node))
+                .unwrap_or(None)
+            {
                 Some(to_node) => {
                     let input_pos = to_node.read().input_pos();
                     (input_pos.0 + offset, input_pos.1 + offset)
                 }
-                None => (*x, *y),
+                None => (
+                    *x - view_port_state_ref.delta_x(),
+                    *y - view_port_state_ref.delta_y(),
+                ),
             };
             let output_pos = node.read().output_pos();
             let (out_x, out_y) = (output_pos.0 + offset, output_pos.1 + offset);
@@ -442,9 +516,12 @@ pub fn Workspace(workspace: String) -> Element {
     let mut dragged_node: Signal<Option<DraggedNode>> = use_signal(|| None);
     let mut dragged_edge: Signal<Option<DraggedEdge>> = use_signal(|| None);
     let mut selected_node: Signal<Option<Signal<NodeState>>> = use_signal(|| None);
+    let view_port_state = use_signal(ViewPortState::new);
     let menu_items = [
         "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten",
     ];
+
+    let _view_port_state_ref = &*view_port_state.read();
     rsx! {
         div {
             prevent_default: "onmouseup",
@@ -482,7 +559,7 @@ pub fn Workspace(workspace: String) -> Element {
                 class: "col-span-2 pl-2 py-4 text-stem-1 bg-night-2 grid grid-cols-2",
                 h1 {
                     class: "text-lg justify-self-start",
-                    "Workspace: {workspace}"
+                    "Workspace: {workspace}",
                 }
                 button {
                     class: "text-stem-1 px-4 py-2 rounded bg-forest-1 border border-forest-2 justify-self-end mr-5 uppercase hover:bg-forest-2 hover:text-white",
@@ -501,26 +578,20 @@ pub fn Workspace(workspace: String) -> Element {
                     "Pipeline Sections"
                 }
                 for node_type in menu_items.iter() {
-                    MenuItem {
-                        node_type: node_type,
-                        dragged_menu_item: dragged_menu_item
-                    }
+                    MenuItem { node_type, dragged_menu_item }
                 }
             }
             // viewport
             div {
+                class: "h-full w-full scroll-none overflow-hidden",
                 ViewPort {
-                    graph: graph,
-                    dragged_menu_item: dragged_menu_item,
-                    dragged_node: dragged_node,
-                    dragged_edge: dragged_edge,
-                    selected_node: selected_node,
+                    graph,
+                    view_port_state,
+                    dragged_menu_item,
+                    dragged_node,
+                    dragged_edge,
+                    selected_node,
                 }
-            }
-            // graph edges
-            Edges {
-                graph: graph,
-                dragged_edge,
             }
         }
     }
