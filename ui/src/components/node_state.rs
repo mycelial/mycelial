@@ -1,4 +1,4 @@
-use dioxus::prelude::*;
+use super::node_config::{Config, ConfigTrait};
 
 pub type NodeType = &'static str;
 
@@ -7,8 +7,9 @@ pub type NodeType = &'static str;
 // Each node has:
 // 1. unique Id - UUID (for now)
 // 2. set of coordinates
-#[derive(Debug, Default, PartialEq)]
+#[derive(Debug)]
 pub struct NodeState {
+    // graph id
     pub id: u64,
     pub node_type: NodeType,
     pub x: f64,
@@ -16,6 +17,7 @@ pub struct NodeState {
     pub w: f64,
     pub h: f64,
     pub port_diameter: f64,
+    pub config: Box<dyn ConfigTrait>,
 }
 
 impl NodeState {
@@ -28,6 +30,7 @@ impl NodeState {
             w: 0.0,
             h: 0.0,
             port_diameter: 12.0,
+            config: Box::<Config>::default(),
         }
     }
 

@@ -1,7 +1,7 @@
 use crate::components::graph::Graph as GenericGraph;
-use crate::components::node_state::NodeState;
+use crate::components::icons::{Delete, Edit, Pause, Play, Restart};
 use crate::components::node_config::NodeConfig;
-use crate::components::icons::{Play, Pause, Restart, Edit, Delete};
+use crate::components::node_state::NodeState;
 use dioxus::prelude::*;
 
 pub type Graph = GenericGraph<Signal<NodeState>>;
@@ -75,10 +75,10 @@ fn Node(
     mut dragged_node: Signal<Option<DraggedNode>>,
     mut dragged_edge: Signal<Option<DraggedEdge>>,
     mut node: Signal<NodeState>,
-    mut selected_node: Signal<Option<Signal<NodeState>>>, 
+    mut selected_node: Signal<Option<Signal<NodeState>>>,
 ) -> Element {
     // current node coordinates, coordinates on input and output ports
-    let (id, node_type, x, y, w, _h, port_diameter, input_pos, output_pos) = {
+    let (id, node_type, x, y, _w, _h, port_diameter, input_pos, output_pos) = {
         let node = &*node.read();
         (
             node.id,
@@ -98,7 +98,7 @@ fn Node(
 
     rsx! {
         div {
-            class: "grid grid-flow-rows gap-2 absolute min-w-31 min-h-24 border border-solid bg-white rounded-sm px-2 z-[5] select-none",
+            class: "min-w-48 grid grid-flow-rows gap-2 absolute min-h-24 border border-solid bg-white rounded-sm px-2 z-[5] select-none",
             style: "left: {x}px; top: {y}px;",
             // recalculate positions on input/output nodes
             onmounted: move |event| {
@@ -130,9 +130,6 @@ fn Node(
             },
             prevent_default: "onmousedown",
             onmousedown: move |event| {
-                selected_node.set(Some(node));
-                tracing::info!("selected node is {:?}", selected_node.read());
-
                 if dragged_node.read().is_none() {
                     let coords = event.client_coordinates();
                     let (delta_x, delta_y) = {
@@ -170,7 +167,7 @@ fn Node(
                             is_playing = !is_playing
                         },
                         class: "",
-                        Pause {} 
+                        Pause {}
                     }
                 } else {
                     span {
@@ -178,16 +175,17 @@ fn Node(
                             is_playing = !is_playing
                         },
                         class: "",
-                        Play {} 
+                        Play {}
                     }
                 }
-                Restart {} 
+                Restart {}
                 span {
                     onclick: move |_event| {
                         is_being_edited = true;
+                        selected_node.set(Some(node));
                         tracing::info!{ "is_being_edited: {is_being_edited}"};
                     },
-                    Edit {} 
+                    Edit {}
                 }
                 span {
                     onclick: move |_event| {
@@ -346,6 +344,7 @@ fn ViewPort(
             },
 
             div {
+                class: "border-2 border-dotted",
                 style: "transform: translate({state_ref.x}px, {state_ref.y}px)",
                 for (_, node) in (&*graph.read()).iter_nodes() {
                     Node{
@@ -359,10 +358,10 @@ fn ViewPort(
                 // graph edges
                 Edges { graph, view_port_state, dragged_edge }
             }
-            if selected_node.read().is_some() {
-                NodeConfig {
-                    selected_node: selected_node,
-                }
+        }
+        if selected_node.read().is_some() {
+            NodeConfig {
+                selected_node: selected_node,
             }
         }
     }
@@ -544,10 +543,9 @@ impl DraggedEdge {
 #[component]
 pub fn Workspace(workspace: String) -> Element {
     let graph: Signal<Graph> = use_signal(|| {
-        let mut g = Graph::new();
-      //g.add_node_type("one", rsx!{ "form for one" }),
-      //g.add_node_type("two", rsx!{ "form for two" });
-        g
+        //g.add_node_type("one", rsx!{ "form for one" }),
+        //g.add_node_type("two", rsx!{ "form for two" });
+        Graph::new()
     });
     let dragged_menu_item: Signal<Option<DraggedMenuItem>> = use_signal(|| None);
     let mut dragged_node: Signal<Option<DraggedNode>> = use_signal(|| None);

@@ -3,7 +3,7 @@ use dioxus::prelude::*;
 pub fn Play() -> Element {
     rsx! {
         svg {
-            width: "24", 
+            width: "24",
             height: "24",
             view_box: "0 0 1200 1200",
             xmlns: "http://www.w3.org/2000/svg",
@@ -23,7 +23,7 @@ pub fn Play() -> Element {
 pub fn Pause() -> Element {
     rsx! {
         svg {
-            width: "24", 
+            width: "24",
             height: "24",
             view_box: "0 0 1200 1200",
             xmlns: "http://www.w3.org/2000/svg",
@@ -37,17 +37,16 @@ pub fn Pause() -> Element {
                 },
                 path {
                     d: "m696 412.5h33.375c20.711 0 37.5 20.711 37.5 37.5v300c0 20.711-16.789 37.5-37.5 37.5h-33.375c-20.711 0-37.5-20.711-37.5-37.5v-300c0-20.711 16.789-37.5 37.5-37.5z"
-                },  
+                },
             }
         }
     }
 }
 
-
 pub fn Restart() -> Element {
     rsx! {
         svg {
-            width: "24", 
+            width: "24",
             height: "24",
             view_box: "0 0 1200 1200",
             xmlns: "http://www.w3.org/2000/svg",
@@ -67,7 +66,7 @@ pub fn Restart() -> Element {
 pub fn Edit() -> Element {
     rsx! {
         svg {
-            width: "24", 
+            width: "24",
             height: "24",
             view_box: "0 0 1200 1200",
             xmlns: "http://www.w3.org/2000/svg",
@@ -87,7 +86,7 @@ pub fn Edit() -> Element {
 pub fn Delete() -> Element {
     rsx! {
         svg {
-            width: "24", 
+            width: "24",
             height: "24",
             view_box: "0 0 1200 1200",
             xmlns: "http://www.w3.org/2000/svg",
@@ -111,4 +110,4 @@ pub fn Delete() -> Element {
             }
         }
     }
-    }
+}
