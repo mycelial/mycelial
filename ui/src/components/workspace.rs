@@ -98,7 +98,7 @@ fn Node(
 
     rsx! {
         div {
-            class: "min-w-48 grid grid-flow-rows gap-2 absolute min-h-24 border border-solid bg-white rounded-sm px-2 z-[5] select-none",
+            class: "min-w-52 max-w-52 grid grid-flow-rows gap-2 absolute min-h-24 border border-solid bg-white rounded-sm px-2 z-[5] select-none overflow-visible",
             style: "left: {x}px; top: {y}px;",
             // recalculate positions on input/output nodes
             onmounted: move |event| {
@@ -344,7 +344,7 @@ fn ViewPort(
             },
 
             div {
-                class: "border-2 border-dotted",
+                class: "overflow-visible",
                 style: "transform: translate({state_ref.x}px, {state_ref.y}px)",
                 for (_, node) in (&*graph.read()).iter_nodes() {
                     Node{
