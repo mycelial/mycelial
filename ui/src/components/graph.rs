@@ -1,21 +1,15 @@
-use dioxus::prelude::*;
 use std::collections::BTreeMap;
 
 // Simple graph
 #[derive(Debug)]
-pub struct Graph {
-    nodes: BTreeMap<u64, Signal<NodeState>>,
+pub struct Graph<T: std::fmt::Debug> {
+    nodes: BTreeMap<u64, T>,
     edges: BTreeMap<u64, u64>,
+    // maps node type to associated element
     counter: u64,
 }
 
-impl Default for Graph {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl Graph {
+impl<T: std::fmt::Debug + Clone> Graph<T> {
     pub fn new() -> Self {
         Self {
             nodes: BTreeMap::new(),
@@ -30,29 +24,70 @@ impl Graph {
         id
     }
 
-    pub fn add_node(&mut self, id: u64, node: Signal<NodeState>) {
+    pub fn add_node(&mut self, id: u64, node: T) {
         self.nodes.insert(id, node);
     }
 
-    pub fn get_node(&self, id: u64) -> Option<Signal<NodeState>> {
-        self.nodes.get(&id).copied()
+    pub fn get_node(&self, id: u64) -> Option<&T> {
+        self.nodes.get(&id)
     }
 
     pub fn remove_node(&mut self, id: u64) {
         self.nodes.remove(&id);
         self.remove_edge(id);
+        self.remove_edge_to(id);
     }
 
-    pub fn iter_nodes(&self) -> impl Iterator<Item = (u64, Signal<NodeState>)> + Clone + '_ {
-        self.nodes.iter().map(|(id, node_state)| (*id, *node_state))
+    pub fn iter_nodes(&self) -> impl Iterator<Item = (u64, &T)> + Clone + '_ {
+        self.nodes.iter().map(|(id, node_state)| (*id, node_state))
+    }
+    
+    pub fn node_count(&self) -> usize {
+        self.nodes.len()
     }
 
     pub fn add_edge(&mut self, from_node: u64, to_node: u64) {
+        // FIXME: check for loops
+        // forbid adding edges on same node
+        if from_node == to_node {
+            return
+        }
         self.edges.insert(from_node, to_node);
+    }
+    
+    pub fn get_child_node(&self, from_node: u64) -> Option<&T> {
+        match self.edges.get(&from_node).copied() {
+            Some(to_node) => self.get_node(to_node),
+            None => None        
+        }
+    }
+    
+    pub fn get_parent_nodes(&self, to_node: u64) -> impl Iterator<Item=&T> + Clone + '_ {
+        self.iter_edges()
+            .filter(move |(_, to)| *to == to_node)
+            .map(|(from_node, _)| self.get_node(from_node).unwrap())
     }
 
     pub fn remove_edge(&mut self, from_node: u64) {
         self.edges.remove(&from_node);
+    }
+    
+    pub fn edge_count(&self) -> usize {
+        self.edges.len()
+    }
+    
+    fn remove_edge_to(&mut self, to_node: u64) {
+        self.iter_edges()
+            .fold(vec![], |mut acc, (from, to)| {
+                if to == to_node {
+                    acc.push(from)
+                }
+                acc
+            })
+            .into_iter()
+            .for_each(|from| {
+                self.remove_edge(from);
+            })
     }
 
     pub fn iter_edges(&self) -> impl Iterator<Item = (u64, u64)> + Clone + '_ {
@@ -60,42 +95,106 @@ impl Graph {
     }
 }
 
-// Node of the graph
-//
-// Each node has:
-// 1. unique Id - UUID (for now)
-// 2. set of coordinates
-#[derive(Debug)]
-pub struct NodeState {
-    pub id: u64,
-    pub node_type: &'static str,
-    pub x: f64,
-    pub y: f64,
-    pub w: f64,
-    pub h: f64,
-    pub port_diameter: f64,
-}
 
-impl NodeState {
-    pub fn new(id: u64, node_type: &'static str, x: f64, y: f64) -> Self {
-        Self {
-            id,
-            node_type,
-            x,
-            y,
-            w: 0.0,
-            h: 0.0,
-            port_diameter: 12.0,
-        }
+
+#[cfg(test)]
+mod test {
+    use std::collections::HashSet;
+
+    use quickcheck::TestResult;
+
+    use super::*;
+    
+    #[derive(Debug, Clone, Copy, PartialEq)]
+    struct TestNode {
+        id: u64
     }
 
-    pub fn input_pos(&self) -> (f64, f64) {
-        let offset = self.port_diameter / 2.0;
-        (self.x - offset, self.y + self.h / 2.0 - offset)
-    }
+    #[test]
+    fn test_graph_add_iter_remove_node() {
+        let check = |input: Vec<u64>| -> TestResult {
+            let mut graph = Graph::new();
+            let unique_ids: HashSet<u64> = HashSet::from_iter(input.iter().copied());
 
-    pub fn output_pos(&self) -> (f64, f64) {
-        let offset = self.port_diameter / 2.0;
-        (self.x - offset + self.w, self.y + self.h / 2.0 - offset)
+            input.iter().for_each(|&id| graph.add_node(id, TestNode{ id }));
+            let nodes = graph.iter_nodes().map(|(id, &node)| {
+                assert_eq!(id, node.id);
+                (id, node)
+            }).collect::<Vec<_>>();
+            assert_eq!(unique_ids.len(), nodes.len());
+            
+            for id in input.iter().copied() {
+                graph.remove_node(id)
+            }
+            assert_eq!(graph.node_count(), 0);
+            TestResult::from_bool(true)
+        };
+        quickcheck::quickcheck(check as fn(_: Vec<u64>) -> TestResult)
+    }
+    
+    #[test]
+    fn test_graph_add_iter_remove_edges() {
+        let check = |input: Vec<u64>| -> TestResult {
+            let mut graph = Graph::new();
+            input.iter().for_each(|&id| graph.add_node(id, TestNode{ id }));
+            let unique_ids: HashSet<u64> = HashSet::from_iter(input.iter().copied());
+            if unique_ids.len() < 2{
+                return TestResult::discard();
+            }
+            for window in unique_ids.iter().copied().collect::<Vec<_>>().as_slice().windows(2) {
+                let (from_node, to_node) = (window[0], window[1]);
+                graph.add_edge(from_node, to_node);
+            }
+            assert_eq!(graph.edge_count(), unique_ids.len() - 1);
+
+            for &node in input.iter() {
+                graph.remove_edge(node);                
+            }
+            assert_eq!(graph.edge_count(), 0, "expected edge count to be 0, got {}", graph.edge_count());
+            TestResult::from_bool(true)
+        };
+        quickcheck::quickcheck(check as fn(_: Vec<u64>) -> TestResult)
+    }
+    
+    #[test]
+    fn test_graph_edges_cleanup_on_node_removal() {
+        let check = |input: Vec<u64>| -> TestResult {
+            let mut graph = Graph::new();
+            input.iter().for_each(|&id| graph.add_node(id, TestNode{ id }));
+            let unique_ids: HashSet<u64> = HashSet::from_iter(input.iter().copied());
+            if unique_ids.len() < 2{
+                return TestResult::discard();
+            }
+            for window in unique_ids.iter().copied().collect::<Vec<_>>().as_slice().windows(2) {
+                let (from_node, to_node) = (window[0], window[1]);
+                graph.add_edge(from_node, to_node);
+            }
+            assert_eq!(graph.edge_count(), unique_ids.len() - 1);
+
+            for &node in input.iter() {
+                let parents = graph.get_parent_nodes(node).copied().collect::<Vec<_>>();
+                let child = graph.get_child_node(node).copied();
+                graph.remove_node(node);                
+                for parent in parents {
+                    assert!(graph.get_child_node(parent.id).is_none())
+                }
+                if let Some(TestNode{id}) = child {
+                    assert_eq!(graph.get_parent_nodes(id).count(), 0);
+                }
+            }
+            assert_eq!(graph.edge_count(), 0, "expected edge count to be 0, got {}", graph.edge_count());
+            assert_eq!(graph.node_count(), 0, "expected node count to be 0, got {}", graph.node_count());
+            
+            TestResult::from_bool(true)
+        };
+        quickcheck::quickcheck(check as fn(_: Vec<u64>) -> TestResult)
+    }
+    
+    #[test]
+    fn test_graph_edge_loop() {
+        let mut graph = Graph::new();
+        graph.add_node(0, TestNode{id: 0});
+        graph.add_edge(0, 0);
+        assert_eq!(graph.edge_count(), 0);
     }
 }

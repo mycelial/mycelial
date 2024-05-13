@@ -1,4 +1,4 @@
-use crate::components::graph::NodeState;
+use crate::components::node_state::NodeState;
 pub use dioxus::prelude::*;
 
 #[component]

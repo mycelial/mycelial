@@ -1,7 +1,10 @@
-use crate::components::graph::{Graph, NodeState};
+use crate::components::graph::Graph as GenericGraph;
+use crate::components::node_state::NodeState;
 use crate::components::node_config::NodeConfig;
 use crate::components::icons::{Play, Pause, Restart, Edit, Delete};
 use dioxus::prelude::*;
+
+pub type Graph = GenericGraph<Signal<NodeState>>;
 
 // representation of section in sections menu, which can be dragged into viewport container
 #[component]
@@ -102,7 +105,6 @@ fn Node(
                 spawn(async move {
                     match event.get_client_rect().await {
                         Ok(rect) => {
-                            let (x, y) = (rect.origin.x, rect.origin.y);
                             let (w, h) = (rect.size.width, rect.size.height);
                             let node = &mut* node.write();
                             node.w = w;
@@ -304,7 +306,7 @@ fn ViewPort(
                         id,
                         node_type,
                         coords.x - delta_x - vps_ref.delta_x(),
-                        coords.y - delta_y - vps_ref.delta_y()
+                        coords.y - delta_y - vps_ref.delta_y(),
                     ));
                     graph.add_node(id, node_state);
                 }
@@ -350,7 +352,7 @@ fn ViewPort(
                         graph: graph,
                         dragged_node: dragged_node,
                         dragged_edge: dragged_edge,
-                        node: node,
+                        node: *node,
                         selected_node: selected_node,
                     }
                 }
@@ -541,7 +543,12 @@ impl DraggedEdge {
 
 #[component]
 pub fn Workspace(workspace: String) -> Element {
-    let graph: Signal<Graph> = use_signal(Graph::new);
+    let graph: Signal<Graph> = use_signal(|| {
+        let mut g = Graph::new();
+      //g.add_node_type("one", rsx!{ "form for one" }),
+      //g.add_node_type("two", rsx!{ "form for two" });
+        g
+    });
     let dragged_menu_item: Signal<Option<DraggedMenuItem>> = use_signal(|| None);
     let mut dragged_node: Signal<Option<DraggedNode>> = use_signal(|| None);
     let mut dragged_edge: Signal<Option<DraggedEdge>> = use_signal(|| None);
