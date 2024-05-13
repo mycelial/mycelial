@@ -12,7 +12,7 @@ pub fn NodeConfig(selected_node: Signal<Option<Signal<NodeState>>>) -> Element {
                         selected_node.set(None);
                     },
                 class: "grid grid-flow-rows gap-2",
-                "{id}"
+                "{id}",
         }
         };
     }

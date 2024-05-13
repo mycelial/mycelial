@@ -1,5 +1,6 @@
 use crate::components::graph::{Graph, NodeState};
 use crate::components::node_config::NodeConfig;
+use crate::components::icons::{Play, Pause, Restart, Edit, Delete};
 use dioxus::prelude::*;
 
 // representation of section in sections menu, which can be dragged into viewport container
@@ -71,7 +72,7 @@ fn Node(
     mut dragged_node: Signal<Option<DraggedNode>>,
     mut dragged_edge: Signal<Option<DraggedEdge>>,
     mut node: Signal<NodeState>,
-    mut selected_node: Signal<Option<Signal<NodeState>>>,
+    mut selected_node: Signal<Option<Signal<NodeState>>>, 
 ) -> Element {
     // current node coordinates, coordinates on input and output ports
     let (id, node_type, x, y, w, _h, port_diameter, input_pos, output_pos) = {
@@ -88,6 +89,9 @@ fn Node(
             node.output_pos(),
         )
     };
+
+    let mut is_playing = false;
+    let mut is_being_edited = false;
 
     rsx! {
         div {
@@ -156,17 +160,43 @@ fn Node(
                 class: "pb-3",
                 "Section Type: {node_type}"
             }
+            div {
+                class: "grid grid-flow-col justify-items-center mb-2 border p-2 rounded bg-grey-bright",
+                if is_playing {
+                    span {
+                        onclick: move |_event| {
+                            is_playing = !is_playing
+                        },
+                        class: "",
+                        Pause {} 
+                    }
+                } else {
+                    span {
+                        onclick: move |_event| {
+                            is_playing = !is_playing
+                        },
+                        class: "",
+                        Play {} 
+                    }
+                }
+                Restart {} 
+                span {
+                    onclick: move |_event| {
+                        is_being_edited = true;
+                        tracing::info!{ "is_being_edited: {is_being_edited}"};
+                    },
+                    Edit {} 
+                }
+                span {
+                    onclick: move |_event| {
+                        // FIXME: popup
+                        graph.write().remove_node(id);
+                    },
+                    Delete {}
+                }
+            }
         }
-        // delete button
-        div {
-            onclick: move |_event| {
-                // FIXME: popup
-                graph.write().remove_node(id);
-            },
-            class: "absolute block text-center text-lg text-toadstool-2 cursor-pointer z-10",
-            style: "left: {x+w-15.0}px; top: {y-5.0}px; min-width: {port_diameter}px; min-height: {port_diameter}px;",
-            "x"
-        }
+
         // input node
         div {
             class: "absolute block rounded-full bg-moss-1 z-10",

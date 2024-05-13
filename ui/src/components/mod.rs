@@ -2,6 +2,7 @@
 pub mod app;
 pub mod daemons;
 pub mod graph;
+pub mod icons;
 pub mod index;
 pub mod login;
 pub mod logo;
