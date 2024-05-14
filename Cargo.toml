@@ -2,6 +2,6 @@
 members = [
     "ui",
     "control_plane"
-]
+, "config", "config_derive"]
 
 resolver = "2"
