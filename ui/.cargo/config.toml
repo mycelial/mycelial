@@ -1,7 +1,7 @@
 [profile.dev]
 debug = true
 opt-level = "s"
-strip = true
+strip = false
 
 [profile.release]
 debug = true

@@ -1,7 +1,8 @@
 [workspace]
 members = [
     "ui",
-    "control_plane"
-, "config", "config_derive"]
+    "control_plane",
+    "config"
+]
 
 resolver = "2"
