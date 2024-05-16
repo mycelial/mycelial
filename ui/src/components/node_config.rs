@@ -2,17 +2,17 @@
 use crate::components::node_state::NodeState;
 pub use dioxus::prelude::*;
 
-// example of simple config
-// goal of our configuration system is to be:
+// Example of a simple config
+// The goal of our configuration system is to be:
 // 1. type erased - we don't want to write out and maintain every section configuration more than once
-// 2. section should own it's configuration
+// 2. section should own its configuration
 // 3. need registry for node configurations to match node_type to config
 
-// lets start with some very specific configuration for some db-like section source
-// that's how specific section will define it's specific config
+// Lets start with some very specific configuration for some db-like source section.
+// This is how a specific section will define its specific config.
 //
-// in order to be able to work in UI with such configuration - we need a way to access
-// field/types definitions and some additional metadata, e.g. input can be password or text area, etc.
+// In order to be able to work in UI with this configuration - we need a way to access
+// field/type definitions and some additional metadata, e.g. input can be password or text area, etc.
 #[derive(Debug, Default)]
 pub struct Config {
     host: String,
@@ -107,19 +107,20 @@ pub fn NodeConfig(selected_node: Signal<Option<Signal<NodeState>>>) -> Element {
         // How to deal with configuration drift?
         // Technically we can carefully update config sections and add new fields with default values,
         // but if rename happens for some unavoidable reason - how to notify that to user?
-        // State load / intermiddiate save to indexed db
+        // State load / intermediate save to indexed db
         let NodeState { ref config, .. } = *inner_signal.read();
         let config_fields = config.fields();
         return rsx! {
             div {
-                class: "absolute grid grid-flow-rows gap-2 border border-solid min-w-[70%] bg-blue-200 top-[200px] left-[200px] z-[100]",
+                class: "border border-solid rounded-md shadow px-5 py-4 mt-4 mx-4",
                 div {
                     form {
+                        class: "grid grid-flow-rows gap-2",
                         for field in config_fields {
                             div {
                                 label {
                                     r#for: "{field.name}",
-                                    class: "block text-sm font-medium leading-6 text-gray-900",
+                                    class: "block text-sm font-medium leading-6 text-toadstool-1",
                                     "{field.name}"
                                 }
                                 if field.meta_data.is_text_area {
@@ -143,14 +144,24 @@ pub fn NodeConfig(selected_node: Signal<Option<Signal<NodeState>>>) -> Element {
                             }
                         }
                         div {
+                            class: "justify-self-center",
                             button {
                                 prevent_default: "onclick",
                                 onclick: move |_| {
                                     selected_node.set(None);
                                 },
                                 r#type:"submit",
-                                class:"flex w-full justify-center rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-semibold leading-6 text-white shadow-sm",
-                                "Update Configuration"
+                                class:"text-stem-1 px-4 py-2 rounded bg-forest-1 border border-forest-2 hover:bg-forest-2 hover:text-white uppercase font-semibold  shadow-sm",
+                                "Save"
+                            }
+                            button {
+                                prevent_default: "onclick",
+                                onclick: move |_| {
+                                    selected_node.set(None);
+                                },
+                                r#type:"submit",
+                                class: "uppercase text-toadstool-1 px-4 py-2 ml-2 rounded border border-toadstool-1 hover:text-white hover:bg-toadstool-2",
+                                "Cancel"
                             }
                         }
                     }

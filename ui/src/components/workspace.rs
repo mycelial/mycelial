@@ -98,7 +98,7 @@ fn Node(
 
     rsx! {
         div {
-            class: "min-w-52 max-w-52 grid grid-flow-rows gap-2 absolute min-h-24 border border-solid bg-white rounded-sm px-2 z-[5] select-none overflow-visible",
+            class: "shadow min-w-52 max-w-52 grid grid-flow-rows gap-2 absolute min-h-24 border border-solid bg-white rounded-sm px-2 z-[5] select-none overflow-visible",
             style: "left: {x}px; top: {y}px;",
             // recalculate positions on input/output nodes
             onmounted: move |event| {
@@ -166,7 +166,7 @@ fn Node(
                         onclick: move |_event| {
                             is_playing = !is_playing
                         },
-                        class: "",
+                        class: "cursor-pointer hover:bg-stem-1",
                         Pause {}
                     }
                 } else {
@@ -174,17 +174,21 @@ fn Node(
                         onclick: move |_event| {
                             is_playing = !is_playing
                         },
-                        class: "",
+                        class: "cursor-pointer hover:bg-stem-1",
                         Play {}
                     }
                 }
-                Restart {}
+                span {
+                    class: "cursor-pointer hover:bg-stem-1",
+                    Restart {}
+                }
                 span {
                     onclick: move |_event| {
                         is_being_edited = true;
                         selected_node.set(Some(node));
                         tracing::info!{ "is_being_edited: {is_being_edited}"};
                     },
+                    class: "cursor-pointer hover:bg-stem-1",
                     Edit {}
                 }
                 span {
@@ -192,6 +196,7 @@ fn Node(
                         // FIXME: popup
                         graph.write().remove_node(id);
                     },
+                    class: "cursor-pointer hover:bg-stem-1",
                     Delete {}
                 }
             }
@@ -343,27 +348,30 @@ fn ViewPort(
                 view_port_state.write().grabbed = false;
             },
 
-            div {
-                class: "overflow-visible",
-                style: "transform: translate({state_ref.x}px, {state_ref.y}px)",
-                for (_, node) in (&*graph.read()).iter_nodes() {
-                    Node{
-                        graph: graph,
-                        dragged_node: dragged_node,
-                        dragged_edge: dragged_edge,
-                        node: *node,
-                        selected_node: selected_node,
+            if selected_node.read().is_none() {
+                div {
+                    class: "overflow-visible",
+                    style: "transform: translate({state_ref.x}px, {state_ref.y}px)",
+                    for (_, node) in (&*graph.read()).iter_nodes() {
+                        Node{
+                            graph: graph,
+                            dragged_node: dragged_node,
+                            dragged_edge: dragged_edge,
+                            node: *node,
+                            selected_node: selected_node,
+                        }
                     }
+                    // graph edges
+                    Edges { graph, view_port_state, dragged_edge }
                 }
-                // graph edges
-                Edges { graph, view_port_state, dragged_edge }
+            }
+            if selected_node.read().is_some() {
+                NodeConfig {
+                    selected_node: selected_node,
+                }
             }
         }
-        if selected_node.read().is_some() {
-            NodeConfig {
-                selected_node: selected_node,
-            }
-        }
+        
     }
 }
 
@@ -583,7 +591,6 @@ pub fn Workspace(workspace: String) -> Element {
                 }
             },
 
-            // TODO: implement if/then logic such that 3rd column appears (with node details) when node selected
             class: "grid",
             style: "grid-template-columns: auto 1fr;", // exception to Tailwind only bc TW doesn't have classes to customize column widths
             div {
@@ -619,15 +626,17 @@ pub fn Workspace(workspace: String) -> Element {
             // viewport
             div {
                 class: "h-full w-full scroll-none overflow-hidden",
-                ViewPort {
-                    graph,
-                    view_port_state,
-                    dragged_menu_item,
-                    dragged_node,
-                    dragged_edge,
-                    selected_node,
+                    ViewPort {
+                        graph,
+                        view_port_state,
+                        dragged_menu_item,
+                        dragged_node,
+                        dragged_edge,
+                        selected_node,
+                    }
                 }
-            }
+
+            
         }
     }
 }

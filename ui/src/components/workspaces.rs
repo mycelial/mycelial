@@ -68,7 +68,7 @@ fn NewWorkspace() -> Element {
                     onclick: move |_| {
                         *render_form_state.write() = true;
                     },
-                    class: "text-stem-1 px-4 py-2 rounded bg-forest-2 border border-forest-2",
+                    class: "text-stem-1 px-4 py-2 rounded bg-forest-2 border border-forest-2 hover:bg-forest-3 hover:text-stem-1",
                     "ADD NEW WORKSPACE"
                 }
             }
@@ -99,7 +99,7 @@ fn NewWorkspace() -> Element {
                     }
                 }
                 button {
-                    class: "text-toadstool-1 px-4 py-2 ml-2 rounded border border-toadstool-1",
+                    class: "text-toadstool-1 px-4 py-2 ml-2 rounded border border-toadstool-1 hover:text-white hover:bg-toadstool-2",
                     onclick: move |_| { *render_form_state.write() = false; },
                     "CANCEL"
                 }
@@ -173,7 +173,7 @@ pub fn Workspaces() -> Element {
                                             onclick: move |_| {
                                                 state.write().remove_workspace(id);
                                             },
-                                            class: "text-toadstool-1 border border-toadstool-1 px-4 py-1 my-1 mx-3 rounded bg-white",
+                                            class: "text-toadstool-1 border border-toadstool-1 px-4 py-1 my-1 mx-3 rounded bg-white hover:text-white hover:bg-toadstool-2",
                                             "DELETE"
                                         }
                                     }
