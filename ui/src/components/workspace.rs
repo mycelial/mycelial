@@ -371,7 +371,7 @@ fn ViewPort(
                 }
             }
         }
-        
+
     }
 }
 
@@ -636,7 +636,7 @@ pub fn Workspace(workspace: String) -> Element {
                     }
                 }
 
-            
+
         }
     }
 }

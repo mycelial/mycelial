@@ -108,7 +108,12 @@ pub fn NodeConfig(selected_node: Signal<Option<Signal<NodeState>>>) -> Element {
         // Technically we can carefully update config sections and add new fields with default values,
         // but if rename happens for some unavoidable reason - how to notify that to user?
         // State load / intermediate save to indexed db
-        let NodeState { ref config, .. } = *inner_signal.read();
+        let NodeState {
+            ref config,
+            id,
+            node_type,
+            ..
+        } = *inner_signal.read();
         let config_fields = config.fields();
         return rsx! {
             div {
@@ -116,11 +121,23 @@ pub fn NodeConfig(selected_node: Signal<Option<Signal<NodeState>>>) -> Element {
                 div {
                     form {
                         class: "grid grid-flow-rows gap-2",
+                        div {
+                            h2 {
+                                class: "text-lg",
+                                "Editing Node {id}"
+                            }
+                            h3 {
+                                "Section Type: {node_type}"
+                            }
+                            h3 {
+                                "Running on Daemon: GCP Compute Daemon"
+                            }
+                        }
                         for field in config_fields {
                             div {
                                 label {
                                     r#for: "{field.name}",
-                                    class: "block text-sm font-medium leading-6 text-toadstool-1",
+                                    class: "block text-sm font-medium leading-6 text-night-1 uppercase",
                                     "{field.name}"
                                 }
                                 if field.meta_data.is_text_area {
@@ -128,7 +145,7 @@ pub fn NodeConfig(selected_node: Signal<Option<Signal<NodeState>>>) -> Element {
                                         textarea {
                                             name: "{field.name}",
                                             required: field.meta_data.is_required,
-                                            class: "block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1",
+                                            class: "w-full rounded-md py-1.5 text-gray-900 shadow-sm ring-1 ring-night-1 focus:ring-2 focus:ring-night-2 focus:outline-none",
                                         }
                                     }
                                 } else {
@@ -137,7 +154,7 @@ pub fn NodeConfig(selected_node: Signal<Option<Signal<NodeState>>>) -> Element {
                                             name: "{field.name}",
                                             required: field.meta_data.is_required,
                                             r#type: if field.meta_data.is_password { "password" } else { "text" },
-                                            class: "block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1",
+                                            class: "w-full rounded-md py-1.5 text-gray-900 shadow-sm ring-1 ring-night-1 focus:ring-2 focus:ring-night-2 focus:outline-none",
                                         }
                                     }
                                 }
