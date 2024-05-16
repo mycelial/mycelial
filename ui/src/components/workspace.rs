@@ -15,7 +15,7 @@ fn MenuItem(
     let mut rect_data = use_signal(|| (0.0, 0.0, 0.0, 0.0));
     rsx! {
         div {
-            class: "min-w-32 min-h-24 border border-solid rounded grid grid-flow-rows p-2",
+            class: "min-w-32 min-h-24 border border-solid rounded grid grid-flow-rows p-2 shadow",
             draggable: true,
             onmounted: move |event| {
                 spawn(async move {
