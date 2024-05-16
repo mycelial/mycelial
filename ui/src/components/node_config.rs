@@ -23,6 +23,8 @@ pub struct Config {
     database: String,
     //#[input(type=text_area)]
     query: String,
+    truncate: bool,
+    daemon: String,
 }
 
 // field describes some specific field in config struct
@@ -51,6 +53,7 @@ struct MetaData {
     is_text_area: bool,
     is_required: bool,
     is_toggle: bool,
+    is_drop_down: bool,
 }
 
 // FIXME: how to represent enumeration as a config?
@@ -62,6 +65,14 @@ pub trait ConfigTrait: std::fmt::Debug + Send + Sync + 'static {
 impl ConfigTrait for Config {
     fn fields(&self) -> Vec<Field> {
         vec![
+            Field {
+                name: "daemon",
+                ty: FieldType::String,
+                meta_data: MetaData {
+                    is_drop_down: true,
+                    ..Default::default()
+                },
+            },
             Field {
                 name: "truncate",
                 ty: FieldType::Bool,
@@ -139,19 +150,39 @@ pub fn NodeConfig(selected_node: Signal<Option<Signal<NodeState>>>) -> Element {
                             h3 {
                                 "Section Type: {node_type}"
                             }
-                            h3 {
-                                "Running on Daemon: GCP Compute Daemon"
-                            }
+
                         }
                         for field in config_fields {
                             div {
-
-                                if field.meta_data.is_text_area {
+                                if field.meta_data.is_drop_down {
+                                    div {
+                                        class: "flex items-center justify-start",
+                                        label {
+                                            r#for: "{field.name}",
+                                            class: "text-sm font-medium leading-6 text-night-1 uppercase min-w-24",
+                                            "{field.name}"
+                                        }
+                                        select {
+                                            name: "{field.name}",
+                                            required: field.meta_data.is_required,
+                                            class: "p-2 ml-3 min-w-32 rounded-md py-1.5 text-gray-900 shadow-sm ring-1 ring-night-1 focus:ring-2 focus:ring-night-2 focus:outline-none",
+                                            option {
+                                                value: "One",
+                                                "One",
+                                            }
+                                            option {
+                                                value: "Two",
+                                                "Two",
+                                            }
+                                        }
+                                    }
+                                } else if field.meta_data.is_text_area {
                                     label {
                                         r#for: "{field.name}",
                                         class: "text-sm font-medium leading-6 text-night-1 uppercase",
                                         "{field.name}"
                                     }
+                                    // div included here so that textarea below appears on new grid row (ie, below the label)
                                     div {
                                         textarea {
                                             name: "{field.name}",
@@ -162,17 +193,17 @@ pub fn NodeConfig(selected_node: Signal<Option<Signal<NodeState>>>) -> Element {
                                 }
                                 else if field.meta_data.is_toggle {
                                     div {
-                                        class: "flex items-center justify-between",
+                                        class: "flex items-center justify-start",
                                         label {
                                             r#for: "{field.name}",
-                                            class: "inline text-sm font-medium leading-6 text-night-1 uppercase",
+                                            class: "min-w-24 text-sm font-medium leading-6 text-night-1 uppercase",
                                             "{field.name}"
                                         }
                                         input {
                                             name: "{field.name}",
                                             required: field.meta_data.is_required,
                                             r#type: "checkbox",
-                                            class: "inline w-full rounded-md py-1.5 text-gray-900 shadow-sm ring-1 ring-night-1 focus:ring-2 focus:ring-night-2 focus:outline-none",
+                                            class: "ml-3 rounded-md py-1.5 text-gray-900 shadow-sm ring-1 ring-night-1 focus:ring-2 focus:ring-night-2 focus:outline-none",
                                         }
                                     }
                                 } else {
