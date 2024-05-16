@@ -40,6 +40,7 @@ pub struct Field {
 enum FieldType {
     String,
     Int,
+    Bool,
 }
 
 // FIXME: what else can be there?
@@ -49,6 +50,7 @@ struct MetaData {
     is_password: bool,
     is_text_area: bool,
     is_required: bool,
+    is_toggle: bool,
 }
 
 // FIXME: how to represent enumeration as a config?
@@ -60,6 +62,14 @@ pub trait ConfigTrait: std::fmt::Debug + Send + Sync + 'static {
 impl ConfigTrait for Config {
     fn fields(&self) -> Vec<Field> {
         vec![
+            Field {
+                name: "truncate",
+                ty: FieldType::Bool,
+                meta_data: MetaData {
+                    is_toggle: true,
+                    ..Default::default()
+                },
+            },
             Field {
                 name: "host",
                 ty: FieldType::String,
@@ -135,12 +145,13 @@ pub fn NodeConfig(selected_node: Signal<Option<Signal<NodeState>>>) -> Element {
                         }
                         for field in config_fields {
                             div {
-                                label {
-                                    r#for: "{field.name}",
-                                    class: "block text-sm font-medium leading-6 text-night-1 uppercase",
-                                    "{field.name}"
-                                }
+
                                 if field.meta_data.is_text_area {
+                                    label {
+                                        r#for: "{field.name}",
+                                        class: "text-sm font-medium leading-6 text-night-1 uppercase",
+                                        "{field.name}"
+                                    }
                                     div {
                                         textarea {
                                             name: "{field.name}",
@@ -148,8 +159,29 @@ pub fn NodeConfig(selected_node: Signal<Option<Signal<NodeState>>>) -> Element {
                                             class: "w-full rounded-md py-1.5 text-gray-900 shadow-sm ring-1 ring-night-1 focus:ring-2 focus:ring-night-2 focus:outline-none",
                                         }
                                     }
+                                }
+                                else if field.meta_data.is_toggle {
+                                    div {
+                                        class: "flex items-center justify-between",
+                                        label {
+                                            r#for: "{field.name}",
+                                            class: "inline text-sm font-medium leading-6 text-night-1 uppercase",
+                                            "{field.name}"
+                                        }
+                                        input {
+                                            name: "{field.name}",
+                                            required: field.meta_data.is_required,
+                                            r#type: "checkbox",
+                                            class: "inline w-full rounded-md py-1.5 text-gray-900 shadow-sm ring-1 ring-night-1 focus:ring-2 focus:ring-night-2 focus:outline-none",
+                                        }
+                                    }
                                 } else {
                                     div {
+                                        label {
+                                            r#for: "{field.name}",
+                                            class: "text-sm font-medium leading-6 text-night-1 uppercase",
+                                            "{field.name}"
+                                        }
                                         input {
                                             name: "{field.name}",
                                             required: field.meta_data.is_required,
