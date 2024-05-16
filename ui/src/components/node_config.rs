@@ -207,6 +207,7 @@ pub fn NodeConfig(selected_node: Signal<Option<Signal<NodeState>>>) -> Element {
                                         }
                                     }
                                 } else {
+                                    // returns basic text input
                                     div {
                                         label {
                                             r#for: "{field.name}",
