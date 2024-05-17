@@ -1,37 +1,32 @@
-use config_derive::Config;
+pub use config_derive::SectionConfig;
 
 pub trait Config {
     fn fields(&self) -> Vec<Field>;
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum FieldType {
-    Int,
+    I8,
+    I16,
+    I32,
+    I64,
+    U8,
+    U16,
+    U32,
+    U64,
     String,
     Bool,
 }
 
-#[derive(Debug)]
-pub struct Field {
-    pub name: &'static str,
-    pub ty: FieldType
+#[derive(Debug, PartialEq)]
+pub struct Metadata {
+    pub is_password: bool,
+    pub is_text_area: bool,
 }
 
-
-#[cfg(test)]
-mod test {
-    use super::*;
-
-    #[derive(Debug, Config)]
-    struct TestConfig {
-        #[output]
-        login: String,
-        #[input(type=password)]
-        password: String,    
-    }
-    
-    #[test]
-    fn test() {
-        let t = TestConfig{login: "login".into(), password: "password".into()};
-    }
+#[derive(Debug, PartialEq)]
+pub struct Field {
+    pub name: &'static str,
+    pub ty: FieldType,
+    pub metadata: Metadata,
 }

@@ -182,7 +182,7 @@ pub fn Daemons() -> Element {
         );
         Signal::new(daemon_state)
     });
-    
+
     let state_ref = &*daemon_state.read();
 
     rsx! {

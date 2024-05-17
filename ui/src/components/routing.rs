@@ -1,7 +1,7 @@
 use dioxus::prelude::*;
 
 use crate::components::{
-    daemons::Daemons, daemon::Daemon, index::Index, login::Login, navbar::NavBar,
+    daemon::Daemon, daemons::Daemons, index::Index, login::Login, navbar::NavBar,
     workspace::Workspace, workspaces::Workspaces,
 };
 
