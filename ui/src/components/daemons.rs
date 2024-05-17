@@ -57,7 +57,7 @@ impl State {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 struct Daemon {
     name: String,
     id: String,
@@ -182,6 +182,8 @@ pub fn Daemons() -> Element {
         );
         Signal::new(daemon_state)
     });
+    
+    let state_ref = &*daemon_state.read();
 
     rsx! {
     div {
@@ -199,7 +201,7 @@ pub fn Daemons() -> Element {
             // NewWorkspace {}
         }
 
-        if daemon_state.read().has_daemons() {
+        if state_ref.has_daemons() {
             div {
             id: "table-container",
             class: "col-span-2 pt-4 w-full",
@@ -243,7 +245,7 @@ pub fn Daemons() -> Element {
                     th {},
                 }
                 }
-                for daemon in (&*daemon_state.read()).daemons.iter() {
+                for daemon in state_ref.daemons.iter().map(|daemon| daemon.clone() ) {
                 tr {
                     class: "border-b border-gray-100",
                     td {
