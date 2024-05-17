@@ -5,14 +5,12 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug)]
 struct State {
     daemons: Vec<Daemon>,
-    counter: u64,
 }
 
 impl State {
     fn new() -> Self {
         Self {
             daemons: Vec::<Daemon>::new(),
-            counter: 0,
         }
     }
 
@@ -42,9 +40,10 @@ impl State {
         ));
     }
 
-    // fn remove_workspace(&mut self, id: u64) {
-    //     self.workspaces.remove(&id);
-    // }
+    fn remove_daemon(&mut self, id: &str) {
+        // delete the daemon in self.daemons where the id matches the id in params
+        self.daemons.retain(|daemon| daemon.id != id);
+    }
 
     // fn get_id(&mut self) -> u64 {
     //     let id = self.counter;
@@ -149,9 +148,9 @@ fn NewDaemon() -> Element {
 
 #[component]
 pub fn Daemons() -> Element {
-    let state = use_context_provider(|| {
-        let mut state = State::new();
-        state.add_daemon(
+    let mut daemon_state = use_context_provider(|| {
+        let mut daemon_state = State::new();
+        daemon_state.add_daemon(
             "GCP Daemon".to_string(),
             "ID-1000001".to_string(),
             "101.74.17.73".to_string(),
@@ -161,7 +160,7 @@ pub fn Daemons() -> Element {
             "2024-05-16 08:34:44".to_string(),
             "HEALTHY".to_string(),
         );
-        state.add_daemon(
+        daemon_state.add_daemon(
             "Azure Daemon".to_string(),
             "ID-1000001".to_string(),
             "101.74.17.73".to_string(),
@@ -171,7 +170,7 @@ pub fn Daemons() -> Element {
             "2024-05-16 08:34:44".to_string(),
             "HEALTHY".to_string(),
         );
-        state.add_daemon(
+        daemon_state.add_daemon(
             "Edge Compute Daemon".to_string(),
             "ID-1000001".to_string(),
             "101.74.17.73".to_string(),
@@ -181,9 +180,9 @@ pub fn Daemons() -> Element {
             "2024-05-16 08:34:44".to_string(),
             "DEGRADED".to_string(),
         );
-        Signal::new(state)
+        Signal::new(daemon_state)
     });
-    let state_ref = state.read();
+
     rsx! {
     div {
         class: "container mx-auto grid grid-cols-2",
@@ -200,7 +199,7 @@ pub fn Daemons() -> Element {
             // NewWorkspace {}
         }
 
-        if state_ref.has_daemons() {
+        if daemon_state.read().has_daemons() {
             div {
             id: "table-container",
             class: "col-span-2 pt-4 w-full",
@@ -240,10 +239,11 @@ pub fn Daemons() -> Element {
                     th {
                         class: "text-right pr-3",
                         "Status"
-                        },
+                    },
+                    th {},
                 }
                 }
-                for daemon in state_ref.daemons.iter() {
+                for daemon in (&*daemon_state.read()).daemons.iter() {
                 tr {
                     class: "border-b border-gray-100",
                     td {
@@ -281,7 +281,17 @@ pub fn Daemons() -> Element {
                     td {
                         class: "text-right pr-3",
                         "{daemon.status}"
+                    }
+                    td {
+                        class: "text-right",
+                        button {
+                            onclick: move |_| {
+                                daemon_state.write().remove_daemon(&daemon.id);
+                            },
+                            class: "text-toadstool-1 border border-toadstool-1 px-4 py-1 my-1 mx-3 rounded bg-white hover:text-white hover:bg-toadstool-2",
+                            "DELETE"
                         }
+                    }
                 }
 
                 }
