@@ -162,7 +162,7 @@ pub fn Daemons() -> Element {
         );
         daemon_state.add_daemon(
             "Azure Daemon".to_string(),
-            "ID-1000001".to_string(),
+            "ID-1000002".to_string(),
             "101.74.17.73".to_string(),
             3,
             4,
@@ -172,7 +172,7 @@ pub fn Daemons() -> Element {
         );
         daemon_state.add_daemon(
             "Edge Compute Daemon".to_string(),
-            "ID-1000001".to_string(),
+            "ID-1000003".to_string(),
             "101.74.17.73".to_string(),
             3,
             4,
