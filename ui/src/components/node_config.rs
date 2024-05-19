@@ -138,7 +138,7 @@ pub fn NodeConfig(selected_node: Signal<Option<Signal<NodeState>>>) -> Element {
         let config_fields = config.fields();
         return rsx! {
             div {
-                class: "border border-solid rounded-md shadow px-5 py-4 mt-4 mx-4",
+                class: "border border-solid rounded-md drop-shadow px-5 py-4 mt-4 mx-4",
                 div {
                     form {
                         class: "grid grid-flow-rows gap-2",
@@ -165,7 +165,7 @@ pub fn NodeConfig(selected_node: Signal<Option<Signal<NodeState>>>) -> Element {
                                         select {
                                             name: "{field.name}",
                                             required: field.meta_data.is_required,
-                                            class: "p-2 ml-3 min-w-32 rounded-md py-1.5 text-gray-900 shadow-sm ring-1 ring-night-1 focus:ring-2 focus:ring-night-2 focus:outline-none",
+                                            class: "p-2 ml-3 min-w-32 rounded-md py-1.5 text-gray-900 drop-shadow-sm ring-1 ring-night-1 focus:ring-2 focus:ring-night-2 focus:outline-none",
                                             option {
                                                 value: "One",
                                                 "One",
@@ -187,7 +187,7 @@ pub fn NodeConfig(selected_node: Signal<Option<Signal<NodeState>>>) -> Element {
                                         textarea {
                                             name: "{field.name}",
                                             required: field.meta_data.is_required,
-                                            class: "w-full rounded-md py-1.5 text-gray-900 shadow-sm ring-1 ring-night-1 focus:ring-2 focus:ring-night-2 focus:outline-none",
+                                            class: "w-full rounded-md py-1.5 text-gray-900 drop-shadow-sm ring-1 ring-night-1 focus:ring-2 focus:ring-night-2 focus:outline-none",
                                         }
                                     }
                                 }
@@ -203,7 +203,7 @@ pub fn NodeConfig(selected_node: Signal<Option<Signal<NodeState>>>) -> Element {
                                             name: "{field.name}",
                                             required: field.meta_data.is_required,
                                             r#type: "checkbox",
-                                            class: "ml-3 rounded-md py-1.5 text-gray-900 shadow-sm ring-1 ring-night-1 focus:ring-2 focus:ring-night-2 focus:outline-none",
+                                            class: "ml-3 rounded-md py-1.5 text-gray-900 drop-shadow-sm ring-1 ring-night-1 focus:ring-2 focus:ring-night-2 focus:outline-none",
                                         }
                                     }
                                 } else {
@@ -218,7 +218,7 @@ pub fn NodeConfig(selected_node: Signal<Option<Signal<NodeState>>>) -> Element {
                                             name: "{field.name}",
                                             required: field.meta_data.is_required,
                                             r#type: if field.meta_data.is_password { "password" } else { "text" },
-                                            class: "w-full rounded-md py-1.5 text-gray-900 shadow-sm ring-1 ring-night-1 focus:ring-2 focus:ring-night-2 focus:outline-none",
+                                            class: "w-full rounded-md py-1.5 text-gray-900 drop-shadow-sm ring-1 ring-night-1 focus:ring-2 focus:ring-night-2 focus:outline-none",
                                         }
                                     }
                                 }
@@ -232,7 +232,7 @@ pub fn NodeConfig(selected_node: Signal<Option<Signal<NodeState>>>) -> Element {
                                     selected_node.set(None);
                                 },
                                 r#type:"submit",
-                                class:"text-stem-1 px-4 py-2 rounded bg-forest-1 border border-forest-2 hover:bg-forest-2 hover:text-white uppercase font-semibold  shadow-sm",
+                                class:"text-stem-1 px-4 py-2 rounded bg-forest-1 border border-forest-2 hover:bg-forest-2 hover:text-white uppercase font-semibold  drop-shadow-sm",
                                 "Save"
                             }
                             button {

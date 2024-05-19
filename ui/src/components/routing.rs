@@ -16,8 +16,6 @@ pub enum Route {
     #[route("/:workspace")]
     Workspace { workspace: String },
     #[end_nest]
-    // #[route("/daemons")]
-    // Daemons {},
     #[nest("/daemons")]
     #[route("/")]
     Daemons {},

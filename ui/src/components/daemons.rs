@@ -45,13 +45,7 @@ impl State {
         self.daemons.retain(|daemon| daemon.id != id);
     }
 
-    // fn get_id(&mut self) -> u64 {
-    //     let id = self.counter;
-    //     self.counter += 1;
-    //     id
-    // }
-
-    // Function to check if there are any workspaces
+    // Function to check if there are any daemons
     fn has_daemons(&self) -> bool {
         !self.daemons.is_empty()
     }
@@ -215,31 +209,31 @@ pub fn Daemons() -> Element {
                     "Name"
                     },
                     th {
-                    class: "text-right",
+                    class: "text-right pl-3",
                     "ID"
                     },
                     th {
-                    class: "text-right",
+                    class: "text-right pl-3",
                     "Address"
                     },
                     th {
-                    class: "text-right",
+                    class: "text-right pl-3",
                     "Active Sections"
                     },
                     th {
-                    class: "text-right",
+                    class: "text-right pl-3",
                     "Active Pipelines"
                     },
                     th {
-                    class: "text-right",
+                    class: "text-right pl-3",
                     "Last Seen"
                     },
                     th {
-                    class: "text-right pr-3",
+                    class: "text-right px-3",
                     "Created At"
                     },
                     th {
-                        class: "text-right pr-3",
+                        class: "text-right px-3",
                         "Status"
                     },
                     th {},
@@ -249,43 +243,50 @@ pub fn Daemons() -> Element {
                 tr {
                     class: "border-b border-gray-100",
                     td {
-                    class: "pl-3",
+                    class: "px-1",
                     Link {
-                        class: "block py-3 pl-3",
-                        to: Route::Daemons {  },
+                        class: "block py-3 pl-3 hover:underline",
+                        to: Route::Daemon { daemon: daemon.id.clone() },
                         children: rsx! { "{daemon.name}" }
                         }
                     }
                     td {
-                    class: "text-right",
+                    class: "text-right px-1",
                     "{daemon.id}"
                     }
                     td {
-                    class: "text-right",
+                    class: "text-right px-1",
                     "{daemon.address}"
                     }
                     td {
-                    class: "text-right",
+                    class: "text-right px-1",
                     "{daemon.active_sections}"
                     }
                     td {
-                    class: "text-right",
+                    class: "text-right px-1",
                     "{daemon.active_pipelines}"
                     }
                     td {
-                    class: "text-right",
+                    class: "text-right px-1",
                     "{daemon.last_seen}"
                     }
                     td {
-                    class: "text-right",
+                    class: "text-right px-1",
                     "{daemon.created_at}"
                     }
-                    td {
-                        class: "text-right pr-3",
-                        "{daemon.status}"
+                    if daemon.status == "HEALTHY" {
+                        td {
+                            class: "text-right px-1 text-forest-2",
+                            "{daemon.status}"
+                            }
+                    } else {
+                        td {
+                            class: "text-right px-1 text-toadstool-1",
+                            "{daemon.status}"
+                        }
                     }
                     td {
-                        class: "text-right",
+                        class: "text-right px-1",
                         button {
                             onclick: move |_| {
                                 daemon_state.write().remove_daemon(&daemon.id);
@@ -300,53 +301,7 @@ pub fn Daemons() -> Element {
             }
             }
         }
-                //             for (&id, workspace) in state.read().workspaces.iter() {
-                //                 tr {
-                //                     class: "border-b border-gray-100",
-                //                     td {
-                //                         Link{
-                //                             class: "block py-3 pl-3",
-                //                             to: Route::Workspace { workspace: workspace.name.clone() },
-                //                             children: rsx! { "{workspace.name}" }
-                //                         }
-                //                     }
-                //                     td {
-                //                         class: "text-right",
-                //                         "{workspace.created_at}"
 
-                //                     }
-                //                     td {
-                //                         class: "text-right",
-                //                         button {
-                //                             onclick: move |_| {
-                //                                 state.write().remove_workspace(id);
-                //                             },
-                //                             class: "text-toadstool-1 border border-toadstool-1 px-4 py-1 my-1 mx-3 rounded bg-white hover:text-white hover:bg-toadstool-2",
-                //                             "DELETE"
-                //                         }
-                //                     }
-                //                 }
-                //             }
-                //         }
-                //     }
-                // }
             }
         }
-    // } else {
-    //     div {
-    //         class: "mt-10 p-4 w-9/12 bg-moss-3 text-black drop-shadow-md rounded-sm mx-auto col-span-2",
-    //         div {
-    //             class: "py-2 my-2 bg-white text-night-2 shadow-none",
-    //             h3 {
-    //                 class: "text-lg ml-2 py-2",
-    //                 "Create your first workspace to start building pipelines!"
-    //             }
-    //             div {
-    //                 class: "bg-grey-bright mx-2 p-2 rounded",
-    //                 "Mycelial pipelines are organized into groups called Workspaces. Click the \"Add New Workspace\" button above to create your first workspace."
-    //                 }
-    //             }
-    //         }
-    //     }
-    // }
 }
