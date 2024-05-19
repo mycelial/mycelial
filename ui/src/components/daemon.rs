@@ -39,7 +39,7 @@ pub fn Daemon(daemon: String) -> Element {
 
             }
             div {
-                class: "drop-shadow",
+                class: "drop-shadow justify-self-center",
                 Card {
                     title: "Name: {daemon}",
                     subtitle: "ID: ID-1000001",
@@ -47,7 +47,7 @@ pub fn Daemon(daemon: String) -> Element {
                 }
             }
             div {
-                class: "drop-shadow",
+                class: "drop-shadow justify-self-center",
                 Card {
                     title: "Last Seen: 2024-04-11",
                     subtitle: "Last Updated: 2024-04-10",
@@ -55,7 +55,7 @@ pub fn Daemon(daemon: String) -> Element {
                 }
             }
             div {
-                class: "drop-shadow",
+                class: "drop-shadow justify-self-center",
                 Card {
                     title: "Current Pipelines: 4",
                     subtitle: "Current Sections: 8",
@@ -63,7 +63,7 @@ pub fn Daemon(daemon: String) -> Element {
                 }
             }
             div {
-                class: "drop-shadow",
+                class: "drop-shadow justify-self-stretch mx-auto",
                 Card {
                     title: "myceliald version: 0.18.22",
                     subtitle: "Control Plane version: 0.18.22",
