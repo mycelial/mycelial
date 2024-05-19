@@ -1,0 +1,47 @@
+error: malformed parameters
+ --> tests/compilation_fails_checks/bad_section_attributes.rs:4:1
+  |
+4 | #[section(input)]
+  | ^
+
+error: malformed parameters
+  --> tests/compilation_fails_checks/bad_section_attributes.rs:10:1
+   |
+10 | #[section(input=)]
+   | ^
+
+error: malformed parameters
+  --> tests/compilation_fails_checks/bad_section_attributes.rs:16:1
+   |
+16 | #[section(output)]
+   | ^
+
+error: malformed parameters
+  --> tests/compilation_fails_checks/bad_section_attributes.rs:22:1
+   |
+22 | #[section(output=)]
+   | ^
+
+error: malformed parameters
+  --> tests/compilation_fails_checks/bad_section_attributes.rs:28:1
+   |
+28 | #[section(input=foo)]
+   | ^
+
+error: malformed parameters
+  --> tests/compilation_fails_checks/bad_section_attributes.rs:34:1
+   |
+34 | #[section(input=baz)]
+   | ^
+
+error: malformed parameters
+  --> tests/compilation_fails_checks/bad_section_attributes.rs:40:1
+   |
+40 | #[section(inut=typo)]
+   | ^
+
+error: malformed parameters
+  --> tests/compilation_fails_checks/bad_section_attributes.rs:46:1
+   |
+46 | #[section(input-bin)]
+   | ^

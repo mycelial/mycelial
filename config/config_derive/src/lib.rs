@@ -1,10 +1,10 @@
 #![allow(unused)]
 use std::borrow::Cow;
 
-use proc_macro::TokenStream;
-use proc_macro2::Span;
+use proc_macro::{Ident, TokenStream};
+use proc_macro2::{TokenTree, Span};
 use quote::{quote, quote_spanned};
-use syn::{spanned::Spanned, Attribute, Data, DeriveInput, Field, Fields, Type};
+use syn::{spanned::Spanned, Attribute, Data, DeriveInput, Field, Fields, Meta, Type};
 
 type Result<T, E = ConfigError> = std::result::Result<T, E>;
 
@@ -47,8 +47,26 @@ enum ConfigFieldType {
     Bool,
 }
 
-impl ConfigFieldType {
-    fn into_tokens(self) -> proc_macro2::TokenStream {
+#[derive(Debug, Clone, Copy)]
+enum SectionIO {
+    None,
+    Bin,
+    DataFrame,
+}
+
+impl Into<proc_macro2::TokenStream> for  SectionIO {
+    fn into(self) -> proc_macro2::TokenStream {
+        match self {
+            Self::None => quote!{ config::SectionIO::None },
+            Self::Bin => quote!{ config::SectionIO::Bin },
+            Self::DataFrame => quote!{ config::SectionIO::DataFrame },
+        }
+    }
+}
+
+
+impl Into<proc_macro2::TokenStream> for ConfigFieldType {
+    fn into(self) -> proc_macro2::TokenStream {
         match self {
             Self::I8 => quote! { config::FieldType::I8 },
             Self::I16 => quote! { config::FieldType::I16 },
@@ -64,11 +82,49 @@ impl ConfigFieldType {
     }
 }
 
+fn parse_section_attr(attrs: &[Attribute]) -> Result<(proc_macro2::TokenStream, proc_macro2::TokenStream)> {
+    let (i, o) = attrs
+        .iter()
+        .filter(|attr| attr.path().is_ident("section"))
+        .try_fold((SectionIO::None, SectionIO::None), |(mut i, mut o), attr| {
+            let tokens = match &attr.meta {
+                Meta::List(list) => &list.tokens,
+                other => return Err(ConfigError{ span: other.span(), reason: "expected section attributes as list".into()}),
+            };
+            let mut iter = tokens.clone().into_iter().peekable();
+            loop {
+                match iter.peek() {
+                    None => break,
+                    Some(TokenTree::Punct(_)) => {
+                        iter.next();
+                        continue
+                    },
+                    Some(TokenTree::Ident(ident)) => {
+                        let (io, eq, value) = match (iter.next(), iter.next(), iter.next()) {
+                            (Some(io), Some(eq), Some(value)) => (io, eq, value),
+                            _ => return Err(ConfigError{span: attr.span(), reason: "malformed parameters".into()}),
+                        };
+                        match (io.to_string().as_str(), eq.to_string().as_str(), value.to_string().as_str()) {
+                            ("input", "=", "bin") => {i = SectionIO::Bin;},
+                            ("input", "=", "dataframe") => {i = SectionIO::DataFrame},
+                            ("output", "=", "bin") => {o = SectionIO::Bin},
+                            ("output", "=", "dataframe") => {o = SectionIO::DataFrame},
+                            _ => return Err(ConfigError{span: attr.span(), reason: "malformed parameters".into()}),
+                        }
+                    },
+                    _ => return Err(ConfigError{span: attr.span(), reason: "malformed parameters".into()}),
+                }
+            }
+            Ok((i, o))
+        })?;
+    Ok((i.into(), o.into()))
+}
+
 fn build_config_field_metadata(field_attributes: &[Attribute]) -> Result<ConfigFieldMetadata> {
     let mut is_password = false;
     let mut is_text_area = false;
     match field_attributes {
-        [attr] if attr.path().is_ident("input") => {
+        [attr] if attr.path().is_ident("field_type") => {
             attr.parse_nested_meta(|meta| {
                 if meta.path.is_ident("password") {
                     is_password = true;
@@ -151,6 +207,7 @@ fn parse_config(input: TokenStream) -> Result<TokenStream> {
             span: input.span(),
         })?;
     }
+    let (section_input, section_output) = parse_section_attr(&input.attrs)?;
     let ident = &input.ident;
     let strct = match &input.data {
         Data::Union(_) => Err(ConfigError {
@@ -176,7 +233,7 @@ fn parse_config(input: TokenStream) -> Result<TokenStream> {
         .map(build_config_field)
         .map(|res| match res {
             Ok(ConfigField { name, ty, metadata }) => {
-                let ty = ty.into_tokens();
+                let ty: proc_macro2::TokenStream = ty.into();
                 let ConfigFieldMetadata {
                     is_password,
                     is_text_area,
@@ -198,6 +255,14 @@ fn parse_config(input: TokenStream) -> Result<TokenStream> {
 
     let tokens = quote! {
         impl config::Config for #ident {
+            fn input(&self) -> config::SectionIO {
+                #section_input
+            }
+            
+            fn output(&self) -> config::SectionIO {
+                #section_output
+            }
+
             fn fields(&self) -> Vec<config::Field> {
                 vec![
                     #(#config_fields),*
@@ -208,7 +273,10 @@ fn parse_config(input: TokenStream) -> Result<TokenStream> {
     Ok(tokens.into())
 }
 
-#[proc_macro_derive(SectionConfig, attributes(input))]
+#[proc_macro_derive(
+    Config,
+    attributes(section, field_type)
+)]
 pub fn config(input: TokenStream) -> TokenStream {
     match parse_config(input) {
         Ok(tokens) => tokens,
