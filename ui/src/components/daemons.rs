@@ -203,7 +203,7 @@ pub fn Daemons() -> Element {
                 class: "table-fix border border-solid text-left w-full mx-auto",
                 thead {
                 tr {
-                    class: "border-b border-solid p-4 font-bold",
+                    class: "border-b border-solid p-4 font-bold bg-night-1/25",
                     th {
                     class: "pl-3",
                     "Name"

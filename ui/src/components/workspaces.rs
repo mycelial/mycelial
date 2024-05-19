@@ -141,7 +141,7 @@ pub fn Workspaces() -> Element {
                     class: "table-fix border border-solid text-left w-full mx-auto",
                     thead {
                         tr {
-                            class: "border-b border-solid p-4 font-bold",
+                            class: "border-b border-solid p-4 font-bold bg-night-1/25",
                                 th {
                                     class: "pl-3",
                                     "Name"
@@ -152,6 +152,7 @@ pub fn Workspaces() -> Element {
                                 }
                                 th { }
                             }
+                            
                             for (&id, workspace) in state.read().workspaces.iter() {
                                 tr {
                                     class: "border-b border-gray-100",
