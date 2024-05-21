@@ -2,9 +2,12 @@
 use std::borrow::Cow;
 
 use proc_macro::{Ident, TokenStream};
-use proc_macro2::{TokenTree, Span};
+use proc_macro2::{Span, TokenTree};
 use quote::{quote, quote_spanned};
-use syn::{spanned::Spanned, Attribute, Data, DeriveInput, Field, Fields, Meta, Type};
+use syn::{
+    spanned::Spanned, AngleBracketedGenericArguments, Attribute, Data, DeriveInput, Field, Fields,
+    GenericArgument, Meta, PathArguments, PathSegment, Type, TypePath,
+};
 
 type Result<T, E = ConfigError> = std::result::Result<T, E>;
 
@@ -33,7 +36,7 @@ struct ConfigField {
     metadata: ConfigFieldMetadata,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 enum ConfigFieldType {
     I8,
     I16,
@@ -45,6 +48,7 @@ enum ConfigFieldType {
     U64,
     String,
     Bool,
+    Vec(Box<ConfigFieldType>),
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -54,69 +58,103 @@ enum SectionIO {
     DataFrame,
 }
 
-impl Into<proc_macro2::TokenStream> for  SectionIO {
-    fn into(self) -> proc_macro2::TokenStream {
-        match self {
-            Self::None => quote!{ config::SectionIO::None },
-            Self::Bin => quote!{ config::SectionIO::Bin },
-            Self::DataFrame => quote!{ config::SectionIO::DataFrame },
+impl From<SectionIO> for proc_macro2::TokenStream {
+    fn from(val: SectionIO) -> Self {
+        match val {
+            SectionIO::None => quote! { config::SectionIO::None },
+            SectionIO::Bin => quote! { config::SectionIO::Bin },
+            SectionIO::DataFrame => quote! { config::SectionIO::DataFrame },
         }
     }
 }
 
-
-impl Into<proc_macro2::TokenStream> for ConfigFieldType {
-    fn into(self) -> proc_macro2::TokenStream {
-        match self {
-            Self::I8 => quote! { config::FieldType::I8 },
-            Self::I16 => quote! { config::FieldType::I16 },
-            Self::I32 => quote! { config::FieldType::I32 },
-            Self::I64 => quote! { config::FieldType::I64 },
-            Self::U8 => quote! { config::FieldType::U8 },
-            Self::U16 => quote! { config::FieldType::U16 },
-            Self::U32 => quote! { config::FieldType::U32 },
-            Self::U64 => quote! { config::FieldType::U64 },
-            Self::String => quote! { config::FieldType::String },
-            Self::Bool => quote! { config::FieldType::Bool },
+impl From<ConfigFieldType> for proc_macro2::TokenStream {
+    fn from(val: ConfigFieldType) -> Self {
+        match val {
+            ConfigFieldType::I8 => quote! { config::FieldType::I8 },
+            ConfigFieldType::I16 => quote! { config::FieldType::I16 },
+            ConfigFieldType::I32 => quote! { config::FieldType::I32 },
+            ConfigFieldType::I64 => quote! { config::FieldType::I64 },
+            ConfigFieldType::U8 => quote! { config::FieldType::U8 },
+            ConfigFieldType::U16 => quote! { config::FieldType::U16 },
+            ConfigFieldType::U32 => quote! { config::FieldType::U32 },
+            ConfigFieldType::U64 => quote! { config::FieldType::U64 },
+            ConfigFieldType::String => quote! { config::FieldType::String },
+            ConfigFieldType::Bool => quote! { config::FieldType::Bool },
+            ConfigFieldType::Vec(ty) => {
+                let tokens: proc_macro2::TokenStream = (*ty).into();
+                quote! { config::FieldType::Vec(Box::new(#tokens)) }
+            }
         }
     }
 }
 
-fn parse_section_attr(attrs: &[Attribute]) -> Result<(proc_macro2::TokenStream, proc_macro2::TokenStream)> {
+fn parse_section_attr(
+    attrs: &[Attribute],
+) -> Result<(proc_macro2::TokenStream, proc_macro2::TokenStream)> {
     let (i, o) = attrs
         .iter()
         .filter(|attr| attr.path().is_ident("section"))
-        .try_fold((SectionIO::None, SectionIO::None), |(mut i, mut o), attr| {
-            let tokens = match &attr.meta {
-                Meta::List(list) => &list.tokens,
-                other => return Err(ConfigError{ span: other.span(), reason: "expected section attributes as list".into()}),
-            };
-            let mut iter = tokens.clone().into_iter().peekable();
-            loop {
-                match iter.peek() {
-                    None => break,
-                    Some(TokenTree::Punct(_)) => {
-                        iter.next();
-                        continue
-                    },
-                    Some(TokenTree::Ident(ident)) => {
-                        let (io, eq, value) = match (iter.next(), iter.next(), iter.next()) {
-                            (Some(io), Some(eq), Some(value)) => (io, eq, value),
-                            _ => return Err(ConfigError{span: attr.span(), reason: "malformed parameters".into()}),
-                        };
-                        match (io.to_string().as_str(), eq.to_string().as_str(), value.to_string().as_str()) {
-                            ("input", "=", "bin") => {i = SectionIO::Bin;},
-                            ("input", "=", "dataframe") => {i = SectionIO::DataFrame},
-                            ("output", "=", "bin") => {o = SectionIO::Bin},
-                            ("output", "=", "dataframe") => {o = SectionIO::DataFrame},
-                            _ => return Err(ConfigError{span: attr.span(), reason: "malformed parameters".into()}),
+        .try_fold(
+            (SectionIO::None, SectionIO::None),
+            |(mut i, mut o), attr| {
+                let tokens = match &attr.meta {
+                    Meta::List(list) => &list.tokens,
+                    other => {
+                        return Err(ConfigError {
+                            span: other.span(),
+                            reason: "expected section attributes as list".into(),
+                        })
+                    }
+                };
+                let mut iter = tokens.clone().into_iter().peekable();
+                loop {
+                    match iter.peek() {
+                        None => break,
+                        Some(TokenTree::Punct(_)) => {
+                            iter.next();
+                            continue;
                         }
-                    },
-                    _ => return Err(ConfigError{span: attr.span(), reason: "malformed parameters".into()}),
+                        Some(TokenTree::Ident(ident)) => {
+                            let (io, eq, value) = match (iter.next(), iter.next(), iter.next()) {
+                                (Some(io), Some(eq), Some(value)) => (io, eq, value),
+                                _ => {
+                                    return Err(ConfigError {
+                                        span: attr.span(),
+                                        reason: "malformed parameters".into(),
+                                    })
+                                }
+                            };
+                            match (
+                                io.to_string().as_str(),
+                                eq.to_string().as_str(),
+                                value.to_string().as_str(),
+                            ) {
+                                ("input", "=", "bin") => {
+                                    i = SectionIO::Bin;
+                                }
+                                ("input", "=", "dataframe") => i = SectionIO::DataFrame,
+                                ("output", "=", "bin") => o = SectionIO::Bin,
+                                ("output", "=", "dataframe") => o = SectionIO::DataFrame,
+                                _ => {
+                                    return Err(ConfigError {
+                                        span: attr.span(),
+                                        reason: "malformed parameters".into(),
+                                    })
+                                }
+                            }
+                        }
+                        _ => {
+                            return Err(ConfigError {
+                                span: attr.span(),
+                                reason: "malformed parameters".into(),
+                            })
+                        }
+                    }
                 }
-            }
-            Ok((i, o))
-        })?;
+                Ok((i, o))
+            },
+        )?;
     Ok((i.into(), o.into()))
 }
 
@@ -181,12 +219,52 @@ fn get_field_type(field: &Field) -> Result<ConfigFieldType> {
             span: path.span(),
             reason: format!("Unsupported field type: {other}").into(),
         })?,
-        None => Err(ConfigError {
-            span: path.span(),
-            reason: "unexpected empty type".into(),
-        })?,
+        None => get_field_complex_type(path)?,
     };
     Ok(ty)
+}
+
+fn get_field_complex_type(path: &TypePath) -> Result<ConfigFieldType> {
+    match path.path.segments.iter().collect::<Vec<_>>().as_slice() {
+        &[PathSegment {
+            ident,
+            arguments: PathArguments::AngleBracketed(AngleBracketedGenericArguments { args, .. }),
+        }] if ident == "Vec" => match args.iter().collect::<Vec<_>>().as_slice() {
+            &[GenericArgument::Type(Type::Path(path))] => {
+                let ty = match path
+                    .path
+                    .get_ident()
+                    .map(|ident| ident.to_string())
+                    .as_deref()
+                {
+                    Some("i8") => ConfigFieldType::I8,
+                    Some("i16") => ConfigFieldType::I16,
+                    Some("i32") => ConfigFieldType::I32,
+                    Some("i64") => ConfigFieldType::I64,
+                    Some("u8") => ConfigFieldType::U8,
+                    Some("u16") => ConfigFieldType::U16,
+                    Some("u32") => ConfigFieldType::U32,
+                    Some("u64") => ConfigFieldType::U64,
+                    Some("String") => ConfigFieldType::String,
+                    Some("bool") => ConfigFieldType::Bool,
+                    Some(other) => Err(ConfigError {
+                        span: path.span(),
+                        reason: format!("Unsupported field type: {other}").into(),
+                    })?,
+                    None => get_field_complex_type(path)?,
+                };
+                Ok(ConfigFieldType::Vec(Box::new(ty)))
+            }
+            _ => Err(ConfigError {
+                span: args.span(),
+                reason: "unexpected Vec arguments".into(),
+            })?,
+        },
+        _ => Err(ConfigError {
+            span: path.span(),
+            reason: "unexpected complex type".into(),
+        })?,
+    }
 }
 
 fn build_config_field(field: &Field) -> Result<ConfigField> {
@@ -258,7 +336,7 @@ fn parse_config(input: TokenStream) -> Result<TokenStream> {
             fn input(&self) -> config::SectionIO {
                 #section_input
             }
-            
+
             fn output(&self) -> config::SectionIO {
                 #section_output
             }
@@ -273,10 +351,7 @@ fn parse_config(input: TokenStream) -> Result<TokenStream> {
     Ok(tokens.into())
 }
 
-#[proc_macro_derive(
-    Config,
-    attributes(section, field_type)
-)]
+#[proc_macro_derive(Config, attributes(section, field_type))]
 pub fn config(input: TokenStream) -> TokenStream {
     match parse_config(input) {
         Ok(tokens) => tokens,

@@ -18,7 +18,7 @@ pub trait Config {
     fn fields(&self) -> Vec<Field>;
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum FieldType {
     I8,
     I16,
@@ -30,6 +30,17 @@ pub enum FieldType {
     U64,
     String,
     Bool,
+    Vec(Box<FieldType>),
+}
+
+impl FieldType {
+    pub fn is_bool(&self) -> bool {
+        self == &Self::Bool
+    }
+
+    pub fn is_vec(&self) -> bool {
+        matches!(self, Self::Vec(_))
+    }
 }
 
 #[derive(Debug, PartialEq)]

@@ -1,6 +1,11 @@
-use super::node_config::{Config, ConfigTrait};
+use super::node_config::ConfigExample;
+use config::Config as _Config;
 
 pub type NodeType = &'static str;
+
+pub trait Config: _Config + std::fmt::Debug {}
+
+impl<T: _Config + std::fmt::Debug> Config for T {}
 
 // Node of the graph
 //
@@ -17,7 +22,7 @@ pub struct NodeState {
     pub w: f64,
     pub h: f64,
     pub port_diameter: f64,
-    pub config: Box<dyn ConfigTrait>,
+    pub config: Box<dyn Config>,
 }
 
 impl NodeState {
@@ -30,7 +35,7 @@ impl NodeState {
             w: 0.0,
             h: 0.0,
             port_diameter: 12.0,
-            config: Box::<Config>::default(),
+            config: Box::<ConfigExample>::default(),
         }
     }
 
