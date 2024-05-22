@@ -18,7 +18,10 @@ use std::{
     task::{Context, Poll},
     time::Duration,
 };
-use tokio::{fs::{read_dir, DirEntry, File}, io::AsyncReadExt as _};
+use tokio::{
+    fs::{read_dir, DirEntry, File},
+    io::AsyncReadExt as _,
+};
 use tokio_stream::wrappers::ReadDirStream;
 
 pub type Result<T, E = SectionError> = core::result::Result<T, E>;
@@ -40,7 +43,12 @@ impl DirSourceMessage {
         let path = Arc::clone(&origin);
         let payload = match stream_files {
             false => Payload::Path(Some(path)),
-            true => Payload::Fd(tokio::fs::OpenOptions::new().read(true).open(&*path).await?),
+            true => Payload::Fd(
+                tokio::fs::OpenOptions::new()
+                    .read(true)
+                    .open(&*path)
+                    .await?,
+            ),
         };
         Ok(Self {
             origin,
@@ -87,20 +95,18 @@ impl Message for DirSourceMessage {
                     .take()
                     .map(|path| Chunk::DataFrame(Box::new(PathDataFrame { path })));
                 Box::pin(async move { Ok(chunk) })
-            },
-            Payload::Fd(fd) => {
-                Box::pin(async {
-                    let mut buf = vec![0; 16384];
-                    match fd.read(buf.as_mut_slice()).await {
-                        Ok(0) => Ok(None),
-                        Ok(read) => {
-                            buf.truncate(read);
-                            Ok(Some(Chunk::Byte(buf)))
-                        }
-                        Err(e) => Err(e.into()),
-                    }
-                })
             }
+            Payload::Fd(fd) => Box::pin(async {
+                let mut buf = vec![0; 16384];
+                match fd.read(buf.as_mut_slice()).await {
+                    Ok(0) => Ok(None),
+                    Ok(read) => {
+                        buf.truncate(read);
+                        Ok(Some(Chunk::Byte(buf)))
+                    }
+                    Err(e) => Err(e.into()),
+                }
+            }),
         }
     }
 
