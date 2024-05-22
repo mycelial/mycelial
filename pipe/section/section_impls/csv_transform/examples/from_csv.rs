@@ -4,20 +4,22 @@ use std::time::Duration;
 
 use csv_transform::source::FromCsv;
 use section::{
-    dummy::DummySectionChannel, futures::SinkExt, message::{Chunk, Message}, pretty_print::pretty_print,
-    section::Section, SectionError, SectionMessage,
+    dummy::DummySectionChannel,
+    futures::SinkExt,
+    message::{Chunk, Message},
+    pretty_print::pretty_print,
+    section::Section, SectionMessage,
 };
 
 use tokio::sync::mpsc::channel;
 use tokio_stream::wrappers::ReceiverStream;
 use tokio_util::sync::PollSender;
 
-
 #[derive(Debug)]
 struct Msg {
     batch_size: usize,
     pos: usize,
-    payload: &'static [u8]
+    payload: &'static [u8],
 }
 
 impl Msg {
@@ -25,15 +27,15 @@ impl Msg {
         Self {
             batch_size,
             pos: 0,
-            payload: 
-"city,region,country,population
+            payload: "city,region,country,population
 Southborough,MA,United States,9686
 Northbridge,MA,United States,14061
 Marlborough,MA,United States,38334
 Boston,MA,United States,152227
 Springfield,MO,United States,150443
 Trenton,NJ,United States,14976
-Plymouth,NH,United States,42605".as_bytes()
+Plymouth,NH,United States,42605"
+                .as_bytes(),
         }
     }
 }
@@ -42,15 +44,15 @@ impl Message for Msg {
     fn origin(&self) -> &str {
         "example"
     }
-    
+
     fn ack(&mut self) -> section::message::Ack {
-        Box::pin(async{})
+        Box::pin(async {})
     }
-    
+
     fn next(&mut self) -> section::message::Next<'_> {
         Box::pin(async move {
             if self.pos >= self.payload.len() {
-                return Ok(None)
+                return Ok(None);
             }
             let (chunk, pos) = if self.pos + self.batch_size > self.payload.len() {
                 (&self.payload[self.pos..], self.payload.len())
@@ -63,7 +65,6 @@ impl Message for Msg {
         })
     }
 }
-
 
 #[tokio::main]
 async fn main() {
@@ -87,7 +88,7 @@ async fn main() {
     });
 
     loop {
-        tokio::select!{
+        tokio::select! {
             _ = interval.tick() => {
                 tx_in.send(Box::new(Msg::new(1))).await.unwrap();
             },
@@ -100,7 +101,7 @@ async fn main() {
                     };
                 }
                 msg.ack().await;
-            } 
+            }
         }
     }
 }

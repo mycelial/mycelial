@@ -56,7 +56,7 @@ pub enum Source {
     Mysql_Connector(MysqlConnectorSourceConfig),
     File(FileSourceConfig),
     Dir(DirSourceConfig),
-    Csv(CsvSourceConfig)
+    Csv(CsvSourceConfig),
 }
 
 /// Internally-tagged type of a source needs to match the variant name
