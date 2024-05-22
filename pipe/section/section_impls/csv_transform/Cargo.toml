@@ -1,0 +1,15 @@
+[package]
+name = "csv_transform"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+csv = "1.3"
+tokio = { version = "1", features = ["full"] }
+section = { path = "../../" }
+
+
+[dev-dependencies]
+stub = { path = "../stub" }
+tokio-util = "0.7"
+tokio-stream = "0.1"
