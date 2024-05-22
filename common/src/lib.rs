@@ -56,6 +56,7 @@ pub enum Source {
     Mysql_Connector(MysqlConnectorSourceConfig),
     File(FileSourceConfig),
     Dir(DirSourceConfig),
+    Csv(CsvSourceConfig)
 }
 
 /// Internally-tagged type of a source needs to match the variant name
@@ -257,6 +258,14 @@ pub struct DirSourceConfig {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub start_after: Option<String>,
     pub interval: u64,
+    pub stream_binary: bool,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+pub struct CsvSourceConfig {
+    #[serde(flatten)]
+    pub common_attrs: CommonAttrs,
+    pub batch_size: usize,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]

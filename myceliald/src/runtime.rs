@@ -77,6 +77,7 @@ fn setup_registry<S: SectionChannel>() -> Registry<S> {
         ("file_destination", constructors::file::destination_ctor),
         ("dir_source", constructors::dir::source_ctor),
         ("exec", constructors::exec::exec_ctor),
+        ("csv", constructors::csv_transform::source_ctor),
         //("sqlite_physical_replication_destination", sqlite_physical_replication::destination::constructor),
         //("sqlite_physical_replication_source", sqlite_physical_replication::source::constructor),
     ];

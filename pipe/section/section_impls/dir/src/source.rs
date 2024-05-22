@@ -39,9 +39,9 @@ struct DirSourceMessage {
 }
 
 impl DirSourceMessage {
-    async fn new(origin: Arc<str>, ack: Ack, stream_files: bool) -> Result<Self> {
+    async fn new(origin: Arc<str>, ack: Ack, stream_binary: bool) -> Result<Self> {
         let path = Arc::clone(&origin);
-        let payload = match stream_files {
+        let payload = match stream_binary {
             false => Payload::Path(Some(path)),
             true => Payload::Fd(
                 tokio::fs::OpenOptions::new()
@@ -121,8 +121,8 @@ pub struct DirSource {
     pattern: Option<Regex>,
     start_after: Option<String>,
     walk_stack: Vec<DirEntry>,
-    stream_files: bool,
     interval: Duration,
+    stream_binary: bool,
 }
 
 impl DirSource {
@@ -131,7 +131,7 @@ impl DirSource {
         pattern: Option<String>,
         start_after: Option<String>,
         interval: Duration,
-        stream_files: bool,
+        stream_binary: bool,
     ) -> Result<Self> {
         let pattern = match pattern {
             Some(s) => Some(Regex::try_from(s)?),
@@ -142,7 +142,7 @@ impl DirSource {
             pattern,
             start_after,
             walk_stack: vec![],
-            stream_files,
+            stream_binary,
             interval,
         })
     }
@@ -303,7 +303,7 @@ where
                             let file_clone: Box<dyn Any + Send> = Box::new(Arc::clone(&file));
                             let ack: Ack = Box::pin(async move { weak_chan.ack(file_clone).await; });
                             let message: SectionMessage = Box::new(
-                                DirSourceMessage::new(file, ack, self.stream_files).await?
+                                DirSourceMessage::new(file, ack, self.stream_binary).await?
                             );
                             output.send(message).await?;
                         }

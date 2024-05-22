@@ -4,10 +4,10 @@ use csv::StringRecord;
 use section::{
     command_channel::{Command, SectionChannel},
     futures::{self, FutureExt, Sink, SinkExt, Stream, StreamExt},
-    message::{Ack, Chunk, Column, DataFrame, DataType, Message, Next, Value, ValueView},
+    message::{Ack, Chunk, Column, DataFrame, DataType, Message, Next, ValueView},
     section::Section, SectionError, SectionFuture, SectionMessage
 };
-use std::{io::{Seek, SeekFrom}, pin::pin, sync::Arc};
+use std::{pin::pin, sync::Arc};
 use tokio::sync::mpsc::{Sender, Receiver, channel};
 
 type Result<T, E=SectionError> = std::result::Result<T, E>;
@@ -99,14 +99,16 @@ impl std::io::Read for ReceiverReader {
                 return Ok(0)
             },
             Some(ref buf) => {
-                let mut reader = std::io::Cursor::new(buf.as_slice());
-                reader.seek(SeekFrom::Start(self.offset))?;
-                reader
+                let mut available = buf.len() as u64 - self.offset;
+                if available > out.len() as u64 {
+                    available = out.len() as u64
+                }
+                std::io::Cursor::new(&buf.as_slice()[self.offset as usize..(self.offset + available) as usize])
             }
         };
         let read = std::io::copy(&mut reader, &mut std::io::Cursor::new(out))?;
         self.offset += read;
-        if reader.position() == self.buf.as_ref().unwrap().len() as u64{
+        if self.offset == self.buf.as_ref().unwrap().len() as u64{
             self.buf = None;
         }
         Ok(read as usize)
