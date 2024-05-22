@@ -18,25 +18,43 @@ use std::{
     task::{Context, Poll},
     time::Duration,
 };
-use tokio::fs::{read_dir, DirEntry};
+use tokio::{
+    fs::{read_dir, DirEntry, File},
+    io::AsyncReadExt as _,
+};
 use tokio_stream::wrappers::ReadDirStream;
 
 pub type Result<T, E = SectionError> = core::result::Result<T, E>;
 
+#[derive(Debug)]
+enum Payload {
+    Path(Option<Arc<str>>),
+    Fd(File),
+}
+
 struct DirSourceMessage {
     origin: Arc<str>,
-    path: Option<Arc<str>>,
+    payload: Payload,
     ack: Option<Ack>,
 }
 
 impl DirSourceMessage {
-    fn new(origin: Arc<str>, ack: Ack) -> Self {
+    async fn new(origin: Arc<str>, ack: Ack, stream_binary: bool) -> Result<Self> {
         let path = Arc::clone(&origin);
-        Self {
+        let payload = match stream_binary {
+            false => Payload::Path(Some(path)),
+            true => Payload::Fd(
+                tokio::fs::OpenOptions::new()
+                    .read(true)
+                    .open(&*path)
+                    .await?,
+            ),
+        };
+        Ok(Self {
             origin,
-            path: Some(path),
+            payload,
             ack: Some(ack),
-        }
+        })
     }
 }
 
@@ -44,7 +62,7 @@ impl std::fmt::Debug for DirSourceMessage {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("DirSourceMessage")
             .field("origin", &self.origin.as_ref())
-            .field("path", &self.path.as_ref())
+            .field("payload", &self.payload)
             .field("ack", &self.ack.as_ref().map(|_| "Some").unwrap_or("None"))
             .finish()
     }
@@ -71,11 +89,25 @@ impl Message for DirSourceMessage {
     }
 
     fn next(&mut self) -> Next<'_> {
-        let chunk = self
-            .path
-            .take()
-            .map(|path| Chunk::DataFrame(Box::new(PathDataFrame { path })));
-        Box::pin(async move { Ok(chunk) })
+        match &mut self.payload {
+            Payload::Path(path) => {
+                let chunk = path
+                    .take()
+                    .map(|path| Chunk::DataFrame(Box::new(PathDataFrame { path })));
+                Box::pin(async move { Ok(chunk) })
+            }
+            Payload::Fd(fd) => Box::pin(async {
+                let mut buf = vec![0; 16384];
+                match fd.read(buf.as_mut_slice()).await {
+                    Ok(0) => Ok(None),
+                    Ok(read) => {
+                        buf.truncate(read);
+                        Ok(Some(Chunk::Byte(buf)))
+                    }
+                    Err(e) => Err(e.into()),
+                }
+            }),
+        }
     }
 
     fn origin(&self) -> &str {
@@ -89,8 +121,8 @@ pub struct DirSource {
     pattern: Option<Regex>,
     start_after: Option<String>,
     walk_stack: Vec<DirEntry>,
-    stream_mode: (),
     interval: Duration,
+    stream_binary: bool,
 }
 
 impl DirSource {
@@ -99,6 +131,7 @@ impl DirSource {
         pattern: Option<String>,
         start_after: Option<String>,
         interval: Duration,
+        stream_binary: bool,
     ) -> Result<Self> {
         let pattern = match pattern {
             Some(s) => Some(Regex::try_from(s)?),
@@ -109,7 +142,7 @@ impl DirSource {
             pattern,
             start_after,
             walk_stack: vec![],
-            stream_mode: (),
+            stream_binary,
             interval,
         })
     }
@@ -269,7 +302,9 @@ where
                             let file = Arc::from(file);
                             let file_clone: Box<dyn Any + Send> = Box::new(Arc::clone(&file));
                             let ack: Ack = Box::pin(async move { weak_chan.ack(file_clone).await; });
-                            let message: SectionMessage = Box::new(DirSourceMessage::new(file, ack));
+                            let message: SectionMessage = Box::new(
+                                DirSourceMessage::new(file, ack, self.stream_binary).await?
+                            );
                             output.send(message).await?;
                         }
                     },

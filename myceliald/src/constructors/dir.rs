@@ -44,11 +44,17 @@ pub fn source_ctor<S: SectionChannel>(
         Value::Int(i) => (*i) as _,
         _ => Err("poll_interval should be integer")?,
     };
+    let stream_binary = match config.get("stream_binary").unwrap_or(&Value::Bool(false)) {
+        Value::String(maybe_bool) => maybe_bool.to_lowercase() == "true",
+        Value::Bool(b) => *b,
+        _ => Err("'stream_binary' must be a bool")?,
+    };
     Ok(Box::new(dir::source::DirSource::new(
         path.into(),
         pattern,
         start_after,
         Duration::from_secs(interval),
+        stream_binary,
     )?))
 }
 

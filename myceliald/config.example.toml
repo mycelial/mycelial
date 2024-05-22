@@ -19,6 +19,8 @@ start_after = ""
 # The start_after field specifies the file name to start reading from. If this field is empty, the daemon will read from the beginning of the directory.
 interval = 5
 # The interval field specifies how often the daemon should check for new files in seconds.
+stream_binary = false
+# if true - files will be streamed directly by dir, otherwise section sends dataframe with path to file
 
 [[sources]]
 # Excel workbook source
@@ -173,6 +175,12 @@ target_type = "string"
 column = "column_name"
 # The column field specifies the name of the column to cast.
 
+[[sources]]
+# Converts binary csv stream into stream of dataframes
+type = "csv"
+display_name = "from_csv"
+# max length of dataframe
+batch_size = 512
 
 [[destinations]]
 # File destination

@@ -1,5 +1,5 @@
 //! List directory with applied filters
-//! This example outputs dataframe with full paths
+//! This example outputs binary streams
 
 use clap::Parser;
 use dir::source::DirSource;
@@ -30,7 +30,7 @@ async fn main() {
         cli.pattern,
         cli.start_after,
         Duration::from_secs(3),
-        false,
+        true,
     )
     .unwrap();
 
@@ -52,7 +52,7 @@ async fn main() {
         while let Some(chunk) = msg.next().await.unwrap() {
             match chunk {
                 Chunk::DataFrame(df) => println!("{}", pretty_print(&*df)),
-                Chunk::Byte(_bin) => println!("bin"),
+                Chunk::Byte(bin) => println!("bin: {}", String::from_utf8_lossy(&bin)),
             };
         }
         msg.ack().await;
