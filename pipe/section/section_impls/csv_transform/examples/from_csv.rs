@@ -8,7 +8,8 @@ use section::{
     futures::SinkExt,
     message::{Chunk, Message},
     pretty_print::pretty_print,
-    section::Section, SectionMessage,
+    section::Section,
+    SectionMessage,
 };
 
 use tokio::sync::mpsc::channel;
