@@ -30,10 +30,11 @@ struct ConfigFieldMetadata {
     is_text_area: bool,
 }
 
-struct ConfigField {
+struct ConfigField<'a> {
     name: String,
     ty: ConfigFieldType,
     metadata: ConfigFieldMetadata,
+    value: &'a proc_macro2::Ident,
 }
 
 #[derive(Clone)]
@@ -267,13 +268,14 @@ fn get_field_complex_type(path: &TypePath) -> Result<ConfigFieldType> {
     }
 }
 
-fn build_config_field(field: &Field) -> Result<ConfigField> {
+fn build_config_field(field: &Field) -> Result<ConfigField<'_>> {
     let metadata = build_config_field_metadata(field.attrs.as_slice())?;
     let field_type = get_field_type(field)?;
     Ok(ConfigField {
         name: field.ident.as_ref().unwrap().to_string(),
         ty: field_type,
         metadata,
+        value: field.ident.as_ref().unwrap(),
     })
 }
 
@@ -310,12 +312,13 @@ fn parse_config(input: TokenStream) -> Result<TokenStream> {
         .iter()
         .map(build_config_field)
         .map(|res| match res {
-            Ok(ConfigField { name, ty, metadata }) => {
+            Ok(ConfigField { name, ty, metadata, value }) => {
                 let ty: proc_macro2::TokenStream = ty.into();
                 let ConfigFieldMetadata {
                     is_password,
                     is_text_area,
                 } = metadata;
+                let name_tokens = quote!{ #name };
                 Ok(quote! {
                     config::Field{
                         name: #name,
@@ -323,7 +326,8 @@ fn parse_config(input: TokenStream) -> Result<TokenStream> {
                         metadata: config::Metadata {
                             is_password: #is_password,
                             is_text_area: #is_text_area,
-                        }
+                        },
+                        value: (&self.#value).into(),
                     }
                 })
             }

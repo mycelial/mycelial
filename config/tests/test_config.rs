@@ -32,6 +32,7 @@ fn test_simple_config() {
                     is_password: false,
                     is_text_area: false,
                 },
+                value: "login".into(),
             },
             Field {
                 name: "password",
@@ -40,6 +41,7 @@ fn test_simple_config() {
                     is_password: true,
                     is_text_area: true,
                 },
+                value: "password".into(),
             },
             Field {
                 name: "port",
@@ -48,6 +50,7 @@ fn test_simple_config() {
                     is_password: false,
                     is_text_area: false,
                 },
+                value: 30303_u16.into(),
             },
             Field {
                 name: "bool",
@@ -56,6 +59,7 @@ fn test_simple_config() {
                     is_password: false,
                     is_text_area: false,
                 },
+                value: true.into()
             },
         ],
     )

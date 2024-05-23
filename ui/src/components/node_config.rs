@@ -17,22 +17,6 @@ pub struct ConfigExample {
     #[field_type(text_area)]
     query: String,
 }
-
-// drop down
-// div { class: "flex items-center justify-start",
-//     label {
-//         r#for: "{field.name}",
-//         class: "min-w-24 text-sm font-medium leading-6 text-night-1 uppercase",
-//         "{field.name}"
-//     }
-//     input {
-//         name: "{field.name}",
-//         required: true,
-//         r#type: "checkbox",
-//         class: "ml-3 rounded-md py-1.5 text-gray-900 drop-shadow-sm ring-1 ring-night-1 focus:ring-2 focus:ring-night-2 focus:outline-none",
-//     }
-// }
-
 #[component]
 pub fn NodeConfig(selected_node: Signal<Option<Signal<NodeState>>>) -> Element {
     if let Some(inner_signal) = *selected_node.read() {
@@ -53,6 +37,10 @@ pub fn NodeConfig(selected_node: Signal<Option<Signal<NodeState>>>) -> Element {
                 class: "border border-solid rounded-md drop-shadow px-5 py-4 mt-4 mx-4",
                 div {
                     form {
+                        onsubmit: move |event| {
+                            tracing::info!("event: {:?}", event);
+                            selected_node.set(None);
+                        },
                         class: "grid grid-flow-rows gap-2",
                         div {
                             h2 {
@@ -74,18 +62,14 @@ pub fn NodeConfig(selected_node: Signal<Option<Signal<NodeState>>>) -> Element {
                                             "{field.name}"
                                         }
                                         select {
+                                            id: "{field.name}",
                                             name: "{field.name}",
-                                            required: true,
                                             class: "p-2 ml-3 min-w-32 r unded-md py-1.5 text-gray-900 drop-shadow-sm ring-1 ring-night-1 focus:ring-2 focus:ring-night-2 focus:outline-none",
-                                        //  for value in field.
-                                        //  option {
-                                        //      value: "One",
-                                        //      "One",
-                                        //  }
-                                        //  option {
-                                        //      value: "Two",
-                                        //      "Two",
-                                        //  }
+                                            //multiple: "true",
+                                            option {
+                                                value: "*",
+                                                "*",
+                                            }
                                         }
                                     }
                                 } else if field.ty.is_bool() {
@@ -96,8 +80,8 @@ pub fn NodeConfig(selected_node: Signal<Option<Signal<NodeState>>>) -> Element {
                                             "{field.name}"
                                         }
                                         input {
+                                            id: "{field.name}",
                                             name: "{field.name}",
-                                            required: true,
                                             r#type: "checkbox",
                                             class: "ml-3 rounded-md py-1.5 text-gray-900 drop-shadow-sm ring-1 ring-night-1 focus:ring-2 focus:ring-night-2 focus:outline-none",
                                         }
@@ -111,8 +95,8 @@ pub fn NodeConfig(selected_node: Signal<Option<Signal<NodeState>>>) -> Element {
                                     // div included here so that textarea below appears on new grid row (ie, below the label)
                                     div {
                                         textarea {
+                                            id: "{field.name}",
                                             name: "{field.name}",
-                                            required: true,
                                             class: "w-full rounded-md py-1.5 text-gray-900 drop-shadow-sm ring-1 ring-night-1 focus:ring-2 focus:ring-night-2 focus:outline-none",
                                         }
                                     }
@@ -125,9 +109,10 @@ pub fn NodeConfig(selected_node: Signal<Option<Signal<NodeState>>>) -> Element {
                                             "{field.name}"
                                         }
                                         input {
+                                            id: "{field.name}",
                                             name: "{field.name}",
-                                            required: true,
                                             r#type: if field.metadata.is_password { "password" } else { "text" },
+                                            autocomplete: "off",
                                             class: "w-full rounded-md py-1.5 text-gray-900 drop-shadow-sm ring-1 ring-night-1 focus:ring-2 focus:ring-night-2 focus:outline-none",
                                         }
                                     }
@@ -137,10 +122,6 @@ pub fn NodeConfig(selected_node: Signal<Option<Signal<NodeState>>>) -> Element {
                         div {
                             class: "justify-self-center",
                             button {
-                                prevent_default: "onclick",
-                                onclick: move |_| {
-                                    selected_node.set(None);
-                                },
                                 r#type:"submit",
                                 class:"text-stem-1 px-4 py-2 rounded bg-forest-1 border border-forest-2 hover:bg-forest-2 hover:text-white uppercase font-semibold  drop-shadow-sm",
                                 "Save"
