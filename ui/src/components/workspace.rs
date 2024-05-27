@@ -1,7 +1,6 @@
 use crate::components::graph::Graph as GenericGraph;
 use crate::components::icons::{Delete, Edit, Pause, Play, Restart};
-use crate::components::node_config::NodeConfig;
-use crate::components::node_state::NodeState;
+use crate::components::node_state::{NodeState, NodeStateForm};
 use dioxus::prelude::*;
 
 pub type Graph = GenericGraph<Signal<NodeState>>;
@@ -82,7 +81,7 @@ fn Node(
         let node = &*node.read();
         (
             node.id,
-            node.node_type,
+            node.node_type.clone(),
             node.x,
             node.y,
             node.w,
@@ -307,7 +306,7 @@ fn ViewPort(
                     let vps_ref = &*view_port_state.read();
                     let node_state = Signal::new(NodeState::new(
                         id,
-                        node_type,
+                        node_type.into(),
                         coords.x - delta_x - vps_ref.delta_x(),
                         coords.y - delta_y - vps_ref.delta_y(),
                     ));
@@ -366,7 +365,7 @@ fn ViewPort(
                 }
             }
             if selected_node.read().is_some() {
-                NodeConfig {
+                NodeStateForm {
                     selected_node: selected_node,
                 }
             }

@@ -335,8 +335,13 @@ fn parse_config(input: TokenStream) -> Result<TokenStream> {
         })
         .collect::<Result<Vec<proc_macro2::TokenStream>>>()?;
 
+    let name = ident.to_string();
     let tokens = quote! {
         impl config::Config for #ident {
+            fn name(&self) -> &str {
+                #name
+            }
+
             fn input(&self) -> config::SectionIO {
                 #section_input
             }

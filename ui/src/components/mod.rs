@@ -9,7 +9,6 @@ pub mod index;
 pub mod login;
 pub mod logo;
 pub mod navbar;
-pub mod node_config;
 pub mod node_state;
 pub mod routing;
 pub mod workspace;

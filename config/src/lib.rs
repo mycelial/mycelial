@@ -5,6 +5,8 @@ pub mod prelude {
     pub use super::{Field, FieldType, FieldValue, Metadata, SectionIO};
     pub use config_derive::Config;
 }
+mod ser;
+mod de;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum SectionIO {
@@ -12,7 +14,8 @@ pub enum SectionIO {
     Bin,
     DataFrame,
 }
-pub trait Config {
+pub trait Config: std::fmt::Debug {
+    fn name(&self) -> &str;
     fn input(&self) -> SectionIO;
     fn output(&self) -> SectionIO;
     fn fields(&self) -> Vec<Field>;
@@ -43,7 +46,7 @@ impl FieldType {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Default)]
 pub struct Metadata {
     pub is_password: bool,
     pub is_text_area: bool,
@@ -51,7 +54,7 @@ pub struct Metadata {
 
 #[derive(Debug, PartialEq)]
 pub struct Field<'a> {
-    pub name: &'static str,
+    pub name: &'a str,
     pub ty: FieldType,
     pub metadata: Metadata,
     pub value: FieldValue<'a>,
@@ -70,6 +73,24 @@ pub enum FieldValue<'a> {
     String(&'a str),
     Bool(bool),
     Vec(Vec<FieldValue<'a>>)
+}
+
+impl std::fmt::Display for FieldValue<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            FieldValue::I8(v) => write!(f, "{v}"),
+            FieldValue::I16(v) => write!(f, "{v}"),
+            FieldValue::I32(v) => write!(f, "{v}"),
+            FieldValue::I64(v) => write!(f, "{v}"),
+            FieldValue::U8(v) => write!(f, "{v}"),
+            FieldValue::U16(v) => write!(f, "{v}"),
+            FieldValue::U32(v) => write!(f, "{v}"),
+            FieldValue::U64(v) => write!(f, "{v}"),
+            FieldValue::String(v) => write!(f, "{v}"),
+            FieldValue::Bool(v) => write!(f, "{v}"),
+            FieldValue::Vec(_v) => unimplemented!("display for vec"),
+        }
+    }
 }
 
 macro_rules! impl_from_ref {
