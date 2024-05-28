@@ -2759,7 +2759,6 @@ dependencies = [
 name = "ui"
 version = "0.1.0"
 dependencies = [
- "bincode",
  "config",
  "dioxus",
  "futures",

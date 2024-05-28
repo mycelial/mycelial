@@ -69,8 +69,8 @@ impl From<SectionIO> for proc_macro2::TokenStream {
     }
 }
 
-impl From<ConfigFieldType> for proc_macro2::TokenStream {
-    fn from(val: ConfigFieldType) -> Self {
+impl From<&ConfigFieldType> for proc_macro2::TokenStream {
+    fn from(val: &ConfigFieldType) -> Self {
         match val {
             ConfigFieldType::I8 => quote! { config::FieldType::I8 },
             ConfigFieldType::I16 => quote! { config::FieldType::I16 },
@@ -83,7 +83,7 @@ impl From<ConfigFieldType> for proc_macro2::TokenStream {
             ConfigFieldType::String => quote! { config::FieldType::String },
             ConfigFieldType::Bool => quote! { config::FieldType::Bool },
             ConfigFieldType::Vec(ty) => {
-                let tokens: proc_macro2::TokenStream = (*ty).into();
+                let tokens: proc_macro2::TokenStream = (&**ty).into();
                 quote! { config::FieldType::Vec(Box::new(#tokens)) }
             }
         }
@@ -311,29 +311,41 @@ fn parse_config(input: TokenStream) -> Result<TokenStream> {
         .named
         .iter()
         .map(build_config_field)
-        .map(|res| match res {
-            Ok(ConfigField { name, ty, metadata, value }) => {
-                let ty: proc_macro2::TokenStream = ty.into();
-                let ConfigFieldMetadata {
-                    is_password,
-                    is_text_area,
-                } = metadata;
-                let name_tokens = quote!{ #name };
-                Ok(quote! {
-                    config::Field{
-                        name: #name,
-                        ty: #ty,
-                        metadata: config::Metadata {
-                            is_password: #is_password,
-                            is_text_area: #is_text_area,
-                        },
-                        value: (&self.#value).into(),
-                    }
-                })
+        .collect::<Result<Vec<ConfigField>>>()?;
+
+    let fields_impl = config_fields
+        .iter()
+        .map(|ConfigField{ name, ty, metadata, value} | {
+            let ty: proc_macro2::TokenStream = ty.into();
+            let ConfigFieldMetadata {
+                is_password,
+                is_text_area,
+            } = metadata;
+            let name_tokens = quote!{ #name };
+            quote! {
+                config::Field{
+                    name: #name,
+                    ty: #ty,
+                    metadata: config::Metadata {
+                        is_password: #is_password,
+                        is_text_area: #is_text_area,
+                    },
+                    value: (&self.#value).into(),
+                }
             }
-            Err(e) => Err(e),
         })
-        .collect::<Result<Vec<proc_macro2::TokenStream>>>()?;
+        .collect::<Vec<proc_macro2::TokenStream>>();
+        
+    // field value is injected through main impl
+    let set_field_impl = config_fields
+        .iter()
+        .map(|ConfigField{ name, value, ty, .. }| {
+            let ty: proc_macro2::TokenStream = ty.into();
+            quote! {
+                #name => { self.#value = (&field_value).try_into()?; }
+            }
+        })
+        .collect::<Vec<proc_macro2::TokenStream>>();
 
     let name = ident.to_string();
     let tokens = quote! {
@@ -352,8 +364,21 @@ fn parse_config(input: TokenStream) -> Result<TokenStream> {
 
             fn fields(&self) -> Vec<config::Field> {
                 vec![
-                    #(#config_fields),*
+                    #(#fields_impl),*
                 ]
+            }
+            
+            fn set_field_value(&mut self, name: &str, value: &str) -> Result<(), Box<dyn std::error::Error + Send + Sync + 'static>> {
+                let field = match self.fields().into_iter().filter(|field| field.name == name).next() {
+                    Some(field) => field,
+                    None => return Err("field with name {name} not found")?
+                };
+                let field_value: FieldValue = (&field.ty, value).try_into()?;
+                match name {
+                    #(#set_field_impl),*
+                    _ => Err("unmatched {name}")?,
+                };
+                Ok(())
             }
         }
     };

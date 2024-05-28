@@ -92,8 +92,7 @@ fn Node(
         )
     };
 
-    let mut is_playing = false;
-    let mut is_being_edited = false;
+    let mut is_playing = use_signal(|| false);
 
     rsx! {
         div {
@@ -160,10 +159,11 @@ fn Node(
             }
             div {
                 class: "grid grid-flow-col justify-items-center mb-2 border p-2 rounded bg-grey-bright",
-                if is_playing {
+                if *is_playing.read() {
                     span {
                         onclick: move |_event| {
-                            is_playing = !is_playing
+                            let current_value = *is_playing.read();
+                            *is_playing.write() = !current_value;
                         },
                         class: "cursor-pointer hover:bg-stem-1",
                         Pause {}
@@ -171,7 +171,8 @@ fn Node(
                 } else {
                     span {
                         onclick: move |_event| {
-                            is_playing = !is_playing
+                            let current_value = *is_playing.read();
+                            *is_playing.write() = !current_value;
                         },
                         class: "cursor-pointer hover:bg-stem-1",
                         Play {}
@@ -183,9 +184,7 @@ fn Node(
                 }
                 span {
                     onclick: move |_event| {
-                        is_being_edited = true;
                         selected_node.set(Some(node));
-                        tracing::info!{ "is_being_edited: {is_being_edited}"};
                     },
                     class: "cursor-pointer hover:bg-stem-1",
                     Edit {}

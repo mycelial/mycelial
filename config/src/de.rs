@@ -132,6 +132,10 @@ impl Config for RawConfig {
             }
         }).collect()
     }
+    
+    fn set_field_value(&mut self, _name: &str, _value: &str) -> Result<(), crate::StdError> {
+        Err("set field value on intermediate config representation is not supported")?
+    }
 }
 
 struct ConfigVisitor{}

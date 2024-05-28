@@ -78,7 +78,7 @@ fn test_config_all_types() {
         u64: u64,
         bool: bool,
         string: String,
-        v: Vec<String>,
+        //v: Vec<String>,
     }
 }
 

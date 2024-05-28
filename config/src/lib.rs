@@ -14,14 +14,33 @@ pub enum SectionIO {
     Bin,
     DataFrame,
 }
+
+pub type StdError = Box<dyn std::error::Error + Send + Sync + 'static>;
 pub trait Config: std::fmt::Debug {
     fn name(&self) -> &str;
+
     fn input(&self) -> SectionIO;
+
     fn output(&self) -> SectionIO;
+
     fn fields(&self) -> Vec<Field>;
+    
+    fn set_field_value(&mut self, name: &str, value: &str) -> Result<(), StdError>;
+
+    fn validate_field(&self, field_name: &str, value: &str) -> Result<(), StdError> {
+        let field = self.fields().into_iter().filter(|field| field.name == field_name).collect::<Vec<_>>();
+        match field.as_slice() {
+            [field] => {
+                let _: FieldValue = (&field.ty, value).try_into()?;
+                Ok(())
+            },
+            [] => Err("no such field")?,
+            _ => Err("multiple fields with such name")?, // should not be possible in current implementation
+        }
+    }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum FieldType {
     I8,
     I16,
@@ -33,16 +52,11 @@ pub enum FieldType {
     U64,
     String,
     Bool,
-    Vec(Box<FieldType>),
 }
 
 impl FieldType {
     pub fn is_bool(&self) -> bool {
         self == &Self::Bool
-    }
-
-    pub fn is_vec(&self) -> bool {
-        matches!(self, Self::Vec(_))
     }
 }
 
@@ -142,3 +156,50 @@ impl_from_value!(i32, I32);
 impl_from_value!(i64, I64);
 impl_from_value!(bool, Bool);
 impl_from_value!(&'static str, String);
+
+
+impl<'a> TryFrom<(&'a FieldType, &'a str)> for FieldValue<'a> {
+    type Error = StdError;
+
+    fn try_from((ty, value): (&'a FieldType, &'a str)) -> Result<Self, Self::Error> {
+        let field_value = match ty {
+            FieldType::I8 => FieldValue::I8(value.parse()?),
+            FieldType::I16 => FieldValue::I16(value.parse()?),
+            FieldType::I32 => FieldValue::I32(value.parse()?),
+            FieldType::I64 => FieldValue::I64(value.parse()?),
+            FieldType::U8 => FieldValue::U8(value.parse()?),
+            FieldType::U16 => FieldValue::U16(value.parse()?),
+            FieldType::U32 => FieldValue::U32(value.parse()?),
+            FieldType::U64 => FieldValue::U64(value.parse()?),
+            FieldType::String => FieldValue::String(value),
+            FieldType::Bool => FieldValue::Bool(value.parse()?),
+        };
+        Ok(field_value)
+    }
+}
+
+macro_rules! try_into_field_value_impl {
+    ($ty:ty, $arm:tt, $var:tt, $($conv:tt)*) => {
+        impl TryInto<$ty> for &FieldValue<'_> {
+            type Error = StdError;
+
+            fn try_into(self) -> Result<$ty, Self::Error> {
+                match self {
+                    FieldValue::$arm($var) => Ok($($conv)*),
+                    _ => Err(format!("Can't convert {:?} into {}", self, stringify!($arm)))?
+                }
+            }
+        }
+    }
+}
+
+try_into_field_value_impl!(u8, U8, v, *v);
+try_into_field_value_impl!(u16, U16, v, *v);
+try_into_field_value_impl!(u32, U32, v, *v);
+try_into_field_value_impl!(u64, U64, v, *v);
+try_into_field_value_impl!(i8, I8, v, *v);
+try_into_field_value_impl!(i16, I16, v, *v);
+try_into_field_value_impl!(i32, I32, v, *v);
+try_into_field_value_impl!(i64, I64, v, *v);
+try_into_field_value_impl!(String, String, v, v.to_string());
+try_into_field_value_impl!(bool, Bool, v, *v);

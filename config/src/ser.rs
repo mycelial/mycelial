@@ -34,7 +34,7 @@ impl Serialize for Slice<'_> {
                 FieldValue::U64(v) => inner_map.serialize_entry(field.name, &v)?,
                 FieldValue::Bool(v) => inner_map.serialize_entry(field.name, &v)?,
                 FieldValue::String(v) => inner_map.serialize_entry(field.name, &v)?,
-                FieldValue::Vec(v) => {
+                FieldValue::Vec(_v) => {
                     unimplemented!("serialization for vector values are not yet implemented")
                 }
             };
