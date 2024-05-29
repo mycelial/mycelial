@@ -5,8 +5,8 @@ pub mod prelude {
     pub use super::{Field, FieldType, FieldValue, Metadata, SectionIO};
     pub use config_derive::Config;
 }
-mod ser;
 mod de;
+mod ser;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum SectionIO {
@@ -24,16 +24,20 @@ pub trait Config: std::fmt::Debug {
     fn output(&self) -> SectionIO;
 
     fn fields(&self) -> Vec<Field>;
-    
+
     fn set_field_value(&mut self, name: &str, value: &str) -> Result<(), StdError>;
 
     fn validate_field(&self, field_name: &str, value: &str) -> Result<(), StdError> {
-        let field = self.fields().into_iter().filter(|field| field.name == field_name).collect::<Vec<_>>();
+        let field = self
+            .fields()
+            .into_iter()
+            .filter(|field| field.name == field_name)
+            .collect::<Vec<_>>();
         match field.as_slice() {
             [field] => {
                 let _: FieldValue = (&field.ty, value).try_into()?;
                 Ok(())
-            },
+            }
             [] => Err("no such field")?,
             _ => Err("multiple fields with such name")?, // should not be possible in current implementation
         }
@@ -86,7 +90,7 @@ pub enum FieldValue<'a> {
     U64(u64),
     String(&'a str),
     Bool(bool),
-    Vec(Vec<FieldValue<'a>>)
+    Vec(Vec<FieldValue<'a>>),
 }
 
 impl std::fmt::Display for FieldValue<'_> {
@@ -129,7 +133,8 @@ impl_from_ref!(bool, Bool, *);
 impl_from_ref!(String, String, &*);
 
 impl<'a, T> From<&'a Vec<T>> for FieldValue<'a>
-    where FieldValue<'a>: From<&'a T>
+where
+    FieldValue<'a>: From<&'a T>,
 {
     fn from(value: &'a Vec<T>) -> FieldValue<'a> {
         FieldValue::Vec(value.iter().map(Into::into).collect())
@@ -143,7 +148,7 @@ macro_rules! impl_from_value {
                 FieldValue::$arm(value)
             }
         }
-    }
+    };
 }
 
 impl_from_value!(u8, U8);
@@ -156,7 +161,6 @@ impl_from_value!(i32, I32);
 impl_from_value!(i64, I64);
 impl_from_value!(bool, Bool);
 impl_from_value!(&'static str, String);
-
 
 impl<'a> TryFrom<(&'a FieldType, &'a str)> for FieldValue<'a> {
     type Error = StdError;

@@ -3,12 +3,12 @@ use serde::{ser::SerializeMap, Serialize};
 use crate::{Config, Field, FieldValue};
 
 #[repr(transparent)]
-struct Slice<'a> (&'a [Field<'a>]);
+struct Slice<'a>(&'a [Field<'a>]);
 
 impl Serialize for dyn Config {
     fn serialize<S>(&self, serializer: S) -> std::prelude::v1::Result<S::Ok, S::Error>
-        where
-            S: serde::Serializer
+    where
+        S: serde::Serializer,
     {
         // FIXME: for now only support structs
         let mut top_level_struct = serializer.serialize_map(Some(1))?;
@@ -19,9 +19,10 @@ impl Serialize for dyn Config {
 
 impl Serialize for Slice<'_> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-        where S: serde::Serializer
+    where
+        S: serde::Serializer,
     {
-        let mut inner_map= serializer.serialize_map(Some(self.0.len()))?;
+        let mut inner_map = serializer.serialize_map(Some(self.0.len()))?;
         for field in self.0 {
             match &field.value {
                 FieldValue::I8(v) => inner_map.serialize_entry(field.name, &v)?,
@@ -38,7 +39,7 @@ impl Serialize for Slice<'_> {
                     unimplemented!("serialization for vector values are not yet implemented")
                 }
             };
-        };
+        }
         inner_map.end()
     }
 }

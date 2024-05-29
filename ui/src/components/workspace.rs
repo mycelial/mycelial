@@ -317,9 +317,10 @@ fn ViewPort(
             prevent_default: "onmousedown",
             onmousedown: move |event| {
                 // if node or edge is currently dragged - do nothing
-                if dragged_edge.read().is_some() || dragged_node.read().is_some() {
+                if dragged_edge.read().is_some() || dragged_node.read().is_some() || selected_node.read().is_some() {
                     return
                 }
+
                 let coords = event.client_coordinates();
                 let state = &mut* view_port_state.write();
                 grab_point.set((coords.x - state.x, coords.y - state.y));
@@ -329,7 +330,7 @@ fn ViewPort(
             prevent_default: "onmousemove",
             onmousemove: move |event| {
                 // if node or edge is currently dragged - do nothing
-                if dragged_edge.read().is_some() || dragged_node.read().is_some() {
+                if dragged_edge.read().is_some() || dragged_node.read().is_some() || selected_node.read().is_some() {
                     return
                 }
                 let state = &mut *view_port_state.write();

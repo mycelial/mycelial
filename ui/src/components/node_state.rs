@@ -1,8 +1,4 @@
-use std::{
-    cell::{RefCell},
-    collections::HashMap,
-    rc::Rc,
-};
+use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 pub use config::prelude::*;
 pub use dioxus::prelude::*;
@@ -76,7 +72,8 @@ struct FormState {
 
 impl FormState {
     fn new(config: Signal<NodeState>) -> Self {
-        let fields = config.read()
+        let fields = config
+            .read()
             .config
             .fields()
             .into_iter()
@@ -98,9 +95,11 @@ impl FormState {
                 return false;
             }
         };
-        self.config.read()
+        self.config
+            .read()
             .config
-            .validate_field(field_name, value).is_ok()
+            .validate_field(field_name, value)
+            .is_ok()
     }
 
     // check if form is valid
@@ -171,6 +170,11 @@ pub fn NodeStateForm(selected_node: Signal<Option<Signal<NodeState>>>) -> Elemen
             div {
                 form {
                     onsubmit: move |_event| {
+                        // if form is invalid: do nothing
+                        if let Some(false) = form_state.read().as_ref().map(|fs| fs.is_valid()) {
+                            return
+                        }
+
                         let mut node_state = match selected_node.write().take() {
                             Some(state) => state,
                             None => return,
@@ -288,6 +292,7 @@ pub fn NodeStateForm(selected_node: Signal<Option<Signal<NodeState>>>) -> Elemen
                         button {
                             r#type:"submit",
                             class:"text-stem-1 px-4 py-2 rounded bg-forest-1 border border-forest-2 hover:bg-forest-2 hover:text-white uppercase font-semibold  drop-shadow-sm",
+                            class: if !fs.is_valid() { "opacity-50 cursor-not-allowed "} else { "" },
                             "Save"
                         }
                         button {

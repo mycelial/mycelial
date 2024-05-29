@@ -315,36 +315,47 @@ fn parse_config(input: TokenStream) -> Result<TokenStream> {
 
     let fields_impl = config_fields
         .iter()
-        .map(|ConfigField{ name, ty, metadata, value} | {
-            let ty: proc_macro2::TokenStream = ty.into();
-            let ConfigFieldMetadata {
-                is_password,
-                is_text_area,
-            } = metadata;
-            let name_tokens = quote!{ #name };
-            quote! {
-                config::Field{
-                    name: #name,
-                    ty: #ty,
-                    metadata: config::Metadata {
-                        is_password: #is_password,
-                        is_text_area: #is_text_area,
-                    },
-                    value: (&self.#value).into(),
+        .map(
+            |ConfigField {
+                 name,
+                 ty,
+                 metadata,
+                 value,
+             }| {
+                let ty: proc_macro2::TokenStream = ty.into();
+                let ConfigFieldMetadata {
+                    is_password,
+                    is_text_area,
+                } = metadata;
+                let name_tokens = quote! { #name };
+                quote! {
+                    config::Field{
+                        name: #name,
+                        ty: #ty,
+                        metadata: config::Metadata {
+                            is_password: #is_password,
+                            is_text_area: #is_text_area,
+                        },
+                        value: (&self.#value).into(),
+                    }
                 }
-            }
-        })
+            },
+        )
         .collect::<Vec<proc_macro2::TokenStream>>();
-        
+
     // field value is injected through main impl
     let set_field_impl = config_fields
         .iter()
-        .map(|ConfigField{ name, value, ty, .. }| {
-            let ty: proc_macro2::TokenStream = ty.into();
-            quote! {
-                #name => { self.#value = (&field_value).try_into()?; }
-            }
-        })
+        .map(
+            |ConfigField {
+                 name, value, ty, ..
+             }| {
+                let ty: proc_macro2::TokenStream = ty.into();
+                quote! {
+                    #name => { self.#value = (&field_value).try_into()?; }
+                }
+            },
+        )
         .collect::<Vec<proc_macro2::TokenStream>>();
 
     let name = ident.to_string();
@@ -367,7 +378,7 @@ fn parse_config(input: TokenStream) -> Result<TokenStream> {
                     #(#fields_impl),*
                 ]
             }
-            
+
             fn set_field_value(&mut self, name: &str, value: &str) -> Result<(), Box<dyn std::error::Error + Send + Sync + 'static>> {
                 let field = match self.fields().into_iter().filter(|field| field.name == name).next() {
                     Some(field) => field,
