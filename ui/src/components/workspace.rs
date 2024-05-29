@@ -316,7 +316,7 @@ fn ViewPort(
 
             prevent_default: "onmousedown",
             onmousedown: move |event| {
-                // if node or edge is currently dragged - do nothing
+                // if node or edge is currently dragged or node selected - do nothing
                 if dragged_edge.read().is_some() || dragged_node.read().is_some() || selected_node.read().is_some() {
                     return
                 }
@@ -329,7 +329,7 @@ fn ViewPort(
 
             prevent_default: "onmousemove",
             onmousemove: move |event| {
-                // if node or edge is currently dragged - do nothing
+                // if node or edge is currently dragged or node selected - do nothing
                 if dragged_edge.read().is_some() || dragged_node.read().is_some() || selected_node.read().is_some() {
                     return
                 }
