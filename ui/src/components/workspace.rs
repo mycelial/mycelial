@@ -603,7 +603,7 @@ pub fn Workspace(workspace: String) -> Element {
                     "Workspace: {workspace}",
                 }
                 button {
-                    class: "text-stem-1 px-4 py-2 rounded bg-forest-1 border border-forest-2 justify-self-end mr-5 uppercase hover:bg-forest-2 hover:text-white",
+                    class: "text-stem-1 font-bold px-4 py-2 rounded bg-forest-1 border border-forest-2 justify-self-end mr-5 uppercase hover:bg-forest-2 hover:text-white",
                     onclick: move |_event| {
                         // TODO: implement publish logic here
                         tracing::info!("Publish button clicked");
