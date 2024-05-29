@@ -1,6 +1,8 @@
 use dioxus::prelude::*;
+use futures::future::LocalBoxFuture;
 use serde::{Deserialize, Serialize};
 use std::rc::Rc;
+use crate::components::logo::LogoDark;
 
 #[derive(Debug, Default, Serialize, Deserialize)]
 struct LoginForm {
@@ -25,15 +27,20 @@ pub fn Login() -> Element {
 
     rsx! {
         div {
-            class: "flex min-h-full flex-col justify-center px-6 py-12 lg:px-8",
+            class: "container mx-auto min-h-full lg:px-8 mt-10 ",
             div {
-                class: "sm:mx-auto sm:w-full sm:max-w-sm",
-                h2 {
-                    class: "mt-10 text-center text-2xl font-bold leading-9 tracking-tight text-gray-900",
-                    "Sign in to your account"
+                class: "bg-moss-1 p-6 sm:mx-auto sm:w-full sm:max-w-sm shadow-md rounded-md text-grey-bright",
+                div {
+                    class: "flex justify-center",
+                    LogoDark{},
                 }
-            }
-
+                div {
+                    class: "sm:mx-auto sm:w-full sm:max-w-sm",
+                    h2 {
+                        class: "mt-10 text-center text-2xl font-bold leading-9 tracking-tight text-night-1",
+                        "Sign in to your account"
+                    }
+                }
             div {
                 class: "mt-10 sm:mx-auto sm:w-full sm:max-w-sm",
                 form {
@@ -71,7 +78,7 @@ pub fn Login() -> Element {
                     div {
                         label {
                             r#for: "email",
-                            class: "block text-sm font-medium leading-6 text-gray-900",
+                            class: "block text-sm font-medium leading-6 text-night-1",
                             "Email address"
                         }
                         div {
@@ -92,14 +99,14 @@ pub fn Login() -> Element {
                             class:"flex items-center justify-between",
                             label {
                                 r#for:"password",
-                                class:"block text-sm font-medium leading-6 text-gray-900",
+                                class:"block text-sm font-medium leading-6 text-night-1",
                                 "Password"
                             }
                             div {
                                 class:"text-sm",
                                 a {
                                     href:"#",
-                                    class:"font-semibold text-indigo-600 hover:text-indigo-500",
+                                    class:"font-semibold text-grey-bright hover:underline",
                                     "Forgot password?"
                                 }
                             }
@@ -116,21 +123,22 @@ pub fn Login() -> Element {
                             }
                         }
                     }
+                }
 
                     div {
                         button {
                             r#type:"submit",
-                            class:"flex w-full justify-center rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-semibold leading-6 text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600",
+                            class:"flex w-full justify-center rounded-md bg-forest-2 px-3 py-1.5 text-sm font-semibold leading-6 text-white shadow-sm mt-5",
                             "Sign in"
                         }
                     }
                     p {
-                        class:"mt-10 text-center text-sm text-gray-500",
-                        "Not a member?",
+                        class:"mt-10 text-center text-sm text-grey-bright",
+                        "Need an account? ",
                         a {
                             href:"#",
-                            class:"font-semibold leading-6 text-indigo-600 hover:text-indigo-500",
-                            "Start a 14 day free trial"
+                            class:"font-semibold leading-6 hover:underline",
+                            "Sign up now."
                         }
                     }
                 }

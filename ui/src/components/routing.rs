@@ -22,6 +22,7 @@ pub enum Route {
     #[route("/:daemon")]
     Daemon { daemon: String },
     #[end_nest]
+    #[end_layout]
     #[route("/login")]
     Login {},
 }
