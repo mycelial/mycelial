@@ -59,6 +59,15 @@ impl<T: std::fmt::Debug + Clone> Graph<T> {
             return;
         }
 
+            // If there are only two nodes in the graph, check for a loop manually.
+    if self.nodes.len() == 2 {
+        // If the `to_node` is the also a `from_node`,
+        if self.edges.contains_key(&to_node) && self.edges[&to_node] == from_node {
+            // A loop is detected, so we do nothing and return.
+            return;
+        }
+    }
+
         // Temporarily add the edge to the `edges` HashMap.
         self.edges.insert(from_node, to_node);
 
