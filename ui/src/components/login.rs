@@ -1,8 +1,8 @@
+use crate::components::logo::LogoDark;
 use dioxus::prelude::*;
-use futures::future::LocalBoxFuture;
+
 use serde::{Deserialize, Serialize};
 use std::rc::Rc;
-use crate::components::logo::LogoDark;
 
 #[derive(Debug, Default, Serialize, Deserialize)]
 struct LoginForm {
