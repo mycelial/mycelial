@@ -560,9 +560,12 @@ impl DraggedEdge {
     fn get_scroll_xy() -> (f64, f64) {
         let window = match web_sys::window() {
             Some(window) => window,
-            None => return (0.0, 0.0)
+            None => return (0.0, 0.0),
         };
-        (window.scroll_x().unwrap_or(0.0), window.scroll_y().unwrap_or(0.0))
+        (
+            window.scroll_x().unwrap_or(0.0),
+            window.scroll_y().unwrap_or(0.0),
+        )
     }
 }
 
@@ -577,7 +580,7 @@ pub fn Workspace(workspace: String) -> Element {
     let menu_items = [
         "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten",
     ];
-    
+
     rsx! {
         div {
             onmouseup: move |_event|  {
@@ -601,7 +604,7 @@ pub fn Workspace(workspace: String) -> Element {
                     dragged_edge.y = coords.y;
                 }
             },
-            
+
             class: "grid",
             style: "grid-template-columns: auto 1fr;", // exception to Tailwind only bc TW doesn't have classes to customize column widths
             div {

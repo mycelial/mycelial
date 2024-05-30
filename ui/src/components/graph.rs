@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashSet};
 
 // Simple graph
 #[derive(Debug)]
@@ -59,14 +59,14 @@ impl<T: std::fmt::Debug + Clone> Graph<T> {
             return;
         }
 
-            // If there are only two nodes in the graph, check for a loop manually.
-    if self.nodes.len() == 2 {
-        // If the `to_node` is the also a `from_node`,
-        if self.edges.contains_key(&to_node) && self.edges[&to_node] == from_node {
-            // A loop is detected, so we do nothing and return.
-            return;
+        // If there are only two nodes in the graph, check for a loop manually.
+        if self.nodes.len() == 2 {
+            // If the `to_node` is the also a `from_node`,
+            if self.edges.contains_key(&to_node) && self.edges[&to_node] == from_node {
+                // A loop is detected, so we do nothing and return.
+                return;
+            }
         }
-    }
 
         // Temporarily add the edge to the `edges` HashMap.
         self.edges.insert(from_node, to_node);
@@ -85,7 +85,7 @@ impl<T: std::fmt::Debug + Clone> Graph<T> {
         // Iterate over all nodes in the graph.
         for node in self.nodes.keys() {
             // Create a HashSet to keep track of visited nodes.
-            let mut visited: std::collections::HashSet<u64> = std::collections::HashSet::new();
+            let mut visited: HashSet<u64> = HashSet::new();
 
             // Perform a depth-first search from the current node.
             let has_loop_from_node: bool = self.dfs(*node, *node, &mut visited);
@@ -319,5 +319,31 @@ mod test {
         graph.add_edge(9, 0);
         // Check that no loop was created
         assert!(!graph.has_loop());
+    }
+
+    #[test]
+    fn test_prop_no_loops() {
+        let check = |nodes: Vec<u64>| -> TestResult {
+            let nodes = Vec::from_iter(
+                HashSet::<u64>::from_iter(nodes.iter().copied())
+                    .iter()
+                    .copied(),
+            );
+            if nodes.is_empty() {
+                return TestResult::discard();
+            }
+            let mut graph = Graph::new();
+            nodes
+                .iter()
+                .for_each(|&id| graph.add_node(id, TestNode { id }));
+            nodes
+                .as_slice()
+                .windows(2)
+                .for_each(|pair| graph.add_edge(pair[0], pair[1]));
+            graph.add_edge(*nodes.last().unwrap(), *nodes.first().unwrap());
+            assert!(graph.get_child_node(*nodes.last().unwrap()).is_none());
+            TestResult::from_bool(true)
+        };
+        quickcheck::quickcheck(check as fn(Vec<u64>) -> TestResult)
     }
 }
