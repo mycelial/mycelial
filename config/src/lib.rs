@@ -23,7 +23,7 @@ pub trait Config: std::fmt::Debug {
 
     fn output(&self) -> SectionIO;
 
-    fn fields(&self) -> Vec<Field>;
+    fn fields(&self) -> Vec<Field<'_>>;
 
     fn set_field_value(&mut self, name: &str, value: &str) -> Result<(), StdError>;
 
@@ -90,7 +90,6 @@ pub enum FieldValue<'a> {
     U64(u64),
     String(&'a str),
     Bool(bool),
-    Vec(Vec<FieldValue<'a>>),
 }
 
 impl std::fmt::Display for FieldValue<'_> {
@@ -106,7 +105,6 @@ impl std::fmt::Display for FieldValue<'_> {
             FieldValue::U64(v) => write!(f, "{v}"),
             FieldValue::String(v) => write!(f, "{v}"),
             FieldValue::Bool(v) => write!(f, "{v}"),
-            FieldValue::Vec(_v) => unimplemented!("display for vec"),
         }
     }
 }
@@ -132,14 +130,6 @@ impl_from_ref!(i64, I64, *);
 impl_from_ref!(bool, Bool, *);
 impl_from_ref!(String, String, &*);
 
-impl<'a, T> From<&'a Vec<T>> for FieldValue<'a>
-where
-    FieldValue<'a>: From<&'a T>,
-{
-    fn from(value: &'a Vec<T>) -> FieldValue<'a> {
-        FieldValue::Vec(value.iter().map(Into::into).collect())
-    }
-}
 
 macro_rules! impl_from_value {
     ($ty:ty, $arm:tt) => {

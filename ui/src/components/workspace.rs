@@ -288,12 +288,12 @@ fn ViewPort(
                             let view_port_state = &mut *view_port_state.write();
                             view_port_state.delta_x = x;
                             view_port_state.delta_y = y;
-                            tracing::info!("delta_x: {x}, delta_y: {y}");
                         },
                         Err(e) => tracing::error!("failed to read rect data: {e}"),
                     }
                 });
             },
+
 
             prevent_default: "ondrop",
             ondrop: move |event| {
@@ -370,7 +370,6 @@ fn ViewPort(
                 }
             }
         }
-
     }
 }
 
@@ -410,6 +409,8 @@ fn Edges(
         y,
     }) = &*dragged_edge.read()
     {
+        // offset window scroll
+        let (scroll_x_offset, scroll_y_offset) = DraggedEdge::get_scroll_xy();
         if let Some(node) = graph_ref.get_node(*from_node) {
             let offset = node.read().port_diameter / 2.0;
             let (x, y) = match to_node
@@ -421,8 +422,8 @@ fn Edges(
                     (input_pos.0 + offset, input_pos.1 + offset)
                 }
                 None => (
-                    *x - view_port_state_ref.delta_x(),
-                    *y - view_port_state_ref.delta_y(),
+                    *x - view_port_state_ref.delta_x() + scroll_x_offset,
+                    *y - view_port_state_ref.delta_y() + scroll_y_offset,
                 ),
             };
             let output_pos = node.read().output_pos();
@@ -432,7 +433,17 @@ fn Edges(
                     stroke_width: "1",
                     stroke: "red",
                     fill: "none",
-                    d: "M{out_x},{out_y} C{(out_x+x)/2.0},{out_y} {(out_x+x)/2.0},{y} {x},{y}",
+                    d: if out_x < x {
+                        format!(
+                            "M{},{} C{},{} {},{} {},{}",
+                            out_x, out_y, (out_x + x) / 2.0, out_y, (out_x + x) / 2.0, y, x, y
+                        )
+                    } else {
+                        format!(
+                            "M{},{} C{},{} {},{} {},{}",
+                            out_x, out_y, (out_x * 2.0 - x), out_y, (x * 2.0 - out_x), y, x, y
+                        )
+                    }
                 }
             };
         }
@@ -545,15 +556,19 @@ impl DraggedEdge {
             y,
         }
     }
+
+    fn get_scroll_xy() -> (f64, f64) {
+        let window = match web_sys::window() {
+            Some(window) => window,
+            None => return (0.0, 0.0)
+        };
+        (window.scroll_x().unwrap_or(0.0), window.scroll_y().unwrap_or(0.0))
+    }
 }
 
 #[component]
 pub fn Workspace(workspace: String) -> Element {
-    let graph: Signal<Graph> = use_signal(|| {
-        //g.add_node_type("one", rsx!{ "form for one" }),
-        //g.add_node_type("two", rsx!{ "form for two" });
-        Graph::new()
-    });
+    let graph: Signal<Graph> = use_signal(Graph::new);
     let dragged_menu_item: Signal<Option<DraggedMenuItem>> = use_signal(|| None);
     let mut dragged_node: Signal<Option<DraggedNode>> = use_signal(|| None);
     let mut dragged_edge: Signal<Option<DraggedEdge>> = use_signal(|| None);
@@ -562,11 +577,9 @@ pub fn Workspace(workspace: String) -> Element {
     let menu_items = [
         "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten",
     ];
-
-    let _view_port_state_ref = &*view_port_state.read();
+    
     rsx! {
         div {
-            prevent_default: "onmouseup",
             onmouseup: move |_event|  {
                 if dragged_node.read().is_some() {
                     *dragged_node.write() = None;
@@ -576,7 +589,6 @@ pub fn Workspace(workspace: String) -> Element {
                 }
             },
 
-            prevent_default: "onmousemove",
             onmousemove: move |event| {
                 let coords = event.client_coordinates();
                 if let Some(mut dragged_node) = *dragged_node.write() {
@@ -589,7 +601,7 @@ pub fn Workspace(workspace: String) -> Element {
                     dragged_edge.y = coords.y;
                 }
             },
-
+            
             class: "grid",
             style: "grid-template-columns: auto 1fr;", // exception to Tailwind only bc TW doesn't have classes to customize column widths
             div {
@@ -613,29 +625,33 @@ pub fn Workspace(workspace: String) -> Element {
             }
             // section menu
             div {
-                class: "border border-solid overflow-y-scroll bg-white grid grid-flow-rows gap-y-3 md:px-2 z-[100] select-none",
-                h2 {
-                    class: "justify-self-center mt-3",
-                    "Pipeline Sections"
-                }
-                for node_type in menu_items.iter() {
-                    MenuItem { node_type, dragged_menu_item }
+                div {
+                    class: "h-screen overflow-none select-none z-[100] min-w-96 max-w-96",
+                    div {
+                        class: "border border-solid overflow-y-scroll bg-white grid grid-flow-rows gap-y-3 md:px-2 h-full",
+                        h2 {
+                            class: "justify-self-center mt-3",
+                            "Pipeline Sections"
+                        }
+                        for node_type in menu_items.iter() {
+                            MenuItem { node_type, dragged_menu_item }
+                        }
+                    }
                 }
             }
             // viewport
             div {
+                id: "mycelial-viewport",
                 class: "h-full w-full scroll-none overflow-hidden",
-                    ViewPort {
-                        graph,
-                        view_port_state,
-                        dragged_menu_item,
-                        dragged_node,
-                        dragged_edge,
-                        selected_node,
-                    }
+                ViewPort {
+                    graph,
+                    view_port_state,
+                    dragged_menu_item,
+                    dragged_node,
+                    dragged_edge,
+                    selected_node,
                 }
-
-
+            }
         }
     }
 }

@@ -1,6 +1,5 @@
 use crate::components::logo::LogoDark;
 use dioxus::prelude::*;
-
 use serde::{Deserialize, Serialize};
 use std::rc::Rc;
 

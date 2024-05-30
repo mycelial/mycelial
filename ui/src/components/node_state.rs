@@ -11,6 +11,7 @@ pub type Result<T, E = Box<dyn std::error::Error + Send + Sync + 'static>> =
 #[section(input=dataframe, output=dataframe)]
 pub struct ConfigExample {
     host: String,
+    #[validate(min=1)]
     port: u16,
     user: String,
     #[field_type(password)]

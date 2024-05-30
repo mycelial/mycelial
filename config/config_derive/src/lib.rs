@@ -30,6 +30,14 @@ struct ConfigFieldMetadata {
     is_text_area: bool,
 }
 
+struct ConfigFieldValidate {
+
+}
+struct FieldAttributes {
+    metadata: ConfigFieldMetadata,
+    validate: ConfigFieldValidate,
+}
+
 struct ConfigField<'a> {
     name: String,
     ty: ConfigFieldType,
@@ -49,7 +57,7 @@ enum ConfigFieldType {
     U64,
     String,
     Bool,
-    Vec(Box<ConfigFieldType>),
+//    Vec(Box<ConfigFieldType>),
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -82,10 +90,10 @@ impl From<&ConfigFieldType> for proc_macro2::TokenStream {
             ConfigFieldType::U64 => quote! { config::FieldType::U64 },
             ConfigFieldType::String => quote! { config::FieldType::String },
             ConfigFieldType::Bool => quote! { config::FieldType::Bool },
-            ConfigFieldType::Vec(ty) => {
-                let tokens: proc_macro2::TokenStream = (&**ty).into();
-                quote! { config::FieldType::Vec(Box::new(#tokens)) }
-            }
+     //     ConfigFieldType::Vec(ty) => {
+     //         let tokens: proc_macro2::TokenStream = (&**ty).into();
+     //         quote! { config::FieldType::Vec(Box::new(#tokens)) }
+     //     }
         }
     }
 }
@@ -159,7 +167,7 @@ fn parse_section_attr(
     Ok((i.into(), o.into()))
 }
 
-fn build_config_field_metadata(field_attributes: &[Attribute]) -> Result<ConfigFieldMetadata> {
+fn parse_field_attributes(field_attributes: &[Attribute]) -> Result<ConfigFieldMetadata> {
     let mut is_password = false;
     let mut is_text_area = false;
     match field_attributes {
@@ -176,6 +184,8 @@ fn build_config_field_metadata(field_attributes: &[Attribute]) -> Result<ConfigF
                 Ok(())
             })
             .unwrap();
+        }
+        [attr] if attr.path().is_ident("validate") => {
         }
         [attr] => {
             let span = attr.span();
@@ -216,60 +226,61 @@ fn get_field_type(field: &Field) -> Result<ConfigFieldType> {
         Some("u64") => ConfigFieldType::U64,
         Some("String") => ConfigFieldType::String,
         Some("bool") => ConfigFieldType::Bool,
-        Some(other) => Err(ConfigError {
+        other => Err(ConfigError {
             span: path.span(),
-            reason: format!("Unsupported field type: {other}").into(),
+            reason: format!("Unsupported field type: {other:?}").into(),
         })?,
-        None => get_field_complex_type(path)?,
+        //None => get_field_complex_type(path)?,
     };
     Ok(ty)
 }
 
-fn get_field_complex_type(path: &TypePath) -> Result<ConfigFieldType> {
-    match path.path.segments.iter().collect::<Vec<_>>().as_slice() {
-        &[PathSegment {
-            ident,
-            arguments: PathArguments::AngleBracketed(AngleBracketedGenericArguments { args, .. }),
-        }] if ident == "Vec" => match args.iter().collect::<Vec<_>>().as_slice() {
-            &[GenericArgument::Type(Type::Path(path))] => {
-                let ty = match path
-                    .path
-                    .get_ident()
-                    .map(|ident| ident.to_string())
-                    .as_deref()
-                {
-                    Some("i8") => ConfigFieldType::I8,
-                    Some("i16") => ConfigFieldType::I16,
-                    Some("i32") => ConfigFieldType::I32,
-                    Some("i64") => ConfigFieldType::I64,
-                    Some("u8") => ConfigFieldType::U8,
-                    Some("u16") => ConfigFieldType::U16,
-                    Some("u32") => ConfigFieldType::U32,
-                    Some("u64") => ConfigFieldType::U64,
-                    Some("String") => ConfigFieldType::String,
-                    Some("bool") => ConfigFieldType::Bool,
-                    Some(other) => Err(ConfigError {
-                        span: path.span(),
-                        reason: format!("Unsupported field type: {other}").into(),
-                    })?,
-                    None => get_field_complex_type(path)?,
-                };
-                Ok(ConfigFieldType::Vec(Box::new(ty)))
-            }
-            _ => Err(ConfigError {
-                span: args.span(),
-                reason: "unexpected Vec arguments".into(),
-            })?,
-        },
-        _ => Err(ConfigError {
-            span: path.span(),
-            reason: "unexpected complex type".into(),
-        })?,
-    }
-}
+// FIXME: unused for now
+//fn get_field_complex_type(path: &TypePath) -> Result<ConfigFieldType> {
+//    match path.path.segments.iter().collect::<Vec<_>>().as_slice() {
+//        &[PathSegment {
+//            ident,
+//            arguments: PathArguments::AngleBracketed(AngleBracketedGenericArguments { args, .. }),
+//        }] if ident == "Vec" => match args.iter().collect::<Vec<_>>().as_slice() {
+//            &[GenericArgument::Type(Type::Path(path))] => {
+//                let ty = match path
+//                    .path
+//                    .get_ident()
+//                    .map(|ident| ident.to_string())
+//                    .as_deref()
+//                {
+//                    Some("i8") => ConfigFieldType::I8,
+//                    Some("i16") => ConfigFieldType::I16,
+//                    Some("i32") => ConfigFieldType::I32,
+//                    Some("i64") => ConfigFieldType::I64,
+//                    Some("u8") => ConfigFieldType::U8,
+//                    Some("u16") => ConfigFieldType::U16,
+//                    Some("u32") => ConfigFieldType::U32,
+//                    Some("u64") => ConfigFieldType::U64,
+//                    Some("String") => ConfigFieldType::String,
+//                    Some("bool") => ConfigFieldType::Bool,
+//                    Some(other) => Err(ConfigError {
+//                        span: path.span(),
+//                        reason: format!("Unsupported field type: {other}").into(),
+//                    })?,
+//                    None => get_field_complex_type(path)?,
+//                };
+//                Ok(ConfigFieldType::Vec(Box::new(ty)))
+//            }
+//            _ => Err(ConfigError {
+//                span: args.span(),
+//                reason: "unexpected Vec arguments".into(),
+//            })?,
+//        },
+//        _ => Err(ConfigError {
+//            span: path.span(),
+//            reason: "unexpected complex type".into(),
+//        })?,
+//    }
+//}
 
 fn build_config_field(field: &Field) -> Result<ConfigField<'_>> {
-    let metadata = build_config_field_metadata(field.attrs.as_slice())?;
+    let metadata = parse_field_attributes(field.attrs.as_slice())?;
     let field_type = get_field_type(field)?;
     Ok(ConfigField {
         name: field.ident.as_ref().unwrap().to_string(),
@@ -396,7 +407,7 @@ fn parse_config(input: TokenStream) -> Result<TokenStream> {
     Ok(tokens.into())
 }
 
-#[proc_macro_derive(Config, attributes(section, field_type))]
+#[proc_macro_derive(Config, attributes(section, field_type, validate))]
 pub fn config(input: TokenStream) -> TokenStream {
     match parse_config(input) {
         Ok(tokens) => tokens,
