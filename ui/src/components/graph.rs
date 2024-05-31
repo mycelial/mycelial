@@ -340,8 +340,12 @@ mod test {
                 .as_slice()
                 .windows(2)
                 .for_each(|pair| graph.add_edge(pair[0], pair[1]));
-            graph.add_edge(*nodes.last().unwrap(), *nodes.first().unwrap());
-            assert!(graph.get_child_node(*nodes.last().unwrap()).is_none());
+            // try to add edge from last node to every other one
+            let last_node = *nodes.last().unwrap();
+            for node in nodes {
+                graph.add_edge(last_node, node);
+                assert!(graph.get_child_node(last_node).is_none())
+            }
             TestResult::from_bool(true)
         };
         quickcheck::quickcheck(check as fn(Vec<u64>) -> TestResult)
