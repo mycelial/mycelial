@@ -28,4 +28,4 @@ mime_guess = "2.0.4"
 uuid = "1.8.0"
 chrono = { version = "0.4", features = ["serde"] }
 url = "2.5.0"
-impl_as_trait = { path = "./impl_as_trait" }
+derive_trait = { path = "./derive_trait" }

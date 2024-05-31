@@ -1,5 +1,5 @@
 [package]
-name = "impl_as_trait"
+name = "derive_trait"
 version = "0.1.0"
 edition = "2021"
 

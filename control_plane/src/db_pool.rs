@@ -7,7 +7,7 @@ use std::{
 use crate::{migration, Result};
 use chrono::{DateTime, NaiveDateTime, Utc};
 use futures::{future::BoxFuture, StreamExt};
-use impl_as_trait::derive_trait;
+use derive_trait::derive_trait;
 use sea_query::{
     Expr, Iden, OnConflict, PostgresQueryBuilder, Query, QueryBuilder, SchemaBuilder,
     SqliteQueryBuilder,
