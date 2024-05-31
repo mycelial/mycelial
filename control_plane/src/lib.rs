@@ -1,5 +1,7 @@
+pub mod db_pool;
 pub mod http;
-//pub mod db_pool;
+pub mod migration;
+pub mod model;
 
 use anyhow::Result;
 use tokio::net::TcpListener;
