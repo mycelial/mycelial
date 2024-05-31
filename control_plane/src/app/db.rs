@@ -4,7 +4,7 @@ use std::{
     ops::{Deref, DerefMut},
 };
 
-use crate::{migration, Result};
+use crate::app::{migration, Result};
 use chrono::{DateTime, NaiveDateTime, Utc};
 use futures::{future::BoxFuture, StreamExt};
 use derive_trait::derive_trait;
@@ -177,60 +177,79 @@ where
     // db connection should be able to run migrations
     D::Connection: Migrate,
 {
+    // migrate database to latest state
     fn migrate(&self) -> BoxFuture<Result<()>> {
         Box::pin(async {
             migration::migrate(&self.pool, &*self.schema_builder).await?;
             Ok(())
         })
     }
-
-    fn provision_daemon<'a>(
-        &'a self,
-        unique_id: &'a str,
-        user_id: &'a str,
-        display_name: &'a str,
-        unique_client_id: &'a str,
-        client_secret_hash: &'a str,
-    ) -> BoxFuture<'a, Result<()>> {
-        Box::pin(async {
-            let (query, values) = Query::insert()
-                .columns([
-                    Clients::Id,
-                    Clients::UserId,
-                    Clients::DisplayName,
-                    Clients::Sources,
-                    Clients::Destinations,
-                    Clients::UniqueClientId,
-                    Clients::ClientSecretHash,
-                ])
-                .into_table(Clients::Table)
-                .values_panic([
-                    unique_id.into(),
-                    user_id.into(),
-                    display_name.into(),
-                    serde_json::json!([]).into(),
-                    serde_json::json!([]).into(),
-                    unique_client_id.into(),
-                    client_secret_hash.into(),
-                ])
-                .on_conflict(
-                    OnConflict::new()
-                        .expr(Expr::col(Clients::Id))
-                        .update_columns([
-                            Clients::DisplayName,
-                            Clients::Sources,
-                            Clients::Destinations,
-                            Clients::UniqueClientId,
-                            Clients::ClientSecretHash,
-                        ])
-                        .to_owned(),
-                )
-                .build_any_sqlx(&*self.query_builder);
-            tracing::debug!("{query}");
-            sqlx::query_with(&query, values).execute(&self.pool).await?;
-            Ok(())
-        })
+    
+    // workspaces API
+    fn create_workspace(&self) -> BoxFuture<Result<()>> {
+        Box::pin(async { Ok(()) })
     }
+    
+    fn read_workspaces(&self) -> BoxFuture<Result<()>> {
+        Box::pin(async { Ok(()) })
+    }
+
+    fn update_workspace(&self) -> BoxFuture<Result<()>> {
+        Box::pin(async { Ok(()) })
+    }
+    
+    fn delete_workspace(&self) -> BoxFuture<Result<()>> {
+        Box::pin(async { Ok(()) })
+    }
+    
+
+ // fn provision_daemon<'a>(
+ //     &'a self,
+ //     unique_id: &'a str,
+ //     user_id: &'a str,
+ //     display_name: &'a str,
+ //     unique_client_id: &'a str,
+ //     client_secret_hash: &'a str,
+ // ) -> BoxFuture<'a, Result<()>> {
+ //     Box::pin(async {
+ //         let (query, values) = Query::insert()
+ //             .columns([
+ //                 Clients::Id,
+ //                 Clients::UserId,
+ //                 Clients::DisplayName,
+ //                 Clients::Sources,
+ //                 Clients::Destinations,
+ //                 Clients::UniqueClientId,
+ //                 Clients::ClientSecretHash,
+ //             ])
+ //             .into_table(Clients::Table)
+ //             .values_panic([
+ //                 unique_id.into(),
+ //                 user_id.into(),
+ //                 display_name.into(),
+ //                 serde_json::json!([]).into(),
+ //                 serde_json::json!([]).into(),
+ //                 unique_client_id.into(),
+ //                 client_secret_hash.into(),
+ //             ])
+ //             .on_conflict(
+ //                 OnConflict::new()
+ //                     .expr(Expr::col(Clients::Id))
+ //                     .update_columns([
+ //                         Clients::DisplayName,
+ //                         Clients::Sources,
+ //                         Clients::Destinations,
+ //                         Clients::UniqueClientId,
+ //                         Clients::ClientSecretHash,
+ //                     ])
+ //                     .to_owned(),
+ //             )
+ //             .build_any_sqlx(&*self.query_builder);
+ //         tracing::debug!("{query}");
+ //         sqlx::query_with(&query, values).execute(&self.pool).await?;
+ //         Ok(())
+ //     })
+ // }
 
     //async fn submit_sections(
     //    &self,

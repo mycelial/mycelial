@@ -1,15 +1,14 @@
-pub mod db_pool;
-pub mod http;
-pub mod migration;
-pub mod model;
+pub(crate) mod app;
+pub(crate) mod http;
 
 use anyhow::Result;
 use tokio::net::TcpListener;
+use std::sync::Arc;
 
-pub async fn run(listen_addr: &str) -> Result<()> {
-    let router = http::new();
+pub async fn run(listen_addr: &str, connection_string: &str) -> Result<()> {
+    let app = Arc::new(app::App::new(connection_string).await?);
     let listener = TcpListener::bind(listen_addr).await?;
     tracing::info!("listening at {}", listener.local_addr()?);
-    axum::serve(listener, router.into_make_service()).await?;
+    axum::serve(listener, http::new(app).into_make_service()).await?;
     Ok(())
 }
