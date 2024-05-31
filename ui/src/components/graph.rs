@@ -54,79 +54,16 @@ impl<T: std::fmt::Debug + Clone> Graph<T> {
 
     // This function adds an edge from `from_node` to `to_node`.
     pub fn add_edge(&mut self, from_node: u64, to_node: u64) {
-        // If `from_node` and `to_node` are the same, we do nothing and return.
         if from_node == to_node {
             return;
         }
-
-        // If there are only two nodes in the graph, check for a loop manually.
-        if self.nodes.len() == 2 {
-            // If the `to_node` is the also a `from_node`,
-            if self.edges.contains_key(&to_node) && self.edges[&to_node] == from_node {
-                // A loop is detected, so we do nothing and return.
+        let mut visited = HashSet::<u64>::from_iter([from_node, to_node]);
+        while let Some(to_node) = self.edges.get(&to_node).copied() {
+            if !visited.insert(to_node) {
                 return;
             }
         }
-
-        // Temporarily add the edge to the `edges` HashMap.
         self.edges.insert(from_node, to_node);
-
-        // Check if adding the edge has created a loop in the graph.
-        let has_loop: bool = self.has_loop();
-
-        // If a loop has been detected, remove the edge.
-        if has_loop {
-            self.remove_edge(from_node);
-        }
-    }
-
-    // This function checks if there is a loop in the graph.
-    fn has_loop(&self) -> bool {
-        // Iterate over all nodes in the graph.
-        for node in self.nodes.keys() {
-            // Create a HashSet to keep track of visited nodes.
-            let mut visited: HashSet<u64> = HashSet::new();
-
-            // Perform a depth-first search from the current node.
-            let has_loop_from_node: bool = self.dfs(*node, *node, &mut visited);
-
-            // If a loop is detected, return true.
-            if has_loop_from_node {
-                return true;
-            }
-        }
-
-        // If no loop is detected, return false.
-        false
-    }
-
-    // This function performs a depth-first search from the current node.
-    fn dfs(&self, current: u64, parent: u64, visited: &mut std::collections::HashSet<u64>) -> bool {
-        // Add the current node to the set of visited nodes.
-        visited.insert(current);
-
-        // If the current node has an outgoing edge,
-        if let Some(&next) = self.edges.get(&current) {
-            // and the next node is not the parent node and has been visited before,
-            if next != parent && visited.contains(&next) {
-                // then a loop has been detected, so return true.
-                return true;
-            }
-
-            // If the next node has not been visited before,
-            if !visited.contains(&next) {
-                // perform a depth-first search from the next node.
-                let has_loop_from_next: bool = self.dfs(next, current, visited);
-
-                // If a loop is detected, return true.
-                if has_loop_from_next {
-                    return true;
-                }
-            }
-        }
-
-        // If no loop is detected, return false.
-        false
     }
 
     pub fn get_child_node(&self, from_node: u64) -> Option<&T> {
@@ -304,21 +241,6 @@ mod test {
         graph.add_node(0, TestNode { id: 0 });
         graph.add_edge(0, 0);
         assert_eq!(graph.edge_count(), 0);
-    }
-
-    #[test]
-    fn test_graph_no_loops_created() {
-        let mut graph = Graph::new();
-        for i in 0..10 {
-            graph.add_node(i, format!("node{}", i));
-        }
-        for i in 0..9 {
-            graph.add_edge(i, i + 1);
-        }
-        // Attempt to create a loop
-        graph.add_edge(9, 0);
-        // Check that no loop was created
-        assert!(!graph.has_loop());
     }
 
     #[test]

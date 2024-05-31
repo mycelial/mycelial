@@ -30,9 +30,7 @@ struct ConfigFieldMetadata {
     is_text_area: bool,
 }
 
-struct ConfigFieldValidate {
-
-}
+struct ConfigFieldValidate {}
 struct FieldAttributes {
     metadata: ConfigFieldMetadata,
     validate: ConfigFieldValidate,
@@ -57,7 +55,7 @@ enum ConfigFieldType {
     U64,
     String,
     Bool,
-//    Vec(Box<ConfigFieldType>),
+    //    Vec(Box<ConfigFieldType>),
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -90,10 +88,10 @@ impl From<&ConfigFieldType> for proc_macro2::TokenStream {
             ConfigFieldType::U64 => quote! { config::FieldType::U64 },
             ConfigFieldType::String => quote! { config::FieldType::String },
             ConfigFieldType::Bool => quote! { config::FieldType::Bool },
-     //     ConfigFieldType::Vec(ty) => {
-     //         let tokens: proc_macro2::TokenStream = (&**ty).into();
-     //         quote! { config::FieldType::Vec(Box::new(#tokens)) }
-     //     }
+            //     ConfigFieldType::Vec(ty) => {
+            //         let tokens: proc_macro2::TokenStream = (&**ty).into();
+            //         quote! { config::FieldType::Vec(Box::new(#tokens)) }
+            //     }
         }
     }
 }
@@ -185,8 +183,7 @@ fn parse_field_attributes(field_attributes: &[Attribute]) -> Result<ConfigFieldM
             })
             .unwrap();
         }
-        [attr] if attr.path().is_ident("validate") => {
-        }
+        [attr] if attr.path().is_ident("validate") => {}
         [attr] => {
             let span = attr.span();
             Err(ConfigError {

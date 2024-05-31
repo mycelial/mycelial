@@ -1,6 +1,10 @@
 //! embedded assets from ui crate
 
-use axum::{http::{header, Uri}, response::IntoResponse, Router};
+use axum::{
+    http::{header, Uri},
+    response::IntoResponse,
+    Router,
+};
 use rust_embed::Embed;
 
 #[derive(Embed)]

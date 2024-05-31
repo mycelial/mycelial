@@ -130,7 +130,6 @@ impl_from_ref!(i64, I64, *);
 impl_from_ref!(bool, Bool, *);
 impl_from_ref!(String, String, &*);
 
-
 macro_rules! impl_from_value {
     ($ty:ty, $arm:tt) => {
         impl<'a> From<$ty> for FieldValue<'a> {

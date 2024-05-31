@@ -4,7 +4,7 @@ use clap::Parser;
 #[derive(Debug, Parser)]
 pub struct Cli {
     #[clap(short, long, default_value = "localhost:7777")]
-    listen_addr: String
+    listen_addr: String,
 }
 
 #[tokio::main]
