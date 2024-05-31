@@ -58,10 +58,12 @@ impl<T: std::fmt::Debug + Clone> Graph<T> {
             return;
         }
         let mut visited = HashSet::<u64>::from_iter([from_node, to_node]);
-        while let Some(to_node) = self.edges.get(&to_node).copied() {
-            if !visited.insert(to_node) {
+        let mut next = to_node;
+        while let Some(node) = self.edges.get(&next).copied() {
+            if !visited.insert(node) {
                 return;
-            }
+            };
+            next = node;
         }
         self.edges.insert(from_node, to_node);
     }
