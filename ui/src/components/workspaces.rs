@@ -2,11 +2,9 @@ use std::collections::BTreeMap;
 
 use chrono::{DateTime, Utc};
 use dioxus::prelude::*;
-use serde::{Deserialize, Serialize};
 
 use crate::{
-    components::{app::AppState, routing::Route},
-    StdError,
+    components::{app::AppState, routing::Route}, model::Workspace, StdError
 };
 
 #[derive(Debug)]
@@ -45,17 +43,6 @@ impl WorkspacesState {
     fn reset(&mut self) {
         self.workspaces.clear();
     }
-
-    // Function to check if there are any workspaces
-    fn has_workspaces(&self) -> bool {
-        !self.workspaces.is_empty()
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Workspace {
-    pub name: String,
-    pub created_at: DateTime<Utc>,
 }
 
 impl Workspace {
