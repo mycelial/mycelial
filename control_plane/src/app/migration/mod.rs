@@ -33,7 +33,7 @@ impl<'s> MigrationSource<'s> for SQSource<'s> {
 pub async fn migrate<D: Database>(
     pool: &Pool<D>,
     schema_builder: &(dyn SchemaBuilder + Send + Sync),
-) -> crate::Result<()>
+) -> anyhow::Result<()>
 where
     D::Connection: Migrate,
 {

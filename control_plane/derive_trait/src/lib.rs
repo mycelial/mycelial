@@ -2,7 +2,6 @@ use proc_macro::TokenStream;
 use quote::quote;
 use syn::{ImplItem, Signature};
 
-
 #[proc_macro_attribute]
 pub fn derive_trait(attrs: TokenStream, input: TokenStream) -> TokenStream {
     let attrs: proc_macro2::TokenStream = attrs.into();
@@ -19,15 +18,16 @@ pub fn derive_trait(attrs: TokenStream, input: TokenStream) -> TokenStream {
                 }
             }
             quote! {
-                pub trait #trait_name: #attrs{ 
+                pub trait #trait_name: #attrs{
                     #(#func_sigs;)*
                 }
-                
+
                 #input
             }
-        },
-        _ => quote!{
-            compile_error!("works only for 'impl Trait for Something'");
         }
-    }.into()
+        _ => quote! {
+            compile_error!("works only for 'impl Trait for Something'");
+        },
+    }
+    .into()
 }

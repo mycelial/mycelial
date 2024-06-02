@@ -5,17 +5,14 @@ use clap::Parser;
 pub struct Cli {
     #[clap(short, long, default_value = "localhost:7777")]
     listen_addr: String,
-    
+
     #[clap(short, long, default_value = "sqlite://control_plane.db")]
-    connection_string: String
+    connection_string: String,
 }
 
 #[tokio::main]
 async fn main() -> Result<()> {
     let cli = Cli::try_parse()?;
     tracing_subscriber::fmt().with_ansi(false).init();
-    control_plane::run(
-        cli.listen_addr.as_str(),
-        cli.connection_string.as_str(),
-    ).await
+    control_plane::run(cli.listen_addr.as_str(), cli.connection_string.as_str()).await
 }

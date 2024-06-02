@@ -1,32 +1,40 @@
 //! Workspaces routes
 
+use crate::http::Result;
+use axum::{extract::{Path, State}, response::IntoResponse, routing::{delete, post}, Json, Router};
 use std::sync::Arc;
-use axum::{response::IntoResponse, routing::post, Router};
 
-async fn create_workspaces() -> impl IntoResponse {
-    "ok"
+use crate::app::{model::Workspace, App};
+
+async fn create_workspaces(app: State<App>, Json(workspace): Json<Workspace>) -> Result<impl IntoResponse> {
+    app.create_workspace(&workspace).await?;
+    Ok(Json("ok"))
 }
 
-async fn read_workspaces() -> impl IntoResponse {
-    "ok"
+async fn read_workspaces(app: State<App>) -> Result<Json<Vec<Workspace>>> {
+    Ok(Json(app.read_workspaces().await?))
 }
 
 async fn update_workspaces() -> impl IntoResponse {
-    "ok"
+    unimplemented!("update workspaces")
 }
 
-async fn delete_workspaces() -> impl IntoResponse {
-    "ok"
+async fn delete_workspaces(app: State<App>, Path(name): Path<String>) -> Result<impl IntoResponse> {
+    app.delete_workspace(&name).await?;
+    Ok(Json("ok"))
 }
 
-pub fn new(app: Arc<crate::app::App>) -> Router {
+pub fn new(app: crate::app::App) -> Router {
     Router::new()
         .route(
             "/api/workspaces",
-             post(create_workspaces)
+            post(create_workspaces)
                 .get(read_workspaces)
                 .put(update_workspaces)
-                .delete(delete_workspaces)
+        )
+        .route(
+            "/api/workspaces/:name",
+            delete(delete_workspaces),
         )
         .with_state(app)
 }
