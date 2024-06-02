@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, Timelike, Utc};
 use dioxus::prelude::*;
 
 use crate::{
@@ -122,7 +122,7 @@ pub fn Workspaces() -> Element {
             let state_ref = &mut *workspaces_state.write();
             state_ref.reset();
             workspaces.into_iter().for_each(|workspace| {
-                state_ref.add_workspace(workspace.name, workspace.created_at)
+                state_ref.add_workspace(workspace.name, workspace.created_at.with_nanosecond(0).unwrap())
             });
         }
         Ok(workspaces_len)
@@ -180,7 +180,6 @@ pub fn Workspaces() -> Element {
                                 td {
                                     class: "text-right",
                                     "{workspace.created_at}"
-
                                 }
                                 td {
                                     class: "text-right",
