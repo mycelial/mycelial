@@ -1,23 +1,21 @@
 use section::{
     command_channel::{Command, SectionChannel},
-    futures::{self, FutureExt, Sink, SinkExt, Stream, StreamExt},
+    futures::{self, FutureExt, Sink, Stream, StreamExt},
     message::Chunk,
     section::Section,
     {SectionError, SectionFuture, SectionMessage},
 };
-use std::pin::pin;
+use std::{path::PathBuf, pin::pin};
 use tokio::{fs::OpenOptions, io::AsyncWriteExt};
-
-use crate::FileMessage;
 
 #[derive(Debug)]
 pub struct FileDestination {
-    path: String,
+    dir_path: PathBuf,
 }
 
 impl FileDestination {
-    pub fn new(path: impl Into<String>) -> Self {
-        Self { path: path.into() }
+    pub fn new(dir_path: &str) -> Self {
+        Self { dir_path: dir_path.strip_suffix("/").unwrap_or(dir_path).into() }
     }
 }
 
@@ -33,7 +31,8 @@ where
     fn start(self, input: Input, output: Output, mut section_channel: SectionChan) -> Self::Future {
         Box::pin(async move {
             let mut input = pin!(input);
-            let mut output = pin!(output);
+            let mut _output = pin!(output);
+            tokio::fs::create_dir_all(self.dir_path.as_path()).await?;
 
             loop {
                 futures::select! {
@@ -66,10 +65,8 @@ where
                                 Ok(None) => {
                                     fd.flush().await?;
                                     drop(fd);
-                                    tokio::fs::rename(tmp_file, self.path.as_str()).await?;
+                                    tokio::fs::rename(tmp_file, self.dir_path.join(msg.origin())).await?;
                                     msg.ack().await;
-                                    let msg = Box::new(FileMessage::new(self.path.as_str()));
-                                    output.send(msg).await?;
                                     break;
                                 }
                                 Err(e) => {

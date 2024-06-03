@@ -15,12 +15,12 @@ pub fn source_ctor<S: SectionChannel>(
 pub fn destination_ctor<S: SectionChannel>(
     config: &Map,
 ) -> Result<Box<dyn DynSection<S>>, SectionError> {
-    let path = config
-        .get("path")
-        .ok_or("file section requires 'path'")?
+    let dir_path = config
+        .get("dir_path")
+        .ok_or("file section requires 'dir_path'")?
         .as_str()
-        .ok_or("path should be string")?;
-    Ok(Box::new(file::destination::FileDestination::new(path)))
+        .ok_or("dir_path should be string")?;
+    Ok(Box::new(file::destination::FileDestination::new(dir_path)))
 }
 
 #[cfg(test)]
