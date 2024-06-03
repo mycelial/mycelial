@@ -6,7 +6,8 @@ use section::{
     dummy::DummySectionChannel,
     futures::{self, FutureExt, SinkExt},
     message::{Ack, Message},
-    section::Section, SectionMessage,
+    section::Section,
+    SectionMessage,
 };
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tokio::sync::mpsc::channel;

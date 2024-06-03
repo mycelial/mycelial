@@ -270,7 +270,7 @@ pub struct CsvSourceConfig {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
-pub struct OriginTransformConfig{
+pub struct OriginTransformConfig {
     #[serde(flatten)]
     pub common_attrs: CommonAttrs,
     pub regex: String,

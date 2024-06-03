@@ -15,7 +15,9 @@ pub struct FileDestination {
 
 impl FileDestination {
     pub fn new(dir_path: &str) -> Self {
-        Self { dir_path: dir_path.strip_suffix("/").unwrap_or(dir_path).into() }
+        Self {
+            dir_path: dir_path.strip_suffix("/").unwrap_or(dir_path).into(),
+        }
     }
 }
 
