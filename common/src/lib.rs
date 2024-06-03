@@ -57,6 +57,7 @@ pub enum Source {
     File(FileSourceConfig),
     Dir(DirSourceConfig),
     Csv(CsvSourceConfig),
+    Origin_Transform(OriginTransformConfig),
 }
 
 /// Internally-tagged type of a source needs to match the variant name
@@ -269,6 +270,14 @@ pub struct CsvSourceConfig {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
+pub struct OriginTransformConfig {
+    #[serde(flatten)]
+    pub common_attrs: CommonAttrs,
+    pub regex: String,
+    pub replacement: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct MysqlConnectorDestinationConfig {
     #[serde(flatten)]
     pub common_attrs: CommonAttrs,
@@ -280,7 +289,7 @@ pub struct MysqlConnectorDestinationConfig {
 pub struct FileDestinationConfig {
     #[serde(flatten)]
     pub common_attrs: CommonAttrs,
-    pub path: String,
+    pub dir_path: String,
 }
 
 // requests and responses

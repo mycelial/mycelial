@@ -182,14 +182,22 @@ display_name = "from_csv"
 # max length of dataframe
 batch_size = 512
 
+[[sources]]
+# Transforms message origin
+type = "origin_transform"
+display_name = "origin_transform"
+# max length of dataframe
+regex = ""
+replacement = ""
+
 [[destinations]]
 # File destination
 type = "file"
 # This destination will write the data to the specified file.
 display_name = "File Destination"
 # The display_name field specifies the name of the destination in the Mycelial UI.
-path = "/tmp/Cargo.toml"
-# The path field specifies the path to the file. Only absolute paths are supported.
+dir_path = "/tmp"
+# The path field specifies the dir path to where file will be put
 
 [[destinations]]
 # Debug Destination

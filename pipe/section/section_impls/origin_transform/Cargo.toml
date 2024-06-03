@@ -1,0 +1,15 @@
+[package]
+name = "origin_transform"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+regex = "1"
+section = { path = "../../" }
+tracing = "0.1"
+
+[dev-dependencies]
+tokio = { version = "1", features = ["full"] }
+tokio-util = "0.7"
+tokio-stream = "0.1"
+tracing-subscriber = "0.3"
