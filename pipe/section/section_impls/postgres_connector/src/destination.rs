@@ -92,6 +92,7 @@ impl Postgres {
                         }
                         let mut query = QueryBuilder::new(&insert_query);
                         let mut count = 0;
+                        let data_types = columns.iter().map(|col| col.data_type()).collect::<Vec<_>>();
                         while let Some(row) = columns.iter_mut().map(|col| col.next()).collect::<Option<Vec<_>>>() {
                             if count + row.len() >= 65535 {
                                 count = 0;
@@ -138,7 +139,7 @@ impl Postgres {
                                     ValueView::Null => query.push_bind(Option::<&str>::None),
                                     unimplemented => unimplemented!("unimplemented value: {:?}", unimplemented),
                                 };
-                                if value.data_type() == DataType::RawJson {
+                                if data_types[pos] == DataType::RawJson {
                                     query.push("::json");
                                 }
                             };
