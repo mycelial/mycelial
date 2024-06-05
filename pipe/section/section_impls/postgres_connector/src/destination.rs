@@ -6,10 +6,13 @@ use section::{
     section::Section,
     SectionError, SectionFuture, SectionMessage,
 };
-use std::pin::pin;
+use std::{collections::HashSet, pin::pin};
 
-use crate::{escape_table_name, generate_schema};
-use sqlx::{postgres::PgConnectOptions, types::chrono::NaiveDateTime, ConnectOptions, Connection};
+use crate::{escape, generate_schema};
+use sqlx::{
+    postgres::PgConnectOptions, types::chrono::NaiveDateTime, ConnectOptions, Connection,
+    QueryBuilder,
+};
 use std::str::FromStr;
 
 #[derive(Debug)]
@@ -23,7 +26,7 @@ impl Postgres {
     pub fn new(url: impl Into<String>, schema: impl Into<String>, truncate: bool) -> Self {
         Self {
             url: url.into(),
-            schema: schema.into(),
+            schema: escape(schema.into()),
             truncate,
         }
     }
@@ -47,6 +50,8 @@ impl Postgres {
             .connect()
             .await?;
 
+        let mut tables = HashSet::<String>::new();
+
         loop {
             futures::select! {
                 cmd = section_chan.recv().fuse() => {
@@ -57,7 +62,7 @@ impl Postgres {
                         None => Err("input closed")?,
                         Some(message) => message,
                     };
-                    let name = escape_table_name(message.origin());
+                    let name = escape(message.origin());
                     let mut transaction = connection.begin().await?;
                     let mut initialized = false;
                     let mut insert_query = String::new();
@@ -69,67 +74,78 @@ impl Postgres {
                         let mut columns = df.columns();
                         if !initialized {
                             initialized = true;
-                            let schema = generate_schema(self.schema.as_str(), name.as_str(), df.as_ref())?;
-                            sqlx::query(&schema).execute(&mut *transaction).await?;
+                            if !tables.contains(name.as_str()) {
+                                let schema = generate_schema(self.schema.as_str(), name.as_str(), df.as_ref())?;
+                                sqlx::query(&schema).execute(&mut *transaction).await?;
+                                tables.insert(name.clone());
+                            };
                             if self.truncate {
                                 sqlx::query(&format!("TRUNCATE \"{}\".\"{name}\"", self.schema))
                                     .execute(&mut *transaction)
                                     .await?;
                             }
-                            let values_placeholder = columns.iter().enumerate()
-                                .map(|(pos, col)|  {
-                                    // without explicit suffix to placeholder parameter Postgres
-                                    // will error out with very cryptic error about trailing junk
-                                    let suffix = match col.data_type() {
-                                        DataType::RawJson => "::json",
-                                        _ => "",
-                                    };
-                                    format!("${}{}", pos + 1, suffix)
-                                })
-                                .collect::<Vec<_>>()
-                                .join(",");
-                            insert_query = format!("INSERT INTO \"{}\".\"{name}\" VALUES({values_placeholder})", self.schema);
+                            let column_names = columns.iter().map(|col| escape(col.name())).collect::<Vec<_>>().join(",");
+                            insert_query = format!(
+                                "INSERT INTO \"{}\".\"{name}\"({column_names}) VALUES",
+                                 self.schema
+                            );
                         }
-                        'outer: loop {
-                            let mut query = sqlx::query(&insert_query);
-                            for col in columns.iter_mut() {
-                                let next = col.next();
-                                if next.is_none() {
-                                    break 'outer;
+                        let mut query = QueryBuilder::new(&insert_query);
+                        let mut count = 0;
+                        while let Some(row) = columns.iter_mut().map(|col| col.next()).collect::<Option<Vec<_>>>() {
+                            if count + row.len() >= 65535 {
+                                count = 0;
+                                query.build().execute(&mut *transaction).await?;
+                                query = QueryBuilder::new(&insert_query);
+                            }
+                            if count != 0 {
+                                query.push(",");
+                            }
+                            count += row.len();
+                            query.push("(");
+                            for (pos, value) in row.into_iter().enumerate() {
+                                if pos != 0 {
+                                    query.push(",");
                                 }
-                                query = match next.unwrap() {
-                                    ValueView::I8(i) => query.bind(i as i64),
-                                    ValueView::I16(i) => query.bind(i as i64),
-                                    ValueView::I32(i) => query.bind(i as i64),
-                                    ValueView::I64(i) => query.bind(i),
-                                    ValueView::F32(f) => query.bind(f),
-                                    ValueView::F64(f) => query.bind(f),
-                                    ValueView::Str(s) => query.bind(s),
-                                    ValueView::Bin(b) => query.bind(b),
-                                    ValueView::Bool(b) => query.bind(b),
+                                match value {
+                                    ValueView::I8(i) => query.push_bind(i),
+                                    ValueView::I16(i) => query.push_bind(i),
+                                    ValueView::I32(i) => query.push_bind(i),
+                                    ValueView::I64(i) => query.push_bind(i),
+                                    ValueView::F32(f) => query.push_bind(f),
+                                    ValueView::F64(f) => query.push_bind(f),
+                                    ValueView::Str(s) => query.push_bind(s),
+                                    ValueView::Bin(b) => query.push_bind(b),
+                                    ValueView::Bool(b) => query.push_bind(b),
                                     ValueView::Time(tu, t) => {
                                         let ts = to_naive_date(tu, t);
-                                        query.bind(ts.unwrap().time())
+                                        query.push_bind(ts.unwrap().time())
                                     },
                                     ValueView::Date(tu, t) => {
                                         let ts = to_naive_date(tu, t);
-                                        query.bind(ts.unwrap().date())
+                                        query.push_bind(ts.unwrap().date())
                                     },
                                     ValueView::TimeStamp(tu, t) => {
                                         let ts = to_naive_date(tu, t);
-                                        query.bind(ts.unwrap())
+                                        query.push_bind(ts.unwrap())
                                     },
                                     ValueView::TimeStampUTC(tu, t) => {
                                         let ts = to_naive_date(tu, t).map(|ts| ts.and_utc());
-                                        query.bind(ts.unwrap())
+                                        query.push_bind(ts.unwrap())
                                     }
-                                    ValueView::Decimal(d) => query.bind(d),
-                                    ValueView::Uuid(u) => query.bind(u),
-                                    ValueView::Null => query.bind(Option::<&str>::None),
+                                    ValueView::Decimal(d) => query.push_bind(d),
+                                    ValueView::Uuid(u) => query.push_bind(u),
+                                    ValueView::Null => query.push_bind(Option::<&str>::None),
                                     unimplemented => unimplemented!("unimplemented value: {:?}", unimplemented),
+                                };
+                                if value.data_type() == DataType::RawJson {
+                                    query.push("::json");
                                 }
-                            }
-                            query.execute(&mut *transaction).await?;
+                            };
+                            query.push(")");
+                        };
+                        if count > 0 {
+                            query.build().execute(&mut *transaction).await?;
                         }
                     }
                     transaction.commit().await?;
