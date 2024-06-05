@@ -99,8 +99,8 @@ impl Message for PostgresMessage {
     }
 }
 
-/// Escape table name
-pub fn escape_table_name(name: impl AsRef<str>) -> String {
+/// Escape value
+pub fn escape(name: impl AsRef<str>) -> String {
     name.as_ref()
         .chars()
         .flat_map(|char| {
@@ -119,7 +119,7 @@ pub fn generate_schema(
     table_name: &str,
     df: &dyn DataFrame,
 ) -> Result<String, SectionError> {
-    let name = escape_table_name(table_name);
+    let name = escape(table_name);
     let columns = df
         .columns()
         .iter()
