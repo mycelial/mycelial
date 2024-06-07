@@ -10,6 +10,7 @@ sqlx = { version = "0.7", features = ["postgres", "runtime-tokio", "runtime-toki
 section = { path = "../../../section/" }
 chrono = "0.4"
 tokio = { version = "1", features = ["full"] }
+log = "0.4"
 
 [dev-dependencies]
 stub = {path = "../stub/" }

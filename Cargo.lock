@@ -2682,6 +2682,7 @@ name = "postgres_connector"
 version = "0.1.0"
 dependencies = [
  "chrono",
+ "log",
  "section",
  "sqlx",
  "stub",

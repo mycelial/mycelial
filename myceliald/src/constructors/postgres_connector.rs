@@ -62,7 +62,7 @@ pub fn destination_ctor<S: SectionChannel>(
         _ => Err("truncate should be either bool or bool string")?,
     };
     Ok(Box::new(postgres_connector::destination::Postgres::new(
-        url, schema, truncate,
+        url, schema, truncate, None,
     )))
 }
 

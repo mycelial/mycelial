@@ -9,25 +9,34 @@ use section::{
 use std::{collections::HashSet, pin::pin};
 
 use crate::{escape, generate_schema};
+use log::LevelFilter;
 use sqlx::{
     postgres::PgConnectOptions, types::chrono::NaiveDateTime, ConnectOptions, Connection,
     QueryBuilder,
 };
 use std::str::FromStr;
+use std::time::Duration;
 
 #[derive(Debug)]
 pub struct Postgres {
     url: String,
     schema: String,
     truncate: bool,
+    max_parameters: usize,
 }
 
 impl Postgres {
-    pub fn new(url: impl Into<String>, schema: impl Into<String>, truncate: bool) -> Self {
+    pub fn new(
+        url: impl Into<String>,
+        schema: impl Into<String>,
+        truncate: bool,
+        max_parameters: Option<usize>,
+    ) -> Self {
         Self {
             url: url.into(),
             schema: escape(schema.into()),
             truncate,
+            max_parameters: max_parameters.unwrap_or(65535),
         }
     }
 
@@ -47,6 +56,7 @@ impl Postgres {
 
         let connection = &mut PgConnectOptions::from_str(self.url.as_str())?
             .extra_float_digits(2)
+            .log_slow_statements(LevelFilter::Debug, Duration::from_secs(1))
             .connect()
             .await?;
 
@@ -94,7 +104,7 @@ impl Postgres {
                         let mut count = 0;
                         let data_types = columns.iter().map(|col| col.data_type()).collect::<Vec<_>>();
                         while let Some(row) = columns.iter_mut().map(|col| col.next()).collect::<Option<Vec<_>>>() {
-                            if count + row.len() >= 65535 {
+                            if count + row.len() >= self.max_parameters {
                                 count = 0;
                                 query.build().execute(&mut *transaction).await?;
                                 query = QueryBuilder::new(&insert_query);
