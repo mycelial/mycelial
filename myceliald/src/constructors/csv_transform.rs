@@ -14,7 +14,6 @@ pub fn source_ctor<S: SectionChannel>(
     )))
 }
 
-
 pub fn destination_ctor<S: SectionChannel>(
     _config: &Map,
 ) -> Result<Box<dyn DynSection<S>>, SectionError> {

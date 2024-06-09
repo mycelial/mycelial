@@ -294,7 +294,7 @@ pub struct FileDestinationConfig {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
-pub struct CsvDestinationConfig{
+pub struct CsvDestinationConfig {
     #[serde(flatten)]
     pub common_attrs: CommonAttrs,
 }
