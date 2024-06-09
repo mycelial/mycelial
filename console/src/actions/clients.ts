@@ -53,7 +53,7 @@ const formatSections = (
     }
     // FIXME: this section is called a source on the backend, so to have it appear in the UI correctly, we
     // have to tag it as both a source and a destination here
-    if (section.type.endsWith("transformer") || (section.type == "exec") || (section.type == "csv") || (section.type == "origin_transform")) {
+    if (section.type.endsWith("transformer") || (section.type == "exec") || (section.type.endsWith("csv")) || (section.type == "origin_transform")) {
       formatted.source = true;
       formatted.destination = true;
       formatted.name = section.type;

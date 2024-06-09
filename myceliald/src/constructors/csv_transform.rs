@@ -13,3 +13,10 @@ pub fn source_ctor<S: SectionChannel>(
         batch_size.try_into()?,
     )))
 }
+
+
+pub fn destination_ctor<S: SectionChannel>(
+    _config: &Map,
+) -> Result<Box<dyn DynSection<S>>, SectionError> {
+    Ok(Box::new(csv_transform::destination::ToCsv::new(4096)))
+}

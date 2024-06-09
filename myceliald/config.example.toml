@@ -177,7 +177,7 @@ column = "column_name"
 
 [[sources]]
 # Converts binary csv stream into stream of dataframes
-type = "csv"
+type = "from_csv"
 display_name = "from_csv"
 # max length of dataframe
 batch_size = 512
