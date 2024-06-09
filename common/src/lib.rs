@@ -56,7 +56,7 @@ pub enum Source {
     Mysql_Connector(MysqlConnectorSourceConfig),
     File(FileSourceConfig),
     Dir(DirSourceConfig),
-    Csv(CsvSourceConfig),
+    From_Csv(CsvSourceConfig),
     Origin_Transform(OriginTransformConfig),
 }
 
@@ -73,6 +73,7 @@ pub enum Destination {
     Postgres_Connector(PostgresConnectorDestinationConfig),
     Mysql_Connector(MysqlConnectorDestinationConfig),
     File(FileDestinationConfig),
+    To_Csv(CsvDestinationConfig),
 }
 
 // Shared between all source definitions
@@ -290,6 +291,12 @@ pub struct FileDestinationConfig {
     #[serde(flatten)]
     pub common_attrs: CommonAttrs,
     pub dir_path: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+pub struct CsvDestinationConfig {
+    #[serde(flatten)]
+    pub common_attrs: CommonAttrs,
 }
 
 // requests and responses
