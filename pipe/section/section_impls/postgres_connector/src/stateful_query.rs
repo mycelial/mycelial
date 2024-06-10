@@ -66,9 +66,7 @@ impl StatefulVariableParser {
             _ => return Ok(None),
         };
         match selection {
-            Expr::BinaryOp { left, op, right } => {
-                self.parse_binary_op(left, &*op, right)?
-            }
+            Expr::BinaryOp { left, op, right } => self.parse_binary_op(left, &*op, right)?,
             Expr::Between {
                 negated, low, high, ..
             } if !(*negated) => self.parse_between(low, high)?,
@@ -99,9 +97,7 @@ impl StatefulVariableParser {
                 std::mem::swap(&mut *new_left, left);
                 self.parse_cast(&new_left)?
             }
-            Expr::BinaryOp { left, op, right } => {
-                self.parse_binary_op(left, &*op, right)?
-            }
+            Expr::BinaryOp { left, op, right } => self.parse_binary_op(left, &*op, right)?,
             _ => (),
         };
 
@@ -111,9 +107,7 @@ impl StatefulVariableParser {
                 std::mem::swap(&mut *new_right, right);
                 self.parse_cast(&new_right)?
             }
-            Expr::BinaryOp { left, op, right } => {
-                self.parse_binary_op(left, &*op, right)?
-            }
+            Expr::BinaryOp { left, op, right } => self.parse_binary_op(left, &*op, right)?,
             _ => (),
         }
         Ok(())
@@ -173,9 +167,7 @@ impl StatefulVariableParser {
                 std::mem::swap(&mut *new_low, low);
                 self.parse_cast(&new_low)?
             }
-            Expr::BinaryOp { left, op, right } => {
-                self.parse_binary_op(left, &*op, right)?
-            }
+            Expr::BinaryOp { left, op, right } => self.parse_binary_op(left, &*op, right)?,
             _ => (),
         };
         if self.var.is_none() {
@@ -189,9 +181,7 @@ impl StatefulVariableParser {
                 std::mem::swap(&mut *new_high, high);
                 self.parse_cast(&new_high)?
             }
-            Expr::BinaryOp { left, op, right } => {
-                self.parse_binary_op(left, &*op, right)?
-            }
+            Expr::BinaryOp { left, op, right } => self.parse_binary_op(left, &*op, right)?,
             _ => (),
         };
         if self.var.is_none() {
@@ -304,10 +294,6 @@ mod test {
         let query = "select * from test where id > $id::i64 and id < $id2::i64";
         let parser = StatefulVariableParser::new(query).unwrap();
         let var = parser.parse();
-        assert!(
-            var.is_err(),
-            "query should fail to parse: {:?}",
-            var
-        );
+        assert!(var.is_err(), "query should fail to parse: {:?}", var);
     }
 }

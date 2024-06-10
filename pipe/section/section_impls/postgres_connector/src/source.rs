@@ -227,7 +227,8 @@ impl Postgres {
         if let Some(var) = self.stateful_var.as_mut() {
             match payload
                 .columns()
-                .iter_mut().find(|col| col.name() == var.name.as_str())
+                .iter_mut()
+                .find(|col| col.name() == var.name.as_str())
             {
                 Some(column) if column.data_type() == DataType::I64 => {
                     let max = column.fold(0, |max, value| match value {
