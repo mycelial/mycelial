@@ -37,7 +37,7 @@ pub fn source_ctor<S: SectionChannel>(
         origin,
         query,
         Duration::from_secs(poll_interval),
-    )))
+    )?))
 }
 
 pub fn destination_ctor<S: SectionChannel>(

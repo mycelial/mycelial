@@ -9,6 +9,10 @@ use tokio::sync::mpsc::Receiver;
 pub mod destination;
 pub mod source;
 
+pub(crate) mod stateful_query;
+
+pub(crate) type Result<T, E = SectionError> = std::result::Result<T, E>;
+
 #[derive(Debug)]
 #[allow(unused)]
 pub(crate) struct Table {
@@ -63,11 +67,20 @@ impl DataFrame for PostgresPayload {
 pub struct PostgresMessage {
     origin: Arc<str>,
     stream: Receiver<Result<Chunk, SectionError>>,
+    ack: Option<Ack>,
 }
 
 impl PostgresMessage {
-    fn new(origin: Arc<str>, stream: Receiver<Result<Chunk, SectionError>>) -> Self {
-        Self { origin, stream }
+    fn new(
+        origin: Arc<str>,
+        stream: Receiver<Result<Chunk, SectionError>>,
+        ack: Option<Ack>,
+    ) -> Self {
+        Self {
+            origin,
+            stream,
+            ack,
+        }
     }
 }
 
@@ -95,7 +108,7 @@ impl Message for PostgresMessage {
     }
 
     fn ack(&mut self) -> Ack {
-        Box::pin(async {})
+        self.ack.take().unwrap_or(Box::pin(async {}))
     }
 }
 

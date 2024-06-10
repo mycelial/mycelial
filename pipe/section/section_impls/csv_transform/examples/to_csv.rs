@@ -71,7 +71,7 @@ impl DataFrame for Df {
 
 #[tokio::main]
 async fn main() {
-    let source = ToCsv::new(256);
+    let source = ToCsv::new(2);
 
     let (tx_in, rx_in) = channel::<SectionMessage>(1);
     let rx_in = ReceiverStream::new(rx_in);

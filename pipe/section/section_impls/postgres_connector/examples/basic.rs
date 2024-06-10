@@ -17,7 +17,7 @@ async fn main() -> Result<(), SectionError> {
         "public",
         "select * from test",
         Duration::from_secs(5),
-    );
+    )?;
     let (tx, mut rx) = futures::channel::mpsc::channel(1);
     let tx = tx.sink_map_err(|_| "send error".into());
     let handle = tokio::spawn(pg_src.start(Stub::<()>::new(), tx, DummySectionChannel::new()));

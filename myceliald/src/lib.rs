@@ -268,11 +268,10 @@ impl Daemon {
         for (&id, pipe) in self.configs_cache.iter() {
             match pipe.clone().try_into() {
                 Ok(conf) => {
-                    self.scheduler_handle
-                        .add_pipe(id, conf)
-                        .await
-                        .map_err(|e| anyhow!(e))?;
-                    started.insert(id);
+                    match self.scheduler_handle.add_pipe(id, conf).await {
+                        Ok(_) => { started.insert(id); },
+                        Err(e) => tracing::error!("failed to schedule pipe with id {id}: {e}"),
+                    };
                 }
                 Err(e) => {
                     tracing::error!("failed to convert pipe config into scheduler config: {e}");
