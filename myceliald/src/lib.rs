@@ -269,7 +269,9 @@ impl Daemon {
             match pipe.clone().try_into() {
                 Ok(conf) => {
                     match self.scheduler_handle.add_pipe(id, conf).await {
-                        Ok(_) => { started.insert(id); },
+                        Ok(_) => {
+                            started.insert(id);
+                        }
                         Err(e) => tracing::error!("failed to schedule pipe with id {id}: {e}"),
                     };
                 }
