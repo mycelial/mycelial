@@ -66,16 +66,12 @@ impl DataFrame for PostgresPayload {
 
 pub struct PostgresMessage {
     origin: Arc<str>,
-    stream: Receiver<Result<Chunk, SectionError>>,
+    stream: Receiver<Option<Chunk>>,
     ack: Option<Ack>,
 }
 
 impl PostgresMessage {
-    fn new(
-        origin: Arc<str>,
-        stream: Receiver<Result<Chunk, SectionError>>,
-        ack: Option<Ack>,
-    ) -> Self {
+    fn new(origin: Arc<str>, stream: Receiver<Option<Chunk>>, ack: Option<Ack>) -> Self {
         Self {
             origin,
             stream,
@@ -100,9 +96,9 @@ impl Message for PostgresMessage {
     fn next(&mut self) -> section::message::Next<'_> {
         Box::pin(async move {
             match self.stream.recv().await {
-                Some(Ok(df)) => Ok(Some(df)),
-                Some(Err(e)) => Err(e),
-                None => Ok(None),
+                Some(Some(df)) => Ok(Some(df)),
+                Some(None) => Ok(None),
+                None => Err("closed")?,
             }
         })
     }

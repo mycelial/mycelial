@@ -3,7 +3,7 @@ use section::{
     command_channel::{Command, SectionChannel, WeakSectionChannel},
     decimal,
     futures::{self, FutureExt, Sink, SinkExt, Stream, StreamExt},
-    message::{Chunk, DataType, TimeUnit, Value},
+    message::{Chunk, DataFrame, DataType, TimeUnit, Value, ValueView},
     section::Section,
     state::State,
     uuid, SectionError, SectionFuture, SectionMessage,
@@ -42,9 +42,11 @@ impl Postgres {
         query: impl AsRef<str>,
         poll_interval: Duration,
     ) -> Result<Self> {
-        let (stateful_var, query) = match stateful_query::extract_variable_state(query.as_ref())? {
+        let query = query.as_ref();
+        let parser = stateful_query::StatefulVariableParser::new(query)?;
+        let (stateful_var, query) = match parser.parse()? {
             Some((stateful_var, query)) => (Some(stateful_var), query),
-            None => (None, query.as_ref().to_string()),
+            None => (None, query.to_string()),
         };
         Ok(Self {
             url: url.into(),
@@ -68,6 +70,7 @@ impl Postgres {
     {
         let mut connection = PgConnectOptions::from_str(self.url.as_str())?
             .extra_float_digits(2)
+            .log_slow_statements(log::LevelFilter::Debug, Duration::from_secs(1))
             .connect()
             .await?;
 
@@ -114,11 +117,11 @@ impl Postgres {
                     let mut query = sqlx::query(&query);
 
                     // FIXME:
-                    if self.stateful_var.is_some() {
-                        let stateful_var = self.stateful_var.as_ref().unwrap();
-                        query = match stateful_var.value {
-                            StatefulVariableValue::I64(val) => query.bind(val),
-                        };
+                    if let Some(var) = self.stateful_var.as_ref() {
+                        let StatefulVariableValue::I64(val) = var.value;
+                        for _ in 0..(var.placeholder_count) {
+                            query = query.bind(val)
+                        }
                     };
 
                     let mut row_stream = query.fetch(&mut connection);
@@ -147,18 +150,17 @@ impl Postgres {
 
                     'stream: loop {
                         if buf.len() == buf.capacity() {
-                            self.send_chunk(&mut tx, &mut buf).await?;
+                            self.send_chunk(&mut tx, &mut buf, false).await?;
                         }
                         match row_stream.next().await {
                             Some(Ok(row)) => {
                                 buf.push(row)
                             },
                             Some(Err(e)) => {
-                                tx.send(Err("error".into())).await.ok();
                                 Err(e)?
                             },
                             None => {
-                                self.send_chunk(&mut tx, &mut buf).await?;
+                                self.send_chunk(&mut tx, &mut buf, true).await?;
                                 break 'stream;
                             },
                         }
@@ -176,24 +178,22 @@ impl Postgres {
 
     async fn send_chunk(
         &mut self,
-        tx: &mut Sender<Result<Chunk, SectionError>>,
+        tx: &mut Sender<Option<Chunk>>,
         buf: &mut Vec<PgRow>,
+        last: bool,
     ) -> Result<(), SectionError> {
         if !buf.is_empty() {
-            // FIXME: assuming ordering
-            if let Some(var) = self.stateful_var.as_mut() {
-                // buf let checked, last is always guaranteed to be present
-                let last = buf.last().unwrap();
-                var.value = StatefulVariableValue::I64(last.get::<i64, _>(var.name.as_str()));
-            }
             let chunk = Chunk::DataFrame(Box::new(self.build_payload(buf.as_slice())?));
-            tx.send(Ok(chunk)).await.map_err(|_| "send error")?;
+            tx.send(Some(chunk)).await.map_err(|_| "send error")?;
             buf.truncate(0);
+        }
+        if last {
+            tx.send(None).await.map_err(|_| "send error")?;
         }
         Ok(())
     }
 
-    fn build_payload(&self, rows: &[PgRow]) -> Result<PostgresPayload, SectionError> {
+    fn build_payload(&mut self, rows: &[PgRow]) -> Result<PostgresPayload, SectionError> {
         if rows.is_empty() {
             Err("no rows")?
         }
@@ -218,7 +218,29 @@ impl Postgres {
                 values[pos].push(value)
             }
         }
-        Ok(PostgresPayload { columns, values })
+
+        let payload = PostgresPayload { columns, values };
+        self.maybe_update_stateful_var(payload)
+    }
+
+    fn maybe_update_stateful_var(&mut self, payload: PostgresPayload) -> Result<PostgresPayload> {
+        if let Some(var) = self.stateful_var.as_mut() {
+            match payload
+                .columns()
+                .iter_mut().find(|col| col.name() == var.name.as_str())
+            {
+                Some(column) if column.data_type() == DataType::I64 => {
+                    let max = column.fold(0, |max, value| match value {
+                        ValueView::I64(val) => max.max(val),
+                        value => unreachable!("unexpected value: {}", value),
+                    });
+                    var.value = StatefulVariableValue::I64(max);
+                }
+                Some(_) => Err("can't update statefule variable, column type missmatch")?,
+                None => Err("can't update stateful variable since it's not part of query result")?,
+            }
+        }
+        Ok(payload)
     }
 }
 

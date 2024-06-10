@@ -2690,6 +2690,7 @@ dependencies = [
  "stub",
  "tokio",
  "tracing",
+ "tracing-subscriber",
 ]
 
 [[package]]
