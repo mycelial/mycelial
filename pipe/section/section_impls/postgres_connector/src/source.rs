@@ -1,10 +1,11 @@
 use chrono::{DateTime, NaiveDate, NaiveDateTime, NaiveTime, Timelike, Utc};
 use section::{
-    command_channel::{Command, SectionChannel},
+    command_channel::{Command, SectionChannel, WeakSectionChannel},
     decimal,
     futures::{self, FutureExt, Sink, SinkExt, Stream, StreamExt},
     message::{Chunk, DataType, TimeUnit, Value},
     section::Section,
+    state::State,
     uuid, SectionError, SectionFuture, SectionMessage,
 };
 use sqlx::{
@@ -19,34 +20,43 @@ use std::sync::Arc;
 use std::time::Duration;
 use std::{pin::pin, str::FromStr};
 
-use crate::{PostgresColumn, PostgresMessage, PostgresPayload};
+use crate::{
+    stateful_query::{self, StatefulVariable, StatefulVariableValue},
+    PostgresColumn, PostgresMessage, PostgresPayload, Result,
+};
 use tokio::sync::mpsc::Sender;
 
 #[derive(Debug)]
 pub struct Postgres {
     url: String,
     origin: Arc<str>,
-    query: String,
+    query: Arc<str>,
     poll_interval: Duration,
+    stateful_var: Option<StatefulVariable>,
 }
 
 impl Postgres {
     pub fn new(
         url: impl Into<String>,
         origin: impl AsRef<str>,
-        query: impl Into<String>,
+        query: impl AsRef<str>,
         poll_interval: Duration,
-    ) -> Self {
-        Self {
+    ) -> Result<Self> {
+        let (stateful_var, query) = match stateful_query::extract_variable_state(query.as_ref())? {
+            Some((stateful_var, query)) => (Some(stateful_var), query),
+            None => (None, query.as_ref().to_string()),
+        };
+        Ok(Self {
             url: url.into(),
             origin: Arc::from(origin.as_ref()),
-            query: query.into(),
+            query: Arc::from(query),
             poll_interval,
-        }
+            stateful_var,
+        })
     }
 
     async fn enter_loop<Input, Output, SectionChan>(
-        self,
+        mut self,
         input: Input,
         output: Output,
         mut section_channel: SectionChan,
@@ -61,18 +71,57 @@ impl Postgres {
             .connect()
             .await?;
 
-        let mut _input = pin!(input.fuse());
+        let mut _input = pin!(input);
         let mut output = pin!(output);
+        let mut state = section_channel
+            .retrieve_state()
+            .await?
+            .unwrap_or(State::new());
+
+        // FIXME:
+        if self.stateful_var.is_some() {
+            let stateful_var = self.stateful_var.as_mut().unwrap();
+            stateful_var.value = match &stateful_var.value {
+                StatefulVariableValue::I64(_) => StatefulVariableValue::I64(
+                    state.get::<i64>(stateful_var.name.as_str())?.unwrap_or(0),
+                ),
+            };
+        };
 
         let mut interval = tokio::time::interval(self.poll_interval);
         loop {
             futures::select! {
                 cmd = section_channel.recv().fuse() => {
-                   if let Command::Stop = cmd? { return Ok(()) };
+                    match cmd? {
+                        Command::Stop => return Ok(()),
+                        Command::Ack(ack) => {
+                            match ack.downcast::<StatefulVariableValue>() {
+                                Ok(value) => {
+                                    let StatefulVariableValue::I64(new_value) = *value;
+                                    if let Some(var) = self.stateful_var.as_ref() {
+                                        state.set(var.name.as_str(), new_value)?;
+                                        section_channel.store_state(state.clone()).await?;
+                                    }
+                                },
+                                Err(_) => Err("unexpected ack message")?,
+                            }
+                        },
+                        _ => (),
+                    }
                 },
                 _ = interval.tick().fuse() => {
-                    let mut row_stream = sqlx::query(self.query.as_str())
-                        .fetch(&mut connection);
+                    let query = Arc::clone(&self.query);
+                    let mut query = sqlx::query(&query);
+
+                    // FIXME:
+                    if self.stateful_var.is_some() {
+                        let stateful_var = self.stateful_var.as_ref().unwrap();
+                        query = match stateful_var.value {
+                            StatefulVariableValue::I64(val) => query.bind(val),
+                        };
+                    };
+
+                    let mut row_stream = query.fetch(&mut connection);
 
                     // check if row stream contains any result
                     let mut row_stream = match row_stream.next().await {
@@ -83,7 +132,17 @@ impl Postgres {
                     let mut row_stream = pin!(row_stream);
                     let mut buf = Vec::with_capacity(256);
                     let (mut tx, rx) = tokio::sync::mpsc::channel(1);
-                    let message = PostgresMessage::new(Arc::clone(&self.origin), rx);
+
+                    // FIXME:
+                    let weak_chan = section_channel.weak_chan();
+                    let (oneshot_tx, oneshot_rx) = tokio::sync::oneshot::channel::<StatefulVariableValue>();
+                    let ack = Box::pin(async move {
+                        if let Ok(value) = oneshot_rx.await {
+                            weak_chan.ack(Box::new(value)).await;
+                        }
+                    });
+
+                    let message = PostgresMessage::new(Arc::clone(&self.origin), rx, Some(ack));
                     output.send(Box::new(message)).await.map_err(|_| "failed to send data to sink")?;
 
                     'stream: loop {
@@ -91,7 +150,9 @@ impl Postgres {
                             self.send_chunk(&mut tx, &mut buf).await?;
                         }
                         match row_stream.next().await {
-                            Some(Ok(row)) => buf.push(row),
+                            Some(Ok(row)) => {
+                                buf.push(row)
+                            },
                             Some(Err(e)) => {
                                 tx.send(Err("error".into())).await.ok();
                                 Err(e)?
@@ -102,17 +163,29 @@ impl Postgres {
                             },
                         }
                     }
+
+                    // FIXME:
+                    if let Some(var) = self.stateful_var.as_ref() {
+                        oneshot_tx.send(var.value.clone()).ok();
+                        interval.reset_immediately()
+                    }
                 },
             }
         }
     }
 
     async fn send_chunk(
-        &self,
+        &mut self,
         tx: &mut Sender<Result<Chunk, SectionError>>,
         buf: &mut Vec<PgRow>,
     ) -> Result<(), SectionError> {
         if !buf.is_empty() {
+            // FIXME: assuming ordering
+            if let Some(var) = self.stateful_var.as_mut() {
+                // buf let checked, last is always guaranteed to be present
+                let last = buf.last().unwrap();
+                var.value = StatefulVariableValue::I64(last.get::<i64, _>(var.name.as_str()));
+            }
             let chunk = Chunk::DataFrame(Box::new(self.build_payload(buf.as_slice())?));
             tx.send(Ok(chunk)).await.map_err(|_| "send error")?;
             buf.truncate(0);
