@@ -16,3 +16,4 @@ tracing = "0.1"
 
 [dev-dependencies]
 stub = {path = "../stub/" }
+tracing-subscriber = "0.3"
