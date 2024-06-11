@@ -79,8 +79,14 @@ fn setup_registry<S: SectionChannel>() -> Registry<S> {
         ("exec", constructors::exec::exec_ctor),
         ("from_csv", constructors::csv_transform::source_ctor),
         ("to_csv", constructors::csv_transform::destination_ctor),
-        ("origin_regex_transform", constructors::origin_transform::regex_ctor),
-        ("origin_time_nanos_transform", constructors::origin_transform::time_nanos_ctor),
+        (
+            "origin_regex_transform",
+            constructors::origin_transform::regex_ctor,
+        ),
+        (
+            "origin_time_nanos_transform",
+            constructors::origin_transform::time_nanos_ctor,
+        ),
         //("sqlite_physical_replication_destination", sqlite_physical_replication::destination::constructor),
         //("sqlite_physical_replication_source", sqlite_physical_replication::source::constructor),
     ];

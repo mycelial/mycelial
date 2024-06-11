@@ -18,13 +18,15 @@ pub fn regex_ctor<S: SectionChannel>(config: &Map) -> Result<Box<dyn DynSection<
     )?))
 }
 
-pub fn time_nanos_ctor<S: SectionChannel>(config: &Map) -> Result<Box<dyn DynSection<S>>, SectionError> {
+pub fn time_nanos_ctor<S: SectionChannel>(
+    config: &Map,
+) -> Result<Box<dyn DynSection<S>>, SectionError> {
     let regex = config
         .get("regex")
         .ok_or("origin transform section requires 'regex'")?
         .as_str()
         .ok_or("'regex' must be string")?;
-    Ok(Box::new(origin_transform::time_nanos::OriginTransform::new(
-        regex,
-    )?))
+    Ok(Box::new(
+        origin_transform::time_nanos::OriginTransform::new(regex)?,
+    ))
 }
