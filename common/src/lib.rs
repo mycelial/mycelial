@@ -57,7 +57,8 @@ pub enum Source {
     File(FileSourceConfig),
     Dir(DirSourceConfig),
     From_Csv(CsvSourceConfig),
-    Origin_Transform(OriginTransformConfig),
+    Origin_Regex_Transform(OriginRegexTransformConfig),
+    Origin_Time_Nanos_Transform(OriginTimeNanosTransformConfig),
 }
 
 /// Internally-tagged type of a source needs to match the variant name
@@ -271,11 +272,18 @@ pub struct CsvSourceConfig {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
-pub struct OriginTransformConfig {
+pub struct OriginRegexTransformConfig {
     #[serde(flatten)]
     pub common_attrs: CommonAttrs,
     pub regex: String,
     pub replacement: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+pub struct OriginTimeNanosTransformConfig {
+    #[serde(flatten)]
+    pub common_attrs: CommonAttrs,
+    pub regex: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]

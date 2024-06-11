@@ -1,7 +1,4 @@
-//! List directory with applied filters
-//! This example outputs dataframe with full paths
-
-use origin_transform::OriginTransform;
+use origin_transform::regex::OriginTransform;
 use section::{
     dummy::DummySectionChannel,
     futures::{self, FutureExt, SinkExt},
