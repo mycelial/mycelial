@@ -184,11 +184,16 @@ batch_size = 512
 
 [[sources]]
 # Transforms message origin
-type = "origin_transform"
-display_name = "origin_transform"
-# max length of dataframe
+type = "origin_regex_transform"
+display_name = "origin_regex_transform"
 regex = ""
 replacement = ""
+
+[[sources]]
+# Transforms message origin
+type = "origin_time_nanos_transform"
+display_name = "origin_time_nanos_transform"
+regex = ""
 
 [[destinations]]
 # File destination

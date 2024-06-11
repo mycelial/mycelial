@@ -61,6 +61,9 @@ impl StatefulVariableParser {
                     SetExpr::Select(select) => select,
                     _ => return Ok(None),
                 };
+                if s.selection.is_none() {
+                    return Ok(None);
+                }
                 s.selection.as_mut().unwrap()
             }
             _ => return Ok(None),
@@ -295,5 +298,13 @@ mod test {
         let parser = StatefulVariableParser::new(query).unwrap();
         let var = parser.parse();
         assert!(var.is_err(), "query should fail to parse: {:?}", var);
+    }
+
+    #[test]
+    fn test_queries_without_selection_ignored() {
+        let query = "select * from test";
+        let parser = StatefulVariableParser::new(query).unwrap();
+        let var = parser.parse();
+        assert!(matches!(var, Ok(None)));
     }
 }
