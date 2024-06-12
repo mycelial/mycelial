@@ -17,3 +17,15 @@ pub type SectionError = Box<dyn std::error::Error + Send + Sync + 'static>;
 pub type SectionFuture =
     Pin<Box<dyn std::future::Future<Output = Result<(), SectionError>> + Send + 'static>>;
 pub type SectionMessage = Box<dyn crate::message::Message>;
+
+pub mod prelude {
+    pub use crate::{
+        async_trait,
+        command_channel::{Command, RootChannel, SectionChannel, WeakSectionChannel},
+        decimal,
+        futures::{self, Future, FutureExt, Sink, SinkExt, Stream, StreamExt},
+        message::{Chunk, Column, DataFrame, DataType, Message, Value, ValueView},
+        section::Section,
+        uuid, SectionError, SectionFuture, SectionMessage,
+    };
+}

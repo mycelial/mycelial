@@ -21,5 +21,6 @@ members = [
     "pipe/section/section_impls/exec",
     "pipe/section/section_impls/run",
     "pipe/section/section_impls/origin_transform",
+    "pipe/section/section_impls/s3",
 ]
 resolver = "2"
