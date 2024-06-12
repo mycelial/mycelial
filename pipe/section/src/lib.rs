@@ -18,18 +18,14 @@ pub type SectionFuture =
     Pin<Box<dyn std::future::Future<Output = Result<(), SectionError>> + Send + 'static>>;
 pub type SectionMessage = Box<dyn crate::message::Message>;
 
-
 pub mod prelude {
     pub use crate::{
-        SectionError,
-        SectionFuture,
-        SectionMessage,
-        section::Section,
-        message::{Message, Chunk, Column, Value, ValueView, DataFrame, DataType},
-        command_channel::{SectionChannel, WeakSectionChannel, RootChannel, Command},
-        futures::{self, Future, Sink, Stream, SinkExt, StreamExt, FutureExt},
-        uuid,
         async_trait,
+        command_channel::{Command, RootChannel, SectionChannel, WeakSectionChannel},
         decimal,
+        futures::{self, Future, FutureExt, Sink, SinkExt, Stream, StreamExt},
+        message::{Chunk, Column, DataFrame, DataType, Message, Value, ValueView},
+        section::Section,
+        uuid, SectionError, SectionFuture, SectionMessage,
     };
 }
