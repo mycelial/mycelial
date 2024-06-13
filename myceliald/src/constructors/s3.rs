@@ -19,15 +19,15 @@ pub fn destination_ctor<S: SectionChannel>(
         .ok_or("s3 connector source requires 'access_key_id'")?
         .as_str()
         .ok_or("'access_key_id' must be string")?;
-    let secret_access_key = config
-        .get("secret_access_key")
-        .ok_or("s3 connector source requires 'secret_access_key'")?
+    let secret_key = config
+        .get("secret_key")
+        .ok_or("s3 connector source requires 'secret_key'")?
         .as_str()
-        .ok_or("'secret_access_key' must be string")?;
+        .ok_or("'secret_key' must be string")?;
     Ok(Box::new(s3::destination::S3Destination::new(
         bucket,
         region,
         access_key_id,
-        secret_access_key,
+        secret_key,
     )?))
 }
