@@ -1,7 +1,9 @@
 use pipe::{config::Map, types::DynSection};
 use section::{command_channel::SectionChannel, SectionError};
 
-pub fn destination_ctor<S: SectionChannel>(config: &Map) -> Result<Box<dyn DynSection<S>>, SectionError> {
+pub fn destination_ctor<S: SectionChannel>(
+    config: &Map,
+) -> Result<Box<dyn DynSection<S>>, SectionError> {
     let region = config
         .get("region")
         .ok_or("s3 connector source requires 'region'")?
@@ -29,4 +31,3 @@ pub fn destination_ctor<S: SectionChannel>(config: &Map) -> Result<Box<dyn DynSe
         secret_access_key,
     )?))
 }
-

@@ -87,12 +87,8 @@ fn setup_registry<S: SectionChannel>() -> Registry<S> {
             "origin_time_nanos_transform",
             constructors::origin_transform::time_nanos_ctor,
         ),
-        (
-            "s3_destination",
-            constructors::s3::destination_ctor,
-        )
-        //("sqlite_physical_replication_destination", sqlite_physical_replication::destination::constructor),
-        //("sqlite_physical_replication_source", sqlite_physical_replication::source::constructor),
+        ("s3_destination", constructors::s3::destination_ctor), //("sqlite_physical_replication_destination", sqlite_physical_replication::destination::constructor),
+                                                                //("sqlite_physical_replication_source", sqlite_physical_replication::source::constructor),
     ];
     arr.iter()
         .fold(Registry::new(), |mut acc, &(section_name, constructor)| {

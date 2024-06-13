@@ -262,28 +262,26 @@ where
     }
 }
 
-
 #[cfg(test)]
 mod test {
-    use std::{ptr, task::{RawWaker, RawWakerVTable, Waker}};
+    use std::{
+        ptr,
+        task::{RawWaker, RawWakerVTable, Waker},
+    };
 
     use super::*;
     use quickcheck::TestResult;
-    
+
     fn noop_raw_waker() -> RawWaker {
-        const VTABLE: RawWakerVTable = RawWakerVTable::new(
-            |_| { noop_raw_waker() },
-            |_| {},
-            |_| {},
-            |_| {}
-        );
+        const VTABLE: RawWakerVTable =
+            RawWakerVTable::new(|_| noop_raw_waker(), |_| {}, |_| {}, |_| {});
         RawWaker::new(ptr::null(), &VTABLE)
     }
 
     fn noop_waker() -> Waker {
         unsafe { Waker::from_raw(noop_raw_waker()) }
     }
-    
+
     fn consume_stream(result: &mut Vec<u8>, mut stream: VecByteStream) {
         let waker = noop_waker();
         let mut cx = Context::from_waker(&waker);
@@ -306,14 +304,11 @@ mod test {
                     consume_stream(&mut result, buffer.flush());
                     chunk = rest;
                 }
-            };
+            }
             consume_stream(&mut result, buffer.flush());
 
             let flattened = chunks.into_iter().flatten().collect::<Vec<_>>();
-            assert_eq!(
-                flattened,
-                result
-            );
+            assert_eq!(flattened, result);
             TestResult::from_bool(true)
         };
         quickcheck::quickcheck(check as fn(u8, Vec<Vec<u8>>) -> TestResult);
