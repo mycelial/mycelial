@@ -31,6 +31,9 @@ impl S3Source {
         if bucket.scheme() != "s3" {
             Err("expected url with 's3' schema")?
         };
+        if stream_binary {
+            Err("binary streaming not yet implemented")?
+        }
         let region = region.into();
         let start_after = start_after.as_ref().map(AsRef::as_ref).unwrap_or("").into();
         let access_key_id = access_key_id.into();
