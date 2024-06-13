@@ -20,7 +20,7 @@ pub struct S3Destination {
     bucket: url::Url,
     region: String,
     access_key_id: String,
-    secret_access_key: String,
+    secret_key: String,
     max_upload_part_size: usize,
 }
 
@@ -29,7 +29,7 @@ impl S3Destination {
         bucket: impl AsRef<str>,
         region: impl Into<String>,
         access_key_id: impl Into<String>,
-        secret_access_key: impl Into<String>,
+        secret_key: impl Into<String>,
     ) -> Result<Self> {
         let url = url::Url::try_from(bucket.as_ref())?;
         let scheme = url.scheme();
@@ -43,7 +43,7 @@ impl S3Destination {
             bucket: url::Url::try_from(bucket.as_ref())?,
             region: region.into(),
             access_key_id: access_key_id.into(),
-            secret_access_key: secret_access_key.into(),
+            secret_key: secret_key.into(),
             max_upload_part_size: 1 << 23, // 8 MB
         })
     }
@@ -185,7 +185,7 @@ where
                 .credentials_provider(SharedCredentialsProvider::new(
                     StaticCredentialsProvider::new(
                         self.access_key_id.clone(),
-                        self.secret_access_key.clone(),
+                        self.secret_key.clone(),
                     ),
                 ))
                 .behavior_version(BehaviorVersion::latest())
