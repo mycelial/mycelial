@@ -146,7 +146,6 @@ where
                 .region(Region::new(self.region.clone()))
                 .build();
             let client = Client::new(&config);
-            let bucket = self.bucket.host().unwrap().to_string();
             let prefix = self
                 .bucket
                 .path()
