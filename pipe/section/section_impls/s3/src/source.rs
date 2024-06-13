@@ -10,11 +10,11 @@ use section::prelude::*;
 pub struct S3Source {
     bucket: url::Url,
     region: String,
+    access_key_id: String,
+    secret_key: String,
     stream_binary: bool,
     start_after: String,
     interval: Duration,
-    access_key_id: String,
-    secret_key: String,
 }
 
 impl S3Source {

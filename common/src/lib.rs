@@ -59,6 +59,7 @@ pub enum Source {
     From_Csv(CsvSourceConfig),
     Origin_Regex_Transform(OriginRegexTransformConfig),
     Origin_Time_Nanos_Transform(OriginTimeNanosTransformConfig),
+    S3(S3Source),
 }
 
 /// Internally-tagged type of a source needs to match the variant name
@@ -285,6 +286,19 @@ pub struct OriginTimeNanosTransformConfig {
     #[serde(flatten)]
     pub common_attrs: CommonAttrs,
     pub regex: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+pub struct S3Source {
+    #[serde(flatten)]
+    pub common_attrs: CommonAttrs,
+    bucket: String,
+    region: String,
+    stream_binary: bool,
+    start_after: String,
+    interval: usize,
+    access_key_id: String,
+    secret_key: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
