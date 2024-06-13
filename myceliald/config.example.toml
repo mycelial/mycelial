@@ -283,3 +283,10 @@ path = "/path/to/your/dest_database.sqlite"
 truncate = true 
 # The truncate field specifies whether to truncate the destination table before writing the data.
 
+[[destinations]]
+type = "s3"_destination
+display_name = "S3 Destination"
+region = ""
+bucket = ""
+access_key_id = ""
+secret_key = ""
