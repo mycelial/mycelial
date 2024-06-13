@@ -31,9 +31,6 @@ impl S3Source {
         if bucket.scheme() != "s3" {
             Err("expected url with 's3' schema")?
         };
-        if stream_binary {
-            Err("binary streaming not yet implemented")?
-        }
         let region = region.into();
         let start_after = start_after.as_ref().map(AsRef::as_ref).unwrap_or("").into();
         let access_key_id = access_key_id.into();
@@ -130,11 +127,15 @@ where
         mut section_channel: SectionChan,
     ) -> Self::Future {
         Box::pin(async move {
+            if self.stream_binary {
+                Err("binary streaming not yet implemented")?
+            }
             let mut output = pin!(output);
             let bucket = self
                 .bucket
                 .host()
-                .ok_or("bucket url doesn't contain host")?;
+                .ok_or("bucket url doesn't contain host")?
+                .to_string();
             let config = SdkConfig::builder()
                 .credentials_provider(SharedCredentialsProvider::new(
                     StaticCredentialsProvider::new(
