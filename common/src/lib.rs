@@ -75,6 +75,7 @@ pub enum Destination {
     Mysql_Connector(MysqlConnectorDestinationConfig),
     File(FileDestinationConfig),
     To_Csv(CsvDestinationConfig),
+    S3(S3Destination),
 }
 
 // Shared between all source definitions
@@ -305,6 +306,16 @@ pub struct FileDestinationConfig {
 pub struct CsvDestinationConfig {
     #[serde(flatten)]
     pub common_attrs: CommonAttrs,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+pub struct S3Destination {
+    #[serde(flatten)]
+    pub common_attrs: CommonAttrs,
+    pub bucket: String,
+    pub region: String,
+    pub access_key_id: String,
+    pub secret_key: String,
 }
 
 // requests and responses
