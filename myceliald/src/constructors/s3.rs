@@ -1,8 +1,10 @@
 use std::time::Duration;
 
-use pipe::{config::{Map, Value}, types::DynSection};
+use pipe::{
+    config::{Map, Value},
+    types::DynSection,
+};
 use section::{command_channel::SectionChannel, SectionError};
-
 
 pub fn source_ctor<S: SectionChannel>(
     config: &Map,
