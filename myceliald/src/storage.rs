@@ -23,6 +23,7 @@ pub struct SqliteState {
     map: serde_json::Map<String, serde_json::Value>,
 }
 
+#[allow(dead_code)]
 #[derive(Debug)]
 pub enum SqliteStateError {
     UnsupportedType { id: TypeId, type_name: &'static str },
