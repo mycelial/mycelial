@@ -217,6 +217,7 @@ where
                         let upload_id = multipart_upload.upload_id().ok_or("upload id missing")?;
                         let mut completed_parts = Vec::<CompletedPart>::new();
                         let mut buf = ChunkBuffer::new(self.max_upload_part_size);
+                        let ack = msg.ack();
                         while let Some(chunk) = msg.next().await? {
                             let mut chunk = match chunk {
                                 Chunk::Byte(chunk) => Bytes::from(chunk),
@@ -255,6 +256,7 @@ where
                             .upload_id(upload_id)
                             .send()
                             .await?;
+                        ack.await;
                     }
                 }
             }
