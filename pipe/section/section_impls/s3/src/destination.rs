@@ -261,3 +261,56 @@ where
         })
     }
 }
+
+#[cfg(test)]
+mod test {
+    use std::{
+        ptr,
+        task::{RawWaker, RawWakerVTable, Waker},
+    };
+
+    use super::*;
+    use quickcheck::TestResult;
+
+    fn noop_raw_waker() -> RawWaker {
+        const VTABLE: RawWakerVTable =
+            RawWakerVTable::new(|_| noop_raw_waker(), |_| {}, |_| {}, |_| {});
+        RawWaker::new(ptr::null(), &VTABLE)
+    }
+
+    fn noop_waker() -> Waker {
+        unsafe { Waker::from_raw(noop_raw_waker()) }
+    }
+
+    fn consume_stream(result: &mut Vec<u8>, mut stream: VecByteStream) {
+        let waker = noop_waker();
+        let mut cx = Context::from_waker(&waker);
+        while let Poll::Ready(Some(Ok(chunk))) = pin!(&mut stream).poll_frame(&mut cx) {
+            let data = chunk.data_ref().unwrap();
+            result.extend(data)
+        }
+    }
+
+    #[test]
+    fn test_chunk_buffer() {
+        // for any given input/limit
+        // chunk buffer should produce output which equals input
+        let check = |limit: u8, chunks: Vec<Vec<u8>>| -> TestResult {
+            let mut buffer = ChunkBuffer::new((limit as usize).max(1));
+            let mut result = Vec::<u8>::new();
+            for chunk in chunks.iter() {
+                let mut chunk = Bytes::from(chunk.clone());
+                while let Some(rest) = buffer.append(chunk) {
+                    consume_stream(&mut result, buffer.flush());
+                    chunk = rest;
+                }
+            }
+            consume_stream(&mut result, buffer.flush());
+
+            let flattened = chunks.into_iter().flatten().collect::<Vec<_>>();
+            assert_eq!(flattened, result);
+            TestResult::from_bool(true)
+        };
+        quickcheck::quickcheck(check as fn(u8, Vec<Vec<u8>>) -> TestResult);
+    }
+}

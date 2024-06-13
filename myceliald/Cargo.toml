@@ -41,4 +41,5 @@ dir = { path = "../pipe/section/section_impls/dir/" }
 exec = { path = "../pipe/section/section_impls/exec/" }
 csv_transform = { path = "../pipe/section/section_impls/csv_transform/" }
 origin_transform = {path = "../pipe/section/section_impls/origin_transform/" }
+s3 = { path = "../pipe/section/section_impls/s3" }
 #sqlite_physical_replication = { path = "../pipe/section/section_impls/sqlite_physical_replication/" }
