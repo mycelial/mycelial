@@ -5,7 +5,7 @@ use aws_sdk_s3::config::ProvideCredentials;
 use section::SectionError;
 
 pub mod destination;
-//pub mod source;
+pub mod source;
 
 pub(crate) type Result<T, E = SectionError> = std::result::Result<T, E>;
 
