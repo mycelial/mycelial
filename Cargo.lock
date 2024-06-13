@@ -3582,6 +3582,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "redshift_loader"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "clap",
+ "log",
+ "section",
+ "sqlx",
+ "stub",
+ "tokio",
+ "tokio-stream",
+ "tokio-util",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
 name = "regex"
 version = "1.10.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
