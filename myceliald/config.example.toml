@@ -195,6 +195,17 @@ type = "origin_time_nanos_transform"
 display_name = "origin_time_nanos_transform"
 regex = ""
 
+[[sources]]
+type = "s3"
+display_name = "S3 Source"
+region = ""
+bucket = ""
+access_key_id = ""
+secret_key = ""
+interval = 5
+start_after = ""
+stream_binary = false
+
 [[destinations]]
 # File destination
 type = "file"
