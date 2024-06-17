@@ -9,7 +9,7 @@ use chrono::{DateTime, NaiveDateTime, Utc};
 use derive_trait::derive_trait;
 use futures::{future::BoxFuture, StreamExt};
 use sea_query::{
-    Expr, Iden, OnConflict, Order, PostgresQueryBuilder, Query, QueryBuilder, SchemaBuilder,
+    Expr, Iden, Order, PostgresQueryBuilder, Query, QueryBuilder, SchemaBuilder,
     SqliteQueryBuilder,
 };
 use sea_query_binder::{SqlxBinder, SqlxValues};
@@ -215,7 +215,7 @@ where
         })
     }
 
-    fn read_workspaces<'a>(&'a self) -> BoxFuture<'a, Result<Vec<model::Workspace>>> {
+    fn read_workspaces(&self) -> BoxFuture<'_, Result<Vec<model::Workspace>>> {
         Box::pin(async {
             let (query, values) = Query::select()
                 .columns([Workspaces::Name, Workspaces::CreatedAt])
@@ -243,7 +243,7 @@ where
     }
 
     fn delete_workspace<'a>(&'a self, name: &'a str) -> BoxFuture<'a, Result<()>> {
-        Box::pin(async { 
+        Box::pin(async {
             let (query, values) = Query::delete()
                 .from_table(Workspaces::Table)
                 .and_where(Expr::col(Workspaces::Name).eq(name.to_string()))

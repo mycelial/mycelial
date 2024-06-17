@@ -24,16 +24,16 @@ impl App {
 
     // workspaces api
     pub async fn create_workspace(&self, workspace: &Workspace) -> Result<()> {
-        Ok(self.db.create_workspace(workspace).await?)
+        self.db.create_workspace(workspace).await
     }
 
     pub async fn read_workspaces(&self) -> Result<Vec<Workspace>> {
-        Ok(self.db.read_workspaces().await?)
+        self.db.read_workspaces().await
     }
 
     pub async fn update_workspace() {}
 
     pub async fn delete_workspace(&self, name: &str) -> Result<()> {
-        Ok(self.db.delete_workspace(name).await?)
+        self.db.delete_workspace(name).await
     }
 }

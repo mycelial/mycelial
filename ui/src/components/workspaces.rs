@@ -4,7 +4,9 @@ use chrono::{DateTime, Timelike, Utc};
 use dioxus::prelude::*;
 
 use crate::{
-    components::{app::AppState, routing::Route}, model::Workspace, StdError
+    components::{app::AppState, routing::Route},
+    model::Workspace,
+    StdError,
 };
 
 #[derive(Debug)]
@@ -25,7 +27,7 @@ impl WorkspacesState {
         let id = self.get_id();
         self.workspaces.insert(id, Workspace::new(name, created_at));
     }
-    
+
     fn get_workspace(&self, id: u64) -> Option<&Workspace> {
         self.workspaces.get(&id)
     }
@@ -52,9 +54,7 @@ impl Workspace {
 }
 
 #[component]
-fn NewWorkspace(
-    mut restart_fetcher: Signal<bool>,
-) -> Element {
+fn NewWorkspace(mut restart_fetcher: Signal<bool>) -> Element {
     let app_state = use_context::<Signal<AppState>>();
     let mut render_form_state = use_signal(|| false);
     rsx! {
@@ -112,7 +112,7 @@ fn NewWorkspace(
 #[component]
 pub fn Workspaces() -> Element {
     let app_state = use_context::<Signal<AppState>>();
-    let mut workspaces_state = use_signal(|| WorkspacesState::new());
+    let mut workspaces_state = use_signal(WorkspacesState::new);
     let mut restart_fetcher = use_signal(|| false);
     let mut fetcher: Resource<Result<usize, StdError>> = use_resource(move || async move {
         let app_state_ref = &*app_state.read();
@@ -122,7 +122,10 @@ pub fn Workspaces() -> Element {
             let state_ref = &mut *workspaces_state.write();
             state_ref.reset();
             workspaces.into_iter().for_each(|workspace| {
-                state_ref.add_workspace(workspace.name, workspace.created_at.with_nanosecond(0).unwrap())
+                state_ref.add_workspace(
+                    workspace.name,
+                    workspace.created_at.with_nanosecond(0).unwrap(),
+                )
             });
         }
         Ok(workspaces_len)
@@ -132,7 +135,7 @@ pub fn Workspaces() -> Element {
         restart_fetcher.set(false);
     }
     let child = match &*fetcher.read_unchecked() {
-        Some(Ok(0)) => rsx!{
+        Some(Ok(0)) => rsx! {
             div {
                 class: "mt-10 p-4 w-9/12 bg-moss-3 text-black drop-shadow-md rounded-sm mx-auto col-span-2",
                 div {
@@ -185,7 +188,7 @@ pub fn Workspaces() -> Element {
                                     class: "text-right",
                                     button {
                                         onclick: move |_| async move {
-                                            let name = match (&mut *workspaces_state.write()).get_workspace(id) {
+                                            let name = match workspaces_state.write().get_workspace(id) {
                                                 Some(Workspace{ ref name, .. }) => name.to_string(),
                                                 None => return
                                             };

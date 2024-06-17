@@ -1,12 +1,19 @@
 //! Workspaces routes
 
 use crate::http::Result;
-use axum::{extract::{Path, State}, response::IntoResponse, routing::{delete, post}, Json, Router};
-use std::sync::Arc;
+use axum::{
+    extract::{Path, State},
+    response::IntoResponse,
+    routing::{delete, post},
+    Json, Router,
+};
 
 use crate::app::{model::Workspace, App};
 
-async fn create_workspaces(app: State<App>, Json(workspace): Json<Workspace>) -> Result<impl IntoResponse> {
+async fn create_workspaces(
+    app: State<App>,
+    Json(workspace): Json<Workspace>,
+) -> Result<impl IntoResponse> {
     app.create_workspace(&workspace).await?;
     Ok(Json("ok"))
 }
@@ -30,11 +37,8 @@ pub fn new(app: crate::app::App) -> Router {
             "/api/workspaces",
             post(create_workspaces)
                 .get(read_workspaces)
-                .put(update_workspaces)
+                .put(update_workspaces),
         )
-        .route(
-            "/api/workspaces/:name",
-            delete(delete_workspaces),
-        )
+        .route("/api/workspaces/:name", delete(delete_workspaces))
         .with_state(app)
 }
