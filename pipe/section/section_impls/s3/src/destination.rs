@@ -256,6 +256,7 @@ where
                             .upload_id(upload_id)
                             .send()
                             .await?;
+                        tracing::debug!("uploaded {key}");
                         ack.await;
                     }
                 }

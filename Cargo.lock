@@ -2805,6 +2805,7 @@ dependencies = [
  "notify-debouncer-full",
  "origin_transform",
  "postgres_connector",
+ "redshift_loader",
  "reqwest",
  "runtime",
  "s3",

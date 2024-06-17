@@ -295,9 +295,18 @@ truncate = true
 # The truncate field specifies whether to truncate the destination table before writing the data.
 
 [[destinations]]
-type = "s3"_destination
+type = "s3"
 display_name = "S3 Destination"
 region = ""
 bucket = ""
 access_key_id = ""
 secret_key = ""
+
+[[destinations]]
+type = "redshift_loader"
+display_name = "redshift loader"
+database_url = ""
+iam_role = ""
+region = ""
+data_format = "",
+ignore_header = true,

@@ -77,6 +77,7 @@ pub enum Destination {
     File(FileDestinationConfig),
     To_Csv(CsvDestinationConfig),
     S3(S3Destination),
+    Redshift_Loader(RedshiftLoader),
 }
 
 // Shared between all source definitions
@@ -330,6 +331,17 @@ pub struct S3Destination {
     pub region: String,
     pub access_key_id: String,
     pub secret_key: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+pub struct RedshiftLoader {
+    #[serde(flatten)]
+    pub common_attrs: CommonAttrs,
+    pub database_url: String,
+    pub iam_role: String,
+    pub region: String,
+    pub data_format: String,
+    pub ignore_header: bool,
 }
 
 // requests and responses
