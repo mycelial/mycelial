@@ -20,7 +20,7 @@ common = { path = "../common" }
 pipe = { version = "0.3", path = "../pipe/runtime/", package="runtime" }
 section = { version = "0.3", path = "../pipe/section/" }
 tracing = "0.1.40"
-tracing-subscriber = "0.3.18"
+tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
 notify = { version = "6.1.1", features = ["macos_kqueue"] }
 notify-debouncer-full = "0.3.1"
 sha2 = "0.10.8"
@@ -42,4 +42,5 @@ exec = { path = "../pipe/section/section_impls/exec/" }
 csv_transform = { path = "../pipe/section/section_impls/csv_transform/" }
 origin_transform = {path = "../pipe/section/section_impls/origin_transform/" }
 s3 = { path = "../pipe/section/section_impls/s3" }
+redshift_loader = { path = "../pipe/section/section_impls/redshift_loader" }
 #sqlite_physical_replication = { path = "../pipe/section/section_impls/sqlite_physical_replication/" }

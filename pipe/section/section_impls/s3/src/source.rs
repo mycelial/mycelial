@@ -45,6 +45,32 @@ impl S3Source {
             secret_key,
         })
     }
+
+    async fn handle_command<S: SectionChannel>(
+        &self,
+        cmd: Command,
+        state: &mut S::State,
+        section_channel: &mut S,
+    ) -> Result<HandleCommandResult> {
+        match cmd {
+            Command::Stop => Ok(HandleCommandResult::Stop),
+            Command::Ack(ack) => match ack.downcast::<String>() {
+                Ok(path) => {
+                    tracing::info!("setting start after to {path}");
+                    state.set(START_AFTER_KEY, path.to_string())?;
+                    section_channel.store_state(state.clone()).await?;
+                    Ok(HandleCommandResult::Ok)
+                }
+                Err(_) => Err("failed to downcast Ack message")?,
+            },
+            _ => Ok(HandleCommandResult::Ok),
+        }
+    }
+}
+
+enum HandleCommandResult {
+    Ok,
+    Stop,
 }
 
 #[derive(Debug)]
@@ -160,23 +186,13 @@ where
                 .await?
                 .unwrap_or(State::new());
             let mut start_after = state.get::<String>(START_AFTER_KEY)?.unwrap_or("".into());
-            start_after = self.start_after.max(start_after);
+            start_after = self.start_after.clone().max(start_after);
             let mut interval = tokio::time::interval(self.interval);
             loop {
                 futures::select! {
                     cmd = section_channel.recv().fuse() => {
-                        match cmd? {
-                            Command::Stop => return Ok(()),
-                            Command::Ack(ack) => {
-                                match ack.downcast::<Arc<str>>() {
-                                    Ok(path) => {
-                                        state.set(START_AFTER_KEY, path.to_string())?;
-                                        section_channel.store_state(state.clone()).await?;
-                                    }
-                                    Err(_) => Err("failed to downcast Ack message")?
-                                };
-                            },
-                            _ => (),
+                        if let HandleCommandResult::Stop = self.handle_command(cmd?, &mut state, &mut section_channel).await? {
+                            return Ok(())
                         }
                     }
                     _ = interval.tick().fuse() => {
@@ -190,14 +206,13 @@ where
                             .send();
                         if let Some(result) = response.next().await {
                             for object in result?.contents() {
-                                let key = object.key().ok_or("object without name")?;
+                                let key = object.key().ok_or("object without name")?.to_string();
                                 start_after = key.to_string();
-                                let path: Arc<str> = Arc::from(self.bucket.join(key)?.to_string());
+                                let path: Arc<str> = Arc::from(self.bucket.join(&key)?.to_string());
                                 let weak_chan = section_channel.weak_chan();
 
                                 let ack = {
-                                    let path = Arc::clone(&path);
-                                    Box::pin(async move { weak_chan.ack(Box::new(path)).await; })
+                                    Box::pin(async move { weak_chan.ack(Box::new(key)).await; })
                                 };
 
                                 let msg = Box::new(S3Message::new(
@@ -206,7 +221,20 @@ where
                                     ack,
                                 ));
 
-                                output.send(msg).await?;
+                                let mut future = pin!(output.send(msg));
+                                loop {
+                                    futures::select!{
+                                        cmd = section_channel.recv().fuse() => {
+                                            if let HandleCommandResult::Stop = self.handle_command(cmd?, &mut state, &mut section_channel).await? {
+                                                return Ok(())
+                                            }
+                                        }
+                                        msg = (&mut future).fuse() => {
+                                            msg?;
+                                            break
+                                        },
+                                    }
+                                }
                             }
                         }
                         interval.reset();

@@ -9,6 +9,7 @@ pub mod mycelial_server;
 pub mod mysql_connector;
 pub mod origin_transform;
 pub mod postgres_connector;
+pub mod redshift_loader;
 pub mod s3;
 pub mod snowflake;
 pub mod sqlite_connector;

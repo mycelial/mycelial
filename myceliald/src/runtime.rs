@@ -89,6 +89,10 @@ fn setup_registry<S: SectionChannel>() -> Registry<S> {
         ),
         ("s3_source", constructors::s3::source_ctor),
         ("s3_destination", constructors::s3::destination_ctor),
+        (
+            "redshift_loader_destination",
+            constructors::redshift_loader::ctor,
+        ),
     ];
     arr.iter()
         .fold(Registry::new(), |mut acc, &(section_name, constructor)| {

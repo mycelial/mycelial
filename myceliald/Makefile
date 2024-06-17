@@ -22,6 +22,7 @@ clean:
 dev:
 	cargo-watch \
 		--why \
+		-E RUST_LOG="$(RUST_LOG)" \
 		-i client.db \
 		-i client.db-journal \
 		-i config.toml \
