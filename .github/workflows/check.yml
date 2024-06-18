@@ -64,16 +64,9 @@ jobs:
       - name: install packages (linux)
         if: matrix.build == 'linux'
         run: |
-          ## temporary fix for https://github.com/microsoft/linux-package-repositories/issues/130
-          sudo rm /etc/apt/sources.list.d/microsoft-prod.list
           sudo apt update
-          sudo apt install pkg-config libssl-dev -qy
+          sudo apt install pkg-config -qy
 
-      - name: install packages (macos)
-        if: matrix.build == 'macos'
-        run: |
-          brew install openssl
-      
       - name: install packages (windows)
         if: matrix.build == 'windows'
         run: |

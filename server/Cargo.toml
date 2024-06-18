@@ -21,7 +21,7 @@ chrono = { version = "0.4", features = ["serde"] }
 serde_json = "1"
 serde = { version = "1", features = ["derive"] }
 tokio-util = "0.7.8"
-sqlx = "0.7"
+sqlx = { version = "0.7", features=["runtime-tokio", "tls-rustls"] }
 tower-http = { version = "0.4.1", features = ["fs"] }
 common = { path = "../common" }
 rust-embed = "8.0.0"
@@ -32,9 +32,9 @@ tracing = "0.1.40"
 tracing-subscriber = "0.3.18"
 sea-query = "0.30.7"
 sea-query-binder = { version = "0.5.0", features = [
-    "sqlx-any", "sqlx-postgres", "sqlx-sqlite", "sqlx-mysql", "runtime-tokio-rustls",
+    "sqlx-postgres", "sqlx-sqlite", "runtime-tokio-rustls",
     "with-chrono", "with-json", "with-uuid", "with-time",
 ]}
-reqwest = { version = "0.11.26", features = ["json"] }
+reqwest = { version = "0.12", default-features=false, features = ["json", "gzip", "rustls-tls"] }
 url = "2.5.0"
 uuid = {version = "1.4.0", features = ["v4", "fast-rng", "macro-diagnostics" ]}
