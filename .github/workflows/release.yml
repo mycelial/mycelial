@@ -54,13 +54,8 @@ jobs:
         if: matrix.build == 'linux'
         run: |
           sudo apt update
-          sudo apt install pkg-config gcc-arm-linux-gnueabihf gcc-aarch64-linux-gnu musl-tools g++-arm-linux-gnueabihf g++-aarch64-linux-gnu libssl-dev wget -qy
+          sudo apt install pkg-config gcc-arm-linux-gnueabihf gcc-aarch64-linux-gnu musl-tools g++-arm-linux-gnueabihf g++-aarch64-linux-gnu -qy
 
-      - name: install packages (macos)
-        if: matrix.build == 'macos'
-        run: |
-          brew install openssl
-      
       - name: install packages (windows)
         if: matrix.build == 'windows'
         run: |
@@ -122,5 +117,3 @@ jobs:
           artifacts: "${{ env.MYCELIALD_NAME }}, ${{ env.SERVER_NAME }}"
           artifactErrorsFailBuild: true
           allowUpdates: true
-
-
