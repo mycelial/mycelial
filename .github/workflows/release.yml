@@ -13,8 +13,6 @@ jobs:
       CARGO_TARGET_ARM_UNKNOWN_LINUX_GNUEABIHF_LINKER: arm-linux-gnueabihf-gcc
       CARGO_TARGET_ARM_UNKNOWN_LINUX_GNUEABIHF_RUSTFLAGS: "-latomic"
       CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
-      OPENSSL_VERSION: 1.1.1w
-      OPENSSL_PREFIX: /tmp/openssl/
 
     strategy:
       matrix:
@@ -63,33 +61,6 @@ jobs:
         run: |
           brew install openssl
       
-      - name: build openssl 
-        if: matrix.build == 'linux'
-        run: |
-            export CC_PREFIX=`echo ${{ matrix.target }} | sed 's/unknown-//g'`
-            mkdir -p $OPENSSL_PREFIX/$OPENSSL_VERSION/
-            cd ${OPENSSL_PREFIX}
-            wget -nc https://www.openssl.org/source/openssl-$OPENSSL_VERSION.tar.gz
-            tar xvf openssl-$OPENSSL_VERSION.tar.gz
-            cd openssl-${OPENSSL_VERSION}
-            export CC="$CC_PREFIX-gcc"
-            export CXX="$CC_PREFIX-g++"
-            export AS="$CC_PREFIX-as"
-            export AR="$CC_PREFIX-ar"
-            export NM="$CC_PREFIX-nm"
-            export RANLIB="$CC_PREFIX-ranlib"
-            export LD="$CC_PREFIX-ld"
-            export STRIP="$CC_PREFIX-strip"
-            ./Configure linux-generic32 shared \
-               --prefix=$OPENSSL_PREFIX/$OPENSSL_VERSION/${{ matrix.target }} \
-               --openssldir=$OPENSSL_PREFIX/$OPENSSL_VERSION/${{ matrix.target }}
-            make
-            make install
-            echo "OPENSSL_INCLUDE_DIR=$OPENSSL_PREFIX/$OPENSSL_VERSION/${{matrix.target}}/include" >> $GITHUB_ENV
-            echo "OPENSSL_LIB_DIR=$OPENSSL_PREFIX/$OPENSSL_VERSION/${{matrix.target}}/lib" >> $GITHUB_ENV
-            echo "OPENSSL_STATIC=1" >> $GITHUB_ENV
-
-
       - name: install packages (windows)
         if: matrix.build == 'windows'
         run: |
