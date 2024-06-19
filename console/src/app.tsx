@@ -63,20 +63,20 @@ if (rootElement) {
   const auth0Audience = import.meta.env.VITE_AUTH0_AUDIENCE;
   ReactDOM.createRoot(rootElement).render(
     // todo: put these values in a .env file
-    <Auth0Provider
-      domain={domain}
-      clientId={auth0ClientId}
-      cacheLocation="localstorage"
-      authorizationParams={{
-        redirect_uri: window.location.origin,
-        audience: auth0Audience,
-      }}
-    >
+ // <Auth0Provider
+ //   domain={domain}
+ //   clientId={auth0ClientId}
+ //   cacheLocation="localstorage"
+ //   authorizationParams={{
+ //     redirect_uri: window.location.origin,
+ //     audience: auth0Audience,
+ //   }}
+ // >
       <React.StrictMode>
         <ThemeProvider theme={theme}>
           <RouterProvider router={router} />
         </ThemeProvider>
       </React.StrictMode>
-    </Auth0Provider>,
+ // </Auth0Provider>,
   );
 }
