@@ -56,7 +56,7 @@ impl S3Source {
             Command::Stop => Ok(HandleCommandResult::Stop),
             Command::Ack(ack) => match ack.downcast::<String>() {
                 Ok(path) => {
-                    tracing::info!("setting start after to {path}");
+                    tracing::debug!("setting start after to {path}");
                     state.set(START_AFTER_KEY, path.to_string())?;
                     section_channel.store_state(state.clone()).await?;
                     Ok(HandleCommandResult::Ok)
