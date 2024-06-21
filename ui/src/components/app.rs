@@ -1,4 +1,8 @@
-use crate::{components::routing::Route, config_registry::ConfigRegistry, model, Result};
+use crate::{
+    components::routing::Route,
+    config_registry::{ConfigMetaData, ConfigRegistry},
+    model, Result,
+};
 use dioxus::prelude::*;
 use serde::{Deserialize, Serialize};
 
@@ -6,6 +10,12 @@ use serde::{Deserialize, Serialize};
 pub struct AppState {
     location: url::Url,
     config_registry: ConfigRegistry,
+}
+
+impl Default for AppState {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl AppState {
@@ -24,13 +34,15 @@ impl AppState {
 
 // ConfigRegistry API
 impl AppState {
-    pub fn menu_items(&self) -> Vec<String> {
-        self.config_registry.keys().map(|key| key.to_string()).collect()
+    pub fn menu_items(&self) -> impl Iterator<Item = ConfigMetaData> + '_ {
+        self.config_registry.menu_items()
     }
-    
+
     pub fn build_config(&self, name: &str) -> Box<dyn config::Config> {
         // FIXME: properly deal with missing config constructors
-        self.config_registry.build_config(name).expect("no config constructor found")
+        self.config_registry
+            .build_config(name)
+            .expect("no config constructor found")
     }
 }
 
@@ -123,7 +135,6 @@ impl AppState {
         WorkspaceRequestBuilder::new(self)
     }
 }
-
 
 pub fn App() -> Element {
     // top level state

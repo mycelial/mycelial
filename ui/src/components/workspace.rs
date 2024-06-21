@@ -1,8 +1,12 @@
+use std::rc::Rc;
+
 use crate::components::app::AppState;
 use crate::components::graph::Graph as GenericGraph;
 use crate::components::icons::{Delete, Edit, Pause, Play, Restart};
 use crate::components::node_state::NodeStateForm;
+use crate::config_registry::ConfigMetaData;
 use crate::model::NodeState;
+use config::SectionIO;
 use dioxus::prelude::*;
 
 pub type Graph = GenericGraph<Signal<NodeState>>;
@@ -10,10 +14,31 @@ pub type Graph = GenericGraph<Signal<NodeState>>;
 // representation of section in sections menu, which can be dragged into viewport container
 #[component]
 fn MenuItem(
-    node_type: String,
+    metadata: ConfigMetaData,
     mut dragged_menu_item: Signal<Option<DraggedMenuItem>>,
 ) -> Element {
     let mut rect_data = use_signal(|| (0.0, 0.0, 0.0, 0.0));
+    let node_type: Rc<str> = Rc::clone(&metadata.ty);
+    let source = match metadata.input {
+        true => rsx! {
+            // TODO: change background to grey if not source
+            span {
+                class: "bg-moss-1 text-white rounded-full p-1 ml-1",
+                "Source"
+            }
+        },
+        false => None,
+    };
+    let destination = match metadata.output {
+        true => rsx! {
+            // TODO: change background to grey if not dest
+            span {
+                class: "bg-forest-2 text-white rounded-full p-1 ml-1",
+                "Dest"
+            }
+        },
+        false => None,
+    };
     rsx! {
         div {
             class: "min-w-32 min-h-24 border border-solid rounded grid grid-flow-rows p-2 shadow",
@@ -34,7 +59,7 @@ fn MenuItem(
                 let (x, y, _, _) = *rect_data.read();
                 let coords = event.client_coordinates();
                 let (delta_x, delta_y) = (coords.x - x, coords.y - y);
-                *dragged_menu_item.write() = Some(DraggedMenuItem::new(node_type.clone(), delta_x, delta_y));
+                *dragged_menu_item.write() = Some(DraggedMenuItem::new(metadata.clone(), delta_x, delta_y));
             },
             ondragend: move |_event| {
                 *dragged_menu_item.write() = None;
@@ -47,16 +72,8 @@ fn MenuItem(
                 }
                 span {
                     class: "justify-self-end",
-                    // TODO: change background to grey if not source
-                    span {
-                        class: "bg-moss-1 text-white rounded-full p-1 ml-1",
-                        "Source"
-                    }
-                    // TODO: change background to grey if not dest
-                    span {
-                        class: "bg-forest-2 text-white rounded-full p-1 ml-1",
-                        "Dest"
-                    }
+                    {source}
+                    {destination}
                 }
             }
             div {
@@ -76,22 +93,55 @@ fn Node(
     mut selected_node: Signal<Option<Signal<NodeState>>>,
 ) -> Element {
     // current node coordinates, coordinates on input and output ports
-    let (id, node_type, x, y, _w, _h, port_diameter, input_pos, output_pos) = {
-        let node = &*node.read();
-        (
-            node.id,
-            node.node_type.clone(),
-            node.x,
-            node.y,
-            node.w,
-            node.h,
-            node.port_diameter,
-            node.input_pos(),
-            node.output_pos(),
-        )
-    };
+    let node_ref = &*node.read();
+    let (id, node_type, x, y, _w, _h, port_diameter, config, input_pos, output_pos) = (
+        node_ref.id,
+        node_ref.node_type.clone(),
+        node_ref.x,
+        node_ref.y,
+        node_ref.w,
+        node_ref.h,
+        node_ref.port_diameter,
+        &*(node_ref.config),
+        node_ref.input_pos(),
+        node_ref.output_pos(),
+    );
 
     let mut is_playing = use_signal(|| false);
+
+    let input = match config.input() {
+        SectionIO::None => None,
+        _ => rsx! {
+            div {
+                class: "absolute block rounded-full bg-moss-1 z-10",
+                style: "left: {input_pos.0}px; top: {input_pos.1}px; min-width: {port_diameter}px; min-height: {port_diameter}px;",
+                prevent_default: "onmouseup",
+                onmouseup: move |_event|  {
+                    let dragged = &mut *dragged_edge.write();
+                    if let Some(DraggedEdge{from_node, ..}) = dragged {
+                        graph.write().add_edge(*from_node, id);
+                        *dragged = None;
+                    }
+                }
+            }
+        },
+    };
+    let output = match config.output() {
+        SectionIO::None => None,
+        _ => rsx! {
+            div {
+                class: "absolute block rounded-full bg-forest-2 z-10",
+                style: "left: {output_pos.0}px; top: {output_pos.1}px; min-width: {port_diameter}px; min-height: {port_diameter}px;",
+                prevent_default: "onmousedown",
+                onmousedown: move |event| {
+                    if dragged_edge.read().is_none() && dragged_node.read().is_none() {
+                        let coords = event.client_coordinates();
+                        *dragged_edge.write() = Some(DraggedEdge::new(id, coords.x, coords.y));
+                    }
+                },
+            }
+        },
+    };
 
     rsx! {
         div {
@@ -198,32 +248,8 @@ fn Node(
                 }
             }
         }
-
-        // input node
-        div {
-            class: "absolute block rounded-full bg-moss-1 z-10",
-            style: "left: {input_pos.0}px; top: {input_pos.1}px; min-width: {port_diameter}px; min-height: {port_diameter}px;",
-            prevent_default: "onmouseup",
-            onmouseup: move |_event|  {
-                let dragged = &mut *dragged_edge.write();
-                if let Some(DraggedEdge{from_node, ..}) = dragged {
-                    graph.write().add_edge(*from_node, id);
-                    *dragged = None;
-                }
-            }
-        },
-        // output node
-        div {
-            class: "absolute block rounded-full bg-forest-2 z-10",
-            style: "left: {output_pos.0}px; top: {output_pos.1}px; min-width: {port_diameter}px; min-height: {port_diameter}px;",
-            prevent_default: "onmousedown",
-            onmousedown: move |event| {
-                if dragged_edge.read().is_none() && dragged_node.read().is_none() {
-                    let coords = event.client_coordinates();
-                    *dragged_edge.write() = Some(DraggedEdge::new(id, coords.x, coords.y));
-                }
-            },
-        }
+        {input}
+        {output}
     }
 }
 
@@ -297,15 +323,15 @@ fn ViewPort(
 
             prevent_default: "ondrop",
             ondrop: move |event| {
-                if let Some(DraggedMenuItem{ node_type, delta_x, delta_y }) = &*dragged_menu_item.read() {
+                if let Some(DraggedMenuItem{ metadata, delta_x, delta_y }) = &*dragged_menu_item.read() {
                     let graph = &mut*graph.write();
                     let id = graph.get_id();
                     let coords = event.client_coordinates();
                     let vps_ref = &*view_port_state.read();
-                    let config = app.read().build_config(&node_type);
+                    let config = app.read().build_config(&metadata.ty);
                     let node_state = Signal::new(NodeState::new(
                         id,
-                        node_type.to_string(),
+                        metadata.ty.to_string(),
                         coords.x - *delta_x - vps_ref.delta_x(),
                         coords.y - *delta_y - vps_ref.delta_y(),
                         config,
@@ -508,15 +534,15 @@ fn Edges(
 
 #[derive(Debug, Clone)]
 struct DraggedMenuItem {
-    node_type: String,
+    metadata: ConfigMetaData,
     delta_x: f64,
     delta_y: f64,
 }
 
 impl DraggedMenuItem {
-    fn new(node_type: String, delta_x: f64, delta_y: f64) -> Self {
+    fn new(metadata: ConfigMetaData, delta_x: f64, delta_y: f64) -> Self {
         Self {
-            node_type,
+            metadata,
             delta_x,
             delta_y,
         }
@@ -579,7 +605,7 @@ pub fn Workspace(workspace: String) -> Element {
     let mut dragged_edge: Signal<Option<DraggedEdge>> = use_signal(|| None);
     let mut selected_node: Signal<Option<Signal<NodeState>>> = use_signal(|| None);
     let view_port_state = use_signal(ViewPortState::new);
-    let menu_items = app.read().menu_items();
+    let menu_items = app.read().menu_items().collect::<Vec<ConfigMetaData>>();
 
     rsx! {
         div {
@@ -636,8 +662,8 @@ pub fn Workspace(workspace: String) -> Element {
                             class: "justify-self-center mt-3",
                             "Pipeline Sections"
                         }
-                        for node_type in menu_items {
-                            MenuItem { node_type, dragged_menu_item }
+                        for metadata in menu_items {
+                            MenuItem { metadata, dragged_menu_item }
                         }
                     }
                 }

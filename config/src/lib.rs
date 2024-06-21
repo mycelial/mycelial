@@ -15,6 +15,12 @@ pub enum SectionIO {
     DataFrame,
 }
 
+impl SectionIO {
+    pub fn is_none(self) -> bool {
+        SectionIO::None == self
+    }
+}
+
 pub type StdError = Box<dyn std::error::Error + Send + Sync + 'static>;
 pub trait Config: std::fmt::Debug {
     fn name(&self) -> &str;

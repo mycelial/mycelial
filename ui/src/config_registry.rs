@@ -1,7 +1,7 @@
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, rc::Rc};
 
-use config::prelude::*;
 use crate::Result;
+use config::prelude::*;
 
 #[derive(Debug, Default, Config)]
 #[section(output=dataframe)]
@@ -17,7 +17,6 @@ pub struct ConfigExample {
     query: String,
 }
 
-
 #[derive(Debug, Default, Config)]
 #[section(input=dataframe)]
 pub struct ConfigExampleSecond {
@@ -32,37 +31,61 @@ pub type ConfigConstructor = fn() -> Box<dyn config::Config>;
 
 #[derive(Debug)]
 pub struct ConfigRegistry {
-    registry: BTreeMap<String, ConfigConstructor>
+    registry: BTreeMap<Rc<str>, ConfigConstructor>,
+    metadata: BTreeMap<Rc<str>, ConfigMetaData>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ConfigMetaData {
+    pub input: bool,
+    pub output: bool,
+    pub ty: Rc<str>,
+}
+
+impl Default for ConfigRegistry {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl ConfigRegistry {
     pub fn new() -> Self {
         let mut s = Self {
-            registry: BTreeMap::new()
+            registry: BTreeMap::new(),
+            metadata: BTreeMap::new(),
         };
-        s.add_config(|| Box::from(ConfigExample::default())).unwrap();
-        s.add_config(|| Box::from(ConfigExampleSecond::default())).unwrap();
+        s.add_config(|| Box::from(ConfigExample::default()))
+            .unwrap();
+        s.add_config(|| Box::from(ConfigExampleSecond::default()))
+            .unwrap();
         s
     }
-    
+
     pub fn add_config(&mut self, ctor: ConfigConstructor) -> Result<()> {
         let config = ctor();
-        let name = config.name();
-        if let Some(_) = self.registry.get(name) {
+        let name: Rc<str> = Rc::from(config.name());
+        let (input, output) = (config.input().is_none(), config.output().is_none());
+        let metadata = ConfigMetaData {
+            input,
+            output,
+            ty: Rc::clone(&name),
+        };
+        if self.registry.get(&*name).is_some() {
             Err(format!("{name} already present"))?
         };
-        self.registry.insert(name.into(), ctor);
+        self.registry.insert(Rc::clone(&name), ctor);
+        self.metadata.insert(name, metadata);
         Ok(())
     }
-    
-    pub fn keys(&self) -> impl Iterator<Item=&str> {
-        self.registry.keys().map(|key| key.as_str())
+
+    pub fn menu_items(&self) -> impl Iterator<Item = ConfigMetaData> + '_ {
+        self.metadata.values().cloned()
     }
-    
+
     pub fn build_config(&self, name: &str) -> Result<Box<dyn config::Config>> {
         match self.registry.get(name) {
             Some(ctor) => Ok(ctor()),
-            None => Err(format!("no config constructor for {name} found"))?
+            None => Err(format!("no config constructor for {name} found"))?,
         }
     }
 }
