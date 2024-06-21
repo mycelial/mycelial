@@ -163,6 +163,10 @@ fn Node(
             },
             prevent_default: "onmouseover",
             onmouseover: move |_event| {
+                // if node doesn't have input - do nothing
+                if node.read().config.input().is_none() {
+                    return
+                }
                 let dragged = &mut *dragged_edge.write();
                 if let Some(dragged) = dragged {
                     dragged.to_node = Some(id);
@@ -188,6 +192,10 @@ fn Node(
             },
             prevent_default: "onmouseup",
             onmouseup: move |_event|  {
+                // if node doesn't have input - do nothing
+                if node.read().config.input().is_none() {
+                    return
+                }
                 let dragged = &mut *dragged_edge.write();
                 if let Some(DraggedEdge{from_node, ..}) = dragged {
                     graph.write().add_edge(*from_node, id);
@@ -655,7 +663,7 @@ pub fn Workspace(workspace: String) -> Element {
             // section menu
             div {
                 div {
-                    class: "h-screen overflow-none select-none z-[100] min-w-96 max-w-96",
+                    class: "h-[calc(100vh-200px)] overflow-none select-none z-[100] min-w-96 max-w-96",
                     div {
                         class: "border border-solid overflow-y-scroll bg-white grid grid-flow-rows gap-y-3 md:px-2 h-max-screen",
                         h2 {
@@ -671,7 +679,7 @@ pub fn Workspace(workspace: String) -> Element {
             // viewport
             div {
                 id: "mycelial-viewport",
-                class: "h-full w-full scroll-none overflow-hidden",
+                class: "h-[calc(100vh-200px) w-full scroll-none overflow-hidden",
                 ViewPort {
                     graph,
                     view_port_state,
