@@ -9,8 +9,7 @@ use chrono::{DateTime, NaiveDateTime, Utc};
 use derive_trait::derive_trait;
 use futures::{future::BoxFuture, StreamExt};
 use sea_query::{
-    Expr, Iden, Order, PostgresQueryBuilder, Query, QueryBuilder, SchemaBuilder,
-    SqliteQueryBuilder,
+    Expr, Iden, Order, PostgresQueryBuilder, Query, QueryBuilder, SchemaBuilder, SqliteQueryBuilder,
 };
 use sea_query_binder::{SqlxBinder, SqlxValues};
 use sqlx::{
@@ -22,10 +21,10 @@ use uuid::Uuid;
 use super::model;
 
 // FIXME: pool options and configurable pool size
-pub async fn new(url: &str) -> Result<Box<dyn DbTrait>> {
-    let mut url = url::Url::parse(url)?;
-    let mut params: HashMap<Cow<str>, Cow<str>> = url.query_pairs().collect();
-    let db: Box<dyn DbTrait> = match url.scheme() {
+pub async fn new(database_url: &str) -> Result<Box<dyn DbTrait>> {
+    let mut database_url = url::Url::parse(database_url)?;
+    let mut params: HashMap<Cow<str>, Cow<str>> = database_url.query_pairs().collect();
+    let db: Box<dyn DbTrait> = match database_url.scheme() {
         "sqlite" => {
             // FIXME: move to util or smth?
             // without "mode=rwc" sqlite will bail if database file is not present
@@ -40,10 +39,10 @@ pub async fn new(url: &str) -> Result<Box<dyn DbTrait>> {
                 .map(|(key, value)| format!("{key}={value}"))
                 .collect::<Vec<_>>()
                 .join("&");
-            url.set_query(Some(&query));
+            database_url.set_query(Some(&query));
             Box::new(
                 Db::<Sqlite>::new(
-                    url.as_ref(),
+                    database_url.as_ref(),
                     Box::new(SqliteQueryBuilder),
                     Box::new(SqliteQueryBuilder),
                 )
@@ -52,7 +51,7 @@ pub async fn new(url: &str) -> Result<Box<dyn DbTrait>> {
         }
         "postgres" => Box::new(
             Db::<Postgres>::new(
-                url.as_ref(),
+                database_url.as_ref(),
                 Box::new(PostgresQueryBuilder),
                 Box::new(PostgresQueryBuilder),
             )

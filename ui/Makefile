@@ -6,8 +6,7 @@ dev:
 watch-tailwind:
 	npx tailwind -i tailwind/input.css -c tailwind/tailwind.config.js -o assets/tailwind.css --watch -m
 
-
-.PHONY: release
+.PHONY: build
 build:
 	npx tailwind -i tailwind/input.css -c tailwind/tailwind.config.js -o assets/tailwind.css -m
-	dx build
+	dx build -r

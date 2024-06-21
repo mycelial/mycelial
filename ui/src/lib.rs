@@ -1,5 +1,6 @@
 pub mod components;
 pub mod model;
+pub mod config_registry;
 
 pub type StdError = Box<dyn std::error::Error + Send + Sync + 'static>;
 

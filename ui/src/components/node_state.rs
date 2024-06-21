@@ -3,66 +3,7 @@ use std::{cell::RefCell, collections::HashMap, rc::Rc};
 pub use config::prelude::*;
 pub use dioxus::prelude::*;
 
-pub type NodeType = std::borrow::Cow<'static, str>;
-pub type Result<T, E = Box<dyn std::error::Error + Send + Sync + 'static>> =
-    std::result::Result<T, E>;
-
-#[derive(Debug, Default, Config)]
-#[section(input=dataframe, output=dataframe)]
-pub struct ConfigExample {
-    host: String,
-    #[validate(min = 1)]
-    port: u16,
-    user: String,
-    #[field_type(password)]
-    password: String,
-    database: String,
-    truncate: bool,
-    #[field_type(text_area)]
-    query: String,
-}
-
-pub struct ConfigRegistry {}
-
-#[derive(Debug, serde::Serialize, serde::Deserialize)]
-pub struct NodeState {
-    pub id: u64,
-    pub x: f64,
-    pub y: f64,
-    #[serde(skip)]
-    pub w: f64,
-    #[serde(skip)]
-    pub h: f64,
-    #[serde(skip)]
-    pub port_diameter: f64,
-    pub node_type: NodeType,
-    pub config: Box<dyn config::Config>,
-}
-
-impl NodeState {
-    pub fn new(id: u64, node_type: NodeType, x: f64, y: f64) -> Self {
-        Self {
-            id,
-            node_type,
-            x,
-            y,
-            w: 0.0,
-            h: 0.0,
-            port_diameter: 12.0,
-            config: Box::<ConfigExample>::default(),
-        }
-    }
-
-    pub fn input_pos(&self) -> (f64, f64) {
-        let offset = self.port_diameter / 2.0;
-        (self.x - offset, self.y + self.h / 2.0 - offset)
-    }
-
-    pub fn output_pos(&self) -> (f64, f64) {
-        let offset = self.port_diameter / 2.0;
-        (self.x - offset + self.w, self.y + self.h / 2.0 - offset)
-    }
-}
+use crate::model::NodeState;
 
 // Internal form state to keep track of values and validation
 #[derive(Clone)]
@@ -114,11 +55,8 @@ impl FormState {
 
     fn update_value(&mut self, field_name: &str, value: String) {
         let mut borrow = self.fields.borrow_mut();
-        match borrow.get_mut(field_name) {
-            Some(entry) => {
-                *entry = value;
-            }
-            None => (),
+        if let Some(entry) = borrow.get_mut(field_name) {
+            *entry = value;
         }
     }
 }
@@ -155,7 +93,8 @@ pub fn NodeStateForm(selected_node: Signal<Option<Signal<NodeState>>>) -> Elemen
     // This hashmap will be used as a temporary state holder, which will allow
     // to not update values of the config until 'save' button is pressed
     let mut form_state: Signal<Option<FormState>> = use_signal(|| None);
-    if form_state.read().is_none() {
+    // Peeking to avoid re-render on write
+    if form_state.peek().is_none() {
         *form_state.write() = Some(FormState::new(node_state));
     }
     let fs = form_state.read().as_ref().map(|form| form.clone()).unwrap();

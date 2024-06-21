@@ -12,9 +12,9 @@ pub(crate) struct App {
 }
 
 impl App {
-    pub async fn new(connection_string: &str) -> Result<Self> {
+    pub async fn new(database_url: &str) -> Result<Self> {
         Ok(Self {
-            db: Arc::from(db::new(connection_string).await?),
+            db: Arc::from(db::new(database_url).await?),
         })
     }
 

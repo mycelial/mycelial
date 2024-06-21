@@ -1,6 +1,8 @@
+use crate::components::app::AppState;
 use crate::components::graph::Graph as GenericGraph;
 use crate::components::icons::{Delete, Edit, Pause, Play, Restart};
-use crate::components::node_state::{NodeState, NodeStateForm};
+use crate::components::node_state::NodeStateForm;
+use crate::model::NodeState;
 use dioxus::prelude::*;
 
 pub type Graph = GenericGraph<Signal<NodeState>>;
@@ -8,7 +10,7 @@ pub type Graph = GenericGraph<Signal<NodeState>>;
 // representation of section in sections menu, which can be dragged into viewport container
 #[component]
 fn MenuItem(
-    node_type: &'static str,
+    node_type: String,
     mut dragged_menu_item: Signal<Option<DraggedMenuItem>>,
 ) -> Element {
     let mut rect_data = use_signal(|| (0.0, 0.0, 0.0, 0.0));
@@ -32,7 +34,7 @@ fn MenuItem(
                 let (x, y, _, _) = *rect_data.read();
                 let coords = event.client_coordinates();
                 let (delta_x, delta_y) = (coords.x - x, coords.y - y);
-                *dragged_menu_item.write() = Some(DraggedMenuItem::new(node_type, delta_x, delta_y));
+                *dragged_menu_item.write() = Some(DraggedMenuItem::new(node_type.clone(), delta_x, delta_y));
             },
             ondragend: move |_event| {
                 *dragged_menu_item.write() = None;
@@ -41,7 +43,7 @@ fn MenuItem(
                 class: "grid grid-flow-col",
                 p {
                     class: "uppercase inline",
-                    "name of section with ID {node_type}"
+                    "{node_type}"
                 }
                 span {
                     class: "justify-self-end",
@@ -58,10 +60,7 @@ fn MenuItem(
                 }
             }
             div {
-                "Type: Type of connector goes here {node_type}"
-            }
-            div {
-                "Daemon: Name of daemon goes here {node_type}"
+                "Type: {node_type}"
             }
         }
     }
@@ -147,7 +146,7 @@ fn Node(
             },
             div {
                 class: "pt-5 uppercase",
-                "Name of Section with id {id}"
+                "{id}"
             }
             div {
                 class: "text-night-2",
@@ -268,6 +267,7 @@ fn ViewPort(
     dragged_edge: Signal<Option<DraggedEdge>>,
     selected_node: Signal<Option<Signal<NodeState>>>,
 ) -> Element {
+    let app = use_context::<Signal<AppState>>();
     let mut grab_point = use_signal(|| (0.0, 0.0));
     let state_ref = &*view_port_state.read();
     rsx! {
@@ -297,17 +297,18 @@ fn ViewPort(
 
             prevent_default: "ondrop",
             ondrop: move |event| {
-                let dragged = *dragged_menu_item.read();
-                if let Some(DraggedMenuItem{ node_type, delta_x, delta_y }) = dragged {
+                if let Some(DraggedMenuItem{ node_type, delta_x, delta_y }) = &*dragged_menu_item.read() {
                     let graph = &mut*graph.write();
                     let id = graph.get_id();
                     let coords = event.client_coordinates();
                     let vps_ref = &*view_port_state.read();
+                    let config = app.read().build_config(&node_type);
                     let node_state = Signal::new(NodeState::new(
                         id,
-                        node_type.into(),
-                        coords.x - delta_x - vps_ref.delta_x(),
-                        coords.y - delta_y - vps_ref.delta_y(),
+                        node_type.to_string(),
+                        coords.x - *delta_x - vps_ref.delta_x(),
+                        coords.y - *delta_y - vps_ref.delta_y(),
+                        config,
                     ));
                     graph.add_node(id, node_state);
                 }
@@ -505,15 +506,15 @@ fn Edges(
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 struct DraggedMenuItem {
-    node_type: &'static str,
+    node_type: String,
     delta_x: f64,
     delta_y: f64,
 }
 
 impl DraggedMenuItem {
-    fn new(node_type: &'static str, delta_x: f64, delta_y: f64) -> Self {
+    fn new(node_type: String, delta_x: f64, delta_y: f64) -> Self {
         Self {
             node_type,
             delta_x,
@@ -571,15 +572,14 @@ impl DraggedEdge {
 
 #[component]
 pub fn Workspace(workspace: String) -> Element {
+    let app = use_context::<Signal<AppState>>();
     let graph: Signal<Graph> = use_signal(Graph::new);
     let dragged_menu_item: Signal<Option<DraggedMenuItem>> = use_signal(|| None);
     let mut dragged_node: Signal<Option<DraggedNode>> = use_signal(|| None);
     let mut dragged_edge: Signal<Option<DraggedEdge>> = use_signal(|| None);
     let mut selected_node: Signal<Option<Signal<NodeState>>> = use_signal(|| None);
     let view_port_state = use_signal(ViewPortState::new);
-    let menu_items = [
-        "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten",
-    ];
+    let menu_items = app.read().menu_items();
 
     rsx! {
         div {
@@ -631,12 +631,12 @@ pub fn Workspace(workspace: String) -> Element {
                 div {
                     class: "h-screen overflow-none select-none z-[100] min-w-96 max-w-96",
                     div {
-                        class: "border border-solid overflow-y-scroll bg-white grid grid-flow-rows gap-y-3 md:px-2 h-full",
+                        class: "border border-solid overflow-y-scroll bg-white grid grid-flow-rows gap-y-3 md:px-2 h-max-screen",
                         h2 {
                             class: "justify-self-center mt-3",
                             "Pipeline Sections"
                         }
-                        for node_type in menu_items.iter() {
+                        for node_type in menu_items {
                             MenuItem { node_type, dragged_menu_item }
                         }
                     }

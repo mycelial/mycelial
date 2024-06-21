@@ -1,9 +1,37 @@
-use crate::{components::routing::Route, model, Result};
+use crate::{components::routing::Route, config_registry::ConfigRegistry, model, Result};
 use dioxus::prelude::*;
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug)]
 pub struct AppState {
     location: url::Url,
+    config_registry: ConfigRegistry,
+}
+
+impl AppState {
+    pub fn new() -> Self {
+        let location: String = web_sys::window().unwrap().location().to_string().into();
+        Self {
+            location: location.parse().unwrap(),
+            config_registry: ConfigRegistry::new(),
+        }
+    }
+
+    fn get_url(&self, path: impl AsRef<str>) -> Result<url::Url> {
+        Ok(self.location.join(path.as_ref())?)
+    }
+}
+
+// ConfigRegistry API
+impl AppState {
+    pub fn menu_items(&self) -> Vec<String> {
+        self.config_registry.keys().map(|key| key.to_string()).collect()
+    }
+    
+    pub fn build_config(&self, name: &str) -> Box<dyn config::Config> {
+        // FIXME: properly deal with missing config constructors
+        self.config_registry.build_config(name).expect("no config constructor found")
+    }
 }
 
 // Workspaces API
@@ -47,26 +75,55 @@ impl AppState {
     }
 }
 
-impl Default for AppState {
-    fn default() -> Self {
-        Self::new()
+// Workspace API
+const WORKSPACE_API: &str = "/api/workspace";
+
+#[derive(Debug)]
+pub struct WorkspaceRequestBuilder<'a> {
+    app: &'a AppState,
+    operations: Vec<WorkspaceOperation>,
+}
+
+impl<'a> WorkspaceRequestBuilder<'a> {
+    pub fn new(app: &'a AppState) -> Self {
+        Self {
+            app,
+            operations: Vec::new(),
+        }
     }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub enum WorkspaceOperation {
+    AddNode {},
+    UpdateNode {},
+    RemoveNode {},
+    AddEdge {},
+    RemoveEdge {},
 }
 
 impl AppState {
-    pub fn new() -> Self {
-        let location: String = web_sys::window().unwrap().location().to_string().into();
-        Self {
-            location: location.parse().unwrap(),
-        }
+    pub fn add_node(&self) -> WorkspaceRequestBuilder<'_> {
+        WorkspaceRequestBuilder::new(self)
     }
 
-    fn get_url(&self, path: impl AsRef<str>) -> Result<url::Url> {
-        let res = self.location.join(path.as_ref())?;
-        tracing::info!("res: {:?}", res);
-        Ok(res)
+    pub fn update_node(&self) -> WorkspaceRequestBuilder<'_> {
+        WorkspaceRequestBuilder::new(self)
+    }
+
+    pub fn remove_node(&self) -> WorkspaceRequestBuilder<'_> {
+        WorkspaceRequestBuilder::new(self)
+    }
+
+    pub fn add_edge(&self) -> WorkspaceRequestBuilder<'_> {
+        WorkspaceRequestBuilder::new(self)
+    }
+
+    pub fn remove_edge(&self) -> WorkspaceRequestBuilder<'_> {
+        WorkspaceRequestBuilder::new(self)
     }
 }
+
 
 pub fn App() -> Element {
     // top level state

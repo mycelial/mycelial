@@ -7,12 +7,12 @@ pub struct Cli {
     listen_addr: String,
 
     #[clap(short, long, default_value = "sqlite://control_plane.db")]
-    connection_string: String,
+    database_url: String,
 }
 
 #[tokio::main]
 async fn main() -> Result<()> {
     let cli = Cli::try_parse()?;
     tracing_subscriber::fmt().with_ansi(false).init();
-    control_plane::run(cli.listen_addr.as_str(), cli.connection_string.as_str()).await
+    control_plane::run(cli.listen_addr.as_str(), cli.database_url.as_str()).await
 }
