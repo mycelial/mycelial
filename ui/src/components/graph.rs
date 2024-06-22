@@ -1,5 +1,13 @@
 use std::collections::{BTreeMap, HashSet};
 
+#[derive(Debug, Clone, Copy)]
+pub enum GraphOperation<T> {
+    AddNode(u64),
+    AddEdge(u64, u64),
+    RemoveNode(T),
+    RemoveEdge(u64, u64),
+}
+
 // Simple graph
 #[derive(Debug)]
 pub struct Graph<T: std::fmt::Debug> {
@@ -38,10 +46,12 @@ impl<T: std::fmt::Debug + Clone> Graph<T> {
         self.nodes.get(&id)
     }
 
-    pub fn remove_node(&mut self, id: u64) {
-        self.nodes.remove(&id);
+    pub fn remove_node(&mut self, id: u64) -> Vec<GraphOperation<T>> {
+        let mut ops = vec![];
+        self.nodes.remove(&id).map(GraphOperation::RemoveNode).map(|op| ops.push(op));
         self.remove_edge(id);
         self.remove_edge_to(id);
+        ops
     }
 
     pub fn iter_nodes(&self) -> impl Iterator<Item = (u64, &T)> + Clone + '_ {
@@ -53,19 +63,19 @@ impl<T: std::fmt::Debug + Clone> Graph<T> {
     }
 
     // This function adds an edge from `from_node` to `to_node`.
-    pub fn add_edge(&mut self, from_node: u64, to_node: u64) {
+    pub fn add_edge(&mut self, from_node: u64, to_node: u64) -> Option<u64> {
         if from_node == to_node {
-            return;
+            return None;
         }
         let mut visited = HashSet::<u64>::from_iter([from_node, to_node]);
         let mut next = to_node;
         while let Some(node) = self.edges.get(&next).copied() {
             if !visited.insert(node) {
-                return;
+                return None;
             };
             next = node;
         }
-        self.edges.insert(from_node, to_node);
+        self.edges.insert(from_node, to_node)
     }
 
     pub fn get_child_node(&self, from_node: u64) -> Option<&T> {
@@ -81,8 +91,8 @@ impl<T: std::fmt::Debug + Clone> Graph<T> {
             .map(|(from_node, _)| self.get_node(from_node).unwrap())
     }
 
-    pub fn remove_edge(&mut self, from_node: u64) {
-        self.edges.remove(&from_node);
+    pub fn remove_edge(&mut self, from_node: u64) -> Option<u64> {
+        self.edges.remove(&from_node)
     }
 
     pub fn edge_count(&self) -> usize {

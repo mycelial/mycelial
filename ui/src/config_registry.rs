@@ -31,8 +31,7 @@ pub type ConfigConstructor = fn() -> Box<dyn config::Config>;
 
 #[derive(Debug)]
 pub struct ConfigRegistry {
-    registry: BTreeMap<Rc<str>, ConfigConstructor>,
-    metadata: BTreeMap<Rc<str>, ConfigMetaData>,
+    registry: BTreeMap<Rc<str>, ConfigMetaData>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -40,6 +39,13 @@ pub struct ConfigMetaData {
     pub input: bool,
     pub output: bool,
     pub ty: Rc<str>,
+    ctor: ConfigConstructor,
+}
+
+impl ConfigMetaData {
+    pub fn build_config(&self) -> Box<dyn config::Config> {
+        (self.ctor)()
+    }
 }
 
 impl Default for ConfigRegistry {
@@ -52,7 +58,6 @@ impl ConfigRegistry {
     pub fn new() -> Self {
         let mut s = Self {
             registry: BTreeMap::new(),
-            metadata: BTreeMap::new(),
         };
         s.add_config(|| Box::from(ConfigExample::default()))
             .unwrap();
@@ -69,22 +74,22 @@ impl ConfigRegistry {
             input,
             output,
             ty: Rc::clone(&name),
+            ctor,
         };
         if self.registry.get(&*name).is_some() {
             Err(format!("{name} already present"))?
         };
-        self.registry.insert(Rc::clone(&name), ctor);
-        self.metadata.insert(name, metadata);
+        self.registry.insert(Rc::clone(&name), metadata);
         Ok(())
     }
 
     pub fn menu_items(&self) -> impl Iterator<Item = ConfigMetaData> + '_ {
-        self.metadata.values().cloned()
+        self.registry.values().cloned()
     }
 
     pub fn build_config(&self, name: &str) -> Result<Box<dyn config::Config>> {
         match self.registry.get(name) {
-            Some(ctor) => Ok(ctor()),
+            Some(metadata) => Ok(metadata.build_config()),
             None => Err(format!("no config constructor for {name} found"))?,
         }
     }
