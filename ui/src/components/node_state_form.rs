@@ -1,4 +1,4 @@
-use std::{cell::RefCell, collections::HashMap, rc::Rc};
+use std::collections::HashMap;
 
 pub use config::prelude::*;
 pub use dioxus::prelude::*;
@@ -9,7 +9,7 @@ use crate::model::NodeState;
 #[derive(Clone)]
 struct FormState {
     config: Signal<NodeState>,
-    fields: Rc<RefCell<HashMap<String, String>>>,
+    fields: HashMap<String, String>,
 }
 
 impl FormState {
@@ -23,14 +23,13 @@ impl FormState {
             .collect();
         Self {
             config,
-            fields: Rc::new(RefCell::new(fields)),
+            fields,
         }
     }
 
     // check if field is valid
     fn is_field_valid(&self, field_name: &str) -> bool {
-        let borrow = self.fields.borrow();
-        let value = match borrow.get(field_name) {
+        let value = match self.fields.get(field_name) {
             Some(value) => value,
             None => {
                 tracing::error!("no field with name {field_name} found");
@@ -46,16 +45,14 @@ impl FormState {
 
     // check if form is valid
     fn is_valid(&self) -> bool {
-        let borrow = self.fields.borrow();
         let config = &self.config.read().config;
-        borrow
+        self.fields
             .iter()
             .all(|(key, value)| config.validate_field(key, value).is_ok())
     }
 
     fn update_value(&mut self, field_name: &str, value: String) {
-        let mut borrow = self.fields.borrow_mut();
-        if let Some(entry) = borrow.get_mut(field_name) {
+        if let Some(entry) = self.fields.get_mut(field_name) {
             *entry = value;
         }
     }
@@ -66,8 +63,7 @@ impl IntoIterator for FormState {
     type Item = (String, String);
 
     fn into_iter(self) -> Self::IntoIter {
-        let inner = self.fields.take();
-        inner.into_iter()
+        self.fields.into_iter()
     }
 }
 
@@ -84,10 +80,10 @@ pub fn NodeStateForm(selected_node: Signal<Option<Signal<NodeState>>>) -> Elemen
     };
     let NodeState {
         id,
-        ref node_type,
         ref config,
         ..
     } = *node_state.read();
+    let node_type = config.name();
 
     // Create hashmap with field names => field values from node config.
     // This hashmap will be used as a temporary state holder, which will allow

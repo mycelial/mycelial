@@ -68,19 +68,24 @@ impl<T: std::fmt::Debug + Clone> Graph<T> {
     }
 
     // This function adds an edge from `from_node` to `to_node`.
-    pub fn add_edge(&mut self, from_node: u64, to_node: u64) -> Option<u64> {
+    pub fn add_edge(&mut self, from_node: u64, to_node: u64) -> Vec<GraphOperation<T>> {
+        let mut ops= vec![];
         if from_node == to_node {
-            return None;
+            return ops;
         }
         let mut visited = HashSet::<u64>::from_iter([from_node, to_node]);
         let mut next = to_node;
         while let Some(node) = self.edges.get(&next).copied() {
             if !visited.insert(node) {
-                return None;
+                return ops;
             };
             next = node;
         }
-        self.edges.insert(from_node, to_node)
+        if let Some(prev_node) = self.edges.insert(from_node, to_node) {
+            ops.push(GraphOperation::RemoveEdge(from_node, prev_node));
+        }
+        ops.push(GraphOperation::AddEdge(from_node, to_node));
+        ops
     }
 
     pub fn get_child_node(&self, from_node: u64) -> Option<&T> {

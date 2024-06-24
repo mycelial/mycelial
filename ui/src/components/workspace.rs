@@ -3,7 +3,7 @@ use std::rc::Rc;
 use crate::components::app::AppState;
 use crate::components::graph::Graph as GenericGraph;
 use crate::components::icons::{Delete, Edit, Pause, Play, Restart};
-use crate::components::node_state::NodeStateForm;
+use crate::components::node_state_form::NodeStateForm;
 use crate::config_registry::ConfigMetaData;
 use crate::model::NodeState;
 use config::SectionIO;
@@ -94,9 +94,8 @@ fn Node(
 ) -> Element {
     // current node coordinates, coordinates on input and output ports
     let node_ref = &*node.read();
-    let (id, node_type, x, y, _w, _h, port_diameter, config, input_pos, output_pos) = (
+    let (id, x, y, _w, _h, port_diameter, config, input_pos, output_pos) = (
         node_ref.id,
-        node_ref.node_type.clone(),
         node_ref.x,
         node_ref.y,
         node_ref.w,
@@ -106,6 +105,7 @@ fn Node(
         node_ref.input_pos(),
         node_ref.output_pos(),
     );
+    let node_type = config.name();
 
     let mut is_playing = use_signal(|| false);
 
@@ -115,11 +115,11 @@ fn Node(
             div {
                 class: "absolute block rounded-full bg-moss-1 z-10",
                 style: "left: {input_pos.0}px; top: {input_pos.1}px; min-width: {port_diameter}px; min-height: {port_diameter}px;",
-                prevent_default: "onmouseup",
                 onmouseup: move |_event|  {
                     let dragged = &mut *dragged_edge.write();
                     if let Some(DraggedEdge{from_node, ..}) = dragged {
-                        graph.write().add_edge(*from_node, id);
+                        let op = graph.write().add_edge(*from_node, id);
+                        tracing::info!("add edge op: {:?}", op);
                         *dragged = None;
                     }
                 }
@@ -132,7 +132,6 @@ fn Node(
             div {
                 class: "absolute block rounded-full bg-forest-2 z-10",
                 style: "left: {output_pos.0}px; top: {output_pos.1}px; min-width: {port_diameter}px; min-height: {port_diameter}px;",
-                prevent_default: "onmousedown",
                 onmousedown: move |event| {
                     if dragged_edge.read().is_none() && dragged_node.read().is_none() {
                         let coords = event.client_coordinates();
@@ -161,7 +160,6 @@ fn Node(
                     }
                 });
             },
-            prevent_default: "onmouseover",
             onmouseover: move |_event| {
                 // if node doesn't have input - do nothing
                 if node.read().config.input().is_none() {
@@ -172,14 +170,11 @@ fn Node(
                     dragged.to_node = Some(id);
                 }
             },
-            prevent_default: "onmouseout",
-            onmouseout: move |_event| {
-                let dragged = &mut *dragged_edge.write();
-                if let Some(dragged) = dragged {
-                    dragged.to_node = None
-                }
+            onmouseout: move |_event| { 
+                if let Some(dragged) = &mut *dragged_edge.write() {
+                    dragged.to_node.take();
+                } 
             },
-            prevent_default: "onmousedown",
             onmousedown: move |event| {
                 if dragged_node.read().is_none() {
                     let coords = event.client_coordinates();
@@ -190,16 +185,15 @@ fn Node(
                     *dragged_node.write() = Some(DraggedNode::new(node, delta_x, delta_y));
                 }
             },
-            prevent_default: "onmouseup",
             onmouseup: move |_event|  {
                 // if node doesn't have input - do nothing
                 if node.read().config.input().is_none() {
                     return
                 }
                 let dragged = &mut *dragged_edge.write();
-                if let Some(DraggedEdge{from_node, ..}) = dragged {
-                    graph.write().add_edge(*from_node, id);
-                    *dragged = None;
+                if let Some(DraggedEdge{from_node, ..}) = dragged.take() {
+                    let op = graph.write().add_edge(from_node, id);
+                    tracing::info!("add edge: {op:?}");
                 }
             },
             div {
@@ -329,7 +323,6 @@ fn ViewPort(
             },
 
 
-            prevent_default: "ondrop",
             ondrop: move |event| {
                 if let Some(DraggedMenuItem{ metadata, delta_x, delta_y }) = &*dragged_menu_item.read() {
                     let graph = &mut*graph.write();
@@ -339,17 +332,16 @@ fn ViewPort(
                     let config = app.read().build_config(&metadata.ty);
                     let node_state = Signal::new(NodeState::new(
                         id,
-                        metadata.ty.to_string(),
                         coords.x - *delta_x - vps_ref.delta_x(),
                         coords.y - *delta_y - vps_ref.delta_y(),
                         config,
                     ));
-                    graph.add_node(id, node_state);
+                    let op = graph.add_node(id, node_state);
+                    tracing::info!("add node op: {op:?}");
                 }
                 *dragged_menu_item.write() = None;
             },
 
-            prevent_default: "onmousedown",
             onmousedown: move |event| {
                 // if node or edge is currently dragged or node selected - do nothing
                 if dragged_edge.read().is_some() || dragged_node.read().is_some() || selected_node.read().is_some() {
@@ -362,7 +354,6 @@ fn ViewPort(
                 state.grabbed = true;
             },
 
-            prevent_default: "onmousemove",
             onmousemove: move |event| {
                 // if node or edge is currently dragged or node selected - do nothing
                 if dragged_edge.read().is_some() || dragged_node.read().is_some() || selected_node.read().is_some() {
@@ -377,7 +368,6 @@ fn ViewPort(
                 }
             },
 
-            prevent_default: "onmouseup",
             onmouseup: move |_event| {
                 view_port_state.write().grabbed = false;
             },
@@ -620,6 +610,7 @@ pub fn Workspace(workspace: String) -> Element {
             onmouseup: move |_event|  {
                 if dragged_node.read().is_some() {
                     *dragged_node.write() = None;
+                    // FIXME: add update operation
                 }
                 if dragged_edge.read().is_some() {
                     *dragged_edge.write() = None;
@@ -642,7 +633,6 @@ pub fn Workspace(workspace: String) -> Element {
             class: "grid",
             style: "grid-template-columns: auto 1fr;", // exception to Tailwind only bc TW doesn't have classes to customize column widths
             div {
-                prevent_default: "onclick",
                 onclick: move |_| {
                     selected_node.set(None);
                 },

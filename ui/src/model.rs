@@ -18,21 +18,18 @@ pub struct NodeState {
     pub h: f64,
     #[serde(skip)]
     pub port_diameter: f64,
-    pub node_type: String,
     pub config: Box<dyn config::Config>,
 }
 
 impl NodeState {
     pub fn new(
         id: u64,
-        node_type: String,
         x: f64,
         y: f64,
         config: Box<dyn config::Config>,
     ) -> Self {
         Self {
             id,
-            node_type,
             x,
             y,
             w: 0.0,
