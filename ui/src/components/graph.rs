@@ -48,11 +48,15 @@ impl<T: std::fmt::Debug + Clone> Graph<T> {
 
     pub fn remove_node(&mut self, id: u64) -> Vec<GraphOperation<T>> {
         let mut ops = vec![];
-        if let Some(op) = self.nodes
-            .remove(&id)
-            .map(GraphOperation::RemoveNode) { ops.push(op) }
-        if let Some(op) = self.remove_edge(id)
-            .map(|(from_node, to_node)| GraphOperation::RemoveEdge(from_node, to_node)) { ops.push(op) }
+        if let Some(op) = self.nodes.remove(&id).map(GraphOperation::RemoveNode) {
+            ops.push(op)
+        }
+        if let Some(op) = self
+            .remove_edge(id)
+            .map(|(from_node, to_node)| GraphOperation::RemoveEdge(from_node, to_node))
+        {
+            ops.push(op)
+        }
         self.remove_edge_to(id)
             .map(|(from_node, to_node)| GraphOperation::RemoveEdge(from_node, to_node))
             .for_each(|op| ops.push(op));
@@ -69,7 +73,7 @@ impl<T: std::fmt::Debug + Clone> Graph<T> {
 
     // This function adds an edge from `from_node` to `to_node`.
     pub fn add_edge(&mut self, from_node: u64, to_node: u64) -> Vec<GraphOperation<T>> {
-        let mut ops= vec![];
+        let mut ops = vec![];
         if from_node == to_node {
             return ops;
         }

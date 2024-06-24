@@ -170,10 +170,10 @@ fn Node(
                     dragged.to_node = Some(id);
                 }
             },
-            onmouseout: move |_event| { 
+            onmouseout: move |_event| {
                 if let Some(dragged) = &mut *dragged_edge.write() {
                     dragged.to_node.take();
-                } 
+                }
             },
             onmousedown: move |event| {
                 if dragged_node.read().is_none() {
@@ -332,6 +332,7 @@ fn ViewPort(
                     let config = app.read().build_config(&metadata.ty);
                     let node_state = Signal::new(NodeState::new(
                         id,
+                        uuid::Uuid::now_v7(),
                         coords.x - *delta_x - vps_ref.delta_x(),
                         coords.y - *delta_y - vps_ref.delta_y(),
                         config,

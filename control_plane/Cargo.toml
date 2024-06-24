@@ -28,7 +28,7 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1.0.117"
 futures = "0.3.30"
 mime_guess = "2.0.4"
-uuid = { version = "1.8.0", features = ["serde"] }
+uuid = { version = "1", features = ["serde"] }
 chrono = { version = "0.4", features = ["serde"] }
 url = "2.5.0"
 derive_trait = { path = "./derive_trait" }

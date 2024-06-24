@@ -1,5 +1,6 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Workspace {
@@ -9,7 +10,9 @@ pub struct Workspace {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct NodeState {
+    #[serde(skip)]
     pub id: u64,
+    pub node_id: Uuid,
     pub x: f64,
     pub y: f64,
     #[serde(skip)]
@@ -22,14 +25,10 @@ pub struct NodeState {
 }
 
 impl NodeState {
-    pub fn new(
-        id: u64,
-        x: f64,
-        y: f64,
-        config: Box<dyn config::Config>,
-    ) -> Self {
+    pub fn new(id: u64, node_id: Uuid, x: f64, y: f64, config: Box<dyn config::Config>) -> Self {
         Self {
             id,
+            node_id,
             x,
             y,
             w: 0.0,

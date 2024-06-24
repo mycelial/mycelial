@@ -21,10 +21,7 @@ impl FormState {
             .into_iter()
             .map(|field| (field.name.to_string(), field.value.to_string()))
             .collect();
-        Self {
-            config,
-            fields,
-        }
+        Self { config, fields }
     }
 
     // check if field is valid
@@ -78,11 +75,7 @@ pub fn NodeStateForm(selected_node: Signal<Option<Signal<NodeState>>>) -> Elemen
         None => return None,
         Some(signal) => signal,
     };
-    let NodeState {
-        id,
-        ref config,
-        ..
-    } = *node_state.read();
+    let NodeState { id, ref config, .. } = *node_state.read();
     let node_type = config.name();
 
     // Create hashmap with field names => field values from node config.
