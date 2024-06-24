@@ -2,7 +2,7 @@ use std::collections::{BTreeMap, HashSet};
 
 #[derive(Debug, Clone, Copy)]
 pub enum GraphOperation<T> {
-    AddNode(u64),
+    AddNode(T),
     AddEdge(u64, u64),
     RemoveNode(T),
     RemoveEdge(u64, u64),
@@ -13,7 +13,6 @@ pub enum GraphOperation<T> {
 pub struct Graph<T: std::fmt::Debug> {
     nodes: BTreeMap<u64, T>,
     edges: BTreeMap<u64, u64>,
-    // maps node type to associated element
     counter: u64,
 }
 
@@ -38,8 +37,9 @@ impl<T: std::fmt::Debug + Clone> Graph<T> {
         id
     }
 
-    pub fn add_node(&mut self, id: u64, node: T) {
-        self.nodes.insert(id, node);
+    pub fn add_node(&mut self, id: u64, node: T) -> GraphOperation<T> {
+        self.nodes.insert(id, node.clone());
+        GraphOperation::AddNode(node)
     }
 
     pub fn get_node(&self, id: u64) -> Option<&T> {
@@ -48,9 +48,14 @@ impl<T: std::fmt::Debug + Clone> Graph<T> {
 
     pub fn remove_node(&mut self, id: u64) -> Vec<GraphOperation<T>> {
         let mut ops = vec![];
-        self.nodes.remove(&id).map(GraphOperation::RemoveNode).map(|op| ops.push(op));
-        self.remove_edge(id);
-        self.remove_edge_to(id);
+        if let Some(op) = self.nodes
+            .remove(&id)
+            .map(GraphOperation::RemoveNode) { ops.push(op) }
+        if let Some(op) = self.remove_edge(id)
+            .map(|(from_node, to_node)| GraphOperation::RemoveEdge(from_node, to_node)) { ops.push(op) }
+        self.remove_edge_to(id)
+            .map(|(from_node, to_node)| GraphOperation::RemoveEdge(from_node, to_node))
+            .for_each(|op| ops.push(op));
         ops
     }
 
@@ -91,15 +96,17 @@ impl<T: std::fmt::Debug + Clone> Graph<T> {
             .map(|(from_node, _)| self.get_node(from_node).unwrap())
     }
 
-    pub fn remove_edge(&mut self, from_node: u64) -> Option<u64> {
-        self.edges.remove(&from_node)
+    pub fn remove_edge(&mut self, from_node: u64) -> Option<(u64, u64)> {
+        self.edges
+            .remove(&from_node)
+            .map(|to_node| (from_node, to_node))
     }
 
     pub fn edge_count(&self) -> usize {
         self.edges.len()
     }
 
-    fn remove_edge_to(&mut self, to_node: u64) {
+    fn remove_edge_to(&mut self, to_node: u64) -> impl Iterator<Item = (u64, u64)> + '_ {
         self.iter_edges()
             .fold(vec![], |mut acc, (from, to)| {
                 if to == to_node {
@@ -108,9 +115,7 @@ impl<T: std::fmt::Debug + Clone> Graph<T> {
                 acc
             })
             .into_iter()
-            .for_each(|from| {
-                self.remove_edge(from);
-            })
+            .filter_map(|from| self.remove_edge(from))
     }
 
     pub fn iter_edges(&self) -> impl Iterator<Item = (u64, u64)> + Clone + '_ {
@@ -137,9 +142,9 @@ mod test {
             let mut graph = Graph::new();
             let unique_ids: HashSet<u64> = HashSet::from_iter(input.iter().copied());
 
-            input
-                .iter()
-                .for_each(|&id| graph.add_node(id, TestNode { id }));
+            input.iter().for_each(|&id| {
+                graph.add_node(id, TestNode { id });
+            });
             let nodes = graph
                 .iter_nodes()
                 .map(|(id, &node)| {
@@ -150,7 +155,7 @@ mod test {
             assert_eq!(unique_ids.len(), nodes.len());
 
             for id in input.iter().copied() {
-                graph.remove_node(id)
+                graph.remove_node(id);
             }
             assert_eq!(graph.node_count(), 0);
             TestResult::from_bool(true)
@@ -162,9 +167,9 @@ mod test {
     fn test_graph_add_iter_remove_edges() {
         let check = |input: Vec<u64>| -> TestResult {
             let mut graph = Graph::new();
-            input
-                .iter()
-                .for_each(|&id| graph.add_node(id, TestNode { id }));
+            input.iter().for_each(|&id| {
+                graph.add_node(id, TestNode { id });
+            });
             let unique_ids: HashSet<u64> = HashSet::from_iter(input.iter().copied());
             if unique_ids.len() < 2 {
                 return TestResult::discard();
@@ -199,9 +204,9 @@ mod test {
     fn test_graph_edges_cleanup_on_node_removal() {
         let check = |input: Vec<u64>| -> TestResult {
             let mut graph = Graph::new();
-            input
-                .iter()
-                .for_each(|&id| graph.add_node(id, TestNode { id }));
+            input.iter().for_each(|&id| {
+                graph.add_node(id, TestNode { id });
+            });
             let unique_ids: HashSet<u64> = HashSet::from_iter(input.iter().copied());
             if unique_ids.len() < 2 {
                 return TestResult::discard();
@@ -267,13 +272,12 @@ mod test {
                 return TestResult::discard();
             }
             let mut graph = Graph::new();
-            nodes
-                .iter()
-                .for_each(|&id| graph.add_node(id, TestNode { id }));
-            nodes
-                .as_slice()
-                .windows(2)
-                .for_each(|pair| graph.add_edge(pair[0], pair[1]));
+            nodes.iter().for_each(|&id| {
+                graph.add_node(id, TestNode { id });
+            });
+            nodes.as_slice().windows(2).for_each(|pair| {
+                graph.add_edge(pair[0], pair[1]);
+            });
             // try to add edge from last node to every other one
             let last_node = *nodes.last().unwrap();
             for node in nodes {

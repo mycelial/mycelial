@@ -12,9 +12,8 @@ pub fn derive_trait(attrs: TokenStream, input: TokenStream) -> TokenStream {
             let mut func_sigs: Vec<&Signature> = vec![];
             let trait_name = &i.trait_.as_ref().unwrap().1;
             for item in i.items.as_slice() {
-                match item {
-                    ImplItem::Fn(f) => func_sigs.push(&f.sig),
-                    _ => (),
+                if let ImplItem::Fn(f) = item {
+                    func_sigs.push(&f.sig);
                 }
             }
             quote! {

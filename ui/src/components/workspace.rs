@@ -249,7 +249,7 @@ fn Node(
                 span {
                     onclick: move |_event| {
                         // FIXME: popup
-                        graph.write().remove_node(id);
+                        tracing::info!("ops: {:?}", graph.write().remove_node(id));
                     },
                     class: "cursor-pointer hover:bg-stem-1",
                     Delete {}
