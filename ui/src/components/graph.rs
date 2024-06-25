@@ -3,9 +3,9 @@ use std::collections::{BTreeMap, HashSet};
 #[derive(Debug, Clone, Copy)]
 pub enum GraphOperation<T> {
     AddNode(T),
-    AddEdge(u64, u64),
+    AddEdge(T, T),
     RemoveNode(T),
-    RemoveEdge(u64, u64),
+    RemoveEdge(T, T),
 }
 
 // Simple graph
@@ -53,7 +53,9 @@ impl<T: std::fmt::Debug + Clone> Graph<T> {
         }
         if let Some(op) = self
             .remove_edge(id)
-            .map(|(from_node, to_node)| GraphOperation::RemoveEdge(from_node, to_node))
+            .map(|(from_node, to_node)| {
+                GraphOperation::RemoveEdge(from_node, to_node)
+            })
         {
             ops.push(op)
         }
@@ -77,6 +79,10 @@ impl<T: std::fmt::Debug + Clone> Graph<T> {
         if from_node == to_node {
             return ops;
         }
+        let (from, to) = match (self.get_node(from_node), self.get_node(to_node)) {
+            (Some(from), Some(to)) => (from.clone(), to.clone()),
+            _ => return ops,
+        };
         let mut visited = HashSet::<u64>::from_iter([from_node, to_node]);
         let mut next = to_node;
         while let Some(node) = self.edges.get(&next).copied() {
@@ -86,9 +92,10 @@ impl<T: std::fmt::Debug + Clone> Graph<T> {
             next = node;
         }
         if let Some(prev_node) = self.edges.insert(from_node, to_node) {
-            ops.push(GraphOperation::RemoveEdge(from_node, prev_node));
+            let prev = self.get_node(prev_node).unwrap().clone();
+            ops.push(GraphOperation::RemoveEdge(from.clone(), prev));
         }
-        ops.push(GraphOperation::AddEdge(from_node, to_node));
+        ops.push(GraphOperation::AddEdge(from, to));
         ops
     }
 
@@ -105,17 +112,22 @@ impl<T: std::fmt::Debug + Clone> Graph<T> {
             .map(|(from_node, _)| self.get_node(from_node).unwrap())
     }
 
-    pub fn remove_edge(&mut self, from_node: u64) -> Option<(u64, u64)> {
-        self.edges
-            .remove(&from_node)
-            .map(|to_node| (from_node, to_node))
+    pub fn remove_edge(&mut self, from_node: u64) -> Option<(T, T)> {
+        let to_node = match self.edges.remove(&from_node) {
+            Some(to_node) => to_node,
+            None => return None,
+        };
+        match (self.get_node(from_node), self.get_node(to_node)) {
+            (Some(from), Some(to)) => Some((from.clone(), to.clone())),
+            _ => None
+        }
     }
 
     pub fn edge_count(&self) -> usize {
         self.edges.len()
     }
 
-    fn remove_edge_to(&mut self, to_node: u64) -> impl Iterator<Item = (u64, u64)> + '_ {
+    fn remove_edge_to(&mut self, to_node: u64) -> impl Iterator<Item=(T, T)> + '_ {
         self.iter_edges()
             .fold(vec![], |mut acc, (from, to)| {
                 if to == to_node {

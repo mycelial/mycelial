@@ -8,8 +8,63 @@ use crate::config_registry::ConfigMetaData;
 use crate::model::NodeState;
 use config::SectionIO;
 use dioxus::prelude::*;
+use serde::ser::SerializeMap;
+use serde::{Serialize, Serializer};
+
+use super::graph::GraphOperation;
 
 pub type Graph = GenericGraph<Signal<NodeState>>;
+
+#[derive(Debug, Clone, Copy)]
+pub enum WorkspaceOperation {
+    AddNode(Signal<NodeState>),
+    RemoveNode(Signal<NodeState>),
+    UpdateNode(Signal<NodeState>),
+    AddEdge(Signal<NodeState>, Signal<NodeState>),
+    RemoveEdge(Signal<NodeState>, Signal<NodeState>),
+    UpdatePan {
+        x: f64,
+        y: f64
+    }
+}
+
+impl From<GraphOperation<Signal<NodeState>>> for WorkspaceOperation {
+    fn from(value: GraphOperation<Signal<NodeState>>) -> Self {
+        match value {
+            GraphOperation::AddNode(node) => Self::AddNode(node),
+            GraphOperation::RemoveNode(node) => Self::RemoveNode(node),
+            GraphOperation::AddEdge(from_node, to_node) => Self::AddEdge(from_node, to_node),
+            GraphOperation::RemoveEdge(from_node, to_node) => Self::RemoveEdge(from_node, to_node),
+        }
+    }
+}
+
+impl Serialize for WorkspaceOperation {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        let mut map = serializer.serialize_map(None)?;
+        match self {
+            &WorkspaceOperation::AddNode(_) => {
+                map.serialize_entry("type", "add_node");
+            },
+            &WorkspaceOperation::RemoveNode(_) => {
+                map.serialize_entry("type", "remove_node");
+            },
+            &WorkspaceOperation::UpdateNode(_) => {
+                map.serialize_entry("type", "update_node");
+            }
+            &WorkspaceOperation::AddEdge(_, _) => {
+                map.serialize_entry("type", "add_edge");
+            }
+            &WorkspaceOperation::RemoveEdge(_, _) => {
+                map.serialize_entry("type", "add_edge");
+            },
+            WorkspaceOperation::UpdatePan{ .. } => {
+                map.serialize_entry("type", "update_pan");
+            }
+        };
+        map.end()
+    }
+}
 
 // representation of section in sections menu, which can be dragged into viewport container
 #[component]
@@ -21,7 +76,6 @@ fn MenuItem(
     let node_type: Rc<str> = Rc::clone(&metadata.ty);
     let source = match metadata.input {
         true => rsx! {
-            // TODO: change background to grey if not source
             span {
                 class: "bg-moss-1 text-white rounded-full p-1 ml-1",
                 "Source"
@@ -31,7 +85,6 @@ fn MenuItem(
     };
     let destination = match metadata.output {
         true => rsx! {
-            // TODO: change background to grey if not dest
             span {
                 class: "bg-forest-2 text-white rounded-full p-1 ml-1",
                 "Dest"
@@ -119,7 +172,6 @@ fn Node(
                     let dragged = &mut *dragged_edge.write();
                     if let Some(DraggedEdge{from_node, ..}) = dragged {
                         let op = graph.write().add_edge(*from_node, id);
-                        tracing::info!("add edge op: {:?}", op);
                         *dragged = None;
                     }
                 }

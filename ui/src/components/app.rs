@@ -1,3 +1,5 @@
+use std::collections::VecDeque;
+
 use crate::{
     components::routing::Route,
     config_registry::{ConfigMetaData, ConfigRegistry},
@@ -10,6 +12,7 @@ use serde::{Deserialize, Serialize};
 pub struct AppState {
     location: url::Url,
     config_registry: ConfigRegistry,
+    workspace_state: VecDeque<Vec<WorkspaceOperation>>,
 }
 
 impl Default for AppState {
@@ -24,6 +27,7 @@ impl AppState {
         Self {
             location: location.parse().unwrap(),
             config_registry: ConfigRegistry::new(),
+            workspace_state: VecDeque::new(),
         }
     }
 
