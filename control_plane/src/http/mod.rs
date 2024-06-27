@@ -1,9 +1,14 @@
 pub mod assets;
-pub mod workspaces;
 pub mod workspace;
+pub mod workspaces;
 
 use axum::{
-    body::Body, http::{Method, Request, StatusCode, Uri}, middleware::{self, Next}, response::{IntoResponse, Response}, routing::{delete, post}, Router
+    body::Body,
+    http::{Method, Request, StatusCode, Uri},
+    middleware::{self, Next},
+    response::{IntoResponse, Response},
+    routing::{delete, post},
+    Router,
 };
 use chrono::Utc;
 use std::sync::Arc;
@@ -59,13 +64,11 @@ pub fn new(app: crate::app::App) -> Router {
     Router::new()
         .route(
             "/api/workspaces",
-            post(workspaces::create_workspaces)
-                .get(workspaces::get_workspaces)
+            post(workspaces::create_workspaces).get(workspaces::get_workspaces),
         )
         .route(
             "/api/workspaces/:name",
-             delete(workspaces::delete_workspaces)
-                .get(workspace::get_workspace)
+            delete(workspaces::delete_workspaces).get(workspace::get_workspace),
         )
         .fallback(assets::assets)
         .layer(middleware::from_fn(log_middleware))

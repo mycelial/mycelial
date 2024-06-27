@@ -17,28 +17,23 @@ use super::node_state_form::NodeState;
 pub type Graph = GenericGraph<Uuid, Signal<NodeState>>;
 
 #[derive(Debug)]
-pub struct WorkspaceState {
-    
-}
+pub struct WorkspaceState {}
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub enum WorkspaceOperation {
-    AddNode(Signal<NodeState>),
-    RemoveNode(Signal<NodeState>),
-    UpdateNode(Signal<NodeState>),
-    AddEdge(Signal<NodeState>, Signal<NodeState>),
-    RemoveEdge(Signal<NodeState>, Signal<NodeState>),
-    UpdatePan {
-        x: f64,
-        y: f64
-    }
+    AddNode(NodeState),
+    RemoveNode(NodeState),
+    UpdateNode(NodeState),
+    AddEdge(Uuid, Uuid),
+    RemoveEdge(Uuid, Uuid),
+    UpdatePan { x: f64, y: f64 },
 }
 
-impl From<GraphOperation<Signal<NodeState>>> for WorkspaceOperation {
-    fn from(value: GraphOperation<Signal<NodeState>>) -> Self {
+impl From<GraphOperation<Uuid, Signal<NodeState>>> for WorkspaceOperation {
+    fn from(value: GraphOperation<Uuid, Signal<NodeState>>) -> Self {
         match value {
-            GraphOperation::AddNode(node) => Self::AddNode(node),
-            GraphOperation::RemoveNode(node) => Self::RemoveNode(node),
+            GraphOperation::AddNode(node) => Self::AddNode((&*node.read()).clone()),
+            GraphOperation::RemoveNode(node) => Self::RemoveNode((&*node.read()).clone()),
             GraphOperation::AddEdge(from_node, to_node) => Self::AddEdge(from_node, to_node),
             GraphOperation::RemoveEdge(from_node, to_node) => Self::RemoveEdge(from_node, to_node),
         }
@@ -51,10 +46,10 @@ impl Serialize for WorkspaceOperation {
         match self {
             &WorkspaceOperation::AddNode(_) => {
                 map.serialize_entry("type", "add_node");
-            },
+            }
             &WorkspaceOperation::RemoveNode(_) => {
                 map.serialize_entry("type", "remove_node");
-            },
+            }
             &WorkspaceOperation::UpdateNode(_) => {
                 map.serialize_entry("type", "update_node");
             }
@@ -63,8 +58,8 @@ impl Serialize for WorkspaceOperation {
             }
             &WorkspaceOperation::RemoveEdge(_, _) => {
                 map.serialize_entry("type", "add_edge");
-            },
-            WorkspaceOperation::UpdatePan{ .. } => {
+            }
+            WorkspaceOperation::UpdatePan { .. } => {
                 map.serialize_entry("type", "update_pan");
             }
         };
@@ -202,7 +197,7 @@ fn Node(
 
     rsx! {
         div {
-            class: "shadow min-w-52 max-w-52 grid grid-flow-rows gap-2 absolute min-h-24 border border-solid bg-white rounded-sm px-2 z-[5] select-none overflow-visible",
+            class: "shadow min-w-60 max-w-60 grid grid-flow-rows gap-2 absolute min-h-24 border border-solid bg-white rounded-sm px-2 z-[5] select-none overflow-visible",
             style: "left: {x}px; top: {y}px;",
             // recalculate positions on input/output nodes
             onmounted: move |event| {
@@ -256,6 +251,7 @@ fn Node(
             },
             div {
                 class: "pt-5 uppercase",
+                style: "font-size: 0.65rem",
                 "{id}"
             }
             div {
@@ -664,9 +660,7 @@ pub fn Workspace(workspace: String) -> Element {
     let view_port_state = use_signal(ViewPortState::new);
     let menu_items = app.read().menu_items().collect::<Vec<ConfigMetaData>>();
 
-    let state_fetcher = use_resource(move || async move {
-        
-    });
+    let state_fetcher = use_resource(move || async move {});
 
     rsx! {
         div {

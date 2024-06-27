@@ -6,7 +6,6 @@ use crate::{
     Result,
 };
 use dioxus::prelude::*;
-use serde::{Deserialize, Serialize};
 
 use super::{workspace::WorkspaceOperation, workspaces::Workspace};
 

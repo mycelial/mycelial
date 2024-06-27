@@ -3,7 +3,6 @@
 use axum::{
     http::{header, Uri},
     response::IntoResponse,
-    Router,
 };
 use rust_embed::Embed;
 
