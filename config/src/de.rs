@@ -8,19 +8,19 @@ use serde::{
 use crate::{Config, Field, FieldType, FieldValue, Metadata, SectionIO};
 
 // this is intermidiate config
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct RawConfig {
     config_name: String,
     fields: Vec<RawField>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct RawField {
     name: String,
     value: RawFieldValue,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 enum RawFieldValue {
     I8(i8),
     I16(i16),

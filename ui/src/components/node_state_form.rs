@@ -19,6 +19,20 @@ pub struct NodeState {
     pub config: Box<dyn config::Config>,
 }
 
+impl Clone for NodeState {
+    fn clone(&self) -> Self {
+        Self {
+            id: self.id,
+            x: self.x,
+            y: self.y,
+            w: self.w,
+            h: self.h,
+            port_diameter: self.port_diameter,
+            config: config::clone_config(&*self.config)
+        }
+    }
+}
+
 impl NodeState {
     pub fn new(id: Uuid, x: f64, y: f64, config: Box<dyn config::Config>) -> Self {
         Self {

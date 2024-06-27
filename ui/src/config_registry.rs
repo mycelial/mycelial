@@ -3,7 +3,7 @@ use std::{collections::BTreeMap, rc::Rc};
 use crate::Result;
 use config::prelude::*;
 
-#[derive(Debug, Default, Config)]
+#[derive(Debug, Default, Clone, Config)]
 #[section(output=dataframe)]
 pub struct ConfigExample {
     host: String,
@@ -17,7 +17,7 @@ pub struct ConfigExample {
     query: String,
 }
 
-#[derive(Debug, Default, Config)]
+#[derive(Debug, Default, Clone, Config)]
 #[section(input=dataframe)]
 pub struct ConfigExampleSecond {
     host: String,

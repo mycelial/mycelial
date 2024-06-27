@@ -1,4 +1,5 @@
 pub use config_derive::Config;
+use dyn_clone::DynClone;
 
 pub mod prelude {
     pub use super::Config as _;
@@ -21,10 +22,12 @@ impl SectionIO {
     }
 }
 
-
+pub fn clone_config(config: &dyn Config) -> Box<dyn Config> {
+    dyn_clone::clone_box(config)
+}
 
 pub type StdError = Box<dyn std::error::Error + Send + Sync + 'static>;
-pub trait Config: std::fmt::Debug {
+pub trait Config: std::fmt::Debug + DynClone + 'static {
     fn name(&self) -> &str;
 
     fn input(&self) -> SectionIO;

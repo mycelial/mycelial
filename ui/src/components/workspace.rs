@@ -32,8 +32,8 @@ pub enum WorkspaceOperation {
 impl From<GraphOperation<Uuid, Signal<NodeState>>> for WorkspaceOperation {
     fn from(value: GraphOperation<Uuid, Signal<NodeState>>) -> Self {
         match value {
-            GraphOperation::AddNode(node) => Self::AddNode((&*node.read()).clone()),
-            GraphOperation::RemoveNode(node) => Self::RemoveNode((&*node.read()).clone()),
+            GraphOperation::AddNode(node) => Self::AddNode(node.read().clone()),
+            GraphOperation::RemoveNode(node) => Self::RemoveNode(node.read().clone()),
             GraphOperation::AddEdge(from_node, to_node) => Self::AddEdge(from_node, to_node),
             GraphOperation::RemoveEdge(from_node, to_node) => Self::RemoveEdge(from_node, to_node),
         }

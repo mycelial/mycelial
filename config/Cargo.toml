@@ -7,6 +7,7 @@ edition = "2021"
 
 [dependencies]
 config_derive = {path = "config_derive"}
+dyn-clone = "1"
 serde = { version = "1", features = ["derive"] }
 tracing = "0.1"
 
