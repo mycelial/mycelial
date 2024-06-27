@@ -2,8 +2,49 @@ use std::collections::HashMap;
 
 pub use config::prelude::*;
 pub use dioxus::prelude::*;
+use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
-use crate::model::NodeState;
+#[derive(Debug, Serialize, Deserialize)]
+pub struct NodeState {
+    #[serde(skip)]
+    pub id: u64,
+    pub node_id: Uuid,
+    pub x: f64,
+    pub y: f64,
+    #[serde(skip)]
+    pub w: f64,
+    #[serde(skip)]
+    pub h: f64,
+    #[serde(skip)]
+    pub port_diameter: f64,
+    pub config: Box<dyn config::Config>,
+}
+
+impl NodeState {
+    pub fn new(id: u64, node_id: Uuid, x: f64, y: f64, config: Box<dyn config::Config>) -> Self {
+        Self {
+            id,
+            node_id,
+            x,
+            y,
+            w: 0.0,
+            h: 0.0,
+            port_diameter: 12.0,
+            config,
+        }
+    }
+
+    pub fn input_pos(&self) -> (f64, f64) {
+        let offset = self.port_diameter / 2.0;
+        (self.x - offset, self.y + self.h / 2.0 - offset)
+    }
+
+    pub fn output_pos(&self) -> (f64, f64) {
+        let offset = self.port_diameter / 2.0;
+        (self.x - offset + self.w, self.y + self.h / 2.0 - offset)
+    }
+}
 
 // Internal form state to keep track of values and validation
 #[derive(Clone)]

@@ -3,10 +3,12 @@ use std::collections::VecDeque;
 use crate::{
     components::routing::Route,
     config_registry::{ConfigMetaData, ConfigRegistry},
-    model, Result,
+    Result,
 };
 use dioxus::prelude::*;
 use serde::{Deserialize, Serialize};
+
+use super::{workspace::WorkspaceOperation, workspaces::Workspace};
 
 #[derive(Debug)]
 pub struct AppState {
@@ -69,7 +71,7 @@ impl AppState {
         }
     }
 
-    pub async fn read_workspaces(&self) -> Result<Vec<model::Workspace>> {
+    pub async fn read_workspaces(&self) -> Result<Vec<Workspace>> {
         Ok(reqwest::get(self.get_url(WORKSPACES_API)?)
             .await?
             .json()
@@ -94,49 +96,13 @@ impl AppState {
 // Workspace API
 const WORKSPACE_API: &str = "/api/workspace";
 
-#[derive(Debug)]
-pub struct WorkspaceRequestBuilder<'a> {
-    app: &'a AppState,
-    operations: Vec<WorkspaceOperation>,
-}
-
-impl<'a> WorkspaceRequestBuilder<'a> {
-    pub fn new(app: &'a AppState) -> Self {
-        Self {
-            app,
-            operations: Vec::new(),
-        }
-    }
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub enum WorkspaceOperation {
-    AddNode {},
-    UpdateNode {},
-    RemoveNode {},
-    AddEdge {},
-    RemoveEdge {},
-}
-
 impl AppState {
-    pub fn add_node(&self) -> WorkspaceRequestBuilder<'_> {
-        WorkspaceRequestBuilder::new(self)
+    pub async fn fetch_workspace(&self, workspace_name: &str) -> Result<()> {
+        Ok(())
     }
 
-    pub fn update_node(&self) -> WorkspaceRequestBuilder<'_> {
-        WorkspaceRequestBuilder::new(self)
-    }
-
-    pub fn remove_node(&self) -> WorkspaceRequestBuilder<'_> {
-        WorkspaceRequestBuilder::new(self)
-    }
-
-    pub fn add_edge(&self) -> WorkspaceRequestBuilder<'_> {
-        WorkspaceRequestBuilder::new(self)
-    }
-
-    pub fn remove_edge(&self) -> WorkspaceRequestBuilder<'_> {
-        WorkspaceRequestBuilder::new(self)
+    pub async fn update_workspace(&self) -> Result<()> {
+        Ok(())
     }
 }
 

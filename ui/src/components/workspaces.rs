@@ -2,10 +2,10 @@ use std::collections::BTreeMap;
 
 use chrono::{DateTime, Timelike, Utc};
 use dioxus::prelude::*;
+use serde::{Deserialize, Serialize};
 
 use crate::{
     components::{app::AppState, routing::Route},
-    model::Workspace,
     StdError,
 };
 
@@ -13,6 +13,12 @@ use crate::{
 struct WorkspacesState {
     workspaces: BTreeMap<u64, Workspace>,
     counter: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Workspace {
+    pub name: String,
+    pub created_at: DateTime<Utc>,
 }
 
 impl WorkspacesState {
@@ -30,10 +36,6 @@ impl WorkspacesState {
 
     fn get_workspace(&self, id: u64) -> Option<&Workspace> {
         self.workspaces.get(&id)
-    }
-
-    fn remove_workspace(&mut self, id: u64) {
-        self.workspaces.remove(&id);
     }
 
     fn get_id(&mut self) -> u64 {
@@ -134,6 +136,7 @@ pub fn Workspaces() -> Element {
         fetcher.restart();
         restart_fetcher.set(false);
     }
+    tracing::info!("twice");
     let child = match &*fetcher.read_unchecked() {
         Some(Ok(0)) => rsx! {
             div {

@@ -3,7 +3,7 @@ use clap::Parser;
 
 #[derive(Debug, Parser)]
 pub struct Cli {
-    #[clap(short, long, default_value = "localhost:7777")]
+    #[clap(short, long, default_value = "localhost:8000")]
     listen_addr: String,
 
     #[clap(short, long, default_value = "sqlite://control_plane.db")]

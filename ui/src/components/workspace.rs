@@ -5,15 +5,20 @@ use crate::components::graph::Graph as GenericGraph;
 use crate::components::icons::{Delete, Edit, Pause, Play, Restart};
 use crate::components::node_state_form::NodeStateForm;
 use crate::config_registry::ConfigMetaData;
-use crate::model::NodeState;
 use config::SectionIO;
 use dioxus::prelude::*;
 use serde::ser::SerializeMap;
 use serde::{Serialize, Serializer};
 
 use super::graph::GraphOperation;
+use super::node_state_form::NodeState;
 
 pub type Graph = GenericGraph<Signal<NodeState>>;
+
+#[derive(Debug)]
+pub struct WorkspaceState {
+    
+}
 
 #[derive(Debug, Clone, Copy)]
 pub enum WorkspaceOperation {
@@ -650,6 +655,7 @@ impl DraggedEdge {
 #[component]
 pub fn Workspace(workspace: String) -> Element {
     let app = use_context::<Signal<AppState>>();
+
     let graph: Signal<Graph> = use_signal(Graph::new);
     let dragged_menu_item: Signal<Option<DraggedMenuItem>> = use_signal(|| None);
     let mut dragged_node: Signal<Option<DraggedNode>> = use_signal(|| None);
@@ -657,6 +663,10 @@ pub fn Workspace(workspace: String) -> Element {
     let mut selected_node: Signal<Option<Signal<NodeState>>> = use_signal(|| None);
     let view_port_state = use_signal(ViewPortState::new);
     let menu_items = app.read().menu_items().collect::<Vec<ConfigMetaData>>();
+
+    let state_fetcher = use_resource(move || async move {
+        
+    });
 
     rsx! {
         div {

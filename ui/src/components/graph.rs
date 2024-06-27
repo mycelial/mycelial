@@ -76,9 +76,11 @@ impl<T: std::fmt::Debug + Clone> Graph<T> {
     // This function adds an edge from `from_node` to `to_node`.
     pub fn add_edge(&mut self, from_node: u64, to_node: u64) -> Vec<GraphOperation<T>> {
         let mut ops = vec![];
+        // loops are not allowed
         if from_node == to_node {
             return ops;
         }
+        // check both nodes exist
         let (from, to) = match (self.get_node(from_node), self.get_node(to_node)) {
             (Some(from), Some(to)) => (from.clone(), to.clone()),
             _ => return ops,
