@@ -1,28 +1,27 @@
 use std::collections::{BTreeMap, HashSet};
+use std::hash::Hash;
 
-#[derive(Debug, Clone, Copy)]
-pub enum GraphOperation<T> {
-    AddNode(T),
-    AddEdge(T, T),
-    RemoveNode(T),
-    RemoveEdge(T, T),
-}
+pub trait GraphKey: std::fmt::Debug + Copy + Ord + Hash {}
+pub trait GraphValue: std::fmt::Debug + Clone {}
+
+impl<T> GraphKey for T where T: std::fmt::Debug + Copy + Ord + Hash{}
+impl<T> GraphValue for T where T: std::fmt::Debug + Clone{} 
 
 // Simple graph
 #[derive(Debug)]
-pub struct Graph<T: std::fmt::Debug> {
-    nodes: BTreeMap<u64, T>,
-    edges: BTreeMap<u64, u64>,
+pub struct Graph<K: GraphKey, T: GraphValue> {
+    nodes: BTreeMap<K, T>,
+    edges: BTreeMap<K, K>,
     counter: u64,
 }
 
-impl<T: std::fmt::Debug + Clone> Default for Graph<T> {
+impl<K: GraphKey, T: GraphValue> Default for Graph<K, T> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<T: std::fmt::Debug + Clone> Graph<T> {
+impl<K: GraphKey, T: GraphValue> Graph<K, T> {
     pub fn new() -> Self {
         Self {
             nodes: BTreeMap::new(),
@@ -31,22 +30,16 @@ impl<T: std::fmt::Debug + Clone> Graph<T> {
         }
     }
 
-    pub fn get_id(&mut self) -> u64 {
-        let id = self.counter;
-        self.counter += 1;
-        id
-    }
-
-    pub fn add_node(&mut self, id: u64, node: T) -> GraphOperation<T> {
+    pub fn add_node(&mut self, id: K, node: T) -> GraphOperation<T> {
         self.nodes.insert(id, node.clone());
         GraphOperation::AddNode(node)
     }
 
-    pub fn get_node(&self, id: u64) -> Option<&T> {
+    pub fn get_node(&self, id: K) -> Option<&T> {
         self.nodes.get(&id)
     }
 
-    pub fn remove_node(&mut self, id: u64) -> Vec<GraphOperation<T>> {
+    pub fn remove_node(&mut self, id: K) -> Vec<GraphOperation<T>> {
         let mut ops = vec![];
         if let Some(op) = self.nodes.remove(&id).map(GraphOperation::RemoveNode) {
             ops.push(op)
@@ -65,7 +58,7 @@ impl<T: std::fmt::Debug + Clone> Graph<T> {
         ops
     }
 
-    pub fn iter_nodes(&self) -> impl Iterator<Item = (u64, &T)> + Clone + '_ {
+    pub fn iter_nodes(&self) -> impl Iterator<Item = (K, &T)> + Clone + '_ {
         self.nodes.iter().map(|(id, node_state)| (*id, node_state))
     }
 
@@ -74,7 +67,7 @@ impl<T: std::fmt::Debug + Clone> Graph<T> {
     }
 
     // This function adds an edge from `from_node` to `to_node`.
-    pub fn add_edge(&mut self, from_node: u64, to_node: u64) -> Vec<GraphOperation<T>> {
+    pub fn add_edge(&mut self, from_node: K, to_node: K) -> Vec<GraphOperation<T>> {
         let mut ops = vec![];
         // loops are not allowed
         if from_node == to_node {
@@ -85,7 +78,7 @@ impl<T: std::fmt::Debug + Clone> Graph<T> {
             (Some(from), Some(to)) => (from.clone(), to.clone()),
             _ => return ops,
         };
-        let mut visited = HashSet::<u64>::from_iter([from_node, to_node]);
+        let mut visited = HashSet::<K>::from_iter([from_node, to_node]);
         let mut next = to_node;
         while let Some(node) = self.edges.get(&next).copied() {
             if !visited.insert(node) {
@@ -101,20 +94,20 @@ impl<T: std::fmt::Debug + Clone> Graph<T> {
         ops
     }
 
-    pub fn get_child_node(&self, from_node: u64) -> Option<&T> {
+    pub fn get_child_node(&self, from_node: K) -> Option<&T> {
         match self.edges.get(&from_node).copied() {
             Some(to_node) => self.get_node(to_node),
             None => None,
         }
     }
 
-    pub fn get_parent_nodes(&self, to_node: u64) -> impl Iterator<Item = &T> + Clone + '_ {
+    pub fn get_parent_nodes(&self, to_node: K) -> impl Iterator<Item = &T> + Clone + '_ {
         self.iter_edges()
             .filter(move |(_, to)| *to == to_node)
             .map(|(from_node, _)| self.get_node(from_node).unwrap())
     }
 
-    pub fn remove_edge(&mut self, from_node: u64) -> Option<(T, T)> {
+    pub fn remove_edge(&mut self, from_node: K) -> Option<(T, T)> {
         let to_node = match self.edges.remove(&from_node) {
             Some(to_node) => to_node,
             None => return None,
@@ -129,7 +122,7 @@ impl<T: std::fmt::Debug + Clone> Graph<T> {
         self.edges.len()
     }
 
-    fn remove_edge_to(&mut self, to_node: u64) -> impl Iterator<Item=(T, T)> + '_ {
+    fn remove_edge_to(&mut self, to_node: K) -> impl Iterator<Item=(T, T)> + '_ {
         self.iter_edges()
             .fold(vec![], |mut acc, (from, to)| {
                 if to == to_node {
@@ -141,10 +134,19 @@ impl<T: std::fmt::Debug + Clone> Graph<T> {
             .filter_map(|from| self.remove_edge(from))
     }
 
-    pub fn iter_edges(&self) -> impl Iterator<Item = (u64, u64)> + Clone + '_ {
+    pub fn iter_edges(&self) -> impl Iterator<Item = (K, K)> + Clone + '_ {
         self.edges.iter().map(|(key, value)| (*key, *value))
     }
 }
+
+#[derive(Debug, Clone, Copy)]
+pub enum GraphOperation<T> {
+    AddNode(T),
+    AddEdge(T, T),
+    RemoveNode(T),
+    RemoveEdge(T, T),
+}
+
 
 #[cfg(test)]
 mod test {

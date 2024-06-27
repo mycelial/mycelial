@@ -11,7 +11,7 @@ use rust_embed::Embed;
 #[folder = "../ui/dist/"]
 struct Assets;
 
-async fn assets(uri: Uri) -> impl IntoResponse {
+pub async fn assets(uri: Uri) -> impl IntoResponse {
     let path = match uri.path() {
         "/" => "index.html",
         p => p,
@@ -30,8 +30,4 @@ async fn assets(uri: Uri) -> impl IntoResponse {
             ([(header::CONTENT_TYPE, mime.as_ref())], index.data).into_response()
         }
     }
-}
-
-pub fn new() -> Router {
-    Router::new().fallback(assets)
 }

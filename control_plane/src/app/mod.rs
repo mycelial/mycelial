@@ -27,8 +27,8 @@ impl App {
         self.db.create_workspace(workspace).await
     }
 
-    pub async fn read_workspaces(&self) -> Result<Vec<Workspace>> {
-        self.db.read_workspaces().await
+    pub async fn get_workspaces(&self) -> Result<Vec<Workspace>> {
+        self.db.get_workspaces().await
     }
 
     pub async fn update_workspace() {}

@@ -9,11 +9,12 @@ use config::SectionIO;
 use dioxus::prelude::*;
 use serde::ser::SerializeMap;
 use serde::{Serialize, Serializer};
+use uuid::Uuid;
 
 use super::graph::GraphOperation;
 use super::node_state_form::NodeState;
 
-pub type Graph = GenericGraph<Signal<NodeState>>;
+pub type Graph = GenericGraph<Uuid, Signal<NodeState>>;
 
 #[derive(Debug)]
 pub struct WorkspaceState {
@@ -383,13 +384,12 @@ fn ViewPort(
             ondrop: move |event| {
                 if let Some(DraggedMenuItem{ metadata, delta_x, delta_y }) = &*dragged_menu_item.read() {
                     let graph = &mut*graph.write();
-                    let id = graph.get_id();
+                    let id = uuid::Uuid::now_v7();
                     let coords = event.client_coordinates();
                     let vps_ref = &*view_port_state.read();
                     let config = app.read().build_config(&metadata.ty);
                     let node_state = Signal::new(NodeState::new(
                         id,
-                        uuid::Uuid::now_v7(),
                         coords.x - *delta_x - vps_ref.delta_x(),
                         coords.y - *delta_y - vps_ref.delta_y(),
                         config,
@@ -624,14 +624,14 @@ impl DraggedNode {
 
 #[derive(Debug, Clone, Copy)]
 struct DraggedEdge {
-    from_node: u64,
-    to_node: Option<u64>,
+    from_node: Uuid,
+    to_node: Option<Uuid>,
     x: f64,
     y: f64,
 }
 
 impl DraggedEdge {
-    fn new(from_node: u64, x: f64, y: f64) -> Self {
+    fn new(from_node: Uuid, x: f64, y: f64) -> Self {
         Self {
             from_node,
             to_node: None,

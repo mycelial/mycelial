@@ -10,7 +10,7 @@ use axum::{
 
 use crate::app::{model::Workspace, App};
 
-async fn create_workspaces(
+pub async fn create_workspaces(
     app: State<App>,
     Json(workspace): Json<Workspace>,
 ) -> Result<impl IntoResponse> {
@@ -18,27 +18,11 @@ async fn create_workspaces(
     Ok(Json("ok"))
 }
 
-async fn read_workspaces(app: State<App>) -> Result<Json<Vec<Workspace>>> {
-    Ok(Json(app.read_workspaces().await?))
+pub async fn get_workspaces(app: State<App>) -> Result<Json<Vec<Workspace>>> {
+    Ok(Json(app.get_workspaces().await?))
 }
 
-async fn update_workspaces() -> impl IntoResponse {
-    unimplemented!("update workspaces")
-}
-
-async fn delete_workspaces(app: State<App>, Path(name): Path<String>) -> Result<impl IntoResponse> {
+pub async fn delete_workspaces(app: State<App>, Path(name): Path<String>) -> Result<impl IntoResponse> {
     app.delete_workspace(&name).await?;
     Ok(Json("ok"))
-}
-
-pub fn new(app: crate::app::App) -> Router {
-    Router::new()
-        .route(
-            "/api/workspaces",
-            post(create_workspaces)
-                .get(read_workspaces)
-                .put(update_workspaces),
-        )
-        .route("/api/workspaces/:name", delete(delete_workspaces))
-        .with_state(app)
 }

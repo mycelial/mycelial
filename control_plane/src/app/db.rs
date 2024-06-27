@@ -214,7 +214,7 @@ where
         })
     }
 
-    fn read_workspaces(&self) -> BoxFuture<'_, Result<Vec<model::Workspace>>> {
+    fn get_workspaces(&self) -> BoxFuture<'_, Result<Vec<model::Workspace>>> {
         Box::pin(async {
             let (query, values) = Query::select()
                 .columns([Workspaces::Name, Workspaces::CreatedAt])
