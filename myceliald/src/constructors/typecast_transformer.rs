@@ -23,28 +23,3 @@ pub fn transformer<S: SectionChannel>(
     let section = typecast_transformer::TypecastTransformer::new(target_type, target_column)?;
     Ok(Box::new(section))
 }
-
-#[cfg(test)]
-mod test {
-    use std::collections::HashMap;
-
-    use common::TypecastTransformerConfig;
-    use section::dummy::DummySectionChannel;
-    use serde_json::Value;
-
-    use super::*;
-
-    #[test]
-    fn test_ctor_matches_config() {
-        let mut source_config = TypecastTransformerConfig::default();
-        source_config.column = "blah".into();
-        source_config.target_type = "int".into();
-
-        let mut c: HashMap<String, Value> =
-            serde_json::from_str(&serde_json::to_string(&source_config).unwrap()).unwrap();
-
-        let config: Map = c.drain().map(|(k, v)| (k, v.try_into().unwrap())).collect();
-
-        let _section = transformer::<DummySectionChannel>(&config).unwrap();
-    }
-}

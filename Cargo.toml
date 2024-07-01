@@ -23,5 +23,6 @@ members = [
     "pipe/section/section_impls/origin_transform",
     "pipe/section/section_impls/s3",
     "pipe/section/section_impls/redshift_loader",
+    "pipe/section/section_impls/inspect",
 ]
 resolver = "2"

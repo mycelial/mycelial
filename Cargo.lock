@@ -2427,6 +2427,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "inspect"
+version = "0.1.0"
+dependencies = [
+ "section",
+ "tracing",
+]
+
+[[package]]
 name = "instant"
 version = "0.1.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2792,6 +2800,7 @@ dependencies = [
  "exec",
  "file",
  "hello_world",
+ "inspect",
  "kafka_connector",
  "log",
  "mycelial_server",
