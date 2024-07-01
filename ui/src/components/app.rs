@@ -32,8 +32,12 @@ impl AppState {
         }
     }
 
-    fn get_url(&self, path: impl AsRef<str>) -> Result<url::Url> {
-        Ok(self.location.join(path.as_ref())?)
+    fn get_url(&self, paths: &[impl AsRef<str>]) -> Result<url::Url> {
+        let mut url = self.location.clone();
+        for path in paths {
+            url = url.join(path.as_ref())?
+        }
+        Ok(url)
     }
 }
 
@@ -57,7 +61,7 @@ const WORKSPACES_API: &str = "/api/workspaces";
 impl AppState {
     pub async fn create_workspace(&self, name: &str) -> Result<()> {
         let response = reqwest::Client::new()
-            .post(self.get_url(WORKSPACES_API)?)
+            .post(self.get_url(&[WORKSPACES_API])?)
             .json(&serde_json::json!({"name": name}))
             .send()
             .await?;
@@ -71,7 +75,7 @@ impl AppState {
     }
 
     pub async fn read_workspaces(&self) -> Result<Vec<Workspace>> {
-        Ok(reqwest::get(self.get_url(WORKSPACES_API)?)
+        Ok(reqwest::get(self.get_url(&[WORKSPACES_API])?)
             .await?
             .json()
             .await?)
@@ -79,7 +83,7 @@ impl AppState {
 
     pub async fn remove_workspace(&self, name: &str) -> Result<()> {
         let response = reqwest::Client::new()
-            .delete(self.get_url(format!("{WORKSPACES_API}/{name}"))?)
+            .delete(self.get_url(&[WORKSPACES_API, name])?)
             .send()
             .await?;
         match response.status().is_success() {
@@ -95,8 +99,10 @@ impl AppState {
 // Workspace API
 const WORKSPACE_API: &str = "/api/workspace";
 
+// AppState accumulutas changes which will be released by publishing
 impl AppState {
-    pub async fn fetch_workspace(&self, workspace_name: &str) -> Result<()> {
+    pub async fn fetch_workspace(&self, name: &str) -> Result<()> {
+        let url = self.get_url(&[WORKSPACE_API, name])?;
         Ok(())
     }
 

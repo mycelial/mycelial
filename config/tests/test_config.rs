@@ -2,7 +2,7 @@ use config::prelude::*;
 
 #[test]
 fn test_simple_config() {
-    #[derive(Debug, Config)]
+    #[derive(Debug, Clone, Config)]
     #[section(input=dataframe, output=dataframe)]
     struct SimpleConfig {
         login: String,
@@ -66,7 +66,7 @@ fn test_simple_config() {
 
 #[test]
 fn test_config_all_types() {
-    #[derive(Debug, Config)]
+    #[derive(Debug, Clone, Config)]
     struct _Config {
         i8: i8,
         i16: i16,
@@ -84,30 +84,30 @@ fn test_config_all_types() {
 
 #[test]
 fn test_section_input_output() {
-    #[derive(Debug, Config)]
+    #[derive(Debug, Clone, Config)]
     struct NoInput {}
     assert_eq!(NoInput {}.input(), SectionIO::None);
     assert_eq!(NoInput {}.output(), SectionIO::None);
 
-    #[derive(Debug, Config)]
+    #[derive(Debug, Clone, Config)]
     #[section(input=bin)]
     struct InputBin {}
     assert_eq!(InputBin {}.input(), SectionIO::Bin);
     assert_eq!(InputBin {}.output(), SectionIO::None);
 
-    #[derive(Debug, Config)]
+    #[derive(Debug, Clone, Config)]
     #[section(input=dataframe)]
     struct InputDf {}
     assert_eq!(InputDf {}.input(), SectionIO::DataFrame);
     assert_eq!(InputDf {}.output(), SectionIO::None);
 
-    #[derive(Debug, Config)]
+    #[derive(Debug, Clone, Config)]
     #[section(output=bin)]
     struct OutputBin {}
     assert_eq!(OutputBin {}.input(), SectionIO::None);
     assert_eq!(OutputBin {}.output(), SectionIO::Bin);
 
-    #[derive(Debug, Config)]
+    #[derive(Debug, Clone, Config)]
     #[section(output=dataframe)]
     struct OutputDf {}
     assert_eq!(OutputDf {}.input(), SectionIO::None);

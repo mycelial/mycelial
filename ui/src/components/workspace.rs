@@ -7,8 +7,7 @@ use crate::components::node_state_form::NodeStateForm;
 use crate::config_registry::ConfigMetaData;
 use config::SectionIO;
 use dioxus::prelude::*;
-use serde::ser::SerializeMap;
-use serde::{Serialize, Serializer};
+use serde::Serialize;
 use uuid::Uuid;
 
 use super::graph::GraphOperation;
@@ -19,7 +18,7 @@ pub type Graph = GenericGraph<Uuid, Signal<NodeState>>;
 #[derive(Debug)]
 pub struct WorkspaceState {}
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub enum WorkspaceOperation {
     AddNode(NodeState),
     RemoveNode(NodeState),
@@ -37,33 +36,6 @@ impl From<GraphOperation<Uuid, Signal<NodeState>>> for WorkspaceOperation {
             GraphOperation::AddEdge(from_node, to_node) => Self::AddEdge(from_node, to_node),
             GraphOperation::RemoveEdge(from_node, to_node) => Self::RemoveEdge(from_node, to_node),
         }
-    }
-}
-
-impl Serialize for WorkspaceOperation {
-    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        let mut map = serializer.serialize_map(None)?;
-        match self {
-            &WorkspaceOperation::AddNode(_) => {
-                map.serialize_entry("type", "add_node");
-            }
-            &WorkspaceOperation::RemoveNode(_) => {
-                map.serialize_entry("type", "remove_node");
-            }
-            &WorkspaceOperation::UpdateNode(_) => {
-                map.serialize_entry("type", "update_node");
-            }
-            &WorkspaceOperation::AddEdge(_, _) => {
-                map.serialize_entry("type", "add_edge");
-            }
-            &WorkspaceOperation::RemoveEdge(_, _) => {
-                map.serialize_entry("type", "add_edge");
-            }
-            WorkspaceOperation::UpdatePan { .. } => {
-                map.serialize_entry("type", "update_pan");
-            }
-        };
-        map.end()
     }
 }
 
