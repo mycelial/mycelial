@@ -825,12 +825,12 @@ mod test {
             ValueView::U64(2).into_decimal().unwrap()
         );
         assert_eq!(
-            ValueView::Decimal(Decimal::new(314159, 5)), 
-            ValueView::F32(3.14159).into_decimal().unwrap()
+            ValueView::Decimal(Decimal::new(313159, 5)), 
+            ValueView::F32(3.13159).into_decimal().unwrap()
         );
         assert_eq!(
-            ValueView::Decimal(Decimal::new(314159265, 8)), 
-            ValueView::F64(3.14159265).into_decimal().unwrap()
+            ValueView::Decimal(Decimal::new(313159265, 8)), 
+            ValueView::F64(3.13159265).into_decimal().unwrap()
         );
 
         // into str
@@ -875,12 +875,12 @@ mod test {
             ValueView::U64(2).into_str().unwrap()
         );
         assert_eq!(
-            ValueView::Str("3.14"),
-            ValueView::F32(3.14).into_str().unwrap()
+            ValueView::Str("3.13"),
+            ValueView::F32(3.13).into_str().unwrap()
         );
         assert_eq!(
-            ValueView::Str("3.14"),
-            ValueView::F64(3.14).into_str().unwrap()
+            ValueView::Str("3.13"),
+            ValueView::F64(3.13).into_str().unwrap()
         );
         assert_eq!(
             ValueView::Str("2"),
@@ -906,8 +906,8 @@ mod test {
             ValueView::TimeStampUTC(TimeUnit::Millisecond, 123).into_str().unwrap()
         );
         assert_eq!(
-            ValueView::Str("3.14159"),
-            ValueView::Decimal(Decimal::new(314159, 5)).into_str().unwrap()
+            ValueView::Str("3.13159"),
+            ValueView::Decimal(Decimal::new(313159, 5)).into_str().unwrap()
         );
         assert_eq!(
             ValueView::Str("a1a2a3a4-b1b2-c1c2-d1d2-d3d4d5d6d7d8"),
