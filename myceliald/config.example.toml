@@ -206,6 +206,10 @@ interval = 5
 start_after = ""
 stream_binary = false
 
+[[sources]]
+type = "inspect"
+display_name = "Inspect"
+
 [[destinations]]
 # File destination
 type = "file"

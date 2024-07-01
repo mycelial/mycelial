@@ -60,6 +60,7 @@ pub enum Source {
     Origin_Regex_Transform(OriginRegexTransformConfig),
     Origin_Time_Nanos_Transform(OriginTimeNanosTransformConfig),
     S3(S3Source),
+    Inspect(InspectConfig),
 }
 
 /// Internally-tagged type of a source needs to match the variant name
@@ -300,6 +301,12 @@ pub struct S3Source {
     interval: usize,
     access_key_id: String,
     secret_key: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+pub struct InspectConfig {
+    #[serde(flatten)]
+    pub common_attrs: CommonAttrs,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]

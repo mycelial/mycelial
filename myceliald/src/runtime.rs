@@ -93,6 +93,7 @@ fn setup_registry<S: SectionChannel>() -> Registry<S> {
             "redshift_loader_destination",
             constructors::redshift_loader::ctor,
         ),
+        ("inspect", constructors::inspect::inspect_ctor),
     ];
     arr.iter()
         .fold(Registry::new(), |mut acc, &(section_name, constructor)| {

@@ -17,6 +17,16 @@ pub type SectionError = Box<dyn std::error::Error + Send + Sync + 'static>;
 pub type SectionFuture =
     Pin<Box<dyn std::future::Future<Output = Result<(), SectionError>> + Send + 'static>>;
 pub type SectionMessage = Box<dyn crate::message::Message>;
+pub trait SectionStream: futures::Stream<Item = SectionMessage> + Send + 'static {}
+impl<T> SectionStream for T where T: futures::Stream<Item = SectionMessage> + Send + 'static {}
+pub trait SectionSink:
+    futures::Sink<SectionMessage, Error = SectionError> + Send + 'static
+{
+}
+impl<T> SectionSink for T where
+    T: futures::Sink<SectionMessage, Error = SectionError> + Send + 'static
+{
+}
 
 pub mod prelude {
     pub use crate::{
@@ -27,6 +37,6 @@ pub mod prelude {
         message::{Ack, Chunk, Column, DataFrame, DataType, Message, Next, Value, ValueView},
         section::Section,
         state::State,
-        uuid, SectionError, SectionFuture, SectionMessage,
+        uuid, SectionError, SectionFuture, SectionMessage, SectionSink, SectionStream,
     };
 }

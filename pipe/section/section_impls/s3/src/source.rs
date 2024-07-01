@@ -188,6 +188,9 @@ where
             let mut start_after = state.get::<String>(START_AFTER_KEY)?.unwrap_or("".into());
             start_after = self.start_after.clone().max(start_after);
             let mut interval = tokio::time::interval(self.interval);
+            section_channel
+                .log(&format!("start after: {start_after}"))
+                .await?;
             loop {
                 futures::select! {
                     cmd = section_channel.recv().fuse() => {
@@ -206,14 +209,13 @@ where
                             .send();
                         if let Some(result) = response.next().await {
                             for object in result?.contents() {
+                                tracing::info!("response: {:?}", object);
                                 let key = object.key().ok_or("object without name")?.to_string();
                                 start_after = key.to_string();
                                 let path: Arc<str> = Arc::from(self.bucket.join(&key)?.to_string());
                                 let weak_chan = section_channel.weak_chan();
 
-                                let ack = {
-                                    Box::pin(async move { weak_chan.ack(Box::new(key)).await; })
-                                };
+                                let ack = Box::pin(async move { weak_chan.ack(Box::new(key)).await; });
 
                                 let msg = Box::new(S3Message::new(
                                     Arc::clone(&path),
