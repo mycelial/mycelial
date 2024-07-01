@@ -20,7 +20,7 @@ use axum::{
     Extension, Json, Router,
 };
 use chrono::Utc;
-use clap::Parser;
+use clap::{error::ErrorKind, Parser};
 use db_pool::{Db, DbTrait};
 use jsonwebtoken::{decode, jwk, DecodingKey, Validation};
 use rust_embed::RustEmbed;
@@ -99,6 +99,7 @@ async fn user_auth(
 }
 
 #[derive(Parser)]
+#[command(version)]
 struct Cli {
     #[clap(short, long, env = "LISTEN_ADDR", default_value = "0.0.0.0:7777")]
     listen_addr: String,
@@ -211,7 +212,14 @@ pub struct Auth0Audience(String);
 #[tokio::main]
 async fn main() -> Result<()> {
     tracing_subscriber::fmt().with_ansi(false).init();
-    let cli = Cli::try_parse()?;
+    let cli = match Cli::try_parse() {
+        Err(e) if e.kind() == ErrorKind::DisplayVersion => {
+            print!("{}", e);
+            return Ok(());
+        }
+        Err(e) => Err(e)?,
+        Ok(cli) => cli,
+    };
     let db = db_pool::new(cli.database_url.as_str()).await?;
     db.migrate().await?;
     let app = Arc::new(App::new(&cli.database_url).await?);
