@@ -1,5 +1,3 @@
-use std::collections::VecDeque;
-
 use crate::{
     components::routing::Route,
     config_registry::{ConfigMetaData, ConfigRegistry},
@@ -7,13 +5,13 @@ use crate::{
 };
 use dioxus::prelude::*;
 
-use super::{workspace::WorkspaceOperation, workspaces::Workspace};
+use super::{workspace::WorkspaceUpdate, workspaces::Workspace};
 
 #[derive(Debug)]
 pub struct AppState {
     location: url::Url,
     config_registry: ConfigRegistry,
-    workspace_state: VecDeque<Vec<WorkspaceOperation>>,
+    workspace_updates: Vec<WorkspaceUpdate>,
 }
 
 impl Default for AppState {
@@ -28,7 +26,7 @@ impl AppState {
         Self {
             location: location.parse().unwrap(),
             config_registry: ConfigRegistry::new(),
-            workspace_state: VecDeque::new(),
+            workspace_updates: Vec::new(),
         }
     }
 
@@ -106,7 +104,12 @@ impl AppState {
         Ok(())
     }
 
-    pub async fn update_workspace(&self) -> Result<()> {
+    pub fn update_workspace(&mut self, update: WorkspaceUpdate) {
+        self.workspace_updates.push(update);
+    }
+    
+    pub async fn publish_updates(&mut self) -> Result<()> {
+        tracing::info!("{:#?}", self.workspace_updates);
         Ok(())
     }
 }

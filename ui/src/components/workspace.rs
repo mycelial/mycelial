@@ -7,6 +7,7 @@ use crate::components::node_state_form::NodeStateForm;
 use crate::config_registry::ConfigMetaData;
 use config::SectionIO;
 use dioxus::prelude::*;
+use serde::ser::SerializeMap;
 use serde::Serialize;
 use uuid::Uuid;
 
@@ -16,7 +17,17 @@ use super::node_state_form::NodeState;
 pub type Graph = GenericGraph<Uuid, Signal<NodeState>>;
 
 #[derive(Debug)]
-pub struct WorkspaceState {}
+struct WorkspaceState {
+    name: Rc<str>,
+}
+
+impl WorkspaceState {
+    fn new(name: &str) -> Self {
+        Self{
+            name: Rc::from(name)
+        }
+    }
+}
 
 #[derive(Debug, Clone, Serialize)]
 pub enum WorkspaceOperation {
@@ -35,6 +46,39 @@ impl From<GraphOperation<Uuid, Signal<NodeState>>> for WorkspaceOperation {
             GraphOperation::RemoveNode(node) => Self::RemoveNode(node.read().clone()),
             GraphOperation::AddEdge(from_node, to_node) => Self::AddEdge(from_node, to_node),
             GraphOperation::RemoveEdge(from_node, to_node) => Self::RemoveEdge(from_node, to_node),
+        }
+    }
+}
+
+impl Into<Vec<WorkspaceOperation>> for GraphOperation<Uuid, Signal<NodeState>> {
+    fn into(self) -> Vec<WorkspaceOperation> {
+        let workspace_op: WorkspaceOperation = self.into();
+        vec![workspace_op]
+    }
+}
+
+//
+#[derive(Debug)]
+pub struct WorkspaceUpdate {
+    name: Rc<str>,
+    operations: Vec<WorkspaceOperation>
+}
+
+// Rc<str> doesn't implement Serialize
+impl Serialize for WorkspaceUpdate {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        let mut map = serializer.serialize_map(Some(2))?;
+        map.serialize_entry("name", &*self.name)?;
+        map.serialize_entry("operations", &*self.operations)?;
+        map.end()
+    }
+}
+
+impl WorkspaceUpdate {
+    fn new(name: &Rc<str>, operations: impl Into<Vec<WorkspaceOperation>>) -> Self {
+        Self {
+            name: Rc::clone(name),
+            operations: operations.into(),
         }
     }
 }
@@ -321,7 +365,8 @@ fn ViewPort(
     dragged_edge: Signal<Option<DraggedEdge>>,
     selected_node: Signal<Option<Signal<NodeState>>>,
 ) -> Element {
-    let app = use_context::<Signal<AppState>>();
+    let mut app = use_context::<Signal<AppState>>();
+    let workspace_state = use_context::<Signal<WorkspaceState>>();
     let mut grab_point = use_signal(|| (0.0, 0.0));
     let state_ref = &*view_port_state.read();
     rsx! {
@@ -363,7 +408,8 @@ fn ViewPort(
                         config,
                     ));
                     let op = graph.add_node(id, node_state);
-                    tracing::info!("add node op: {op:?}");
+                    let workspace = &workspace_state.read().name;
+                    app.write().update_workspace(WorkspaceUpdate::new(workspace, op));
                 }
                 *dragged_menu_item.write() = None;
             },
@@ -622,7 +668,12 @@ impl DraggedEdge {
 
 #[component]
 pub fn Workspace(workspace: String) -> Element {
-    let app = use_context::<Signal<AppState>>();
+    let state_fetcher = use_resource(move || async move {});
+    if state_fetcher.read().is_none() {
+        return None
+    }
+    let workspace_state = use_context_provider(|| Signal::new(WorkspaceState::new(workspace.as_str())));
+    let mut app = use_context::<Signal<AppState>>();
 
     let graph: Signal<Graph> = use_signal(Graph::new);
     let dragged_menu_item: Signal<Option<DraggedMenuItem>> = use_signal(|| None);
@@ -631,8 +682,6 @@ pub fn Workspace(workspace: String) -> Element {
     let mut selected_node: Signal<Option<Signal<NodeState>>> = use_signal(|| None);
     let view_port_state = use_signal(ViewPortState::new);
     let menu_items = app.read().menu_items().collect::<Vec<ConfigMetaData>>();
-
-    let state_fetcher = use_resource(move || async move {});
 
     rsx! {
         div {
@@ -672,9 +721,8 @@ pub fn Workspace(workspace: String) -> Element {
                 }
                 button {
                     class: "text-stem-1 font-bold px-4 py-2 rounded bg-forest-1 border border-forest-2 justify-self-end mr-5 uppercase hover:bg-forest-2 hover:text-white",
-                    onclick: move |_event| {
-                        // TODO: implement publish logic here
-                        tracing::info!("Publish button clicked");
+                    onclick: move |_event| async move {
+                        app.write().publish_updates().await;
                     },
                     "Publish"
                 }
