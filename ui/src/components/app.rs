@@ -107,7 +107,7 @@ impl AppState {
     pub fn update_workspace(&mut self, update: WorkspaceUpdate) {
         self.workspace_updates.push(update);
     }
-    
+
     pub async fn publish_updates(&mut self) -> Result<()> {
         tracing::info!("{:#?}", self.workspace_updates);
         Ok(())

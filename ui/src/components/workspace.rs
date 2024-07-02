@@ -23,8 +23,8 @@ struct WorkspaceState {
 
 impl WorkspaceState {
     fn new(name: &str) -> Self {
-        Self{
-            name: Rc::from(name)
+        Self {
+            name: Rc::from(name),
         }
     }
 }
@@ -50,9 +50,9 @@ impl From<GraphOperation<Uuid, Signal<NodeState>>> for WorkspaceOperation {
     }
 }
 
-impl Into<Vec<WorkspaceOperation>> for GraphOperation<Uuid, Signal<NodeState>> {
-    fn into(self) -> Vec<WorkspaceOperation> {
-        let workspace_op: WorkspaceOperation = self.into();
+impl From<GraphOperation<Uuid, Signal<NodeState>>> for Vec<WorkspaceOperation> {
+    fn from(val: GraphOperation<Uuid, Signal<NodeState>>) -> Self {
+        let workspace_op: WorkspaceOperation = val.into();
         vec![workspace_op]
     }
 }
@@ -61,7 +61,7 @@ impl Into<Vec<WorkspaceOperation>> for GraphOperation<Uuid, Signal<NodeState>> {
 #[derive(Debug)]
 pub struct WorkspaceUpdate {
     name: Rc<str>,
-    operations: Vec<WorkspaceOperation>
+    operations: Vec<WorkspaceOperation>,
 }
 
 // Rc<str> doesn't implement Serialize
@@ -162,7 +162,6 @@ fn Node(
     mut node: Signal<NodeState>,
     mut selected_node: Signal<Option<Signal<NodeState>>>,
 ) -> Element {
-    // current node coordinates, coordinates on input and output ports
     let node_ref = &*node.read();
     let (id, x, y, _w, _h, port_diameter, config, input_pos, output_pos) = (
         node_ref.id,
@@ -670,9 +669,10 @@ impl DraggedEdge {
 pub fn Workspace(workspace: String) -> Element {
     let state_fetcher = use_resource(move || async move {});
     if state_fetcher.read().is_none() {
-        return None
+        return None;
     }
-    let workspace_state = use_context_provider(|| Signal::new(WorkspaceState::new(workspace.as_str())));
+    let workspace_state =
+        use_context_provider(|| Signal::new(WorkspaceState::new(workspace.as_str())));
     let mut app = use_context::<Signal<AppState>>();
 
     let graph: Signal<Graph> = use_signal(Graph::new);

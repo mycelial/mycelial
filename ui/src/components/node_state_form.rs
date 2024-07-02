@@ -28,7 +28,7 @@ impl Clone for NodeState {
             w: self.w,
             h: self.h,
             port_diameter: self.port_diameter,
-            config: config::clone_config(&*self.config)
+            config: config::clone_config(&*self.config),
         }
     }
 }
