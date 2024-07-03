@@ -7,18 +7,67 @@ use std::{
 use crate::app::{migration, Result};
 use chrono::{DateTime, NaiveDateTime, Utc};
 use derive_trait::derive_trait;
-use futures::{future::BoxFuture, StreamExt};
+use futures::future::BoxFuture;
 use sea_query::{
-    Expr, Iden, Order, PostgresQueryBuilder, Query, QueryBuilder, SchemaBuilder, SqliteQueryBuilder,
+    Expr, Order, PostgresQueryBuilder, Query, QueryBuilder, SchemaBuilder, SqliteQueryBuilder,
 };
 use sea_query_binder::{SqlxBinder, SqlxValues};
+use serde::{Deserialize, Serialize};
 use sqlx::{
-    database::HasArguments, migrate::Migrate, types::Json, ColumnIndex, Connection, Database,
+    database::HasArguments, migrate::Migrate, types::Json, ColumnIndex, Connection as _, Database,
     Executor, IntoArguments, Pool, Postgres, Row, Sqlite, Transaction,
 };
 use uuid::Uuid;
+use crate::app::tables::{Workspaces, Nodes, Edges};
 
-use super::model;
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Workspace {
+    pub name: String,
+    #[serde(default)]
+    pub created_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct Graph {
+    pub nodes: Vec<Node>,
+    pub edges: Vec<Edge>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct Node {
+    pub id: uuid::Uuid,
+    pub display_name: String,
+    pub config: (),
+}
+
+#[derive(Debug, Serialize)]
+pub struct Edge{
+    pub from_id: uuid::Uuid,
+    pub to_id: uuid::Uuid,
+}
+
+//pub struct MessageStream {
+//    pub id: i64,
+//    pub origin: String,
+//    pub stream_type: String,
+//    pub stream: BoxStream<'static, Result<Vec<u8>>>,
+//}
+//
+//// FIXME: rename clients do daemons
+//#[derive(Serialize, Deserialize, Debug)]
+//pub struct Clients {
+//    pub clients: Vec<Client>,
+//}
+//
+//// FIXME: rename clients to daemons
+//#[derive(Serialize, Deserialize, Debug)]
+//pub struct Client {
+//    pub id: String,
+//    pub display_name: String,
+//    pub sources: Vec<Source>,
+//    pub destinations: Vec<Destination>,
+//}
 
 // FIXME: pool options and configurable pool size
 pub async fn new(database_url: &str) -> Result<Box<dyn DbTrait>> {
@@ -82,61 +131,6 @@ impl<D: Database> Db<D> {
     }
 }
 
-#[derive(Iden)]
-enum Clients {
-    Table,
-    Id,
-    DisplayName,
-    UserId,
-    Sources,
-    Destinations,
-    UniqueClientId,
-    ClientSecretHash,
-}
-
-#[derive(Iden)]
-enum Messages {
-    Table,
-    Id,
-    Topic,
-    Origin,
-    StreamType,
-    CreatedAt,
-}
-
-#[derive(Iden)]
-enum MessageChunks {
-    Table,
-    MessageId,
-    ChunkId,
-    Data,
-}
-
-#[derive(Iden)]
-enum Workspaces {
-    Table,
-    Id,
-    UserId,
-    Name,
-    CreatedAt,
-}
-
-#[derive(Iden)]
-enum UserDaemonTokens {
-    Table,
-    UserId,
-    DaemonToken,
-}
-
-#[derive(Iden)]
-enum Pipes {
-    Table,
-    Id,
-    UserId,
-    WorkspaceId,
-    RawConfig,
-    CreatedAt,
-}
 
 // automatically derives new trait with Send + Sync bounds
 // trait funcs are copied from impl block
@@ -189,7 +183,7 @@ where
     // workspaces API
     fn create_workspace<'a>(
         &'a self,
-        workspace: &'a model::Workspace,
+        workspace: &'a Workspace,
     ) -> BoxFuture<'a, Result<()>> {
         Box::pin(async {
             let created_at = chrono::Utc::now();
@@ -214,7 +208,7 @@ where
         })
     }
 
-    fn get_workspaces(&self) -> BoxFuture<'_, Result<Vec<model::Workspace>>> {
+    fn read_workspaces(&self) -> BoxFuture<'_, Result<Vec<Workspace>>> {
         Box::pin(async {
             let (query, values) = Query::select()
                 .columns([Workspaces::Name, Workspaces::CreatedAt])
@@ -226,30 +220,71 @@ where
                 .fetch_all(&self.pool)
                 .await?
                 .into_iter()
-                .map(|row| {
-                    Ok(model::Workspace {
-                        name: row.get(0),
-                        created_at: Some(row.get(1)),
-                    })
+                .map(|row| Workspace {
+                    name: row.get(0),
+                    created_at: Some(row.get(1)),
                 })
-                .collect::<Result<Vec<model::Workspace>, anyhow::Error>>()?;
+                .collect::<Vec<Workspace>>();
             Ok(workspaces)
         })
     }
 
-    fn update_workspace(&self) -> BoxFuture<Result<()>> {
-        Box::pin(async { Ok(()) })
-    }
-
     fn delete_workspace<'a>(&'a self, name: &'a str) -> BoxFuture<'a, Result<()>> {
-        Box::pin(async {
+        Box::pin(async move {
             let (query, values) = Query::delete()
                 .from_table(Workspaces::Table)
-                .and_where(Expr::col(Workspaces::Name).eq(name.to_string()))
+                .and_where(Expr::col(Workspaces::Name).eq(name))
                 .build_any_sqlx(&*self.query_builder);
             sqlx::query_with(&query, values).execute(&self.pool).await?;
             Ok(())
         })
+    }
+    
+    // Workspace api
+    fn get_graph<'a>(&'a self, workspace_name: &'a str) -> BoxFuture<'a, Result<Graph>> {
+        Box::pin(async move {
+            let (query, values) = Query::select()
+                .columns([
+                    (Nodes::Table, Nodes::Id),
+                    (Nodes::Table, Nodes::DisplayName),
+                ])
+                .from(Nodes::Table)
+                .inner_join(
+                    Workspaces::Table,
+                    Expr::col((Nodes::Table, Nodes::WorkspaceId))
+                        .equals((Workspaces::Table, Workspaces::Id))
+                )
+                .and_where(Expr::col((Workspaces::Table, Workspaces::Name)).eq(workspace_name))
+                .build_any_sqlx(&*self.query_builder);
+            tracing::info!("get_graph nodes query: {query}");
+            let nodes = sqlx::query_with(&query, values)
+                .fetch_all(&self.pool)
+                .await?
+                .into_iter()
+                .map(|row| Node{
+                    id: row.get(0),
+                    display_name: row.get(1),
+                    config: (),
+                })
+                .collect::<Vec<_>>();
+
+            let node_ids = nodes.iter().map(|node| node.id);
+            let (query, values)= Query::select()
+                .columns([Edges::FromId, Edges::ToId])
+                .from(Edges::Table)
+                .and_where(Expr::col(Edges::FromId).is_in(node_ids))
+                .build_any_sqlx(&*self.query_builder);
+            let edges = sqlx::query_with(&query, values)
+                .fetch_all(&self.pool)
+                .await?
+                .into_iter()
+                .map(|row| Edge {  
+                    from_id: row.get(0),
+                    to_id: row.get(1)
+                })
+                .collect::<Vec<_>>();
+            Ok(Graph{ nodes, edges })
+        }) 
     }
 
     // fn provision_daemon<'a>(

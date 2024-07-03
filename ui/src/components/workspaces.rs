@@ -136,7 +136,6 @@ pub fn Workspaces() -> Element {
         fetcher.restart();
         restart_fetcher.set(false);
     }
-    tracing::info!("twice");
     let child = match &*fetcher.read_unchecked() {
         Some(Ok(0)) => rsx! {
             div {

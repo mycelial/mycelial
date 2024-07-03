@@ -4,6 +4,7 @@ use crate::{
     Result,
 };
 use dioxus::prelude::*;
+use serde::Deserialize;
 
 use super::{workspace::WorkspaceUpdate, workspaces::Workspace};
 
@@ -33,7 +34,7 @@ impl AppState {
     fn get_url(&self, paths: &[impl AsRef<str>]) -> Result<url::Url> {
         let mut url = self.location.clone();
         for path in paths {
-            url = url.join(path.as_ref())?
+            url = url.join(path.as_ref())?;
         }
         Ok(url)
     }
@@ -95,13 +96,21 @@ impl AppState {
 }
 
 // Workspace API
-const WORKSPACE_API: &str = "/api/workspace";
+const WORKSPACE_API: &str = "/api/workspace/";
 
-// AppState accumulutas changes which will be released by publishing
+#[derive(Debug, Deserialize)]
+pub struct WorkspaceState{ 
+    pub nodes: Vec<()>,
+    pub edges: Vec<()>
+}
+
 impl AppState {
-    pub async fn fetch_workspace(&self, name: &str) -> Result<()> {
-        let url = self.get_url(&[WORKSPACE_API, name])?;
-        Ok(())
+    pub async fn fetch_workspace(&self, name: &str) -> Result<WorkspaceState> {
+        let response = reqwest::get(self.get_url(&[WORKSPACE_API, name])?)
+            .await?
+            .json::<WorkspaceState>()
+            .await?;
+        Ok(response)
     }
 
     pub fn update_workspace(&mut self, update: WorkspaceUpdate) {
@@ -109,7 +118,7 @@ impl AppState {
     }
 
     pub async fn publish_updates(&mut self) -> Result<()> {
-        tracing::info!("{:#?}", self.workspace_updates);
+        tracing::info!("{}", serde_json::to_string(self.workspace_updates.as_slice()).unwrap());
         Ok(())
     }
 }

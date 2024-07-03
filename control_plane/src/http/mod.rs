@@ -7,7 +7,7 @@ use axum::{
     http::{Method, Request, StatusCode, Uri},
     middleware::{self, Next},
     response::{IntoResponse, Response},
-    routing::{delete, post},
+    routing::{delete, get, post},
     Router,
 };
 use chrono::Utc;
@@ -33,6 +33,7 @@ impl IntoResponse for AppError {
         response
     }
 }
+
 // log response middleware
 async fn log_middleware(method: Method, uri: Uri, request: Request<Body>, next: Next) -> Response {
     let timestamp = Utc::now();
@@ -62,13 +63,19 @@ async fn log_middleware(method: Method, uri: Uri, request: Request<Body>, next: 
 // top level router
 pub fn new(app: crate::app::App) -> Router {
     Router::new()
+        // workspaces API
         .route(
             "/api/workspaces",
-            post(workspaces::create_workspaces).get(workspaces::get_workspaces),
+            post(workspaces::create).get(workspaces::read),
         )
         .route(
             "/api/workspaces/:name",
-            delete(workspaces::delete_workspaces).get(workspace::get_workspace),
+            delete(workspaces::delete)
+        )
+        // workspace API
+        .route(
+            "/api/workspace/:name",
+            get(workspace::read)
         )
         .fallback(assets::assets)
         .layer(middleware::from_fn(log_middleware))

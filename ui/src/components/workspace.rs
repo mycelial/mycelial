@@ -16,26 +16,19 @@ use super::node_state_form::NodeState;
 
 pub type Graph = GenericGraph<Uuid, Signal<NodeState>>;
 
-#[derive(Debug)]
-struct WorkspaceState {
-    name: Rc<str>,
-}
-
-impl WorkspaceState {
-    fn new(name: &str) -> Self {
-        Self {
-            name: Rc::from(name),
-        }
-    }
-}
-
 #[derive(Debug, Clone, Serialize)]
 pub enum WorkspaceOperation {
     AddNode(NodeState),
-    RemoveNode(NodeState),
+    RemoveNode(Uuid),
     UpdateNode(NodeState),
-    AddEdge(Uuid, Uuid),
-    RemoveEdge(Uuid, Uuid),
+    AddEdge{
+        from: Uuid,
+        to: Uuid
+    },
+    RemoveEdge{
+        from: Uuid,
+        to: Uuid
+    },
     UpdatePan { x: f64, y: f64 },
 }
 
@@ -43,9 +36,9 @@ impl From<GraphOperation<Uuid, Signal<NodeState>>> for WorkspaceOperation {
     fn from(value: GraphOperation<Uuid, Signal<NodeState>>) -> Self {
         match value {
             GraphOperation::AddNode(node) => Self::AddNode(node.read().clone()),
-            GraphOperation::RemoveNode(node) => Self::RemoveNode(node.read().clone()),
-            GraphOperation::AddEdge(from_node, to_node) => Self::AddEdge(from_node, to_node),
-            GraphOperation::RemoveEdge(from_node, to_node) => Self::RemoveEdge(from_node, to_node),
+            GraphOperation::RemoveNode(node) => Self::RemoveNode(node.read().id.clone()),
+            GraphOperation::AddEdge(from, to) => Self::AddEdge{from, to},
+            GraphOperation::RemoveEdge(from, to) => Self::RemoveEdge{from, to},
         }
     }
 }
@@ -156,6 +149,8 @@ fn MenuItem(
 // section in viewport
 #[component]
 fn Node(
+    workspace: Rc<str>,
+    mut app_state: Signal<AppState>,
     mut graph: Signal<Graph>,
     mut dragged_node: Signal<Option<DraggedNode>>,
     mut dragged_edge: Signal<Option<DraggedEdge>>,
@@ -311,8 +306,9 @@ fn Node(
                 }
                 span {
                     onclick: move |_event| {
-                        // FIXME: popup
-                        tracing::info!("ops: {:?}", graph.write().remove_node(id));
+                        // FIXME: action warning
+                        let ops: Vec<_> = graph.write().remove_node(id).into_iter().map(Into::<WorkspaceOperation>::into).collect();
+                        app_state.write().update_workspace(WorkspaceUpdate::new(&workspace, ops));
                     },
                     class: "cursor-pointer hover:bg-stem-1",
                     Delete {}
@@ -357,6 +353,8 @@ impl ViewPortState {
 
 #[component]
 fn ViewPort(
+    workspace: Rc<str>,
+    mut app_state: Signal<AppState>,
     mut graph: Signal<Graph>,
     mut view_port_state: Signal<ViewPortState>,
     mut dragged_menu_item: Signal<Option<DraggedMenuItem>>,
@@ -364,8 +362,6 @@ fn ViewPort(
     dragged_edge: Signal<Option<DraggedEdge>>,
     selected_node: Signal<Option<Signal<NodeState>>>,
 ) -> Element {
-    let mut app = use_context::<Signal<AppState>>();
-    let workspace_state = use_context::<Signal<WorkspaceState>>();
     let mut grab_point = use_signal(|| (0.0, 0.0));
     let state_ref = &*view_port_state.read();
     rsx! {
@@ -399,7 +395,7 @@ fn ViewPort(
                     let id = uuid::Uuid::now_v7();
                     let coords = event.client_coordinates();
                     let vps_ref = &*view_port_state.read();
-                    let config = app.read().build_config(&metadata.ty);
+                    let config = app_state.read().build_config(&metadata.ty);
                     let node_state = Signal::new(NodeState::new(
                         id,
                         coords.x - *delta_x - vps_ref.delta_x(),
@@ -407,8 +403,7 @@ fn ViewPort(
                         config,
                     ));
                     let op = graph.add_node(id, node_state);
-                    let workspace = &workspace_state.read().name;
-                    app.write().update_workspace(WorkspaceUpdate::new(workspace, op));
+                    app_state.write().update_workspace(WorkspaceUpdate::new(&workspace, op));
                 }
                 *dragged_menu_item.write() = None;
             },
@@ -449,11 +444,13 @@ fn ViewPort(
                     style: "transform: translate({state_ref.x}px, {state_ref.y}px)",
                     for (_, node) in (&*graph.read()).iter_nodes() {
                         Node{
-                            graph: graph,
-                            dragged_node: dragged_node,
-                            dragged_edge: dragged_edge,
+                            workspace: Rc::clone(&workspace),
+                            app_state,
+                            graph,
+                            dragged_node,
+                            dragged_edge,
                             node: *node,
-                            selected_node: selected_node,
+                            selected_node,
                         }
                     }
                     // graph edges
@@ -667,13 +664,26 @@ impl DraggedEdge {
 
 #[component]
 pub fn Workspace(workspace: String) -> Element {
-    let state_fetcher = use_resource(move || async move {});
+    let mut app_state = use_context::<Signal<AppState>>();
+    let workspace = Rc::from(workspace);
+    let state_fetcher = use_resource({
+        let workspace = Rc::clone(&workspace);
+        move || {
+            let workspace = Rc::clone(&workspace);
+            async move {
+                let _workspace_state = match app_state.read().fetch_workspace(&*workspace).await {
+                    Ok(s) => s,
+                    Err(e) => {
+                        tracing::error!("failed to fetch state: {e}");
+                        return
+                    }
+                };
+            }
+        }
+    });
     if state_fetcher.read().is_none() {
         return None;
     }
-    let workspace_state =
-        use_context_provider(|| Signal::new(WorkspaceState::new(workspace.as_str())));
-    let mut app = use_context::<Signal<AppState>>();
 
     let graph: Signal<Graph> = use_signal(Graph::new);
     let dragged_menu_item: Signal<Option<DraggedMenuItem>> = use_signal(|| None);
@@ -681,7 +691,7 @@ pub fn Workspace(workspace: String) -> Element {
     let mut dragged_edge: Signal<Option<DraggedEdge>> = use_signal(|| None);
     let mut selected_node: Signal<Option<Signal<NodeState>>> = use_signal(|| None);
     let view_port_state = use_signal(ViewPortState::new);
-    let menu_items = app.read().menu_items().collect::<Vec<ConfigMetaData>>();
+    let menu_items = app_state.read().menu_items().collect::<Vec<ConfigMetaData>>();
 
     rsx! {
         div {
@@ -722,7 +732,9 @@ pub fn Workspace(workspace: String) -> Element {
                 button {
                     class: "text-stem-1 font-bold px-4 py-2 rounded bg-forest-1 border border-forest-2 justify-self-end mr-5 uppercase hover:bg-forest-2 hover:text-white",
                     onclick: move |_event| async move {
-                        app.write().publish_updates().await;
+                        if let Err(e) = app_state.write().publish_updates().await {
+                            tracing::error!("failed to publish: {e}");
+                        }
                     },
                     "Publish"
                 }
@@ -748,6 +760,8 @@ pub fn Workspace(workspace: String) -> Element {
                 id: "mycelial-viewport",
                 class: "h-[calc(100vh-200px) w-full scroll-none overflow-hidden",
                 ViewPort {
+                    workspace,
+                    app_state,
                     graph,
                     view_port_state,
                     dragged_menu_item,

@@ -1,15 +1,13 @@
 //! Workspaces routes
 
-use crate::http::Result;
+use crate::{app::{App, db::Workspace}, http::Result};
 use axum::{
     extract::{Path, State},
     response::IntoResponse,
     Json,
 };
 
-use crate::app::{model::Workspace, App};
-
-pub async fn create_workspaces(
+pub async fn create(
     app: State<App>,
     Json(workspace): Json<Workspace>,
 ) -> Result<impl IntoResponse> {
@@ -17,11 +15,11 @@ pub async fn create_workspaces(
     Ok(Json("ok"))
 }
 
-pub async fn get_workspaces(app: State<App>) -> Result<Json<Vec<Workspace>>> {
-    Ok(Json(app.get_workspaces().await?))
+pub async fn read(app: State<App>) -> Result<Json<Vec<Workspace>>> {
+    Ok(Json(app.read_workspaces().await?))
 }
 
-pub async fn delete_workspaces(
+pub async fn delete(
     app: State<App>,
     Path(name): Path<String>,
 ) -> Result<impl IntoResponse> {

@@ -1,10 +1,10 @@
 pub mod db;
 pub mod migration;
-pub mod model;
+pub mod tables;
 
-use self::model::Workspace;
 use anyhow::Result;
 use std::sync::Arc;
+use db::{Workspace, Graph};
 
 #[derive(Clone)]
 pub(crate) struct App {
@@ -27,13 +27,16 @@ impl App {
         self.db.create_workspace(workspace).await
     }
 
-    pub async fn get_workspaces(&self) -> Result<Vec<Workspace>> {
-        self.db.get_workspaces().await
+    pub async fn read_workspaces(&self) -> Result<Vec<Workspace>> {
+        self.db.read_workspaces().await
     }
-
-    pub async fn update_workspace() {}
 
     pub async fn delete_workspace(&self, name: &str) -> Result<()> {
         self.db.delete_workspace(name).await
+    }
+    
+    // workspace api
+    pub async fn get_graph(&self, name: &str) -> Result<Graph> {
+        self.db.get_graph(name).await
     }
 }
