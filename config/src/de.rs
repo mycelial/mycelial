@@ -5,9 +5,8 @@ use serde::{
     Deserialize,
 };
 
-use crate::{Config, Field, FieldType, FieldValue, Metadata, SectionIO};
+use crate::{Config, Field, FieldType, FieldValue, Metadata, SectionIO, StdError};
 
-// this is intermidiate config
 #[derive(Debug, Clone)]
 struct RawConfig {
     config_name: String,
@@ -171,7 +170,11 @@ impl Config for RawConfig {
             .collect()
     }
 
-    fn set_field_value(&mut self, _name: &str, _value: &str) -> Result<(), crate::StdError> {
+    fn set_field_value(
+        &mut self,
+        _name: &str,
+        _value: &FieldValue<'_>,
+    ) -> Result<(), crate::StdError> {
         Err("set field value on intermediate config representation is not supported")?
     }
 }
@@ -193,15 +196,15 @@ impl<'de> Visitor<'de> for ConfigVisitor {
         A: serde::de::MapAccess<'de>,
     {
         match map.next_entry::<String, HashMap<String, RawFieldValue>>() {
-            Ok(Some((key, value))) => {
-                tracing::info!("got: {key} {value:?}");
-                Err(Error::custom("unimplemented"))
-            }
+            Ok(Some((config_name, field_map))) => Ok(Box::new(RawConfig {
+                config_name,
+                fields: field_map
+                    .into_iter()
+                    .map(|(name, value)| RawField { name, value })
+                    .collect(),
+            })),
             Ok(None) => Err(Error::custom("no entries")),
-            Err(e) => {
-                tracing::info!("invalid something");
-                Err(e)
-            }
+            Err(e) => Err(e),
         }
     }
 }
@@ -213,4 +216,11 @@ impl<'de> Deserialize<'de> for Box<dyn Config> {
     {
         Ok(deserializer.deserialize_map(ConfigVisitor {})?)
     }
+}
+
+pub fn deserialize_into_config(from: &dyn Config, to: &mut dyn Config) -> Result<(), StdError> {
+    for field in from.fields() {
+        to.set_field_value(field.name, &field.value)?;
+    }
+    Ok(())
 }

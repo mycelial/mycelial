@@ -12,8 +12,7 @@ impl Serialize for dyn Config {
     {
         // FIXME: for now only support structs
         let mut top_level_struct = serializer.serialize_map(Some(2))?;
-        top_level_struct.serialize_entry("node_type", self.name())?;
-        top_level_struct.serialize_entry("fields", &Slice(self.fields().as_slice()))?;
+        top_level_struct.serialize_entry(self.name(), &Slice(self.fields().as_slice()))?;
         top_level_struct.end()
     }
 }

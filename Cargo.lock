@@ -531,6 +531,7 @@ dependencies = [
  "config_derive",
  "dyn-clone",
  "serde",
+ "serde_json",
  "tracing",
  "trybuild",
 ]
@@ -596,6 +597,7 @@ dependencies = [
  "axum-extra",
  "chrono",
  "clap",
+ "config",
  "derive_trait",
  "futures",
  "mime_guess",

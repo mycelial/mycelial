@@ -39,7 +39,7 @@ pub enum WorkspaceOperation {
         config: Config,
     },
     UpdateNode {},
-    RemoveNode {},
+    RemoveNode(Uuid),
     AddEdge {},
     RemoveEdge {},
 }

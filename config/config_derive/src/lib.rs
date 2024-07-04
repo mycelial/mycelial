@@ -360,7 +360,7 @@ fn parse_config(input: TokenStream) -> Result<TokenStream> {
              }| {
                 let ty: proc_macro2::TokenStream = ty.into();
                 quote! {
-                    #name => { self.#value = (&field_value).try_into()?; }
+                    #name => { self.#value = value.try_into()?; }
                 }
             },
         )
@@ -387,15 +387,14 @@ fn parse_config(input: TokenStream) -> Result<TokenStream> {
                 ]
             }
 
-            fn set_field_value(&mut self, name: &str, value: &str) -> Result<(), Box<dyn std::error::Error + Send + Sync + 'static>> {
+            fn set_field_value(&mut self, name: &str, value: &FieldValue<'_>) -> Result<(), Box<dyn std::error::Error + Send + Sync + 'static>> {
                 let field = match self.fields().into_iter().filter(|field| field.name == name).next() {
                     Some(field) => field,
-                    None => return Err("field with name {name} not found")?
+                    None => return Err(format!("field with name {name} not found"))?
                 };
-                let field_value: FieldValue = (&field.ty, value).try_into()?;
                 match name {
                     #(#set_field_impl),*
-                    _ => Err("unmatched {name}")?,
+                    _ => Err(format!("unmatched field name '{name}'"))?,
                 };
                 Ok(())
             }

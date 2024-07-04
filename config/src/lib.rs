@@ -1,13 +1,14 @@
+mod de;
+mod ser;
+
 pub use config_derive::Config;
 use dyn_clone::DynClone;
 
 pub mod prelude {
-    pub use super::Config as _;
+    pub use super::de::deserialize_into_config;
+    pub use super::Config;
     pub use super::{Field, FieldType, FieldValue, Metadata, SectionIO};
-    pub use config_derive::Config;
 }
-mod de;
-mod ser;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum SectionIO {
@@ -27,7 +28,7 @@ pub fn clone_config(config: &dyn Config) -> Box<dyn Config> {
 }
 
 pub type StdError = Box<dyn std::error::Error + Send + Sync + 'static>;
-pub trait Config: std::fmt::Debug + DynClone + 'static {
+pub trait Config: std::fmt::Debug + DynClone + std::any::Any + Send + 'static {
     fn name(&self) -> &str;
 
     fn input(&self) -> SectionIO;
@@ -36,7 +37,7 @@ pub trait Config: std::fmt::Debug + DynClone + 'static {
 
     fn fields(&self) -> Vec<Field<'_>>;
 
-    fn set_field_value(&mut self, name: &str, value: &str) -> Result<(), StdError>;
+    fn set_field_value(&mut self, name: &str, value: &FieldValue<'_>) -> Result<(), StdError>;
 
     fn validate_field(&self, field_name: &str, value: &str) -> Result<(), StdError> {
         let field = self
@@ -103,6 +104,23 @@ pub enum FieldValue<'a> {
     Bool(bool),
 }
 
+impl FieldValue<'_> {
+    pub fn field_type(&self) -> FieldType {
+        match self {
+            FieldValue::I8(_) => FieldType::I8,
+            FieldValue::I16(_) => FieldType::I16,
+            FieldValue::I32(_) => FieldType::I32,
+            FieldValue::I64(_) => FieldType::I64,
+            FieldValue::U8(_) => FieldType::U8,
+            FieldValue::U16(_) => FieldType::U16,
+            FieldValue::U32(_) => FieldType::U32,
+            FieldValue::U64(_) => FieldType::U64,
+            FieldValue::String(_) => FieldType::String,
+            FieldValue::Bool(_) => FieldType::Bool,
+        }
+    }
+}
+
 impl std::fmt::Display for FieldValue<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -160,7 +178,7 @@ impl_from_value!(i16, I16);
 impl_from_value!(i32, I32);
 impl_from_value!(i64, I64);
 impl_from_value!(bool, Bool);
-impl_from_value!(&'static str, String);
+impl_from_value!(&'a str, String);
 
 impl<'a> TryFrom<(&'a FieldType, &'a str)> for FieldValue<'a> {
     type Error = StdError;
@@ -183,27 +201,40 @@ impl<'a> TryFrom<(&'a FieldType, &'a str)> for FieldValue<'a> {
 }
 
 macro_rules! try_into_field_value_impl {
-    ($ty:ty, $arm:tt, $var:tt, $($conv:tt)*) => {
+    ($ty:ty => $arm:tt ; $var:tt, $($op:tt)*) => {
         impl TryInto<$ty> for &FieldValue<'_> {
             type Error = StdError;
 
             fn try_into(self) -> Result<$ty, Self::Error> {
                 match self {
-                    FieldValue::$arm($var) => Ok($($conv)*),
-                    _ => Err(format!("Can't convert {:?} into {}", self, stringify!($arm)))?
+                    FieldValue::$arm($var) => Ok($($op)*),
+                    _ => Err(format!("Can't convert {:?} into {}", self, stringify!($ty)))?
+                }
+            }
+        }
+    };
+    ($ty:ty => $($arm:tt),+ ; $var:tt) => {
+        impl TryInto<$ty> for &FieldValue<'_> {
+            type Error = StdError;
+
+            fn try_into(self) -> Result<$ty, Self::Error> {
+                match self {
+                    $(FieldValue::$arm($var) => Ok((*$var).try_into()?),)*
+                    _ => Err(format!("Can't convert {:?} into {}", self, stringify!($ty)))?
                 }
             }
         }
     }
 }
 
-try_into_field_value_impl!(u8, U8, v, *v);
-try_into_field_value_impl!(u16, U16, v, *v);
-try_into_field_value_impl!(u32, U32, v, *v);
-try_into_field_value_impl!(u64, U64, v, *v);
-try_into_field_value_impl!(i8, I8, v, *v);
-try_into_field_value_impl!(i16, I16, v, *v);
-try_into_field_value_impl!(i32, I32, v, *v);
-try_into_field_value_impl!(i64, I64, v, *v);
-try_into_field_value_impl!(String, String, v, v.to_string());
-try_into_field_value_impl!(bool, Bool, v, *v);
+try_into_field_value_impl!(u8 => U8, U16, U32, U64, I8, I16, I32, I64; v);
+try_into_field_value_impl!(u16 => U8, U16, U32, U64, I8, I16, I32, I64; v);
+try_into_field_value_impl!(u32 => U8, U16, U32, U64, I8, I16, I32, I64; v);
+try_into_field_value_impl!(u64 => U8, U16, U32, U64, I8, I16, I32, I64; v);
+try_into_field_value_impl!(i8 => U8, U16, U32, U64, I8, I16, I32, I64; v);
+try_into_field_value_impl!(i16 => U8, U16, U32, U64, I8, I16, I32, I64; v);
+try_into_field_value_impl!(i32 => U8, U16, U32, U64, I8, I16, I32, I64; v);
+try_into_field_value_impl!(i64 => U8, U16, U32, U64, I8, I16, I32, I64; v);
+
+try_into_field_value_impl!(String => String ; v, v.to_string());
+try_into_field_value_impl!(bool => Bool ; v, *v);

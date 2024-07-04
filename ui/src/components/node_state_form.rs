@@ -166,7 +166,7 @@ pub fn NodeStateForm(selected_node: Signal<Option<Signal<NodeState>>>) -> Elemen
                         };
                         let config = &mut node_state.write().config;
                         for (field_name, field_value) in form_state.into_iter() {
-                            match config.set_field_value(field_name.as_str(), field_value.as_str()) {
+                            match config.set_field_value(field_name.as_str(), &field_value.as_str().into()) {
                                 Ok(_) => (),
                                 Err(e) =>
                                     tracing::error!("failed to set field value for {field_name} with value {field_value}: {e}"),
