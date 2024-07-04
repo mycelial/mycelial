@@ -27,10 +27,12 @@ impl<'a> SQSource<'a> {
 
 impl<'s> MigrationSource<'s> for SQSource<'s> {
     fn resolve(self) -> BoxFuture<'s, Result<Vec<Migration>, sqlx::error::BoxDynError>> {
-        Box::pin(async move { Ok(vec![
-            m0001::into_migration(self.schema_builder),
-            m0002::into_migration(self.schema_builder),
-        ]) })
+        Box::pin(async move {
+            Ok(vec![
+                m0001::into_migration(self.schema_builder),
+                m0002::into_migration(self.schema_builder),
+            ])
+        })
     }
 }
 

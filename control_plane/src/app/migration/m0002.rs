@@ -1,7 +1,7 @@
 use sea_query::{ColumnDef, Iden, SchemaBuilder, Table};
 use sqlx::migrate::{Migration, MigrationType};
 
-// Graph nodes 
+// Graph nodes
 
 #[derive(Iden)]
 enum Nodes {
@@ -15,7 +15,7 @@ enum Nodes {
 }
 
 // FIXME: indices
-impl Nodes{
+impl Nodes {
     fn into_query(schema_builder: &dyn SchemaBuilder) -> String {
         Table::create()
             .table(Nodes::Table)
@@ -33,10 +33,10 @@ impl Nodes{
 enum Edges {
     Table,
     FromId,
-    ToId,    
+    ToId,
 }
 
-impl Edges{
+impl Edges {
     fn into_query(schema_builder: &dyn SchemaBuilder) -> String {
         Table::create()
             .table(Edges::Table)
@@ -55,7 +55,7 @@ enum NodeParam {
     Value,
 }
 
-// FIXME: index on node id 
+// FIXME: index on node id
 impl NodeParam {
     fn into_query(schema_builder: &dyn SchemaBuilder) -> String {
         Table::create()
@@ -67,7 +67,6 @@ impl NodeParam {
     }
 }
 
-
 pub fn into_migration(schema_builder: &dyn SchemaBuilder) -> Migration {
     let sql = [
         // tables
@@ -77,5 +76,10 @@ pub fn into_migration(schema_builder: &dyn SchemaBuilder) -> Migration {
         // indices
     ]
     .join(";\n");
-    Migration::new(2, "nodes_and_edges".into(), MigrationType::Simple, sql.into())
+    Migration::new(
+        2,
+        "nodes_and_edges".into(),
+        MigrationType::Simple,
+        sql.into(),
+    )
 }

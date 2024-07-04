@@ -3,8 +3,8 @@ pub mod migration;
 pub mod tables;
 
 use anyhow::Result;
+use db::{Graph, Workspace};
 use std::sync::Arc;
-use db::{Workspace, Graph};
 
 #[derive(Clone)]
 pub(crate) struct App {
@@ -34,7 +34,7 @@ impl App {
     pub async fn delete_workspace(&self, name: &str) -> Result<()> {
         self.db.delete_workspace(name).await
     }
-    
+
     // workspace api
     pub async fn get_graph(&self, name: &str) -> Result<Graph> {
         self.db.get_graph(name).await

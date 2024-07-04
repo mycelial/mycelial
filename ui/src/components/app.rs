@@ -32,11 +32,12 @@ impl AppState {
     }
 
     fn get_url(&self, paths: &[impl AsRef<str>]) -> Result<url::Url> {
-        let mut url = self.location.clone();
-        for path in paths {
-            url = url.join(path.as_ref())?;
-        }
-        Ok(url)
+        let path = paths
+            .iter()
+            .map(|path| path.as_ref())
+            .collect::<Vec<_>>()
+            .join("/");
+        Ok(self.location.join(&path)?)
     }
 }
 
@@ -96,12 +97,12 @@ impl AppState {
 }
 
 // Workspace API
-const WORKSPACE_API: &str = "/api/workspace/";
+const WORKSPACE_API: &str = "/api/workspace";
 
 #[derive(Debug, Deserialize)]
-pub struct WorkspaceState{ 
+pub struct WorkspaceState {
     pub nodes: Vec<()>,
-    pub edges: Vec<()>
+    pub edges: Vec<()>,
 }
 
 impl AppState {
@@ -118,8 +119,24 @@ impl AppState {
     }
 
     pub async fn publish_updates(&mut self) -> Result<()> {
-        tracing::info!("{}", serde_json::to_string(self.workspace_updates.as_slice()).unwrap());
-        Ok(())
+        if self.workspace_updates.is_empty() {
+            return Ok(());
+        }
+        let response = reqwest::Client::new()
+            .post(self.get_url(&[WORKSPACE_API])?)
+            .json(self.workspace_updates.as_slice())
+            .send()
+            .await?;
+        match response.status().is_success() {
+            true => {
+                self.workspace_updates.clear();
+                Ok(())
+            }
+            false => Err(format!(
+                "failed to publish updates, response code: {}",
+                response.status()
+            ))?,
+        }
     }
 }
 

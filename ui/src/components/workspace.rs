@@ -21,14 +21,8 @@ pub enum WorkspaceOperation {
     AddNode(NodeState),
     RemoveNode(Uuid),
     UpdateNode(NodeState),
-    AddEdge{
-        from: Uuid,
-        to: Uuid
-    },
-    RemoveEdge{
-        from: Uuid,
-        to: Uuid
-    },
+    AddEdge { from: Uuid, to: Uuid },
+    RemoveEdge { from: Uuid, to: Uuid },
     UpdatePan { x: f64, y: f64 },
 }
 
@@ -36,9 +30,9 @@ impl From<GraphOperation<Uuid, Signal<NodeState>>> for WorkspaceOperation {
     fn from(value: GraphOperation<Uuid, Signal<NodeState>>) -> Self {
         match value {
             GraphOperation::AddNode(node) => Self::AddNode(node.read().clone()),
-            GraphOperation::RemoveNode(node) => Self::RemoveNode(node.read().id.clone()),
-            GraphOperation::AddEdge(from, to) => Self::AddEdge{from, to},
-            GraphOperation::RemoveEdge(from, to) => Self::RemoveEdge{from, to},
+            GraphOperation::RemoveNode(node) => Self::RemoveNode(node.read().id),
+            GraphOperation::AddEdge(from, to) => Self::AddEdge { from, to },
+            GraphOperation::RemoveEdge(from, to) => Self::RemoveEdge { from, to },
         }
     }
 }
@@ -671,11 +665,11 @@ pub fn Workspace(workspace: String) -> Element {
         move || {
             let workspace = Rc::clone(&workspace);
             async move {
-                let _workspace_state = match app_state.read().fetch_workspace(&*workspace).await {
+                let _workspace_state = match app_state.peek().fetch_workspace(&workspace).await {
                     Ok(s) => s,
                     Err(e) => {
                         tracing::error!("failed to fetch state: {e}");
-                        return
+                        return;
                     }
                 };
             }
@@ -691,7 +685,10 @@ pub fn Workspace(workspace: String) -> Element {
     let mut dragged_edge: Signal<Option<DraggedEdge>> = use_signal(|| None);
     let mut selected_node: Signal<Option<Signal<NodeState>>> = use_signal(|| None);
     let view_port_state = use_signal(ViewPortState::new);
-    let menu_items = app_state.read().menu_items().collect::<Vec<ConfigMetaData>>();
+    let menu_items = app_state
+        .peek()
+        .menu_items()
+        .collect::<Vec<ConfigMetaData>>();
 
     rsx! {
         div {

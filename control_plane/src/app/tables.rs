@@ -56,7 +56,6 @@ pub enum Pipes {
     CreatedAt,
 }
 
-
 // Graph entities
 #[derive(Iden)]
 pub enum Nodes {
@@ -72,5 +71,5 @@ pub enum Nodes {
 pub enum Edges {
     Table,
     FromId,
-    ToId,    
+    ToId,
 }

@@ -1,6 +1,9 @@
 //! Workspaces routes
 
-use crate::{app::{App, db::Workspace}, http::Result};
+use crate::{
+    app::{db::Workspace, App},
+    http::Result,
+};
 use axum::{
     extract::{Path, State},
     response::IntoResponse,
@@ -19,10 +22,7 @@ pub async fn read(app: State<App>) -> Result<Json<Vec<Workspace>>> {
     Ok(Json(app.read_workspaces().await?))
 }
 
-pub async fn delete(
-    app: State<App>,
-    Path(name): Path<String>,
-) -> Result<impl IntoResponse> {
+pub async fn delete(app: State<App>, Path(name): Path<String>) -> Result<impl IntoResponse> {
     app.delete_workspace(&name).await?;
     Ok(Json("ok"))
 }

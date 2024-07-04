@@ -4,6 +4,7 @@ use std::{
     ops::{Deref, DerefMut},
 };
 
+use crate::app::tables::{Edges, Nodes, Workspaces};
 use crate::app::{migration, Result};
 use chrono::{DateTime, NaiveDateTime, Utc};
 use derive_trait::derive_trait;
@@ -18,8 +19,6 @@ use sqlx::{
     Executor, IntoArguments, Pool, Postgres, Row, Sqlite, Transaction,
 };
 use uuid::Uuid;
-use crate::app::tables::{Workspaces, Nodes, Edges};
-
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Workspace {
@@ -42,7 +41,7 @@ pub struct Node {
 }
 
 #[derive(Debug, Serialize)]
-pub struct Edge{
+pub struct Edge {
     pub from_id: uuid::Uuid,
     pub to_id: uuid::Uuid,
 }
@@ -54,13 +53,13 @@ pub struct Edge{
 //    pub stream: BoxStream<'static, Result<Vec<u8>>>,
 //}
 //
-//// FIXME: rename clients do daemons
+/// FIXME: rename clients do daemons
 //#[derive(Serialize, Deserialize, Debug)]
 //pub struct Clients {
 //    pub clients: Vec<Client>,
 //}
 //
-//// FIXME: rename clients to daemons
+/// FIXME: rename clients to daemons
 //#[derive(Serialize, Deserialize, Debug)]
 //pub struct Client {
 //    pub id: String,
@@ -131,7 +130,6 @@ impl<D: Database> Db<D> {
     }
 }
 
-
 // automatically derives new trait with Send + Sync bounds
 // trait funcs are copied from impl block
 #[derive_trait(Send + Sync)]
@@ -181,10 +179,7 @@ where
     }
 
     // workspaces API
-    fn create_workspace<'a>(
-        &'a self,
-        workspace: &'a Workspace,
-    ) -> BoxFuture<'a, Result<()>> {
+    fn create_workspace<'a>(&'a self, workspace: &'a Workspace) -> BoxFuture<'a, Result<()>> {
         Box::pin(async {
             let created_at = chrono::Utc::now();
             let (query, values) = Query::insert()
@@ -239,7 +234,7 @@ where
             Ok(())
         })
     }
-    
+
     // Workspace api
     fn get_graph<'a>(&'a self, workspace_name: &'a str) -> BoxFuture<'a, Result<Graph>> {
         Box::pin(async move {
@@ -252,16 +247,15 @@ where
                 .inner_join(
                     Workspaces::Table,
                     Expr::col((Nodes::Table, Nodes::WorkspaceId))
-                        .equals((Workspaces::Table, Workspaces::Id))
+                        .equals((Workspaces::Table, Workspaces::Id)),
                 )
                 .and_where(Expr::col((Workspaces::Table, Workspaces::Name)).eq(workspace_name))
                 .build_any_sqlx(&*self.query_builder);
-            tracing::info!("get_graph nodes query: {query}");
             let nodes = sqlx::query_with(&query, values)
                 .fetch_all(&self.pool)
                 .await?
                 .into_iter()
-                .map(|row| Node{
+                .map(|row| Node {
                     id: row.get(0),
                     display_name: row.get(1),
                     config: (),
@@ -269,7 +263,7 @@ where
                 .collect::<Vec<_>>();
 
             let node_ids = nodes.iter().map(|node| node.id);
-            let (query, values)= Query::select()
+            let (query, values) = Query::select()
                 .columns([Edges::FromId, Edges::ToId])
                 .from(Edges::Table)
                 .and_where(Expr::col(Edges::FromId).is_in(node_ids))
@@ -278,13 +272,13 @@ where
                 .fetch_all(&self.pool)
                 .await?
                 .into_iter()
-                .map(|row| Edge {  
+                .map(|row| Edge {
                     from_id: row.get(0),
-                    to_id: row.get(1)
+                    to_id: row.get(1),
                 })
                 .collect::<Vec<_>>();
-            Ok(Graph{ nodes, edges })
-        }) 
+            Ok(Graph { nodes, edges })
+        })
     }
 
     // fn provision_daemon<'a>(
