@@ -3,5 +3,6 @@ members = [
     "ui",
     "config",
     "control_plane",
+    "config_registry",
 ]
 resolver = "2"

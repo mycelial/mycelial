@@ -1,7 +1,8 @@
 use std::{collections::BTreeMap, rc::Rc};
-
-use crate::Result;
 use config::prelude::*;
+
+type Result<T, E=Box<dyn std::error::Error + Send + Sync + 'static>> = std::result::Result<T, E>;
+
 
 #[derive(Debug, Default, Clone, Config)]
 #[section(output=dataframe)]
@@ -48,22 +49,11 @@ impl ConfigMetaData {
     }
 }
 
-impl Default for ConfigRegistry {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 impl ConfigRegistry {
     pub fn new() -> Self {
-        let mut s = Self {
+        Self {
             registry: BTreeMap::new(),
-        };
-        s.add_config(|| Box::from(ConfigExample::default()))
-            .unwrap();
-        s.add_config(|| Box::from(ConfigExampleSecond::default()))
-            .unwrap();
-        s
+        }
     }
 
     pub fn add_config(&mut self, ctor: ConfigConstructor) -> Result<()> {
@@ -83,7 +73,7 @@ impl ConfigRegistry {
         Ok(())
     }
 
-    pub fn menu_items(&self) -> impl Iterator<Item = ConfigMetaData> + '_ {
+    pub fn iter_values(&self) -> impl Iterator<Item = ConfigMetaData> + '_ {
         self.registry.values().cloned()
     }
 
@@ -93,4 +83,11 @@ impl ConfigRegistry {
             None => Err(format!("no config constructor for {name} found"))?,
         }
     }
+}
+
+pub fn new() -> Result<ConfigRegistry> {
+    let mut registry = ConfigRegistry::new();
+    registry.add_config(|| Box::from(ConfigExample::default()))?;
+    registry.add_config(|| Box::from(ConfigExampleSecond::default()))?;
+    Ok(registry)
 }

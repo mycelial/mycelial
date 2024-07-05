@@ -1,8 +1,8 @@
 use crate::{
     components::routing::Route,
-    config_registry::{ConfigMetaData, ConfigRegistry},
     Result,
 };
+use config_registry::{ConfigMetaData, ConfigRegistry};
 use dioxus::prelude::*;
 use serde::Deserialize;
 
@@ -15,18 +15,13 @@ pub struct AppState {
     workspace_updates: Vec<WorkspaceUpdate>,
 }
 
-impl Default for AppState {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
+#[allow(clippy::new_without_default)]
 impl AppState {
     pub fn new() -> Self {
         let location: String = web_sys::window().unwrap().location().to_string().into();
         Self {
             location: location.parse().unwrap(),
-            config_registry: ConfigRegistry::new(),
+            config_registry: config_registry::new().expect("failed to initialize config registry"),
             workspace_updates: Vec::new(),
         }
     }
@@ -44,7 +39,7 @@ impl AppState {
 // ConfigRegistry API
 impl AppState {
     pub fn menu_items(&self) -> impl Iterator<Item = ConfigMetaData> + '_ {
-        self.config_registry.menu_items()
+        self.config_registry.iter_values()
     }
 
     pub fn build_config(&self, name: &str) -> Box<dyn config::Config> {

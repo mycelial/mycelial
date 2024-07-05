@@ -4,7 +4,7 @@ use crate::components::app::AppState;
 use crate::components::graph::Graph as GenericGraph;
 use crate::components::icons::{Delete, Edit, Pause, Play, Restart};
 use crate::components::node_state_form::NodeStateForm;
-use crate::config_registry::ConfigMetaData;
+use config_registry::ConfigMetaData;
 use config::SectionIO;
 use dioxus::prelude::*;
 use serde::ser::SerializeMap;

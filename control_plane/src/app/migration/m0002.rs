@@ -12,6 +12,7 @@ enum Nodes {
     UserId,
     WorkspaceId,
     DaemonId,
+    Config,
 }
 
 // FIXME: indices
@@ -25,6 +26,7 @@ impl Nodes {
             .col(ColumnDef::new(Nodes::UserId).big_integer())
             .col(ColumnDef::new(Nodes::WorkspaceId).big_integer())
             .col(ColumnDef::new(Nodes::DaemonId).big_integer())
+            .col(ColumnDef::new(Nodes::Config).json())
             .build_any(schema_builder)
     }
 }
@@ -46,33 +48,12 @@ impl Edges {
     }
 }
 
-#[derive(Iden)]
-enum NodeParam {
-    Table,
-    NodeId,
-    Key,
-    // FIXME: how to store nested data?
-    Value,
-}
-
-// FIXME: index on node id
-impl NodeParam {
-    fn into_query(schema_builder: &dyn SchemaBuilder) -> String {
-        Table::create()
-            .table(NodeParam::Table)
-            .col(ColumnDef::new(NodeParam::NodeId).uuid())
-            .col(ColumnDef::new(NodeParam::Key).string())
-            .col(ColumnDef::new(NodeParam::Value).string())
-            .build_any(schema_builder)
-    }
-}
 
 pub fn into_migration(schema_builder: &dyn SchemaBuilder) -> Migration {
     let sql = [
         // tables
         Nodes::into_query(schema_builder),
         Edges::into_query(schema_builder),
-        NodeParam::into_query(schema_builder),
         // indices
     ]
     .join(";\n");

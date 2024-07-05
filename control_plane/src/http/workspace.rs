@@ -25,18 +25,12 @@ pub struct WorkspaceUpdate {
 }
 
 #[derive(Debug, Deserialize)]
-pub struct Config {
-    node_type: String,
-    fields: serde_json::Value,
-}
-
-#[derive(Debug, Deserialize)]
 pub enum WorkspaceOperation {
     AddNode {
         id: Uuid,
         x: f64,
         y: f64,
-        config: Config,
+        config: Box<dyn config::Config>,
     },
     UpdateNode {},
     RemoveNode(Uuid),
