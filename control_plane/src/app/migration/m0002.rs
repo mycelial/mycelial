@@ -8,11 +8,12 @@ enum Nodes {
     Table,
     Id,
     DisplayName,
-    NodeType,
     UserId,
     WorkspaceId,
     DaemonId,
     Config,
+    X,
+    Y,
 }
 
 // FIXME: indices
@@ -22,7 +23,8 @@ impl Nodes {
             .table(Nodes::Table)
             .col(ColumnDef::new(Nodes::Id).uuid().primary_key())
             .col(ColumnDef::new(Nodes::DisplayName).string())
-            .col(ColumnDef::new(Nodes::NodeType).string())
+            .col(ColumnDef::new(Nodes::X).double())
+            .col(ColumnDef::new(Nodes::Y).double())
             .col(ColumnDef::new(Nodes::UserId).big_integer())
             .col(ColumnDef::new(Nodes::WorkspaceId).big_integer())
             .col(ColumnDef::new(Nodes::DaemonId).big_integer())
@@ -47,7 +49,6 @@ impl Edges {
             .build_any(schema_builder)
     }
 }
-
 
 pub fn into_migration(schema_builder: &dyn SchemaBuilder) -> Migration {
     let sql = [

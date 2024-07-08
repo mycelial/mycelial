@@ -28,7 +28,7 @@ pub fn clone_config(config: &dyn Config) -> Box<dyn Config> {
 }
 
 pub type StdError = Box<dyn std::error::Error + Send + Sync + 'static>;
-pub trait Config: std::fmt::Debug + DynClone + std::any::Any + Send + 'static {
+pub trait Config: std::fmt::Debug + DynClone + std::any::Any + Send + Sync + 'static {
     fn name(&self) -> &str;
 
     fn input(&self) -> SectionIO;
@@ -80,6 +80,7 @@ impl FieldType {
 pub struct Metadata {
     pub is_password: bool,
     pub is_text_area: bool,
+    pub is_read_only: bool,
 }
 
 #[derive(Debug, PartialEq)]

@@ -223,6 +223,7 @@ pub fn NodeStateForm(selected_node: Signal<Option<Signal<NodeState>>>) -> Elemen
                                         name: "{field.name}",
                                         r#type: "checkbox",
                                         class: "ml-3 rounded-md py-1.5 text-gray-900 drop-shadow-sm ring-1 ring-night-1 focus:ring-2 focus:ring-night-2 focus:outline-none",
+                                        readonly: field.metadata.is_read_only,
                                         value: "{field.value}",
                                     }
                                 }
@@ -239,6 +240,7 @@ pub fn NodeStateForm(selected_node: Signal<Option<Signal<NodeState>>>) -> Elemen
                                         name: "{field.name}",
                                         class: "w-full rounded-md py-1.5 text-gray-900 drop-shadow-sm ring-1 ring-night-1 focus:ring-2 focus:ring-night-2 focus:outline-none",
                                         class: if fs.is_field_valid(&field_name) { "" } else { "outline outline-red-500" },
+                                        readonly: field.metadata.is_read_only,
                                         value: "{field.value}",
                                     }
                                 }
@@ -257,6 +259,7 @@ pub fn NodeStateForm(selected_node: Signal<Option<Signal<NodeState>>>) -> Elemen
                                         autocomplete: "off",
                                         class: "w-full rounded-md py-1.5 text-gray-900 drop-shadow-sm ring-1 ring-night-1 focus:ring-2 focus:ring-night-2",
                                         class: if fs.is_field_valid(&field_name) { "" } else { "outline outline-red-500" },
+                                        readonly: field.metadata.is_read_only,
                                         oninput: move |event| {
                                             if let Some(form_state) = &mut *form_state.write() {
                                                 form_state.update_value(field_name.as_str(), event.value())

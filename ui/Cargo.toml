@@ -9,7 +9,7 @@ edition = "2021"
 dioxus = { version = "0.5", features = ["web", "router"] }
 futures = "0.3"
 reqwest = { version = "0.12", features = ["json"] }
-serde = { version = "1", features = ["derive"] }
+serde = { version = "1", features = ["derive", "rc"] }
 serde_json = "1"
 tracing = "0.1"
 web-sys = { version = "0.3", features = ["Window"] }

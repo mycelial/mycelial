@@ -28,6 +28,7 @@ impl std::error::Error for ConfigError {}
 struct ConfigFieldMetadata {
     is_password: bool,
     is_text_area: bool,
+    is_read_only: bool,
 }
 
 struct ConfigFieldValidate {}
@@ -168,6 +169,7 @@ fn parse_section_attr(
 fn parse_field_attributes(field_attributes: &[Attribute]) -> Result<ConfigFieldMetadata> {
     let mut is_password = false;
     let mut is_text_area = false;
+    let mut is_read_only = false;
     match field_attributes {
         [attr] if attr.path().is_ident("field_type") => {
             attr.parse_nested_meta(|meta| {
@@ -177,6 +179,10 @@ fn parse_field_attributes(field_attributes: &[Attribute]) -> Result<ConfigFieldM
                 };
                 if meta.path.is_ident("text_area") {
                     is_text_area = true;
+                    return Ok(());
+                };
+                if meta.path.is_ident("read_only") {
+                    is_read_only = true;
                     return Ok(());
                 };
                 Ok(())
@@ -196,6 +202,7 @@ fn parse_field_attributes(field_attributes: &[Attribute]) -> Result<ConfigFieldM
     Ok(ConfigFieldMetadata {
         is_password,
         is_text_area,
+        is_read_only,
     })
 }
 
@@ -334,6 +341,7 @@ fn parse_config(input: TokenStream) -> Result<TokenStream> {
                 let ConfigFieldMetadata {
                     is_password,
                     is_text_area,
+                    is_read_only,
                 } = metadata;
                 let name_tokens = quote! { #name };
                 quote! {
@@ -343,6 +351,7 @@ fn parse_config(input: TokenStream) -> Result<TokenStream> {
                         metadata: config::Metadata {
                             is_password: #is_password,
                             is_text_area: #is_text_area,
+                            is_read_only: #is_read_only,
                         },
                         value: (&self.#value).into(),
                     }

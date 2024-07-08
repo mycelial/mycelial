@@ -1,13 +1,13 @@
 use std::rc::Rc;
+use std::sync::Arc;
 
 use crate::components::app::AppState;
 use crate::components::graph::Graph as GenericGraph;
 use crate::components::icons::{Delete, Edit, Pause, Play, Restart};
 use crate::components::node_state_form::NodeStateForm;
-use config_registry::ConfigMetaData;
 use config::SectionIO;
+use config_registry::ConfigMetaData;
 use dioxus::prelude::*;
-use serde::ser::SerializeMap;
 use serde::Serialize;
 use uuid::Uuid;
 
@@ -45,20 +45,10 @@ impl From<GraphOperation<Uuid, Signal<NodeState>>> for Vec<WorkspaceOperation> {
 }
 
 //
-#[derive(Debug)]
+#[derive(Debug, Serialize)]
 pub struct WorkspaceUpdate {
     name: Rc<str>,
     operations: Vec<WorkspaceOperation>,
-}
-
-// Rc<str> doesn't implement Serialize
-impl Serialize for WorkspaceUpdate {
-    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        let mut map = serializer.serialize_map(Some(2))?;
-        map.serialize_entry("name", &*self.name)?;
-        map.serialize_entry("operations", &*self.operations)?;
-        map.end()
-    }
 }
 
 impl WorkspaceUpdate {
@@ -77,7 +67,7 @@ fn MenuItem(
     mut dragged_menu_item: Signal<Option<DraggedMenuItem>>,
 ) -> Element {
     let mut rect_data = use_signal(|| (0.0, 0.0, 0.0, 0.0));
-    let node_type: Rc<str> = Rc::clone(&metadata.ty);
+    let node_type: Arc<str> = Arc::clone(&metadata.ty);
     let source = match metadata.input {
         true => rsx! {
             span {
@@ -173,11 +163,20 @@ fn Node(
             div {
                 class: "absolute block rounded-full bg-moss-1 z-10",
                 style: "left: {input_pos.0}px; top: {input_pos.1}px; min-width: {port_diameter}px; min-height: {port_diameter}px;",
-                onmouseup: move |_event|  {
-                    let dragged = &mut *dragged_edge.write();
-                    if let Some(DraggedEdge{from_node, ..}) = dragged {
-                        let op = graph.write().add_edge(*from_node, id);
-                        *dragged = None;
+                onmouseup: {
+                    let workspace = Rc::clone(&workspace);
+                    move |_event|  {
+                        let dragged = &mut *dragged_edge.write();
+                        if let Some(DraggedEdge{from_node, ..}) = dragged {
+                            let op: Vec<WorkspaceOperation> = graph
+                                .write()
+                                .add_edge(*from_node, id)
+                                .into_iter()
+                                .map(Into::into)
+                                .collect();
+                            app_state.write().update_workspace(WorkspaceUpdate::new(&workspace, op));
+                            *dragged = None;
+                        }
                     }
                 }
             }
@@ -242,15 +241,23 @@ fn Node(
                     *dragged_node.write() = Some(DraggedNode::new(node, delta_x, delta_y));
                 }
             },
-            onmouseup: move |_event|  {
-                // if node doesn't have input - do nothing
-                if node.read().config.input().is_none() {
-                    return
-                }
-                let dragged = &mut *dragged_edge.write();
-                if let Some(DraggedEdge{from_node, ..}) = dragged.take() {
-                    let op = graph.write().add_edge(from_node, id);
-                    tracing::info!("add edge: {op:?}");
+            onmouseup: {
+                let workspace = Rc::clone(&workspace);
+                 move |_event|  {
+                    // if node doesn't have input - do nothing
+                    if node.read().config.input().is_none() {
+                        return
+                    }
+                    let dragged = &mut *dragged_edge.write();
+                    if let Some(DraggedEdge{from_node, ..}) = dragged.take() {
+                        let op: Vec<WorkspaceOperation> = graph
+                            .write()
+                            .add_edge(from_node, id)
+                            .into_iter()
+                            .map(Into::into)
+                            .collect();
+                        app_state.write().update_workspace(WorkspaceUpdate::new(&workspace, op));
+                    }
                 }
             },
             div {
@@ -389,7 +396,13 @@ fn ViewPort(
                     let id = uuid::Uuid::now_v7();
                     let coords = event.client_coordinates();
                     let vps_ref = &*view_port_state.read();
-                    let config = app_state.read().build_config(&metadata.ty);
+                    let config = match app_state.read().build_config(&metadata.ty) {
+                        Ok(config) => config,
+                        Err(e) => {
+                            tracing::error!("failed to build config for {}: {e}", metadata.ty);
+                            return
+                        }
+                    };
                     let node_state = Signal::new(NodeState::new(
                         id,
                         coords.x - *delta_x - vps_ref.delta_x(),
@@ -659,19 +672,40 @@ impl DraggedEdge {
 #[component]
 pub fn Workspace(workspace: String) -> Element {
     let mut app_state = use_context::<Signal<AppState>>();
+    let mut graph: Signal<Graph> = use_signal(Graph::new);
     let workspace = Rc::from(workspace);
     let state_fetcher = use_resource({
         let workspace = Rc::clone(&workspace);
         move || {
             let workspace = Rc::clone(&workspace);
             async move {
-                let _workspace_state = match app_state.peek().fetch_workspace(&workspace).await {
+                let workspace_state = match app_state.peek().fetch_workspace(&workspace).await {
                     Ok(s) => s,
                     Err(e) => {
                         tracing::error!("failed to fetch state: {e}");
                         return;
                     }
                 };
+                if workspace_state.nodes.is_empty() {
+                    return;
+                }
+                let graph = &mut *graph.write();
+                for node in workspace_state.nodes {
+                    let config = match app_state.peek().build_config(node.config.name()) {
+                        Ok(config) => config,
+                        Err(e) => {
+                            tracing::error!("failed to build config for {}: {e}", node.config.name());
+                            continue;
+                        }
+                    };
+                    graph.add_node(
+                        node.id,
+                        Signal::new(NodeState::new(node.id, node.x, node.y, config)),
+                    );
+                }
+                for edge in workspace_state.edges {
+                    graph.add_edge(edge.from_id, edge.to_id);
+                }
             }
         }
     });
@@ -679,7 +713,6 @@ pub fn Workspace(workspace: String) -> Element {
         return None;
     }
 
-    let graph: Signal<Graph> = use_signal(Graph::new);
     let dragged_menu_item: Signal<Option<DraggedMenuItem>> = use_signal(|| None);
     let mut dragged_node: Signal<Option<DraggedNode>> = use_signal(|| None);
     let mut dragged_edge: Signal<Option<DraggedEdge>> = use_signal(|| None);

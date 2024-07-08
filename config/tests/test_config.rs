@@ -30,6 +30,7 @@ fn test_simple_config() {
                 metadata: Metadata {
                     is_password: false,
                     is_text_area: false,
+                    is_read_only: false,
                 },
                 value: "login".into(),
             },
@@ -39,6 +40,7 @@ fn test_simple_config() {
                 metadata: Metadata {
                     is_password: true,
                     is_text_area: true,
+                    is_read_only: false,
                 },
                 value: "password".into(),
             },
@@ -48,6 +50,7 @@ fn test_simple_config() {
                 metadata: Metadata {
                     is_password: false,
                     is_text_area: false,
+                    is_read_only: false,
                 },
                 value: 30303_u16.into(),
             },
@@ -57,6 +60,7 @@ fn test_simple_config() {
                 metadata: Metadata {
                     is_password: false,
                     is_text_area: false,
+                    is_read_only: false,
                 },
                 value: true.into()
             },

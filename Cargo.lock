@@ -599,6 +599,7 @@ dependencies = [
  "chrono",
  "clap",
  "config",
+ "config_registry",
  "derive_trait",
  "futures",
  "mime_guess",

@@ -164,7 +164,10 @@ impl Config for RawConfig {
             .map(|field| Field {
                 name: field.name.as_str(),
                 ty: FieldType::String,
-                metadata: Metadata::default(),
+                metadata: Metadata {
+                    is_read_only: true,
+                    ..Default::default()
+                },
                 value: (&field.value).into(),
             })
             .collect()

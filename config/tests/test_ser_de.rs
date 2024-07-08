@@ -43,7 +43,8 @@ fn test_serialization_deserialization() {
                 ty: FieldType::String,
                 metadata: Metadata {
                     is_password: false,
-                    is_text_area: false
+                    is_text_area: false,
+                    is_read_only: true,
                 },
                 value: FieldValue::Bool(true)
             },
@@ -52,7 +53,8 @@ fn test_serialization_deserialization() {
                 ty: FieldType::String,
                 metadata: Metadata {
                     is_password: false,
-                    is_text_area: false
+                    is_text_area: false,
+                    is_read_only: true,
                 },
                 value: FieldValue::I64(-16)
             },
@@ -61,7 +63,8 @@ fn test_serialization_deserialization() {
                 ty: FieldType::String,
                 metadata: Metadata {
                     is_password: false,
-                    is_text_area: false
+                    is_text_area: false,
+                    is_read_only: true,
                 },
                 value: FieldValue::I64(-32)
             },
@@ -70,7 +73,8 @@ fn test_serialization_deserialization() {
                 ty: FieldType::String,
                 metadata: Metadata {
                     is_password: false,
-                    is_text_area: false
+                    is_text_area: false,
+                    is_read_only: true,
                 },
                 value: FieldValue::I64(-64)
             },
@@ -79,7 +83,8 @@ fn test_serialization_deserialization() {
                 ty: FieldType::String,
                 metadata: Metadata {
                     is_password: false,
-                    is_text_area: false
+                    is_text_area: false,
+                    is_read_only: true,
                 },
                 value: FieldValue::I64(-8)
             },
@@ -88,7 +93,8 @@ fn test_serialization_deserialization() {
                 ty: FieldType::String,
                 metadata: Metadata {
                     is_password: false,
-                    is_text_area: false
+                    is_text_area: false,
+                    is_read_only: true,
                 },
                 value: FieldValue::String("some string")
             },
@@ -97,7 +103,8 @@ fn test_serialization_deserialization() {
                 ty: FieldType::String,
                 metadata: Metadata {
                     is_password: false,
-                    is_text_area: false
+                    is_text_area: false,
+                    is_read_only: true,
                 },
                 value: FieldValue::U64(16)
             },
@@ -106,7 +113,8 @@ fn test_serialization_deserialization() {
                 ty: FieldType::String,
                 metadata: Metadata {
                     is_password: false,
-                    is_text_area: false
+                    is_text_area: false,
+                    is_read_only: true,
                 },
                 value: FieldValue::U64(32)
             },
@@ -115,7 +123,8 @@ fn test_serialization_deserialization() {
                 ty: FieldType::String,
                 metadata: Metadata {
                     is_password: false,
-                    is_text_area: false
+                    is_text_area: false,
+                    is_read_only: true,
                 },
                 value: FieldValue::U64(64)
             },
@@ -124,7 +133,8 @@ fn test_serialization_deserialization() {
                 ty: FieldType::String,
                 metadata: Metadata {
                     is_password: false,
-                    is_text_area: false
+                    is_text_area: false,
+                    is_read_only: true,
                 },
                 value: FieldValue::U64(8)
             }

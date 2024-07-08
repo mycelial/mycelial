@@ -32,4 +32,5 @@ uuid = { version = "1", features = ["serde"] }
 chrono = { version = "0.4", features = ["serde"] }
 url = "2.5.0"
 derive_trait = { path = "./derive_trait" }
-config = { path = "../config/" }
+config = { path = "../config" }
+config_registry = { path = "../config_registry" }

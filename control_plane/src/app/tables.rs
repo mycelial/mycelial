@@ -1,3 +1,4 @@
+#![allow(unused)]
 use sea_query::Iden;
 
 #[derive(Iden)]
@@ -65,6 +66,9 @@ pub enum Nodes {
     UserId,
     WorkspaceId,
     DaemonId,
+    Config,
+    X,
+    Y,
 }
 
 #[derive(Iden)]

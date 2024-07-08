@@ -1,10 +1,8 @@
-use crate::{
-    components::routing::Route,
-    Result,
-};
+use crate::{components::routing::Route, Result};
 use config_registry::{ConfigMetaData, ConfigRegistry};
 use dioxus::prelude::*;
 use serde::Deserialize;
+use uuid::Uuid;
 
 use super::{workspace::WorkspaceUpdate, workspaces::Workspace};
 
@@ -42,11 +40,8 @@ impl AppState {
         self.config_registry.iter_values()
     }
 
-    pub fn build_config(&self, name: &str) -> Box<dyn config::Config> {
-        // FIXME: properly deal with missing config constructors
-        self.config_registry
-            .build_config(name)
-            .expect("no config constructor found")
+    pub fn build_config(&self, name: &str) -> Result<Box<dyn config::Config>> {
+        self.config_registry.build_config(name)
     }
 }
 
@@ -96,8 +91,22 @@ const WORKSPACE_API: &str = "/api/workspace";
 
 #[derive(Debug, Deserialize)]
 pub struct WorkspaceState {
-    pub nodes: Vec<()>,
-    pub edges: Vec<()>,
+    pub nodes: Vec<Node>,
+    pub edges: Vec<Edge>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct Node {
+    pub id: Uuid,
+    pub x: f64,
+    pub y: f64,
+    pub config: Box<dyn config::Config>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct Edge {
+    pub from_id: Uuid,
+    pub to_id: Uuid,
 }
 
 impl AppState {
@@ -111,6 +120,7 @@ impl AppState {
 
     pub fn update_workspace(&mut self, update: WorkspaceUpdate) {
         self.workspace_updates.push(update);
+        tracing::info!("updates: {:?}", self.workspace_updates);
     }
 
     pub async fn publish_updates(&mut self) -> Result<()> {
