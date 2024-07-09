@@ -297,9 +297,14 @@ where
                     Some(id) => *id,
                 };
                 for op in update.operations.iter() {
-                    let (query, values) = match op {
-                        WorkspaceOperation::AddNode { id, x, y, config } => {
-                            let config_json = serde_json::to_string(&config)?;
+                    let (query, values) = match *op {
+                        WorkspaceOperation::AddNode {
+                            id,
+                            x,
+                            y,
+                            ref config,
+                        } => {
+                            let config_json = serde_json::to_string(config)?;
                             Query::insert()
                                 .columns([
                                     Nodes::Id,
@@ -310,9 +315,9 @@ where
                                 ])
                                 .into_table(Nodes::Table)
                                 .values_panic([
-                                    (*id).into(),
-                                    (*x).into(),
-                                    (*y).into(),
+                                    id.into(),
+                                    x.into(),
+                                    y.into(),
                                     config_json.into(),
                                     workspace_id.into(),
                                 ])
@@ -320,19 +325,21 @@ where
                         }
                         WorkspaceOperation::RemoveNode(uuid) => Query::delete()
                             .from_table(Nodes::Table)
-                            .and_where(Expr::col(Nodes::Id).eq(*uuid))
+                            .and_where(Expr::col(Nodes::Id).eq(uuid))
                             .build_any_sqlx(&*self.query_builder),
-                        WorkspaceOperation::UpdateNode {} => {
-                            todo!()
-                        }
+                        WorkspaceOperation::UpdateNodePosition { uuid, x, y } => Query::update()
+                            .table(Nodes::Table)
+                            .values([(Nodes::X, x.into()), (Nodes::Y, y.into())])
+                            .and_where(Expr::col(Nodes::Id).eq(uuid))
+                            .build_any_sqlx(&*self.query_builder),
                         WorkspaceOperation::AddEdge { from, to } => Query::insert()
                             .columns([Edges::FromId, Edges::ToId])
                             .into_table(Edges::Table)
-                            .values_panic([(*from).into(), (*to).into()])
+                            .values_panic([from.into(), to.into()])
                             .build_any_sqlx(&*self.query_builder),
                         WorkspaceOperation::RemoveEdge { from } => Query::delete()
                             .from_table(Edges::Table)
-                            .and_where(Expr::col(Edges::FromId).eq(*from))
+                            .and_where(Expr::col(Edges::FromId).eq(from))
                             .build_any_sqlx(&*self.query_builder),
                     };
                     sqlx::query_with(&query, values)

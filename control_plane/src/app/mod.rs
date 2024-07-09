@@ -24,7 +24,11 @@ pub enum WorkspaceOperation {
         y: f64,
         config: Box<dyn config::Config>,
     },
-    UpdateNode {},
+    UpdateNodePosition {
+        uuid: Uuid,
+        x: f64,
+        y: f64,
+    },
     RemoveNode(Uuid),
     AddEdge {
         from: Uuid,

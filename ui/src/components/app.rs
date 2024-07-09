@@ -120,13 +120,13 @@ impl AppState {
 
     pub fn update_workspace(&mut self, update: WorkspaceUpdate) {
         self.workspace_updates.push(update);
-        tracing::info!("updates: {:?}", self.workspace_updates);
     }
 
     pub async fn publish_updates(&mut self) -> Result<()> {
         if self.workspace_updates.is_empty() {
             return Ok(());
         }
+        tracing::info!("updates: {:#?}", self.workspace_updates);
         let response = reqwest::Client::new()
             .post(self.get_url(&[WORKSPACE_API])?)
             .json(self.workspace_updates.as_slice())

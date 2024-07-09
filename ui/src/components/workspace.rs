@@ -20,7 +20,8 @@ pub type Graph = GenericGraph<Uuid, Signal<NodeState>>;
 pub enum WorkspaceOperation {
     AddNode(NodeState),
     RemoveNode(Uuid),
-    UpdateNode(NodeState),
+    UpdateNodePosition { uuid: Uuid, x: f64, y: f64 },
+    //UpdateNodeConfig
     AddEdge { from: Uuid, to: Uuid },
     RemoveEdge { from: Uuid, to: Uuid },
     UpdatePan { x: f64, y: f64 },
@@ -627,14 +628,19 @@ struct DraggedNode {
     node: Signal<NodeState>,
     delta_x: f64,
     delta_y: f64,
+    old_x: f64,
+    old_y: f64,
 }
 
 impl DraggedNode {
     fn new(node: Signal<NodeState>, delta_x: f64, delta_y: f64) -> Self {
+        let node_ref = &*node.peek();
         Self {
             node,
             delta_x,
             delta_y,
+            old_x: node_ref.x,
+            old_y: node_ref.y,
         }
     }
 }
@@ -694,7 +700,10 @@ pub fn Workspace(workspace: String) -> Element {
                     let config = match app_state.peek().build_config(node.config.name()) {
                         Ok(config) => config,
                         Err(e) => {
-                            tracing::error!("failed to build config for {}: {e}", node.config.name());
+                            tracing::error!(
+                                "failed to build config for {}: {e}",
+                                node.config.name()
+                            );
                             continue;
                         }
                     };
@@ -725,13 +734,26 @@ pub fn Workspace(workspace: String) -> Element {
 
     rsx! {
         div {
-            onmouseup: move |_event|  {
-                if dragged_node.read().is_some() {
-                    *dragged_node.write() = None;
-                    // FIXME: add update operation
-                }
-                if dragged_edge.read().is_some() {
-                    *dragged_edge.write() = None;
+            onmouseup: {
+                let workspace = Rc::clone(&workspace);
+                move |_event|  {
+                    if dragged_node.read().is_some() {
+                        let dragged_node = dragged_node.write().take().unwrap();
+                        let node = &*dragged_node.node.peek();
+                        // emit update only if coordinates where changed
+                        if dragged_node.old_x == node.x && dragged_node.old_y == node.y {
+                            return
+                        };
+                        app_state.write().update_workspace(WorkspaceUpdate::new(
+                            &workspace,
+                            vec![
+                                WorkspaceOperation::UpdateNodePosition { uuid: node.id, x: node.x, y: node.y }
+                            ]
+                        ));
+                    }
+                    if dragged_edge.read().is_some() {
+                        *dragged_edge.write() = None;
+                    }
                 }
             },
 
@@ -790,7 +812,7 @@ pub fn Workspace(workspace: String) -> Element {
                 id: "mycelial-viewport",
                 class: "h-[calc(100vh-200px) w-full scroll-none overflow-hidden",
                 ViewPort {
-                    workspace,
+                    workspace: Rc::clone(&workspace),
                     app_state,
                     graph,
                     view_port_state,
