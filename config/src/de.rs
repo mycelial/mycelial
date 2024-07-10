@@ -173,10 +173,7 @@ impl Config for RawConfig {
     }
 
     fn get_field_value(&self, name: &str) -> Result<FieldValue<'_>, crate::StdError> {
-        match self
-            .fields()
-            .into_iter().find(|field| field.name == name)
-        {
+        match self.fields().into_iter().find(|field| field.name == name) {
             Some(field) => Ok(field.value),
             None => Err(format!("unmatched field name '{name}'"))?,
         }

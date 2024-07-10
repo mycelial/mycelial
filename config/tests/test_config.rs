@@ -130,6 +130,7 @@ fn test_compilations() {
 fn test_set_field() {
     #[derive(Debug, Clone, Default, Config, PartialEq)]
     struct Config {
+        bool: bool,
         i8: i8,
         i16: i16,
         i32: i32,
@@ -318,6 +319,21 @@ fn test_set_field() {
                     .is_err());
             }
         };
+
+        let bool = str == "0";
+        let str = bool.to_string();
+        let string_field_value: FieldValue = (&str).into();
+        let new_field_value: FieldValue = bool.into();
+        assert!(config.set_field_value("bool", &new_field_value).is_ok());
+        let expected_field_value: FieldValue = bool.into();
+        let current_field_value_res = config.get_field_value("bool");
+        assert!(current_field_value_res.is_ok());
+        let current_field_value = current_field_value_res.unwrap();
+        assert_eq!(expected_field_value, current_field_value);
+        assert_eq!(current_field_value.field_type(), FieldType::Bool);
+        assert!(config_from_strings
+            .set_field_value("bool", &string_field_value)
+            .is_ok());
 
         // config set from type should be equal config set from string values of that type
         assert_eq!(

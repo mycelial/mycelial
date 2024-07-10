@@ -204,26 +204,68 @@ impl<'a> TryFrom<(&'a FieldType, &'a str)> for FieldValue<'a> {
 }
 
 macro_rules! try_into_field_value_impl {
-    ($var:ident, $ty:ty, $($arm:tt),* => $expr:tt, $special_case:tt => $special_expr:tt)  => {
+    (
+        $var:ident,
+        $ty:ty,
+        $own_arm:tt => $own_expr:tt,
+        $special_case:tt => $special_expr:tt,
+        $($arm:tt),+ => $arm_expr:tt,
+        $($can_fail_arm:tt),+ => $can_fail_expr:tt
+    )  => {
         impl TryInto<$ty> for &FieldValue<'_> {
             type Error = StdError;
 
             fn try_into(self) -> Result<$ty, Self::Error> {
                 match self {
-                    $(FieldValue::$arm($var) => Ok(try_into_field_value_impl!(@expand_expr, $expr)),)*
+                    FieldValue::$own_arm($var) => Ok(try_into_field_value_impl!(@expand_expr, $own_expr)),
+                    FieldValue::$special_case($var) => Ok(try_into_field_value_impl!(@expand_expr, $special_expr)),
+                    $(FieldValue::$arm($var) => Ok(try_into_field_value_impl!(@expand_expr, $arm_expr)),)*
+                    $(FieldValue::$can_fail_arm($var) => Ok(try_into_field_value_impl!(@expand_expr, $can_fail_expr)),)*
+                    _ => Err(format!("Can't convert {:?} into {}", self, stringify!($ty)))?
+                }
+            }
+        }
+    };
+    (
+        $var:ident,
+        $ty:ty,
+        $own_arm:tt => $own_expr:tt,
+        $special_case:tt => $special_expr:tt,
+        $($can_fail_arm:tt),+ => $can_fail_expr:tt
+    )  => {
+        impl TryInto<$ty> for &FieldValue<'_> {
+            type Error = StdError;
+
+            fn try_into(self) -> Result<$ty, Self::Error> {
+                match self {
+                    FieldValue::$own_arm($var) => Ok(try_into_field_value_impl!(@expand_expr, $own_expr)),
+                    FieldValue::$special_case($var) => Ok(try_into_field_value_impl!(@expand_expr, $special_expr)),
+                    $(FieldValue::$can_fail_arm($var) => Ok(try_into_field_value_impl!(@expand_expr, $can_fail_expr)),)*
+                    _ => Err(format!("Can't convert {:?} into {}", self, stringify!($ty)))?
+                }
+            }
+        }
+    };
+    ($var:ident, $ty:ty, $own_arm:tt => $own_expr:tt, $special_case:tt => $special_expr:tt)  => {
+        impl TryInto<$ty> for &FieldValue<'_> {
+            type Error = StdError;
+
+            fn try_into(self) -> Result<$ty, Self::Error> {
+                match self {
+                    FieldValue::$own_arm($var) => Ok(try_into_field_value_impl!(@expand_expr, $own_expr)),
                     FieldValue::$special_case($var) => Ok(try_into_field_value_impl!(@expand_expr, $special_expr)),
                     _ => Err(format!("Can't convert {:?} into {}", self, stringify!($ty)))?
                 }
             }
         }
     };
-    ($var:ident, $ty:ty, $($arm:tt),* => $expr:tt)  => {
+    ($var:ident, $ty:ty, $own_arm:tt => $own_expr:tt)  => {
         impl TryInto<$ty> for &FieldValue<'_> {
             type Error = StdError;
 
             fn try_into(self) -> Result<$ty, Self::Error> {
                 match self {
-                    $(FieldValue::$arm($var) => Ok(try_into_field_value_impl!(@expand_expr, $expr)),)*
+                    FieldValue::$own_arm($var) => Ok(try_into_field_value_impl!(@expand_expr, $own_expr)),
                     _ => Err(format!("Can't convert {:?} into {}", self, stringify!($ty)))?
                 }
             }
@@ -235,39 +277,53 @@ macro_rules! try_into_field_value_impl {
 }
 
 try_into_field_value_impl!(v, u8,
-    U8, U16, U32, U64, I8, I16, I32, I64 => { (*v).try_into()? },
-    String => { v.parse()? }
+    U8 => { *v },
+    String => { v.parse()? },
+    U16, U32, U64, I8, I16, I32, I64 => { (*v).try_into()? }
 );
 try_into_field_value_impl!(v, u16,
-    U8, U16, U32, U64, I8, I16, I32, I64 => { (*v).try_into()? },
-    String => { v.parse()? }
+    U16 => { *v },
+    String => { v.parse()? },
+    U8 => { (*v).into() },
+    U32, U64, I8, I16, I32, I64 => { (*v).try_into()? }
 );
 try_into_field_value_impl!(v, u32,
-    U8, U16, U32, U64, I8, I16, I32, I64 => { (*v).try_into()? },
-    String => { v.parse()? }
+    U32 => { *v },
+    String => { v.parse()? },
+    U8, U16 => { (*v).into() },
+    U64, I8, I16, I32, I64 => { (*v).try_into()? }
 );
 try_into_field_value_impl!(v, u64,
-    U8, U16, U32, U64, I8, I16, I32, I64 => { (*v).try_into()? },
-    String => { v.parse()? }
+    U64 => { *v },
+    String => { v.parse()? },
+    U8, U16, U32 => { (*v).into() },
+    I8, I16, I32, I64 => { (*v).try_into()? }
 );
 try_into_field_value_impl!(v, i8,
-    U8, U16, U32, U64, I8, I16, I32, I64 => { (*v).try_into()? },
-    String => { v.parse()? }
+    I8 => { *v },
+    String => { v.parse()? },
+    U8, U16, U32, U64, I16, I32, I64 => { (*v).try_into()? }
 );
 try_into_field_value_impl!(v, i16,
-    U8, U16, U32, U64, I8, I16, I32, I64 => { (*v).try_into()? },
-    String => { v.parse()? }
+    I16 => { *v },
+    String => { v.parse()? },
+    U8, I8 => { (*v).into() },
+    U16, U32, U64, I32, I64 => { (*v).try_into()? }
 );
 try_into_field_value_impl!(v, i32,
-    U8, U16, U32, U64, I8, I16, I32, I64 => { (*v).try_into()? },
-    String => { v.parse()? }
+    I32 => { *v },
+    String => { v.parse()? },
+    U8, U16, I8, I16 => { (*v).into() },
+    U32, U64, I64 => { (*v).try_into()? }
 );
 try_into_field_value_impl!(v, i64,
-    U8, U16, U32, U64, I8, I16, I32, I64 => { (*v).try_into()? },
-    String => { v.parse()? }
+    I64 => { *v },
+    String => { v.parse()? },
+    U8, U16, U32, I8, I16, I32 => { (*v).into() },
+    U64 => { (*v).try_into()? }
 );
 try_into_field_value_impl!(v, bool,
-    Bool => { (*v).try_into()? },
+    Bool => { *v },
     String => { v.parse()? }
 );
 try_into_field_value_impl!(v, String, String => { v.to_string() });
