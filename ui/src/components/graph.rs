@@ -49,15 +49,10 @@ impl<K: GraphKey, V: GraphValue> Graph<K, V> {
         if let Some(op) = self.nodes.remove(&id).map(GraphOperation::RemoveNode) {
             ops.push(op)
         }
-        if let Some(op) = self
-            .remove_edge(id)
-            .map(|(from_node, to_node)| GraphOperation::RemoveEdge(from_node, to_node))
-        {
+        if let Some(op) = self.remove_edge(id) {
             ops.push(op)
         }
-        self.remove_edge_to(id)
-            .map(|(from_node, to_node)| GraphOperation::RemoveEdge(from_node, to_node))
-            .for_each(|op| ops.push(op));
+        self.remove_edge_to(id).for_each(|op| ops.push(op));
         ops
     }
 
@@ -108,17 +103,17 @@ impl<K: GraphKey, V: GraphValue> Graph<K, V> {
             .map(|(from_node, _)| self.get_node(from_node).unwrap())
     }
 
-    pub fn remove_edge(&mut self, from_node: K) -> Option<(K, K)> {
+    pub fn remove_edge(&mut self, from_node: K) -> Option<GraphOperation<K, V>> {
         self.edges
             .remove(&from_node)
-            .map(|to_node| (from_node, to_node))
+            .map(|to_node| GraphOperation::RemoveEdge(from_node, to_node))
     }
 
     pub fn edge_count(&self) -> usize {
         self.edges.len()
     }
 
-    fn remove_edge_to(&mut self, to_node: K) -> impl Iterator<Item = (K, K)> + '_ {
+    fn remove_edge_to(&mut self, to_node: K) -> impl Iterator<Item = GraphOperation<K, V>> + '_ {
         self.iter_edges()
             .fold(vec![], |mut acc, (from, to)| {
                 if to == to_node {

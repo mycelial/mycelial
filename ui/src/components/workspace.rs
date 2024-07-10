@@ -462,7 +462,13 @@ fn ViewPort(
                         }
                     }
                     // graph edges
-                    Edges { graph, view_port_state, dragged_edge }
+                    Edges {
+                        workspace: Rc::clone(&workspace),
+                        app_state,
+                        graph,
+                        view_port_state,
+                        dragged_edge
+                    }
                 }
             }
             if selected_node.read().is_some() {
@@ -476,6 +482,8 @@ fn ViewPort(
 
 #[component]
 fn Edges(
+    workspace: Rc<str>,
+    mut app_state: Signal<AppState>,
     graph: Signal<Graph>,
     view_port_state: Signal<ViewPortState>,
     dragged_edge: Signal<Option<DraggedEdge>>,
@@ -595,8 +603,14 @@ fn Edges(
         }
         for (from, x0, y0, x1, y1) in edges_iter {
             div {
-                onclick: move |_event| {
-                    graph.write().remove_edge(from);
+                onclick: {
+                    let workspace = Rc::clone(&workspace);
+                    move |_event| {
+                        if let Some(op) = graph.write().remove_edge(from) {
+                            let op: Vec<WorkspaceOperation> = op.into();
+                            app_state.write().update_workspace(WorkspaceUpdate::new(&workspace, op));
+                        };
+                    }
                 },
                 class: "absolute select-none min-w-5 min-h-5 bg-grey-bright z-[1] text-center text-red-500",
                 style: "left: {(x0+x1)/2.0}px; top: {(y0+y1)/2.0}px; transform: translate(-50%,-50%)",
