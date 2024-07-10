@@ -524,6 +524,7 @@ version = "0.1.0"
 dependencies = [
  "config_derive",
  "dyn-clone",
+ "quickcheck",
  "serde",
  "serde_json",
  "tracing",

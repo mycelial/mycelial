@@ -4,6 +4,7 @@ use std::borrow::Cow;
 use proc_macro::{Ident, TokenStream};
 use proc_macro2::{Span, TokenTree};
 use quote::{quote, quote_spanned};
+use std::error::Error;
 use syn::{
     spanned::Spanned, AngleBracketedGenericArguments, Attribute, Data, DeriveInput, Field, Fields,
     GenericArgument, Meta, PathArguments, PathSegment, Type, TypePath,
@@ -23,7 +24,7 @@ impl std::fmt::Display for ConfigError {
     }
 }
 
-impl std::error::Error for ConfigError {}
+impl Error for ConfigError {}
 
 struct ConfigFieldMetadata {
     is_password: bool,
@@ -41,7 +42,7 @@ struct ConfigField<'a> {
     name: String,
     ty: ConfigFieldType,
     metadata: ConfigFieldMetadata,
-    value: &'a proc_macro2::Ident,
+    name_ident: &'a proc_macro2::Ident,
 }
 
 #[derive(Clone)]
@@ -290,7 +291,7 @@ fn build_config_field(field: &Field) -> Result<ConfigField<'_>> {
         name: field.ident.as_ref().unwrap().to_string(),
         ty: field_type,
         metadata,
-        value: field.ident.as_ref().unwrap(),
+        name_ident: field.ident.as_ref().unwrap(),
     })
 }
 
@@ -335,7 +336,7 @@ fn parse_config(input: TokenStream) -> Result<TokenStream> {
                  name,
                  ty,
                  metadata,
-                 value,
+                 name_ident,
              }| {
                 let ty: proc_macro2::TokenStream = ty.into();
                 let ConfigFieldMetadata {
@@ -353,23 +354,36 @@ fn parse_config(input: TokenStream) -> Result<TokenStream> {
                             is_text_area: #is_text_area,
                             is_read_only: #is_read_only,
                         },
-                        value: (&self.#value).into(),
+                        value: (&self.#name_ident).into(),
                     }
                 }
             },
         )
         .collect::<Vec<proc_macro2::TokenStream>>();
 
-    // field value is injected through main impl
-    let set_field_impl = config_fields
+    // field value is injected in method implementation
+    let get_field_value_arms = config_fields
         .iter()
         .map(
             |ConfigField {
-                 name, value, ty, ..
+                 name, name_ident, ..
              }| {
-                let ty: proc_macro2::TokenStream = ty.into();
                 quote! {
-                    #name => { self.#value = value.try_into()?; }
+                    #name => { Ok((&self.#name_ident).into()) }
+                }
+            },
+        )
+        .collect::<Vec<proc_macro2::TokenStream>>();
+
+    // field value is injected in method implementation
+    let set_field_value_arms = config_fields
+        .iter()
+        .map(
+            |ConfigField {
+                 name, name_ident, ..
+             }| {
+                quote! {
+                    #name => { self.#name_ident = value.try_into()?; }
                 }
             },
         )
@@ -396,14 +410,17 @@ fn parse_config(input: TokenStream) -> Result<TokenStream> {
                 ]
             }
 
-            fn set_field_value(&mut self, name: &str, value: &FieldValue<'_>) -> Result<(), Box<dyn std::error::Error + Send + Sync + 'static>> {
-                let field = match self.fields().into_iter().filter(|field| field.name == name).next() {
-                    Some(field) => field,
-                    None => return Err(format!("field with name {name} not found"))?
-                };
+            fn get_field_value(&self, name: &str)  -> Result<FieldValue<'_>, Box<dyn std::error::Error + Send + Sync + 'static>> {
                 match name {
-                    #(#set_field_impl),*
-                    _ => Err(format!("unmatched field name '{name}'"))?,
+                    #(#get_field_value_arms),*
+                    _ => Err(format!("no field with name '{name}' exist"))?,
+                }
+            }
+
+            fn set_field_value(&mut self, name: &str, value: &FieldValue<'_>) -> Result<(), Box<dyn std::error::Error + Send + Sync + 'static>> {
+                match name {
+                    #(#set_field_value_arms),*
+                    _ => Err(format!("no field with name '{name}' exist"))?,
                 };
                 Ok(())
             }

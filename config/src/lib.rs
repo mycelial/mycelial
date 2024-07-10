@@ -37,6 +37,8 @@ pub trait Config: std::fmt::Debug + DynClone + std::any::Any + Send + Sync + 'st
 
     fn fields(&self) -> Vec<Field<'_>>;
 
+    fn get_field_value(&self, name: &str) -> Result<FieldValue<'_>, StdError>;
+
     fn set_field_value(&mut self, name: &str, value: &FieldValue<'_>) -> Result<(), StdError>;
 
     fn validate_field(&self, field_name: &str, value: &str) -> Result<(), StdError> {
@@ -202,40 +204,70 @@ impl<'a> TryFrom<(&'a FieldType, &'a str)> for FieldValue<'a> {
 }
 
 macro_rules! try_into_field_value_impl {
-    ($ty:ty => $arm:tt ; $var:tt, $($op:tt)*) => {
+    ($var:ident, $ty:ty, $($arm:tt),* => $expr:tt, $special_case:tt => $special_expr:tt)  => {
         impl TryInto<$ty> for &FieldValue<'_> {
             type Error = StdError;
 
             fn try_into(self) -> Result<$ty, Self::Error> {
                 match self {
-                    FieldValue::$arm($var) => Ok($($op)*),
+                    $(FieldValue::$arm($var) => Ok(try_into_field_value_impl!(@expand_expr, $expr)),)*
+                    FieldValue::$special_case($var) => Ok(try_into_field_value_impl!(@expand_expr, $special_expr)),
                     _ => Err(format!("Can't convert {:?} into {}", self, stringify!($ty)))?
                 }
             }
         }
     };
-    ($ty:ty => $($arm:tt),+ ; $var:tt) => {
+    ($var:ident, $ty:ty, $($arm:tt),* => $expr:tt)  => {
         impl TryInto<$ty> for &FieldValue<'_> {
             type Error = StdError;
 
             fn try_into(self) -> Result<$ty, Self::Error> {
                 match self {
-                    $(FieldValue::$arm($var) => Ok((*$var).try_into()?),)*
+                    $(FieldValue::$arm($var) => Ok(try_into_field_value_impl!(@expand_expr, $expr)),)*
                     _ => Err(format!("Can't convert {:?} into {}", self, stringify!($ty)))?
                 }
             }
         }
+    };
+    (@expand_expr, { $($token:tt)+ }) => {
+        $($token)*
     }
 }
 
-try_into_field_value_impl!(u8 => U8, U16, U32, U64, I8, I16, I32, I64; v);
-try_into_field_value_impl!(u16 => U8, U16, U32, U64, I8, I16, I32, I64; v);
-try_into_field_value_impl!(u32 => U8, U16, U32, U64, I8, I16, I32, I64; v);
-try_into_field_value_impl!(u64 => U8, U16, U32, U64, I8, I16, I32, I64; v);
-try_into_field_value_impl!(i8 => U8, U16, U32, U64, I8, I16, I32, I64; v);
-try_into_field_value_impl!(i16 => U8, U16, U32, U64, I8, I16, I32, I64; v);
-try_into_field_value_impl!(i32 => U8, U16, U32, U64, I8, I16, I32, I64; v);
-try_into_field_value_impl!(i64 => U8, U16, U32, U64, I8, I16, I32, I64; v);
-
-try_into_field_value_impl!(String => String ; v, v.to_string());
-try_into_field_value_impl!(bool => Bool ; v, *v);
+try_into_field_value_impl!(v, u8,
+    U8, U16, U32, U64, I8, I16, I32, I64 => { (*v).try_into()? },
+    String => { v.parse()? }
+);
+try_into_field_value_impl!(v, u16,
+    U8, U16, U32, U64, I8, I16, I32, I64 => { (*v).try_into()? },
+    String => { v.parse()? }
+);
+try_into_field_value_impl!(v, u32,
+    U8, U16, U32, U64, I8, I16, I32, I64 => { (*v).try_into()? },
+    String => { v.parse()? }
+);
+try_into_field_value_impl!(v, u64,
+    U8, U16, U32, U64, I8, I16, I32, I64 => { (*v).try_into()? },
+    String => { v.parse()? }
+);
+try_into_field_value_impl!(v, i8,
+    U8, U16, U32, U64, I8, I16, I32, I64 => { (*v).try_into()? },
+    String => { v.parse()? }
+);
+try_into_field_value_impl!(v, i16,
+    U8, U16, U32, U64, I8, I16, I32, I64 => { (*v).try_into()? },
+    String => { v.parse()? }
+);
+try_into_field_value_impl!(v, i32,
+    U8, U16, U32, U64, I8, I16, I32, I64 => { (*v).try_into()? },
+    String => { v.parse()? }
+);
+try_into_field_value_impl!(v, i64,
+    U8, U16, U32, U64, I8, I16, I32, I64 => { (*v).try_into()? },
+    String => { v.parse()? }
+);
+try_into_field_value_impl!(v, bool,
+    Bool => { (*v).try_into()? },
+    String => { v.parse()? }
+);
+try_into_field_value_impl!(v, String, String => { v.to_string() });

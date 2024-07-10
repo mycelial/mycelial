@@ -49,7 +49,6 @@ impl<'a> From<&'a RawFieldValue> for FieldValue<'a> {
         }
     }
 }
-
 struct RawFieldValueVisitor {}
 
 impl<'de> Visitor<'de> for RawFieldValueVisitor {
@@ -171,6 +170,16 @@ impl Config for RawConfig {
                 value: (&field.value).into(),
             })
             .collect()
+    }
+
+    fn get_field_value(&self, name: &str) -> Result<FieldValue<'_>, crate::StdError> {
+        match self
+            .fields()
+            .into_iter().find(|field| field.name == name)
+        {
+            Some(field) => Ok(field.value),
+            None => Err(format!("unmatched field name '{name}'"))?,
+        }
     }
 
     fn set_field_value(
