@@ -5,6 +5,7 @@ use crate::components::app::AppState;
 use crate::components::graph::Graph as GenericGraph;
 use crate::components::icons::{Delete, Edit, Pause, Play, Restart};
 use crate::components::node_state_form::NodeStateForm;
+use crate::StdError;
 use config::SectionIO;
 use config_registry::ConfigMetaData;
 use dioxus::prelude::*;
@@ -470,10 +471,11 @@ fn ViewPort(
                         dragged_edge
                     }
                 }
-            }
-            if selected_node.read().is_some() {
+            } else {
                 NodeStateForm {
-                    selected_node: selected_node,
+                    workspace: Rc::clone(&workspace),
+                    app_state,
+                    selected_node,
                 }
             }
         }
@@ -690,28 +692,25 @@ impl DraggedEdge {
 }
 
 #[component]
+pub fn WorkspaceError(e: String) -> Element {
+    rsx! { "{e}" }
+}
+
+#[component]
 pub fn Workspace(workspace: String) -> Element {
     let mut app_state = use_context::<Signal<AppState>>();
     let mut graph: Signal<Graph> = use_signal(Graph::new);
     let workspace = Rc::from(workspace);
-    let state_fetcher = use_resource({
+    let state_fetcher: Resource<Result<(), StdError>> = use_resource({
         let workspace = Rc::clone(&workspace);
         move || {
             let workspace = Rc::clone(&workspace);
             async move {
-                let workspace_state = match app_state.peek().fetch_workspace(&workspace).await {
-                    Ok(s) => s,
-                    Err(e) => {
-                        tracing::error!("failed to fetch state: {e}");
-                        return;
-                    }
-                };
-                if workspace_state.nodes.is_empty() {
-                    return;
-                }
+                let app_state_ref = &*app_state.read();
+                let workspace_state = app_state_ref.fetch_workspace(&workspace).await?;
                 let graph = &mut *graph.write();
                 for node in workspace_state.nodes {
-                    let config = match app_state.peek().build_config(node.config.name()) {
+                    let config = match app_state_ref.build_config(node.config.name()) {
                         Ok(config) => config,
                         Err(e) => {
                             tracing::error!(
@@ -729,12 +728,15 @@ pub fn Workspace(workspace: String) -> Element {
                 for edge in workspace_state.edges {
                     graph.add_edge(edge.from_id, edge.to_id);
                 }
+                Ok(())
             }
         }
     });
-    if state_fetcher.read().is_none() {
-        return None;
-    }
+    match &*state_fetcher.read() {
+        Some(Ok(())) => (),
+        Some(Err(e)) => return rsx! { WorkspaceError{ e: e.to_string() } },
+        None => return None,
+    };
 
     let dragged_menu_item: Signal<Option<DraggedMenuItem>> = use_signal(|| None);
     let mut dragged_node: Signal<Option<DraggedNode>> = use_signal(|| None);

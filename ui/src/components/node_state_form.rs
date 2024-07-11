@@ -1,9 +1,11 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, rc::Rc};
 
 pub use config::prelude::*;
 pub use dioxus::prelude::*;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
+
+use super::app::AppState;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct NodeState {
@@ -57,11 +59,37 @@ impl NodeState {
     }
 }
 
+#[derive(Debug, Clone)]
+struct FormFieldValue {
+    value: String,
+    modified: bool,
+}
+
+impl FormFieldValue {
+    fn new(value: String) -> Self {
+        Self {
+            value,
+            modified: false,
+        }
+    }
+
+    fn update(&mut self, value: String) {
+        self.value = value;
+        self.modified = true;
+    }
+}
+
+impl From<String> for FormFieldValue {
+    fn from(value: String) -> Self {
+        Self::new(value)
+    }
+}
+
 // Internal form state to keep track of values and validation
 #[derive(Clone)]
 struct FormState {
     config: Signal<NodeState>,
-    fields: HashMap<String, String>,
+    fields: HashMap<String, FormFieldValue>,
 }
 
 impl FormState {
@@ -71,7 +99,7 @@ impl FormState {
             .config
             .fields()
             .into_iter()
-            .map(|field| (field.name.to_string(), field.value.to_string()))
+            .map(|field| (field.name.to_string(), field.value.to_string().into()))
             .collect();
         Self { config, fields }
     }
@@ -88,7 +116,7 @@ impl FormState {
         self.config
             .read()
             .config
-            .validate_field(field_name, value)
+            .validate_field(field_name, value.value.as_str())
             .is_ok()
     }
 
@@ -97,32 +125,31 @@ impl FormState {
         let config = &self.config.read().config;
         self.fields
             .iter()
-            .all(|(key, value)| config.validate_field(key, value).is_ok())
+            .all(|(key, value)| config.validate_field(key, value.value.as_str()).is_ok())
     }
 
     fn update_value(&mut self, field_name: &str, value: String) {
         if let Some(entry) = self.fields.get_mut(field_name) {
-            *entry = value;
+            entry.update(value)
         }
     }
 }
 
 impl IntoIterator for FormState {
-    type IntoIter = <HashMap<String, String> as IntoIterator>::IntoIter;
-    type Item = (String, String);
+    type IntoIter = <HashMap<String, FormFieldValue> as IntoIterator>::IntoIter;
+    type Item = (String, FormFieldValue);
 
     fn into_iter(self) -> Self::IntoIter {
         self.fields.into_iter()
     }
 }
 
-// FIXME: config needs to be loaded from backend
-// How to deal with configuration drift?
-// Technically we can carefully update config sections and add new fields with default values,
-// but if rename happens for some unavoidable reason - how to notify that to user?
-// State load / intermediate save to indexed db
 #[component]
-pub fn NodeStateForm(selected_node: Signal<Option<Signal<NodeState>>>) -> Element {
+pub fn NodeStateForm(
+    workspace: Rc<str>,
+    mut app_state: Signal<AppState>,
+    selected_node: Signal<Option<Signal<NodeState>>>,
+) -> Element {
     let node_state = match *selected_node.read() {
         None => return None,
         Some(signal) => signal,
@@ -150,29 +177,39 @@ pub fn NodeStateForm(selected_node: Signal<Option<Signal<NodeState>>>) -> Elemen
             class: "border border-solid rounded-md drop-shadow px-5 py-4 mt-4 mx-4",
             div {
                 form {
-                    onsubmit: move |_event| {
-                        // if form is invalid: do nothing
-                        if let Some(false) = form_state.read().as_ref().map(|fs| fs.is_valid()) {
-                            return
-                        }
+                    onsubmit: {
+                        let workspace = Rc::clone(&workspace);
+                        move |_event| {
+                            // if form is invalid: do nothing
+                            if let Some(false) = form_state.read().as_ref().map(|fs| fs.is_valid()) {
+                                return
+                            }
 
-                        let mut node_state = match selected_node.write().take() {
-                            Some(state) => state,
-                            None => return,
-                        };
-                        let form_state = match form_state.write().take() {
-                            Some(state) => state,
-                            None => return,
-                        };
-                        let config = &mut node_state.write().config;
-                        for (field_name, field_value) in form_state.into_iter() {
-                            match config.set_field_value(field_name.as_str(), &field_value.as_str().into()) {
-                                Ok(_) => (),
-                                Err(e) =>
-                                    tracing::error!("failed to set field value for {field_name} with value {field_value}: {e}"),
+                            let mut node_state = match selected_node.write().take() {
+                                Some(state) => state,
+                                None => return,
                             };
-                        }
+                            let form_state = match form_state.write().take() {
+                                Some(state) => state,
+                                None => return,
+                            };
+                            let config = &mut node_state.write().config;
+                            let mut config_update: Vec<(String, String)> = vec![];
+                            for (field_name, field_value) in form_state.into_iter() {
+                                if !field_value.modified {
+                                    continue
+                                }
+                                match config.set_field_value(field_name.as_str(), &field_value.value.as_str().into()) {
+                                    Ok(_) => {
+                                        config_update.push((field_name, field_value.value));
+                                    }
+                                    Err(e) => {
+                                        tracing::error!("failed to set field value for {field_name} with value {}: {e}", field_value.value.as_str());
+                                    }
+                                };
+                            }
                         // FIXME: update daemon field once daemon field is added
+                        }
                     },
                     class: "grid grid-flow-rows gap-2",
                     div {
@@ -265,7 +302,7 @@ pub fn NodeStateForm(selected_node: Signal<Option<Signal<NodeState>>>) -> Elemen
                                                 form_state.update_value(field_name.as_str(), event.value())
                                             }
                                         },
-                                        value: "{field.value}",
+                                        value: if field.metadata.is_password { String::new() } else { field.value.to_string() },
                                     }
                                 }
                             }

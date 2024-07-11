@@ -13,22 +13,19 @@ use axum::{
 use chrono::Utc;
 use std::sync::Arc;
 
+use crate::app::{AppError, AppErrorKind};
+
 pub type Result<T, E = AppError> = core::result::Result<T, E>;
-
-#[derive(Debug)]
-pub struct AppError {
-    pub err: anyhow::Error,
-}
-
-impl<E: Into<anyhow::Error>> From<E> for AppError {
-    fn from(err: E) -> Self {
-        Self { err: err.into() }
-    }
-}
 
 impl IntoResponse for AppError {
     fn into_response(self) -> Response {
-        let mut response = StatusCode::INTERNAL_SERVER_ERROR.into_response();
+        let status_code = match self.kind {
+            AppErrorKind::Unauthorized => StatusCode::UNAUTHORIZED,
+            AppErrorKind::BadRequest => StatusCode::BAD_REQUEST,
+            AppErrorKind::NotFound => StatusCode::NOT_FOUND,
+            AppErrorKind::Internal => StatusCode::INTERNAL_SERVER_ERROR,
+        };
+        let mut response = status_code.into_response();
         response.extensions_mut().insert(Arc::new(self));
         response
     }

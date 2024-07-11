@@ -4,8 +4,11 @@ use std::{
     ops::{Deref, DerefMut},
 };
 
-use crate::app::tables::{Edges, Nodes, Workspaces};
-use crate::app::{migration, Result};
+use crate::app::migration;
+use crate::{
+    app::tables::{Edges, Nodes, Workspaces},
+    app::{AppError, Result},
+};
 use chrono::{DateTime, NaiveDateTime, Utc};
 use derive_trait::derive_trait;
 use futures::future::BoxFuture;
@@ -13,42 +16,13 @@ use sea_query::{
     Expr, Order, PostgresQueryBuilder, Query, QueryBuilder, SchemaBuilder, SqliteQueryBuilder,
 };
 use sea_query_binder::{SqlxBinder, SqlxValues};
-use serde::{Deserialize, Serialize};
 use sqlx::{
     database::HasArguments, migrate::Migrate, types::Json, ColumnIndex, Connection as _, Database,
     Executor, IntoArguments, Pool, Postgres, Row as _, Sqlite, Transaction,
 };
 use uuid::Uuid;
 
-use super::{WorkspaceOperation, WorkspaceUpdate};
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct Workspace {
-    pub name: String,
-    #[serde(default)]
-    pub created_at: Option<DateTime<Utc>>,
-}
-
-#[derive(Debug, Serialize)]
-pub struct Graph {
-    pub nodes: Vec<Node>,
-    pub edges: Vec<Edge>,
-}
-
-#[derive(Debug, Serialize)]
-pub struct Node {
-    pub id: uuid::Uuid,
-    pub display_name: String,
-    pub config: Box<dyn config::Config>,
-    pub x: f64,
-    pub y: f64,
-}
-
-#[derive(Debug, Serialize)]
-pub struct Edge {
-    pub from_id: uuid::Uuid,
-    pub to_id: uuid::Uuid,
-}
+use super::{Edge, Graph, Node, Workspace, WorkspaceOperation, WorkspaceUpdate};
 
 // FIXME: pool options and configurable pool size
 pub async fn new(database_url: &str) -> Result<Box<dyn DbTrait>> {
@@ -220,20 +194,30 @@ where
     fn get_graph<'a>(&'a self, workspace_name: &'a str) -> BoxFuture<'a, Result<Graph>> {
         Box::pin(async move {
             let (query, values) = Query::select()
+                .columns([Workspaces::Id])
+                .from(Workspaces::Table)
+                .and_where(Expr::col(Workspaces::Name).eq(workspace_name))
+                .build_any_sqlx(&*self.query_builder);
+            let workspace_id: i64 = match sqlx::query_with(&query, values)
+                .fetch_optional(&self.pool)
+                .await?
+            {
+                Some(row) => row.get(0),
+                None => Err(AppError::not_found(anyhow::anyhow!(
+                    "workspace '{workspace_name}"
+                )))?,
+            };
+
+            let (query, values) = Query::select()
                 .columns([
-                    (Nodes::Table, Nodes::Id),
-                    (Nodes::Table, Nodes::DisplayName),
-                    (Nodes::Table, Nodes::Config),
-                    (Nodes::Table, Nodes::X),
-                    (Nodes::Table, Nodes::Y),
+                    Nodes::Id,
+                    Nodes::DisplayName,
+                    Nodes::Config,
+                    Nodes::X,
+                    Nodes::Y,
                 ])
                 .from(Nodes::Table)
-                .inner_join(
-                    Workspaces::Table,
-                    Expr::col((Nodes::Table, Nodes::WorkspaceId))
-                        .equals((Workspaces::Table, Workspaces::Id)),
-                )
-                .and_where(Expr::col((Workspaces::Table, Workspaces::Name)).eq(workspace_name))
+                .and_where(Expr::col(Nodes::WorkspaceId).eq(workspace_id))
                 .build_any_sqlx(&*self.query_builder);
             let nodes = sqlx::query_with(&query, values)
                 .fetch_all(&self.pool)

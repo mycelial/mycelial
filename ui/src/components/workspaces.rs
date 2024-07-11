@@ -2,6 +2,7 @@ use std::collections::BTreeMap;
 
 use chrono::{DateTime, Timelike, Utc};
 use dioxus::prelude::*;
+use gloo_timers::future::TimeoutFuture;
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -56,7 +57,7 @@ impl Workspace {
 }
 
 #[component]
-fn NewWorkspace(mut restart_fetcher: Signal<bool>) -> Element {
+fn NewWorkspace(mut restart_fetcher: Signal<RestartFetcherState>) -> Element {
     let app_state = use_context::<Signal<AppState>>();
     let mut render_form_state = use_signal(|| false);
     rsx! {
@@ -81,7 +82,7 @@ fn NewWorkspace(mut restart_fetcher: Signal<bool>) -> Element {
                             let name = name.as_value();
                             match app_state.read().create_workspace(&name).await {
                                 Ok(_) => {
-                                    restart_fetcher.set(true);
+                                    restart_fetcher.set(RestartFetcherState::NeedsRestart);
                                 },
                                 Err(e) => tracing::error!("failed to create workspace {name}: {e}"),
                             }
@@ -111,11 +112,28 @@ fn NewWorkspace(mut restart_fetcher: Signal<bool>) -> Element {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum RestartFetcherState {
+    NeedsRestart,
+    Restarting,
+    None,
+}
+
+impl RestartFetcherState {
+    fn needs_restart(self) -> bool {
+        self == Self::NeedsRestart
+    }
+
+    fn restarting(self) -> bool {
+        self == Self::Restarting
+    }
+}
+
 #[component]
 pub fn Workspaces() -> Element {
     let app_state = use_context::<Signal<AppState>>();
     let mut workspaces_state = use_signal(WorkspacesState::new);
-    let mut restart_fetcher = use_signal(|| false);
+    let mut restart_fetcher = use_signal(|| RestartFetcherState::None);
     let mut fetcher: Resource<Result<usize, StdError>> = use_resource(move || async move {
         let app_state_ref = &*app_state.read();
         let workspaces = app_state_ref.read_workspaces().await?;
@@ -132,9 +150,9 @@ pub fn Workspaces() -> Element {
         }
         Ok(workspaces_len)
     });
-    if *restart_fetcher.read() {
+    if restart_fetcher.peek().needs_restart() {
+        restart_fetcher.set(RestartFetcherState::None);
         fetcher.restart();
-        restart_fetcher.set(false);
     }
     let child = match &*fetcher.read_unchecked() {
         Some(Ok(0)) => rsx! {
@@ -195,7 +213,7 @@ pub fn Workspaces() -> Element {
                                                 None => return
                                             };
                                             match app_state.read().remove_workspace(name.as_str()).await {
-                                                Ok(_) => restart_fetcher.set(true),
+                                                Ok(_) => restart_fetcher.set(RestartFetcherState::NeedsRestart),
                                                 Err(e) => tracing::error!("failed to remove workspace: {e}"),
                                             }
                                         },
@@ -210,7 +228,13 @@ pub fn Workspaces() -> Element {
             }
         },
         Some(Err(e)) => {
-            tracing::error!("error reading workspaces: {e}");
+            if !restart_fetcher.read().restarting() {
+                restart_fetcher.set(RestartFetcherState::Restarting);
+                spawn(async move {
+                    TimeoutFuture::new(3_000).await;
+                    restart_fetcher.set(RestartFetcherState::NeedsRestart);
+                });
+            }
             rsx! {
                 div {
                     "error loading workspaces"

@@ -1,7 +1,7 @@
 //! Workspaces routes
 
 use crate::{
-    app::{db::Workspace, App},
+    app::{App, Workspace},
     http::Result,
 };
 use axum::{

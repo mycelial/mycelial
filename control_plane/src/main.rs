@@ -1,5 +1,5 @@
-use anyhow::Result;
 use clap::Parser;
+use control_plane::Result;
 
 #[derive(Debug, Parser)]
 pub struct Cli {
