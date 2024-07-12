@@ -150,7 +150,7 @@ pub fn Workspaces() -> Element {
         }
         Ok(workspaces_len)
     });
-    if restart_fetcher.peek().needs_restart() {
+    if restart_fetcher.read().needs_restart() {
         restart_fetcher.set(RestartFetcherState::None);
         fetcher.restart();
     }

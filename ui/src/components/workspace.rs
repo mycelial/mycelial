@@ -1,7 +1,7 @@
 use std::rc::Rc;
 use std::sync::Arc;
 
-use crate::components::app::{AppState, Result};
+use crate::components::app::{AppState, Result, WorkspaceState};
 use crate::components::graph::Graph as GenericGraph;
 use crate::components::icons::{Delete, Edit, Pause, Play, Restart};
 use crate::components::node_state_form::NodeStateForm;
@@ -695,39 +695,37 @@ pub fn Workspace(workspace: String) -> Element {
     let mut app_state = use_context::<Signal<AppState>>();
     let mut graph: Signal<Graph> = use_signal(Graph::new);
     let workspace = Rc::from(workspace);
-    let state_fetcher: Resource<Result<()>> = use_resource({
+    let state_fetcher: Resource<Result<WorkspaceState>> = use_resource({
         let workspace = Rc::clone(&workspace);
         move || {
             let workspace = Rc::clone(&workspace);
             async move {
-                let app_state_ref = &*app_state.read();
-                let workspace_state = app_state_ref.fetch_workspace(&workspace).await?;
-                let graph = &mut *graph.write();
-                for node in workspace_state.nodes {
-                    let config = match app_state_ref.build_config(node.config.name()) {
-                        Ok(config) => config,
-                        Err(e) => {
-                            tracing::error!(
-                                "failed to build config for {}: {e}",
-                                node.config.name()
-                            );
-                            continue;
-                        }
-                    };
-                    graph.add_node(
-                        node.id,
-                        Signal::new(NodeState::new(node.id, node.x, node.y, config)),
-                    );
-                }
-                for edge in workspace_state.edges {
-                    graph.add_edge(edge.from_id, edge.to_id);
-                }
-                Ok(())
+                let app_state_ref = &*app_state.peek();
+                app_state_ref.fetch_workspace(&workspace).await
             }
         }
     });
     match &*state_fetcher.read() {
-        Some(Ok(())) => (),
+        Some(Ok(workspace_state)) => {
+            let app_state_ref = &*app_state.peek();
+            let graph = &mut *graph.write();
+            for node in workspace_state.nodes.iter() {
+                let config = match app_state_ref.build_config(node.config.name()) {
+                    Ok(config) => config,
+                    Err(e) => {
+                        tracing::error!("failed to build config for {}: {e}", node.config.name());
+                        continue;
+                    }
+                };
+                graph.add_node(
+                    node.id,
+                    Signal::new(NodeState::new(node.id, node.x, node.y, config)),
+                );
+            }
+            for edge in workspace_state.edges.iter() {
+                graph.add_edge(edge.from_id, edge.to_id);
+            }
+        }
         // FIXME: redirect to workspaces on 404, login form if 403?
         Some(Err(e)) => return rsx! { "{e.err}" },
         None => return None,
