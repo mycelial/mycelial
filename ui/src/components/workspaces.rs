@@ -2,7 +2,6 @@ use std::collections::BTreeMap;
 
 use chrono::{DateTime, Timelike, Utc};
 use dioxus::prelude::*;
-use gloo_timers::future::TimeoutFuture;
 use serde::{Deserialize, Serialize};
 
 use crate::components::{
@@ -57,17 +56,14 @@ impl Workspace {
 }
 
 #[component]
-fn NewWorkspace(mut restart_fetcher: Signal<RestartFetcherState>) -> Element {
-    let app_state = use_context::<Signal<AppState>>();
+fn NewWorkspace(mut app_state: Signal<AppState>) -> Element {
     let mut render_form_state = use_signal(|| false);
     rsx! {
         if !*render_form_state.read() {
             div {
                 class: "grid",
                 button {
-                    onclick: move |_| {
-                        *render_form_state.write() = true;
-                    },
+                    onclick: move |_| render_form_state.set(true),
                     class: "text-stem-1 px-4 py-2 rounded bg-forest-2 border border-forest-2 hover:bg-forest-3 hover:text-stem-1",
                     "ADD NEW WORKSPACE"
                 }
@@ -77,14 +73,11 @@ fn NewWorkspace(mut restart_fetcher: Signal<RestartFetcherState>) -> Element {
                 class: "relative grid grid-flow-col",
                 form {
                     onsubmit: move |event| async move {
-                        *render_form_state.write() = false;
+                        render_form_state.set(false);
                         if let Some(name) = event.values().get("workspace_name") {
                             let name = name.as_value();
-                            match app_state.read().create_workspace(&name).await {
-                                Ok(_) => {
-                                    restart_fetcher.set(RestartFetcherState::NeedsRestart);
-                                },
-                                Err(e) => tracing::error!("failed to create workspace {name}: {e}"),
+                            if let Err(e) = app_state.write().create_workspace(&name).await {
+                                tracing::error!("failed to create workspace {name}: {e}");
                             }
                         } else {
                             tracing::error!("failed to get value of `workspace_name` from form");
@@ -112,29 +105,13 @@ fn NewWorkspace(mut restart_fetcher: Signal<RestartFetcherState>) -> Element {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
-enum RestartFetcherState {
-    NeedsRestart,
-    Restarting,
-    None,
-}
-
-impl RestartFetcherState {
-    fn needs_restart(self) -> bool {
-        self == Self::NeedsRestart
-    }
-
-    fn restarting(self) -> bool {
-        self == Self::Restarting
-    }
-}
-
 #[component]
 pub fn Workspaces() -> Element {
-    let app_state = use_context::<Signal<AppState>>();
+    let mut app_state = use_context::<Signal<AppState>>();
     let mut workspaces_state = use_signal(WorkspacesState::new);
-    let mut restart_fetcher = use_signal(|| RestartFetcherState::None);
-    let mut fetcher: Resource<Result<usize>> = use_resource(move || async move {
+    let fetcher: Resource<Result<usize>> = use_resource(move || async move {
+        // subscribe for updates on app_state
+        // NewWorkspace might modify app_state by writing new value, which will trigger resource re-run
         let app_state_ref = &*app_state.read();
         let workspaces = app_state_ref.read_workspaces().await?;
         let workspaces_len = workspaces.len();
@@ -150,11 +127,7 @@ pub fn Workspaces() -> Element {
         }
         Ok(workspaces_len)
     });
-    if restart_fetcher.read().needs_restart() {
-        restart_fetcher.set(RestartFetcherState::None);
-        fetcher.restart();
-    }
-    let child = match &*fetcher.read_unchecked() {
+    let child = match &*fetcher.read() {
         Some(Ok(0)) => rsx! {
             div {
                 class: "mt-10 p-4 w-9/12 bg-moss-3 text-black drop-shadow-md rounded-sm mx-auto col-span-2",
@@ -212,8 +185,8 @@ pub fn Workspaces() -> Element {
                                                 Some(Workspace{ ref name, .. }) => name.to_string(),
                                                 None => return
                                             };
-                                            match app_state.read().remove_workspace(name.as_str()).await {
-                                                Ok(_) => restart_fetcher.set(RestartFetcherState::NeedsRestart),
+                                            match app_state.write().remove_workspace(name.as_str()).await {
+                                                Ok(_) => (), //restart_fetcher.set(RestartFetcherState::NeedsRestart),
                                                 Err(e) => tracing::error!("failed to remove workspace: {e}"),
                                             }
                                         },
@@ -228,13 +201,7 @@ pub fn Workspaces() -> Element {
             }
         },
         Some(Err(e)) => {
-            if !restart_fetcher.read().restarting() {
-                restart_fetcher.set(RestartFetcherState::Restarting);
-                spawn(async move {
-                    TimeoutFuture::new(3_000).await;
-                    restart_fetcher.set(RestartFetcherState::NeedsRestart);
-                });
-            }
+            tracing::error!("error loading workspaces: {e}");
             rsx! {
                 div {
                     "error loading workspaces"
@@ -260,7 +227,7 @@ pub fn Workspaces() -> Element {
             }
             div {
                 class: "pt-5 justify-self-end pr-3",
-                NewWorkspace { restart_fetcher }
+                NewWorkspace { app_state }
             }
             { child }
         }

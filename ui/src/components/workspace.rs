@@ -69,7 +69,7 @@ fn MenuItem(
 ) -> Element {
     let mut rect_data = use_signal(|| (0.0, 0.0, 0.0, 0.0));
     let node_type: Arc<str> = Arc::clone(&metadata.ty);
-    let source = match metadata.input {
+    let source = match metadata.output {
         true => rsx! {
             span {
                 class: "bg-moss-1 text-white rounded-full p-1 ml-1",
@@ -78,7 +78,7 @@ fn MenuItem(
         },
         false => None,
     };
-    let destination = match metadata.output {
+    let destination = match metadata.input {
         true => rsx! {
             span {
                 class: "bg-forest-2 text-white rounded-full p-1 ml-1",
@@ -700,6 +700,7 @@ pub fn Workspace(workspace: String) -> Element {
         move || {
             let workspace = Rc::clone(&workspace);
             async move {
+                // peek is intentional, we don't want to re-fetch on app update
                 let app_state_ref = &*app_state.peek();
                 app_state_ref.fetch_workspace(&workspace).await
             }
@@ -707,6 +708,7 @@ pub fn Workspace(workspace: String) -> Element {
     });
     match &*state_fetcher.read() {
         Some(Ok(workspace_state)) => {
+            // peek is intentional, we don't want to re-fetch on app update
             let app_state_ref = &*app_state.peek();
             let graph = &mut *graph.write();
             for node in workspace_state.nodes.iter() {
@@ -803,7 +805,7 @@ pub fn Workspace(workspace: String) -> Element {
             // section menu
             div {
                 div {
-                    class: "h-[calc(100vh-200px)] overflow-none select-none z-[100] min-w-96 max-w-96",
+                    class: "h-[calc(100vh-135px)] overflow-none select-none z-[100] min-w-96 max-w-96",
                     div {
                         class: "border border-solid overflow-y-scroll bg-white grid grid-flow-rows gap-y-3 md:px-2 h-max-screen",
                         h2 {

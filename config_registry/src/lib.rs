@@ -28,6 +28,10 @@ pub struct ConfigExampleSecond {
     truncate: bool,
 }
 
+#[derive(Debug, Default, Clone, Config)]
+#[section(input=dataframe, output=dataframe)]
+pub struct ConfigTransform {}
+
 pub type ConfigConstructor = fn() -> Box<dyn config::Config>;
 
 #[derive(Debug)]
@@ -65,7 +69,7 @@ impl ConfigRegistry {
     pub fn add_config(&mut self, ctor: ConfigConstructor) -> Result<()> {
         let config = ctor();
         let name: Arc<str> = Arc::from(config.name());
-        let (input, output) = (config.input().is_none(), config.output().is_none());
+        let (input, output) = (!config.input().is_none(), !config.output().is_none());
         let metadata = ConfigMetaData {
             input,
             output,
@@ -95,5 +99,6 @@ pub fn new() -> Result<ConfigRegistry> {
     let mut registry = ConfigRegistry::new();
     registry.add_config(|| Box::from(ConfigExample::default()))?;
     registry.add_config(|| Box::from(ConfigExampleSecond::default()))?;
+    registry.add_config(|| Box::from(ConfigTransform::default()))?;
     Ok(registry)
 }
