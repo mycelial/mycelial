@@ -1,21 +1,67 @@
-use std::collections::HashMap;
-
 use serde::{
     de::{Error, Visitor},
-    Deserialize,
+    Deserialize, Deserializer,
 };
 
 use crate::{Config, Field, FieldType, FieldValue, Metadata, SectionIO, StdError};
 
-#[derive(Debug, Clone)]
-struct RawConfig {
+// Raw Config
+//
+// Any serialized config can be deserialized into RawConfig
+// Raw config can be deserialized into original config via `deserialize_into_config` function
+#[derive(Debug, Clone, Deserialize)]
+pub struct RawConfig {
     config_name: String,
     fields: Vec<RawField>,
 }
 
-#[derive(Debug, Clone)]
+impl Config for RawConfig {
+    fn name(&self) -> &str {
+        self.config_name.as_str()
+    }
+
+    fn input(&self) -> SectionIO {
+        SectionIO::None
+    }
+
+    fn output(&self) -> SectionIO {
+        SectionIO::None
+    }
+
+    fn fields(&self) -> Vec<Field> {
+        self.fields
+            .iter()
+            .map(|field| Field {
+                name: field.key.as_str(),
+                ty: FieldType::String,
+                metadata: Metadata {
+                    is_read_only: true,
+                    ..Default::default()
+                },
+                value: (&field.value).into(),
+            })
+            .collect()
+    }
+
+    fn get_field_value(&self, name: &str) -> Result<FieldValue<'_>, crate::StdError> {
+        match self.fields().into_iter().find(|field| field.name == name) {
+            Some(field) => Ok(field.value),
+            None => Err(format!("unmatched field name '{name}'"))?,
+        }
+    }
+
+    fn set_field_value(
+        &mut self,
+        _name: &str,
+        _value: &FieldValue<'_>,
+    ) -> Result<(), crate::StdError> {
+        Err("set field value on intermediate config representation is not supported")?
+    }
+}
+
+#[derive(Debug, Clone, Deserialize)]
 struct RawField {
-    name: String,
+    key: String,
     value: RawFieldValue,
 }
 
@@ -144,76 +190,95 @@ impl<'de> Deserialize<'de> for RawFieldValue {
     }
 }
 
-impl Config for RawConfig {
-    fn name(&self) -> &str {
-        self.config_name.as_str()
-    }
+enum RawConfigField {
+    ConfigName,
+    Fields,
+    Ignore,
+}
 
-    fn input(&self) -> SectionIO {
-        SectionIO::None
-    }
-
-    fn output(&self) -> SectionIO {
-        SectionIO::None
-    }
-
-    fn fields(&self) -> Vec<Field> {
-        self.fields
-            .iter()
-            .map(|field| Field {
-                name: field.name.as_str(),
-                ty: FieldType::String,
-                metadata: Metadata {
-                    is_read_only: true,
-                    ..Default::default()
-                },
-                value: (&field.value).into(),
-            })
-            .collect()
-    }
-
-    fn get_field_value(&self, name: &str) -> Result<FieldValue<'_>, crate::StdError> {
-        match self.fields().into_iter().find(|field| field.name == name) {
-            Some(field) => Ok(field.value),
-            None => Err(format!("unmatched field name '{name}'"))?,
+impl RawConfigField {
+    fn to_str(&self) -> &'static str {
+        match self {
+            Self::ConfigName => "config_name",
+            Self::Fields => "fields",
+            Self::Ignore => "",
         }
-    }
-
-    fn set_field_value(
-        &mut self,
-        _name: &str,
-        _value: &FieldValue<'_>,
-    ) -> Result<(), crate::StdError> {
-        Err("set field value on intermediate config representation is not supported")?
     }
 }
 
-struct ConfigVisitor {}
+impl<'de> Deserialize<'de> for RawConfigField {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        deserializer.deserialize_identifier(RawConfigFieldVisitor {})
+    }
+}
+struct RawConfigFieldVisitor;
 
-impl<'de> Visitor<'de> for ConfigVisitor {
+impl<'de> Visitor<'de> for RawConfigFieldVisitor {
+    type Value = RawConfigField;
+
+    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(formatter, "field identifier")
+    }
+
+    fn visit_u64<E: Error>(self, value: u64) -> Result<Self::Value, E> {
+        match value {
+            0 => Ok(RawConfigField::ConfigName),
+            1 => Ok(RawConfigField::Fields),
+            _ => Ok(RawConfigField::Ignore),
+        }
+    }
+
+    fn visit_str<E: Error>(self, value: &str) -> Result<Self::Value, E> {
+        match value {
+            "config_name" => Ok(RawConfigField::ConfigName),
+            "fields" => Ok(RawConfigField::Fields),
+            _ => Ok(RawConfigField::Ignore),
+        }
+    }
+
+    fn visit_bytes<E: Error>(self, value: &[u8]) -> Result<Self::Value, E> {
+        match value {
+            b"config_name" => Ok(RawConfigField::ConfigName),
+            b"fields" => Ok(RawConfigField::Fields),
+            _ => Ok(RawConfigField::Ignore),
+        }
+    }
+}
+
+struct RawConfigVisitor {}
+
+impl<'de> Visitor<'de> for RawConfigVisitor {
     type Value = Box<RawConfig>;
 
     fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(
-            formatter,
-            "expecting map with single key, which is name of a config"
-        )
+        write!(formatter, "expected struct RawConfig")
     }
 
     fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
     where
         A: serde::de::MapAccess<'de>,
     {
-        match map.next_entry::<String, HashMap<String, RawFieldValue>>() {
-            Ok(Some((config_name, field_map))) => Ok(Box::new(RawConfig {
-                config_name,
-                fields: field_map
-                    .into_iter()
-                    .map(|(name, value)| RawField { name, value })
-                    .collect(),
-            })),
-            Ok(None) => Err(Error::custom("no entries")),
-            Err(e) => Err(e),
+        {
+            let mut config_name: Option<String> = None;
+            let mut fields: Option<Vec<RawField>> = None;
+            while let Some(key) = map.next_key::<RawConfigField>()? {
+                match key {
+                    RawConfigField::Ignore => Err(Error::custom("unexpected field"))?,
+                    RawConfigField::ConfigName if config_name.is_none() => {
+                        config_name = Some(map.next_value()?)
+                    }
+                    RawConfigField::Fields if fields.is_none() => fields = Some(map.next_value()?),
+                    _ => Err(Error::duplicate_field(key.to_str()))?,
+                }
+            }
+            match (config_name, fields) {
+                (Some(config_name), Some(fields)) => Ok(Box::new(RawConfig {
+                    config_name,
+                    fields,
+                })),
+                (None, _) => Err(Error::missing_field(RawConfigField::ConfigName.to_str())),
+                (_, None) => Err(Error::missing_field(RawConfigField::Fields.to_str())),
+            }
         }
     }
 }
@@ -223,7 +288,7 @@ impl<'de> Deserialize<'de> for Box<dyn Config> {
     where
         D: serde::Deserializer<'de>,
     {
-        Ok(deserializer.deserialize_map(ConfigVisitor {})?)
+        Ok(deserializer.deserialize_map(RawConfigVisitor {})?)
     }
 }
 

@@ -5,7 +5,7 @@ pub use config_derive::Config;
 use dyn_clone::DynClone;
 
 pub mod prelude {
-    pub use super::de::deserialize_into_config;
+    pub use super::de::{deserialize_into_config, RawConfig};
     pub use super::Config;
     pub use super::{Field, FieldType, FieldValue, Metadata, SectionIO};
 }

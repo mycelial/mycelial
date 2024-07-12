@@ -1,4 +1,7 @@
-use serde::{ser::SerializeMap, Serialize};
+use serde::{
+    ser::{SerializeMap, SerializeSeq},
+    Serialize,
+};
 
 use crate::{Config, Field, FieldValue};
 
@@ -12,7 +15,8 @@ impl Serialize for dyn Config {
     {
         // FIXME: for now only support structs
         let mut top_level_struct = serializer.serialize_map(Some(2))?;
-        top_level_struct.serialize_entry(self.name(), &Slice(self.fields().as_slice()))?;
+        top_level_struct.serialize_entry("config_name", self.name())?;
+        top_level_struct.serialize_entry("fields", &Slice(self.fields().as_slice()))?;
         top_level_struct.end()
     }
 }
@@ -22,21 +26,33 @@ impl Serialize for Slice<'_> {
     where
         S: serde::Serializer,
     {
-        let mut inner_map = serializer.serialize_map(Some(self.0.len()))?;
+        let mut seq = serializer.serialize_seq(Some(self.0.len()))?;
         for field in self.0 {
-            match &field.value {
-                FieldValue::I8(v) => inner_map.serialize_entry(field.name, &v)?,
-                FieldValue::I16(v) => inner_map.serialize_entry(field.name, &v)?,
-                FieldValue::I32(v) => inner_map.serialize_entry(field.name, &v)?,
-                FieldValue::I64(v) => inner_map.serialize_entry(field.name, &v)?,
-                FieldValue::U8(v) => inner_map.serialize_entry(field.name, &v)?,
-                FieldValue::U16(v) => inner_map.serialize_entry(field.name, &v)?,
-                FieldValue::U32(v) => inner_map.serialize_entry(field.name, &v)?,
-                FieldValue::U64(v) => inner_map.serialize_entry(field.name, &v)?,
-                FieldValue::Bool(v) => inner_map.serialize_entry(field.name, &v)?,
-                FieldValue::String(v) => inner_map.serialize_entry(field.name, &v)?,
-            };
+            seq.serialize_element(&field)?;
         }
-        inner_map.end()
+        seq.end()
+    }
+}
+
+impl<'a> Serialize for &'a Field<'a> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let mut map = serializer.serialize_map(Some(2))?;
+        map.serialize_entry("key", self.name)?;
+        match &self.value {
+            FieldValue::I8(v) => map.serialize_entry("value", &v)?,
+            FieldValue::I16(v) => map.serialize_entry("value", &v)?,
+            FieldValue::I32(v) => map.serialize_entry("value", &v)?,
+            FieldValue::I64(v) => map.serialize_entry("value", &v)?,
+            FieldValue::U8(v) => map.serialize_entry("value", &v)?,
+            FieldValue::U16(v) => map.serialize_entry("value", &v)?,
+            FieldValue::U32(v) => map.serialize_entry("value", &v)?,
+            FieldValue::U64(v) => map.serialize_entry("value", &v)?,
+            FieldValue::Bool(v) => map.serialize_entry("value", &v)?,
+            FieldValue::String(v) => map.serialize_entry("value", &v)?,
+        };
+        map.end()
     }
 }
