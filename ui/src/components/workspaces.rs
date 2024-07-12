@@ -5,9 +5,9 @@ use dioxus::prelude::*;
 use gloo_timers::future::TimeoutFuture;
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    components::{app::AppState, routing::Route},
-    StdError,
+use crate::components::{
+    app::{AppState, Result},
+    routing::Route,
 };
 
 #[derive(Debug)]
@@ -134,7 +134,7 @@ pub fn Workspaces() -> Element {
     let app_state = use_context::<Signal<AppState>>();
     let mut workspaces_state = use_signal(WorkspacesState::new);
     let mut restart_fetcher = use_signal(|| RestartFetcherState::None);
-    let mut fetcher: Resource<Result<usize, StdError>> = use_resource(move || async move {
+    let mut fetcher: Resource<Result<usize>> = use_resource(move || async move {
         let app_state_ref = &*app_state.read();
         let workspaces = app_state_ref.read_workspaces().await?;
         let workspaces_len = workspaces.len();

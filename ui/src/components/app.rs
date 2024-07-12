@@ -1,10 +1,64 @@
-use crate::{components::routing::Route, Result};
+use std::fmt::Display;
+
+use crate::components::routing::Route;
+use config::StdError;
 use config_registry::{ConfigMetaData, ConfigRegistry};
 use dioxus::prelude::*;
+use reqwest::StatusCode;
 use serde::Deserialize;
 use uuid::Uuid;
 
 use super::{workspace::WorkspaceUpdate, workspaces::Workspace};
+
+pub type Result<T, E = AppError> = std::result::Result<T, E>;
+
+#[derive(Debug)]
+pub struct AppError {
+    pub status_code: Option<StatusCode>,
+    pub err: StdError,
+}
+
+impl AppError {
+    pub fn from_status_code(status_code: StatusCode) -> Self {
+        Self {
+            status_code: Some(status_code),
+            err: status_code.to_string().into(),
+        }
+    }
+}
+
+impl From<StdError> for AppError {
+    fn from(value: StdError) -> Self {
+        AppError {
+            status_code: None,
+            err: value,
+        }
+    }
+}
+
+impl From<reqwest::Error> for AppError {
+    fn from(value: reqwest::Error) -> Self {
+        Self {
+            status_code: None,
+            err: value.into(),
+        }
+    }
+}
+
+impl From<url::ParseError> for AppError {
+    fn from(value: url::ParseError) -> Self {
+        Self {
+            status_code: None,
+            err: value.into(),
+        }
+    }
+}
+
+impl Display for AppError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
 
 #[derive(Debug)]
 pub struct AppState {
@@ -41,7 +95,7 @@ impl AppState {
     }
 
     pub fn build_config(&self, name: &str) -> Result<Box<dyn config::Config>> {
-        self.config_registry.build_config(name)
+        Ok(self.config_registry.build_config(name)?)
     }
 }
 
@@ -55,20 +109,18 @@ impl AppState {
             .json(&serde_json::json!({"name": name}))
             .send()
             .await?;
-        match response.status().is_success() {
-            true => Ok(()),
-            false => Err(format!(
-                "failed to create new workspace {name}, server returned {} status code",
-                response.status()
-            ))?,
+        match response.status() {
+            status_code if status_code.is_success() => Ok(()),
+            status_code => Err(AppError::from_status_code(status_code)),
         }
     }
 
     pub async fn read_workspaces(&self) -> Result<Vec<Workspace>> {
-        Ok(reqwest::get(self.get_url(&[WORKSPACES_API])?)
-            .await?
-            .json()
-            .await?)
+        let response = reqwest::get(self.get_url(&[WORKSPACES_API])?).await?;
+        match response.status() {
+            StatusCode::OK => Ok(response.json().await?),
+            status_code => Err(AppError::from_status_code(status_code))?,
+        }
     }
 
     pub async fn remove_workspace(&self, name: &str) -> Result<()> {
@@ -76,12 +128,9 @@ impl AppState {
             .delete(self.get_url(&[WORKSPACES_API, name])?)
             .send()
             .await?;
-        match response.status().is_success() {
-            true => Ok(()),
-            false => Err(format!(
-                "failed to delete workspace '{name}' response code: {}",
-                response.status()
-            ))?,
+        match response.status() {
+            status_code if status_code.is_success() => Ok(()),
+            status_code => Err(AppError::from_status_code(status_code)),
         }
     }
 }
@@ -111,11 +160,13 @@ pub struct Edge {
 
 impl AppState {
     pub async fn fetch_workspace(&self, name: &str) -> Result<WorkspaceState> {
-        let response = reqwest::get(self.get_url(&[WORKSPACE_API, name])?)
-            .await?
-            .json::<WorkspaceState>()
-            .await?;
-        Ok(response)
+        let response = reqwest::get(self.get_url(&[WORKSPACE_API, name])?).await?;
+        match response.status() {
+            status_code if status_code.is_success() => {
+                Ok(response.json::<WorkspaceState>().await?)
+            }
+            status_code => Err(AppError::from_status_code(status_code)),
+        }
     }
 
     pub fn update_workspace(&mut self, update: WorkspaceUpdate) {
@@ -132,15 +183,12 @@ impl AppState {
             .json(self.workspace_updates.as_slice())
             .send()
             .await?;
-        match response.status().is_success() {
-            true => {
+        match response.status() {
+            status_code if status_code.is_success() => {
                 self.workspace_updates.clear();
                 Ok(())
             }
-            false => Err(format!(
-                "failed to publish updates, response code: {}",
-                response.status()
-            ))?,
+            status_code => Err(AppError::from_status_code(status_code)),
         }
     }
 }

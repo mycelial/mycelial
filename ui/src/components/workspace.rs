@@ -1,11 +1,10 @@
 use std::rc::Rc;
 use std::sync::Arc;
 
-use crate::components::app::AppState;
+use crate::components::app::{AppState, Result};
 use crate::components::graph::Graph as GenericGraph;
 use crate::components::icons::{Delete, Edit, Pause, Play, Restart};
 use crate::components::node_state_form::NodeStateForm;
-use crate::StdError;
 use config::SectionIO;
 use config_registry::ConfigMetaData;
 use dioxus::prelude::*;
@@ -692,16 +691,11 @@ impl DraggedEdge {
 }
 
 #[component]
-pub fn WorkspaceError(e: String) -> Element {
-    rsx! { "{e}" }
-}
-
-#[component]
 pub fn Workspace(workspace: String) -> Element {
     let mut app_state = use_context::<Signal<AppState>>();
     let mut graph: Signal<Graph> = use_signal(Graph::new);
     let workspace = Rc::from(workspace);
-    let state_fetcher: Resource<Result<(), StdError>> = use_resource({
+    let state_fetcher: Resource<Result<()>> = use_resource({
         let workspace = Rc::clone(&workspace);
         move || {
             let workspace = Rc::clone(&workspace);
@@ -734,7 +728,8 @@ pub fn Workspace(workspace: String) -> Element {
     });
     match &*state_fetcher.read() {
         Some(Ok(())) => (),
-        Some(Err(e)) => return rsx! { WorkspaceError{ e: e.to_string() } },
+        // FIXME: redirect to workspaces on 404, login form if 403?
+        Some(Err(e)) => return rsx! { "{e.err}" },
         None => return None,
     };
 
