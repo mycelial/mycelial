@@ -133,6 +133,10 @@ impl FormState {
             entry.update(value)
         }
     }
+
+    fn len(&self) -> usize {
+        self.fields.len()
+    }
 }
 
 impl IntoIterator for FormState {
@@ -194,14 +198,14 @@ pub fn NodeStateForm(
                                 None => return,
                             };
                             let config = &mut node_state.write().config;
-                            let mut config_update: Vec<(String, String)> = vec![];
+                            let mut config_updated_fields: Vec<String> = Vec::with_capacity(form_state.len());
                             for (field_name, field_value) in form_state.into_iter() {
                                 if !field_value.modified {
                                     continue
                                 }
                                 match config.set_field_value(field_name.as_str(), &field_value.value.as_str().into()) {
                                     Ok(_) => {
-                                        config_update.push((field_name, field_value.value));
+                                        config_updated_fields.push(field_name);
                                     }
                                     Err(e) => {
                                         tracing::error!("failed to set field value for {field_name} with value {}: {e}", field_value.value.as_str());

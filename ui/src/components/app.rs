@@ -1,9 +1,15 @@
-use std::fmt::Display;
+use std::{
+    fmt::Display,
+    future::{pending},
+    pin::Pin,
+};
 
 use crate::components::routing::Route;
 use config::StdError;
 use config_registry::{ConfigMetaData, ConfigRegistry};
 use dioxus::prelude::*;
+use futures::{Future, FutureExt, StreamExt};
+use gloo_timers::future::TimeoutFuture;
 use reqwest::StatusCode;
 use serde::Deserialize;
 use uuid::Uuid;
@@ -61,30 +67,65 @@ impl Display for AppError {
 }
 
 #[derive(Debug)]
+struct AppBackgroundCoroutine {}
+
+impl AppBackgroundCoroutine {
+    async fn enter_loop(mut rx: UnboundedReceiver<WorkspaceUpdate>) {
+        let updates = &mut Vec::new();
+        loop {
+            let future: Pin<Box<dyn Future<Output = ()>>> = match updates.is_empty() {
+                false => Box::pin(Box::pin(async { TimeoutFuture::new(100).await })),
+                true => Box::pin(pending::<()>()),
+            };
+            futures::select! {
+                msg = rx.next() => {
+                    updates.push(msg.unwrap());
+                },
+                _ = future.fuse() => {
+                    loop {
+                        let response = reqwest::Client::new()
+                            .post(get_url(&[WORKSPACE_API]).unwrap())
+                            .json(updates.as_slice())
+                            .send()
+                            .await;
+                        match response {
+                            Ok(response) if response.status().is_success() => {
+                                updates.clear();
+                                break
+                            },
+                            Ok(response) => tracing::error!("{}", AppError::from_status_code(response.status())),
+                            Err(e) => tracing::error!("Failed to perform update request: {}", e),
+                        }
+                        TimeoutFuture::new(1_000).await;
+                    }
+                }
+            }
+        }
+    }
+}
+fn get_url(paths: &[impl AsRef<str>]) -> Result<url::Url> {
+    let location: String = web_sys::window().unwrap().location().to_string().into();
+    let location: url::Url = location.parse()?;
+    let path = paths
+        .iter()
+        .map(|path| path.as_ref())
+        .collect::<Vec<_>>()
+        .join("/");
+    Ok(location.join(&path)?)
+}
+
 pub struct AppState {
-    location: url::Url,
     config_registry: ConfigRegistry,
-    workspace_updates: Vec<WorkspaceUpdate>,
+    coroutine_handle: Coroutine<WorkspaceUpdate>,
 }
 
 #[allow(clippy::new_without_default)]
 impl AppState {
-    pub fn new() -> Self {
-        let location: String = web_sys::window().unwrap().location().to_string().into();
+    pub fn new(coroutine_handle: Coroutine<WorkspaceUpdate>) -> Self {
         Self {
-            location: location.parse().unwrap(),
             config_registry: config_registry::new().expect("failed to initialize config registry"),
-            workspace_updates: Vec::new(),
+            coroutine_handle,
         }
-    }
-
-    fn get_url(&self, paths: &[impl AsRef<str>]) -> Result<url::Url> {
-        let path = paths
-            .iter()
-            .map(|path| path.as_ref())
-            .collect::<Vec<_>>()
-            .join("/");
-        Ok(self.location.join(&path)?)
     }
 }
 
@@ -105,7 +146,7 @@ const WORKSPACES_API: &str = "/api/workspaces";
 impl AppState {
     pub async fn create_workspace(&self, name: &str) -> Result<()> {
         let response = reqwest::Client::new()
-            .post(self.get_url(&[WORKSPACES_API])?)
+            .post(get_url(&[WORKSPACES_API])?)
             .json(&serde_json::json!({"name": name}))
             .send()
             .await?;
@@ -116,7 +157,7 @@ impl AppState {
     }
 
     pub async fn read_workspaces(&self) -> Result<Vec<Workspace>> {
-        let response = reqwest::get(self.get_url(&[WORKSPACES_API])?).await?;
+        let response = reqwest::get(get_url(&[WORKSPACES_API])?).await?;
         match response.status() {
             StatusCode::OK => Ok(response.json().await?),
             status_code => Err(AppError::from_status_code(status_code))?,
@@ -125,7 +166,7 @@ impl AppState {
 
     pub async fn remove_workspace(&self, name: &str) -> Result<()> {
         let response = reqwest::Client::new()
-            .delete(self.get_url(&[WORKSPACES_API, name])?)
+            .delete(get_url(&[WORKSPACES_API, name])?)
             .send()
             .await?;
         match response.status() {
@@ -160,7 +201,7 @@ pub struct Edge {
 
 impl AppState {
     pub async fn fetch_workspace(&self, name: &str) -> Result<WorkspaceState> {
-        let response = reqwest::get(self.get_url(&[WORKSPACE_API, name])?).await?;
+        let response = reqwest::get(get_url(&[WORKSPACE_API, name])?).await?;
         match response.status() {
             status_code if status_code.is_success() => {
                 Ok(response.json::<WorkspaceState>().await?)
@@ -170,32 +211,13 @@ impl AppState {
     }
 
     pub fn update_workspace(&mut self, update: WorkspaceUpdate) {
-        self.workspace_updates.push(update);
-    }
-
-    pub async fn publish_updates(&mut self) -> Result<()> {
-        if self.workspace_updates.is_empty() {
-            return Ok(());
-        }
-        tracing::info!("updates: {:#?}", self.workspace_updates);
-        let response = reqwest::Client::new()
-            .post(self.get_url(&[WORKSPACE_API])?)
-            .json(self.workspace_updates.as_slice())
-            .send()
-            .await?;
-        match response.status() {
-            status_code if status_code.is_success() => {
-                self.workspace_updates.clear();
-                Ok(())
-            }
-            status_code => Err(AppError::from_status_code(status_code)),
-        }
+        self.coroutine_handle.send(update)
     }
 }
 
 pub fn App() -> Element {
-    // top level state
-    let _app_state = use_context_provider(|| Signal::new(AppState::new()));
+    let bg_coroutine = use_coroutine(AppBackgroundCoroutine::enter_loop);
+    let _app_state = use_context_provider(move || Signal::new(AppState::new(bg_coroutine)));
     rsx! {
         Router::<Route> { }
     }
