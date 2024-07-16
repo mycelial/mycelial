@@ -42,6 +42,8 @@ pub trait Config: std::fmt::Debug + DynClone + std::any::Any + Send + Sync + 'st
 
     fn set_field_value(&mut self, name: &str, value: FieldValue<'_>) -> Result<(), StdError>;
 
+    fn strip_secrets(&mut self);
+
     fn validate_field(&self, field_name: &str, value: FieldValue<'_>) -> Result<(), StdError> {
         let mut iter = self
             .fields()

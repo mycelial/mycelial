@@ -219,8 +219,10 @@ pub fn NodeStateForm(
                             let config_update = RawConfig::new(config.name()).with_fields(
                                 config.fields().into_iter().filter(|field| config_updated_fields.contains(field.name))
                             );
-                            app_state.write().update_workspace(
-                                WorkspaceUpdate::new(&workspace, vec![WorkspaceOperation::UpdateNodeConfig{ id, config: config_update }]));
+                            app_state.write().update_workspace(WorkspaceUpdate::new(
+                                &workspace,
+                                vec![WorkspaceOperation::UpdateNodeConfig{ id, config: config_update }]
+                            ));
 
                         // FIXME: update daemon field once daemon field is added
                         }

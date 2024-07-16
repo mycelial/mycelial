@@ -389,6 +389,28 @@ fn parse_config(input: TokenStream) -> Result<TokenStream> {
         )
         .collect::<Vec<proc_macro2::TokenStream>>();
 
+    let strip_secrets_impl = config_fields
+        .iter()
+        .filter(|ConfigField { metadata, .. }| metadata.is_password)
+        .map(
+            |ConfigField {
+                 name,
+                 name_ident,
+                 ty,
+                 ..
+             }| {
+                let value: proc_macro2::TokenStream = match ty {
+                    ConfigFieldType::Bool => quote! { false },
+                    ConfigFieldType::String => quote! { String::new() },
+                    _ => quote! { 0 },
+                };
+                quote! {
+                    self.#name_ident = #value;
+                }
+            },
+        )
+        .collect::<Vec<proc_macro2::TokenStream>>();
+
     let name = ident.to_string();
     let tokens = quote! {
         impl config::Config for #ident {
@@ -423,6 +445,10 @@ fn parse_config(input: TokenStream) -> Result<TokenStream> {
                     _ => Err(format!("no field with name '{name}' exist"))?,
                 };
                 Ok(())
+            }
+
+            fn strip_secrets(&mut self) {
+                #(#strip_secrets_impl)*
             }
         }
     };

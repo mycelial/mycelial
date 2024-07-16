@@ -80,6 +80,10 @@ impl Config for RawConfig {
     ) -> Result<(), crate::StdError> {
         Err("set field value on intermediate config representation is not supported")?
     }
+
+    fn strip_secrets(&mut self) {
+        // raw config doesn't have any metadata
+    }
 }
 
 #[derive(Debug, Clone, Deserialize)]
