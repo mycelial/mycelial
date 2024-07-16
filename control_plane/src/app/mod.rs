@@ -194,10 +194,6 @@ impl App {
                     deserialize_into_config(&**config, &mut *default_config).map_err(|e| {
                         anyhow::anyhow!("failed to deserialize config {config_name}: {e}")
                     })?;
-                    // FIXME: field validation
-                    // default_config.validate()
-
-                    // swap deserilized config
                     std::mem::swap(config, &mut default_config);
                 }
             }
