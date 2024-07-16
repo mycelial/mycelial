@@ -219,6 +219,8 @@ pub fn NodeStateForm(
                             let config_update = RawConfig::new(config.name()).with_fields(
                                 config.fields().into_iter().filter(|field| config_updated_fields.contains(field.name))
                             );
+                            // do not store secrets in runtime
+                            config.strip_secrets();
                             app_state.write().update_workspace(WorkspaceUpdate::new(
                                 &workspace,
                                 vec![WorkspaceOperation::UpdateNodeConfig{ id, config: config_update }]

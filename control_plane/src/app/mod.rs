@@ -163,19 +163,7 @@ impl App {
                             config.name()
                         );
                     };
-                    // strip passwords
-                    let to_reset = config
-                        .fields()
-                        .into_iter()
-                        .filter(|field| field.metadata.is_password)
-                        .map(|field| field.name.to_string())
-                        .collect::<Vec<_>>();
-                    for field in to_reset {
-                        // FIXME: what is password field is not a String value?
-                        if let Err(e) = config.set_field_value(&field, "".into()) {
-                            tracing::error!("failed to set field value: {e}")
-                        }
-                    }
+                    config.strip_secrets();
                     std::mem::swap(&mut node.config, &mut config);
                     nodes.push(node)
                 }
