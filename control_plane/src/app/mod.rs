@@ -151,7 +151,44 @@ impl App {
 
     // workspace api
     pub async fn get_graph(&self, name: &str) -> Result<Graph> {
-        self.db.get_graph(name).await
+        let mut graph = self.db.get_graph(name).await?;
+        let mut nodes = Vec::with_capacity(graph.nodes.len());
+        for mut node in graph.nodes.into_iter() {
+            match self.config_registry.build_config(node.config.name()) {
+                Ok(mut config) => {
+                    if let Err(e) = deserialize_into_config(&*node.config, &mut *config) {
+                        // FIXME: emit warning which will be visible in UI
+                        tracing::error!(
+                            "failed to deserialize stored config with name: {}: {e}",
+                            config.name()
+                        );
+                    };
+                    // strip passwords
+                    let to_reset = config
+                        .fields()
+                        .into_iter()
+                        .filter(|field| field.metadata.is_password)
+                        .map(|field| field.name.to_string())
+                        .collect::<Vec<_>>();
+                    for field in to_reset {
+                        // FIXME: what is password field is not a String value?
+                        if let Err(e) = config.set_field_value(&field, "".into()) {
+                            tracing::error!("failed to set field value: {e}")
+                        }
+                    }
+                    std::mem::swap(&mut node.config, &mut config);
+                    nodes.push(node)
+                }
+                Err(e) => {
+                    tracing::error!(
+                        "failed to build config from config registry for {}: {e}",
+                        node.config.name()
+                    );
+                }
+            }
+        }
+        graph.nodes = nodes;
+        Ok(graph)
     }
 
     pub async fn update_workspace(&self, updates: &mut [WorkspaceUpdate]) -> Result<()> {

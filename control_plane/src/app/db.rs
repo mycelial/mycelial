@@ -362,7 +362,6 @@ where
                                                 raw_config.name()
                                             )
                                         })?;
-                                    tracing::info!("fetched config: {:?}", cur_config);
                                     cur_config
                                 }
                                 None => {

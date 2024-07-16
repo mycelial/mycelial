@@ -91,7 +91,7 @@ impl From<String> for FormFieldValue {
 }
 
 // Internal form state to keep track of values and validation
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 struct FormState {
     config: Signal<NodeState>,
     fields: HashMap<String, FormFieldValue>,
@@ -275,7 +275,12 @@ pub fn NodeStateForm(
                                         r#type: "checkbox",
                                         class: "ml-3 rounded-md py-1.5 text-gray-900 drop-shadow-sm ring-1 ring-night-1 focus:ring-2 focus:ring-night-2 focus:outline-none",
                                         readonly: field.metadata.is_read_only,
-                                        value: "{field.value}",
+                                        onchange: move |event| {
+                                            if let Some(form_state) = &mut *form_state.write() {
+                                                form_state.update_value(field_name.as_str(), event.value());
+                                            }
+                                        },
+                                        checked: "{field.value}",
                                     }
                                 }
                             } else if field.metadata.is_text_area {
@@ -292,6 +297,11 @@ pub fn NodeStateForm(
                                         class: "w-full rounded-md py-1.5 text-gray-900 drop-shadow-sm ring-1 ring-night-1 focus:ring-2 focus:ring-night-2 focus:outline-none",
                                         class: if fs.is_field_valid(&field_name) { "" } else { "outline outline-red-500" },
                                         readonly: field.metadata.is_read_only,
+                                        oninput: move |event| {
+                                            if let Some(form_state) = &mut *form_state.write() {
+                                                form_state.update_value(field_name.as_str(), event.value())
+                                            }
+                                        },
                                         value: "{field.value}",
                                     }
                                 }
