@@ -24,43 +24,43 @@ fn test_json_serialization() {
   "config_name": "Config",
   "fields": [
     {
-      "key": "i8",
+      "name": "i8",
       "value": 0
     },
     {
-      "key": "i16",
+      "name": "i16",
       "value": 0
     },
     {
-      "key": "i32",
+      "name": "i32",
       "value": 0
     },
     {
-      "key": "i64",
+      "name": "i64",
       "value": 0
     },
     {
-      "key": "u8",
+      "name": "u8",
       "value": 0
     },
     {
-      "key": "u16",
+      "name": "u16",
       "value": 0
     },
     {
-      "key": "u32",
+      "name": "u32",
       "value": 0
     },
     {
-      "key": "u64",
+      "name": "u64",
       "value": 0
     },
     {
-      "key": "bool",
+      "name": "bool",
       "value": false
     },
     {
-      "key": "string",
+      "name": "string",
       "value": ""
     }
   ]

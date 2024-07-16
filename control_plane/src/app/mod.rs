@@ -96,6 +96,10 @@ pub enum WorkspaceOperation {
         y: f64,
         config: Box<dyn config::Config>,
     },
+    UpdateNodeConfig {
+        id: Uuid,
+        config: Box<dyn config::Config>,
+    },
     UpdateNodePosition {
         uuid: Uuid,
         x: f64,
@@ -173,6 +177,8 @@ impl App {
                 }
             }
         }
-        self.db.update_workspace(updates).await
+        self.db
+            .update_workspace(&self.config_registry, updates)
+            .await
     }
 }

@@ -1,65 +1,21 @@
 use std::rc::Rc;
 use std::sync::Arc;
 
-use crate::components::app::{AppState, Result, WorkspaceState};
+use crate::components::app::{
+    AppState, Result, WorkspaceOperation, WorkspaceState, WorkspaceUpdate,
+};
 use crate::components::graph::Graph as GenericGraph;
 use crate::components::icons::{Delete, Edit, Pause, Play, Restart};
 use crate::components::node_state_form::NodeStateForm;
+use config::prelude::deserialize_into_config;
 use config::SectionIO;
 use config_registry::ConfigMetaData;
 use dioxus::prelude::*;
-use serde::Serialize;
 use uuid::Uuid;
 
-use super::graph::GraphOperation;
 use super::node_state_form::NodeState;
 
 pub type Graph = GenericGraph<Uuid, Signal<NodeState>>;
-
-#[derive(Debug, Clone, Serialize)]
-pub enum WorkspaceOperation {
-    AddNode(NodeState),
-    RemoveNode(Uuid),
-    UpdateNodePosition { uuid: Uuid, x: f64, y: f64 },
-    //UpdateNodeConfig
-    AddEdge { from: Uuid, to: Uuid },
-    RemoveEdge { from: Uuid, to: Uuid },
-    UpdatePan { x: f64, y: f64 },
-}
-
-impl From<GraphOperation<Uuid, Signal<NodeState>>> for WorkspaceOperation {
-    fn from(value: GraphOperation<Uuid, Signal<NodeState>>) -> Self {
-        match value {
-            GraphOperation::AddNode(node) => Self::AddNode(node.read().clone()),
-            GraphOperation::RemoveNode(node) => Self::RemoveNode(node.read().id),
-            GraphOperation::AddEdge(from, to) => Self::AddEdge { from, to },
-            GraphOperation::RemoveEdge(from, to) => Self::RemoveEdge { from, to },
-        }
-    }
-}
-
-impl From<GraphOperation<Uuid, Signal<NodeState>>> for Vec<WorkspaceOperation> {
-    fn from(val: GraphOperation<Uuid, Signal<NodeState>>) -> Self {
-        let workspace_op: WorkspaceOperation = val.into();
-        vec![workspace_op]
-    }
-}
-
-//
-#[derive(Debug, Serialize)]
-pub struct WorkspaceUpdate {
-    name: Rc<str>,
-    operations: Vec<WorkspaceOperation>,
-}
-
-impl WorkspaceUpdate {
-    fn new(name: &Rc<str>, operations: impl Into<Vec<WorkspaceOperation>>) -> Self {
-        Self {
-            name: Rc::clone(name),
-            operations: operations.into(),
-        }
-    }
-}
 
 // representation of section in sections menu, which can be dragged into viewport container
 #[component]
@@ -713,7 +669,13 @@ pub fn Workspace(workspace: String) -> Element {
             let graph = &mut *graph.write();
             for node in workspace_state.nodes.iter() {
                 let config = match app_state_ref.build_config(node.config.name()) {
-                    Ok(config) => config,
+                    Ok(mut config) => {
+                        if let Err(e) = deserialize_into_config(&*node.config, &mut *config) {
+                            tracing::error!("failed to deserialize into config: {e}");
+                            continue;
+                        }
+                        config
+                    }
                     Err(e) => {
                         tracing::error!("failed to build config for {}: {e}", node.config.name());
                         continue;

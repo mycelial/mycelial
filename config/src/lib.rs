@@ -1,11 +1,11 @@
-mod de;
+mod raw_config;
 mod ser;
 
 pub use config_derive::Config;
 use dyn_clone::DynClone;
 
 pub mod prelude {
-    pub use super::de::{deserialize_into_config, RawConfig};
+    pub use super::raw_config::{de::deserialize_into_config, RawConfig};
     pub use super::Config;
     pub use super::{Field, FieldType, FieldValue, Metadata, SectionIO};
 }
@@ -27,7 +27,8 @@ pub fn clone_config(config: &dyn Config) -> Box<dyn Config> {
     dyn_clone::clone_box(config)
 }
 
-pub type StdError = Box<dyn std::error::Error + Send + Sync + 'static>;
+pub(crate) type StdError = Box<dyn std::error::Error + Send + Sync + 'static>;
+
 pub trait Config: std::fmt::Debug + DynClone + std::any::Any + Send + Sync + 'static {
     fn name(&self) -> &str;
 
@@ -39,21 +40,49 @@ pub trait Config: std::fmt::Debug + DynClone + std::any::Any + Send + Sync + 'st
 
     fn get_field_value(&self, name: &str) -> Result<FieldValue<'_>, StdError>;
 
-    fn set_field_value(&mut self, name: &str, value: &FieldValue<'_>) -> Result<(), StdError>;
+    fn set_field_value(&mut self, name: &str, value: FieldValue<'_>) -> Result<(), StdError>;
 
-    fn validate_field(&self, field_name: &str, value: &str) -> Result<(), StdError> {
-        let field = self
+    fn validate_field(&self, field_name: &str, value: FieldValue<'_>) -> Result<(), StdError> {
+        let mut iter = self
             .fields()
             .into_iter()
-            .filter(|field| field.name == field_name)
-            .collect::<Vec<_>>();
-        match field.as_slice() {
-            [field] => {
-                let _: FieldValue = (&field.ty, value).try_into()?;
+            .filter(|field| field.name == field_name);
+        match iter.next() {
+            Some(field) => {
+                match field.ty {
+                    FieldType::Bool => {
+                        let _: bool = value.try_into()?;
+                    }
+                    FieldType::U8 => {
+                        let _: u8 = value.try_into()?;
+                    }
+                    FieldType::U16 => {
+                        let _: u16 = value.try_into()?;
+                    }
+                    FieldType::U32 => {
+                        let _: u32 = value.try_into()?;
+                    }
+                    FieldType::U64 => {
+                        let _: u64 = value.try_into()?;
+                    }
+                    FieldType::I8 => {
+                        let _: i8 = value.try_into()?;
+                    }
+                    FieldType::I16 => {
+                        let _: i16 = value.try_into()?;
+                    }
+                    FieldType::I32 => {
+                        let _: i32 = value.try_into()?;
+                    }
+                    FieldType::I64 => {
+                        let _: i64 = value.try_into()?;
+                    }
+                    // anything can be converted to String
+                    FieldType::String => {}
+                }
                 Ok(())
             }
-            [] => Err("no such field")?,
-            _ => Err("multiple fields with such name")?, // should not be possible in current implementation
+            None => Err("no such field")?,
         }
     }
 }
@@ -93,7 +122,7 @@ pub struct Field<'a> {
     pub value: FieldValue<'a>,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub enum FieldValue<'a> {
     I8(i8),
     I16(i16),
@@ -183,36 +212,16 @@ impl_from_value!(i64, I64);
 impl_from_value!(bool, Bool);
 impl_from_value!(&'a str, String);
 
-impl<'a> TryFrom<(&'a FieldType, &'a str)> for FieldValue<'a> {
-    type Error = StdError;
-
-    fn try_from((ty, value): (&'a FieldType, &'a str)) -> Result<Self, Self::Error> {
-        let field_value = match ty {
-            FieldType::I8 => FieldValue::I8(value.parse()?),
-            FieldType::I16 => FieldValue::I16(value.parse()?),
-            FieldType::I32 => FieldValue::I32(value.parse()?),
-            FieldType::I64 => FieldValue::I64(value.parse()?),
-            FieldType::U8 => FieldValue::U8(value.parse()?),
-            FieldType::U16 => FieldValue::U16(value.parse()?),
-            FieldType::U32 => FieldValue::U32(value.parse()?),
-            FieldType::U64 => FieldValue::U64(value.parse()?),
-            FieldType::String => FieldValue::String(value),
-            FieldType::Bool => FieldValue::Bool(value.parse()?),
-        };
-        Ok(field_value)
-    }
-}
-
 macro_rules! try_into_field_value_impl {
     (
-        $var:ident,
         $ty:ty,
+        $var:ident,
         $own_arm:tt => $own_expr:tt,
         $special_case:tt => $special_expr:tt,
         $($arm:tt),+ => $arm_expr:tt,
         $($can_fail_arm:tt),+ => $can_fail_expr:tt
     )  => {
-        impl TryInto<$ty> for &FieldValue<'_> {
+        impl TryInto<$ty> for FieldValue<'_> {
             type Error = StdError;
 
             fn try_into(self) -> Result<$ty, Self::Error> {
@@ -227,13 +236,13 @@ macro_rules! try_into_field_value_impl {
         }
     };
     (
-        $var:ident,
         $ty:ty,
+        $var:ident,
         $own_arm:tt => $own_expr:tt,
         $special_case:tt => $special_expr:tt,
         $($can_fail_arm:tt),+ => $can_fail_expr:tt
     )  => {
-        impl TryInto<$ty> for &FieldValue<'_> {
+        impl TryInto<$ty> for FieldValue<'_> {
             type Error = StdError;
 
             fn try_into(self) -> Result<$ty, Self::Error> {
@@ -246,8 +255,8 @@ macro_rules! try_into_field_value_impl {
             }
         }
     };
-    ($var:ident, $ty:ty, $own_arm:tt => $own_expr:tt, $special_case:tt => $special_expr:tt)  => {
-        impl TryInto<$ty> for &FieldValue<'_> {
+    ($ty:ty, $var:ident, $own_arm:tt => $own_expr:tt, $special_case:tt => $special_expr:tt)  => {
+        impl TryInto<$ty> for FieldValue<'_> {
             type Error = StdError;
 
             fn try_into(self) -> Result<$ty, Self::Error> {
@@ -259,8 +268,8 @@ macro_rules! try_into_field_value_impl {
             }
         }
     };
-    ($var:ident, $ty:ty, $own_arm:tt => $own_expr:tt)  => {
-        impl TryInto<$ty> for &FieldValue<'_> {
+    ($ty:ty, $var:ident, $own_arm:tt => $own_expr:tt)  => {
+        impl TryInto<$ty> for FieldValue<'_> {
             type Error = StdError;
 
             fn try_into(self) -> Result<$ty, Self::Error> {
@@ -276,54 +285,54 @@ macro_rules! try_into_field_value_impl {
     }
 }
 
-try_into_field_value_impl!(v, u8,
-    U8 => { *v },
+try_into_field_value_impl!(u8, v,
+    U8 => { v },
     String => { v.parse()? },
-    U16, U32, U64, I8, I16, I32, I64 => { (*v).try_into()? }
+    U16, U32, U64, I8, I16, I32, I64 => { v.try_into()? }
 );
-try_into_field_value_impl!(v, u16,
-    U16 => { *v },
+try_into_field_value_impl!(u16, v,
+    U16 => { v },
     String => { v.parse()? },
-    U8 => { (*v).into() },
-    U32, U64, I8, I16, I32, I64 => { (*v).try_into()? }
+    U8 => { v.into() },
+    U32, U64, I8, I16, I32, I64 => { v.try_into()? }
 );
-try_into_field_value_impl!(v, u32,
-    U32 => { *v },
+try_into_field_value_impl!(u32, v,
+    U32 => { v },
     String => { v.parse()? },
-    U8, U16 => { (*v).into() },
-    U64, I8, I16, I32, I64 => { (*v).try_into()? }
+    U8, U16 => { v.into() },
+    U64, I8, I16, I32, I64 => { v.try_into()? }
 );
-try_into_field_value_impl!(v, u64,
-    U64 => { *v },
+try_into_field_value_impl!(u64, v,
+    U64 => { v },
     String => { v.parse()? },
-    U8, U16, U32 => { (*v).into() },
-    I8, I16, I32, I64 => { (*v).try_into()? }
+    U8, U16, U32 => { v.into() },
+    I8, I16, I32, I64 => { v.try_into()? }
 );
-try_into_field_value_impl!(v, i8,
-    I8 => { *v },
+try_into_field_value_impl!(i8, v,
+    I8 => { v },
     String => { v.parse()? },
-    U8, U16, U32, U64, I16, I32, I64 => { (*v).try_into()? }
+    U8, U16, U32, U64, I16, I32, I64 => { v.try_into()? }
 );
-try_into_field_value_impl!(v, i16,
-    I16 => { *v },
+try_into_field_value_impl!(i16, v,
+    I16 => { v },
     String => { v.parse()? },
-    U8, I8 => { (*v).into() },
-    U16, U32, U64, I32, I64 => { (*v).try_into()? }
+    U8, I8 => { v.into() },
+    U16, U32, U64, I32, I64 => { v.try_into()? }
 );
-try_into_field_value_impl!(v, i32,
-    I32 => { *v },
+try_into_field_value_impl!(i32, v,
+    I32 => { v },
     String => { v.parse()? },
-    U8, U16, I8, I16 => { (*v).into() },
-    U32, U64, I64 => { (*v).try_into()? }
+    U8, U16, I8, I16 => { v.into() },
+    U32, U64, I64 => { v.try_into()? }
 );
-try_into_field_value_impl!(v, i64,
-    I64 => { *v },
+try_into_field_value_impl!(i64, v,
+    I64 => { v },
     String => { v.parse()? },
-    U8, U16, U32, I8, I16, I32 => { (*v).into() },
-    U64 => { (*v).try_into()? }
+    U8, U16, U32, I8, I16, I32 => { v.into() },
+    U64 => { v.try_into()? }
 );
-try_into_field_value_impl!(v, bool,
-    Bool => { *v },
+try_into_field_value_impl!(bool, v,
+    Bool => { v },
     String => { v.parse()? }
 );
-try_into_field_value_impl!(v, String, String => { v.to_string() });
+try_into_field_value_impl!(String, v, String => { v.to_string() });

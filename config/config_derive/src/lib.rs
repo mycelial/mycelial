@@ -417,7 +417,7 @@ fn parse_config(input: TokenStream) -> Result<TokenStream> {
                 }
             }
 
-            fn set_field_value(&mut self, name: &str, value: &FieldValue<'_>) -> Result<(), Box<dyn std::error::Error + Send + Sync + 'static>> {
+            fn set_field_value(&mut self, name: &str, value: FieldValue<'_>) -> Result<(), Box<dyn std::error::Error + Send + Sync + 'static>> {
                 match name {
                     #(#set_field_value_arms),*
                     _ => Err(format!("no field with name '{name}' exist"))?,

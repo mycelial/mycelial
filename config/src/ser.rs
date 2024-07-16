@@ -40,7 +40,7 @@ impl<'a> Serialize for &'a Field<'a> {
         S: serde::Serializer,
     {
         let mut map = serializer.serialize_map(Some(2))?;
-        map.serialize_entry("key", self.name)?;
+        map.serialize_entry("name", self.name)?;
         match &self.value {
             FieldValue::I8(v) => map.serialize_entry("value", &v)?,
             FieldValue::I16(v) => map.serialize_entry("value", &v)?,

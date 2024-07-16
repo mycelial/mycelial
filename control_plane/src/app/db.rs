@@ -10,6 +10,8 @@ use crate::{
     app::{AppError, Result},
 };
 use chrono::{DateTime, NaiveDateTime, Utc};
+use config::prelude::deserialize_into_config;
+use config_registry::ConfigRegistry;
 use derive_trait::derive_trait;
 use futures::future::BoxFuture;
 use sea_query::{
@@ -254,7 +256,12 @@ where
         })
     }
 
-    fn update_workspace<'a>(&'a self, updates: &'a [WorkspaceUpdate]) -> BoxFuture<'a, Result<()>> {
+    // FIXME: split function
+    fn update_workspace<'a>(
+        &'a self,
+        config_registry: &'a ConfigRegistry,
+        updates: &'a [WorkspaceUpdate],
+    ) -> BoxFuture<'a, Result<()>> {
         Box::pin(async move {
             let conn = &mut *self.pool.acquire().await?;
             let mut transaction = conn.begin().await?;
@@ -325,6 +332,57 @@ where
                             .from_table(Edges::Table)
                             .and_where(Expr::col(Edges::FromId).eq(from))
                             .build_any_sqlx(&*self.query_builder),
+                        WorkspaceOperation::UpdateNodeConfig { id, ref config } => {
+                            let (query, values) = Query::select()
+                                .lock_exclusive()
+                                .columns([Nodes::Config])
+                                .from(Nodes::Table)
+                                .and_where(Expr::col(Nodes::Id).eq(id))
+                                .build_any_sqlx(&*self.query_builder);
+                            let mut cur_config = match sqlx::query_with(&query, values)
+                                .fetch_optional(&mut *transaction)
+                                .await?
+                            {
+                                Some(row) => {
+                                    let raw_config = row.get::<Json<_>, _>(0).0;
+                                    let raw_config: Box<dyn config::Config> =
+                                        serde_json::from_value(raw_config)?;
+                                    let mut cur_config = config_registry
+                                        .build_config(raw_config.name())
+                                        .map_err(|e| {
+                                            anyhow::anyhow!(
+                                                "failed to build config '{}': {e}",
+                                                raw_config.name()
+                                            )
+                                        })?;
+                                    deserialize_into_config(&*raw_config, &mut *cur_config)
+                                        .map_err(|e| {
+                                            anyhow::anyhow!(
+                                                "failed to deserialize into config: {}: {e}",
+                                                raw_config.name()
+                                            )
+                                        })?;
+                                    tracing::info!("fetched config: {:?}", cur_config);
+                                    cur_config
+                                }
+                                None => {
+                                    tracing::error!("can't update node config for node with id {id}, node not found");
+                                    continue;
+                                }
+                            };
+                            deserialize_into_config(&**config, &mut *cur_config).map_err(|e| {
+                                anyhow::anyhow!(
+                                    "failed to deserialize incoming update into config: {}: {e}",
+                                    cur_config.name()
+                                )
+                            })?;
+                            let config_json = serde_json::to_string(&*cur_config)?;
+                            Query::update()
+                                .table(Nodes::Table)
+                                .values([(Nodes::Config, config_json.into())])
+                                .and_where(Expr::col(Nodes::Id).eq(id))
+                                .build_any_sqlx(&*self.query_builder)
+                        }
                     };
                     sqlx::query_with(&query, values)
                         .execute(&mut *transaction)

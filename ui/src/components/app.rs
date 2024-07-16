@@ -1,22 +1,21 @@
-use std::{
-    fmt::Display,
-    future::{pending},
-    pin::Pin,
-};
+use std::{fmt::Display, future::pending, pin::Pin, rc::Rc};
 
 use crate::components::routing::Route;
-use config::StdError;
+use chrono::{DateTime, Utc};
+use config::prelude::RawConfig;
 use config_registry::{ConfigMetaData, ConfigRegistry};
 use dioxus::prelude::*;
 use futures::{Future, FutureExt, StreamExt};
 use gloo_timers::future::TimeoutFuture;
 use reqwest::StatusCode;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use super::{workspace::WorkspaceUpdate, workspaces::Workspace};
+use super::{graph::GraphOperation, node_state_form::NodeState};
 
 pub type Result<T, E = AppError> = std::result::Result<T, E>;
+
+pub type StdError = Box<dyn std::error::Error + Send + Sync + 'static>;
 
 #[derive(Debug)]
 pub struct AppError {
@@ -93,7 +92,10 @@ impl AppBackgroundCoroutine {
                                 updates.clear();
                                 break
                             },
-                            Ok(response) => tracing::error!("{}", AppError::from_status_code(response.status())),
+                            Ok(response) => {
+                                tracing::error!("{}", AppError::from_status_code(response.status()));
+                                break
+                            },
                             Err(e) => tracing::error!("Failed to perform update request: {}", e),
                         }
                         TimeoutFuture::new(1_000).await;
@@ -142,6 +144,12 @@ impl AppState {
 
 // Workspaces API
 const WORKSPACES_API: &str = "/api/workspaces";
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Workspace {
+    pub name: String,
+    pub created_at: DateTime<Utc>,
+}
 
 impl AppState {
     pub async fn create_workspace(&self, name: &str) -> Result<()> {
@@ -197,6 +205,50 @@ pub struct Node {
 pub struct Edge {
     pub from_id: Uuid,
     pub to_id: Uuid,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub enum WorkspaceOperation {
+    AddNode(NodeState),
+    RemoveNode(Uuid),
+    UpdateNodePosition { uuid: Uuid, x: f64, y: f64 },
+    UpdateNodeConfig { id: Uuid, config: RawConfig },
+    AddEdge { from: Uuid, to: Uuid },
+    RemoveEdge { from: Uuid, to: Uuid },
+    UpdatePan { x: f64, y: f64 },
+}
+
+impl From<GraphOperation<Uuid, Signal<NodeState>>> for WorkspaceOperation {
+    fn from(value: GraphOperation<Uuid, Signal<NodeState>>) -> Self {
+        match value {
+            GraphOperation::AddNode(node) => Self::AddNode(node.read().clone()),
+            GraphOperation::RemoveNode(node) => Self::RemoveNode(node.read().id),
+            GraphOperation::AddEdge(from, to) => Self::AddEdge { from, to },
+            GraphOperation::RemoveEdge(from, to) => Self::RemoveEdge { from, to },
+        }
+    }
+}
+
+impl From<GraphOperation<Uuid, Signal<NodeState>>> for Vec<WorkspaceOperation> {
+    fn from(val: GraphOperation<Uuid, Signal<NodeState>>) -> Self {
+        let workspace_op: WorkspaceOperation = val.into();
+        vec![workspace_op]
+    }
+}
+
+#[derive(Debug, Serialize)]
+pub struct WorkspaceUpdate {
+    name: Rc<str>,
+    operations: Vec<WorkspaceOperation>,
+}
+
+impl WorkspaceUpdate {
+    pub fn new(name: &Rc<str>, operations: impl Into<Vec<WorkspaceOperation>>) -> Self {
+        Self {
+            name: Rc::clone(name),
+            operations: operations.into(),
+        }
+    }
 }
 
 impl AppState {

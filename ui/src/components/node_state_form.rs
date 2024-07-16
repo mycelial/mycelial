@@ -1,9 +1,14 @@
-use std::{collections::HashMap, rc::Rc};
+use std::{
+    collections::{HashMap, HashSet},
+    rc::Rc,
+};
 
 pub use config::prelude::*;
 pub use dioxus::prelude::*;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
+
+use crate::components::app::{WorkspaceOperation, WorkspaceUpdate};
 
 use super::app::AppState;
 
@@ -116,26 +121,24 @@ impl FormState {
         self.config
             .read()
             .config
-            .validate_field(field_name, value.value.as_str())
+            .validate_field(field_name, value.value.as_str().into())
             .is_ok()
     }
 
     // check if form is valid
     fn is_valid(&self) -> bool {
         let config = &self.config.read().config;
-        self.fields
-            .iter()
-            .all(|(key, value)| config.validate_field(key, value.value.as_str()).is_ok())
+        self.fields.iter().all(|(key, value)| {
+            config
+                .validate_field(key, value.value.as_str().into())
+                .is_ok()
+        })
     }
 
     fn update_value(&mut self, field_name: &str, value: String) {
         if let Some(entry) = self.fields.get_mut(field_name) {
             entry.update(value)
         }
-    }
-
-    fn len(&self) -> usize {
-        self.fields.len()
     }
 }
 
@@ -181,6 +184,7 @@ pub fn NodeStateForm(
             class: "border border-solid rounded-md drop-shadow px-5 py-4 mt-4 mx-4",
             div {
                 form {
+                    // config save
                     onsubmit: {
                         let workspace = Rc::clone(&workspace);
                         move |_event| {
@@ -198,20 +202,26 @@ pub fn NodeStateForm(
                                 None => return,
                             };
                             let config = &mut node_state.write().config;
-                            let mut config_updated_fields: Vec<String> = Vec::with_capacity(form_state.len());
+                            let mut config_updated_fields: HashSet<String> = HashSet::new();
                             for (field_name, field_value) in form_state.into_iter() {
                                 if !field_value.modified {
                                     continue
                                 }
-                                match config.set_field_value(field_name.as_str(), &field_value.value.as_str().into()) {
+                                match config.set_field_value(field_name.as_str(), field_value.value.as_str().into()) {
                                     Ok(_) => {
-                                        config_updated_fields.push(field_name);
+                                        config_updated_fields.insert(field_name);
                                     }
                                     Err(e) => {
                                         tracing::error!("failed to set field value for {field_name} with value {}: {e}", field_value.value.as_str());
                                     }
                                 };
                             }
+                            let config_update = RawConfig::new(config.name()).with_fields(
+                                config.fields().into_iter().filter(|field| config_updated_fields.contains(field.name))
+                            );
+                            app_state.write().update_workspace(
+                                WorkspaceUpdate::new(&workspace, vec![WorkspaceOperation::UpdateNodeConfig{ id, config: config_update }]));
+
                         // FIXME: update daemon field once daemon field is added
                         }
                     },
