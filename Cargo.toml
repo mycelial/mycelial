@@ -1,5 +1,6 @@
 [workspace]
 members = [
+<<<<<<< HEAD
     "server",
     "myceliald",
     "common",
@@ -24,5 +25,11 @@ members = [
     "pipe/section/section_impls/s3",
     "pipe/section/section_impls/redshift_loader",
     "pipe/section/section_impls/inspect",
+=======
+    "ui",
+    "config",
+    "control_plane",
+    "config_registry",
+>>>>>>> ui/main
 ]
 resolver = "2"
