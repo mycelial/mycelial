@@ -195,7 +195,7 @@ fn parse_field_attributes(field_attributes: &[Attribute]) -> Result<ConfigFieldM
             let span = attr.span();
             Err(ConfigError {
                 span: attr.span(),
-                reason: format!("unsupported attrtibute: {:?}", attr.path()).into(),
+                reason: format!("unsupported attribute: {:?}", attr.path()).into(),
             })?
         }
         _ => (),

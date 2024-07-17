@@ -34,10 +34,6 @@ pub struct ConfigTransform {}
 
 pub type ConfigConstructor = fn() -> Box<dyn config::Config>;
 
-#[derive(Debug)]
-pub struct ConfigRegistry {
-    registry: BTreeMap<Arc<str>, ConfigMetaData>,
-}
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ConfigMetaData {
@@ -51,6 +47,11 @@ impl ConfigMetaData {
     pub fn build_config(&self) -> Box<dyn config::Config> {
         (self.ctor)()
     }
+}
+
+#[derive(Debug)]
+pub struct ConfigRegistry {
+    registry: BTreeMap<Arc<str>, ConfigMetaData>,
 }
 
 impl Default for ConfigRegistry {
