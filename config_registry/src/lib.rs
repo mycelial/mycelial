@@ -34,7 +34,6 @@ pub struct ConfigTransform {}
 
 pub type ConfigConstructor = fn() -> Box<dyn config::Config>;
 
-
 #[derive(Debug, Clone, PartialEq)]
 pub struct ConfigMetaData {
     pub input: bool,
