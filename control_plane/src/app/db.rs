@@ -21,7 +21,7 @@ use sea_query::{
 use sea_query_binder::{SqlxBinder, SqlxValues};
 use sqlx::{
     database::HasArguments, migrate::Migrate, types::Json, ColumnIndex, Connection as _, Database,
-    Executor, IntoArguments, Pool, Postgres, Row as _, Sqlite, Transaction,
+    Executor, IntoArguments, Pool, Postgres, Row as _, Sqlite, Transaction, Mysql,
 };
 use uuid::Uuid;
 
@@ -60,7 +60,7 @@ pub async fn new(database_url: &str) -> Result<Box<dyn DbTrait>> {
             .await?,
         ),
         "mysql" => Box::new(
-            Db::<Postgres>::new(
+            Db::<Mysql>::new(
                 database_url.as_ref(),
                 Box::new(MysqlQueryBuilder),
                 Box::new(MysqlQueryBuilder),
