@@ -6,7 +6,7 @@ use std::{
 
 use crate::app::migration;
 use crate::{
-    app::tables::{Edges, Nodes, Workspaces},
+    app::tables::{Certs, Edges, Nodes, Workspaces},
     app::{AppError, Result},
 };
 use chrono::{DateTime, NaiveDateTime, Utc};
@@ -15,7 +15,8 @@ use config_registry::ConfigRegistry;
 use derive_trait::derive_trait;
 use futures::future::BoxFuture;
 use sea_query::{
-    Expr, Order, PostgresQueryBuilder, Query, QueryBuilder, SchemaBuilder, SqliteQueryBuilder,
+    Expr, MysqlQueryBuilder, Order, PostgresQueryBuilder, Query, QueryBuilder, SchemaBuilder,
+    SqliteQueryBuilder,
 };
 use sea_query_binder::{SqlxBinder, SqlxValues};
 use sqlx::{
@@ -32,13 +33,8 @@ pub async fn new(database_url: &str) -> Result<Box<dyn DbTrait>> {
     let mut params: HashMap<Cow<str>, Cow<str>> = database_url.query_pairs().collect();
     let db: Box<dyn DbTrait> = match database_url.scheme() {
         "sqlite" => {
-            // FIXME: move to util or smth?
-            // without "mode=rwc" sqlite will bail if database file is not present
-            match params.get("mode") {
-                Some(_) => (),
-                None => {
-                    params.insert("mode".into(), "rwc".into());
-                }
+            if !params.contains_key("mode") {
+                params.insert("mode".into(), "rwc".into());
             };
             let query = params
                 .into_iter()
@@ -60,6 +56,14 @@ pub async fn new(database_url: &str) -> Result<Box<dyn DbTrait>> {
                 database_url.as_ref(),
                 Box::new(PostgresQueryBuilder),
                 Box::new(PostgresQueryBuilder),
+            )
+            .await?,
+        ),
+        "mysql" => Box::new(
+            Db::<Postgres>::new(
+                database_url.as_ref(),
+                Box::new(MysqlQueryBuilder),
+                Box::new(MysqlQueryBuilder),
             )
             .await?,
         ),
@@ -389,6 +393,108 @@ where
                 }
             }
             transaction.commit().await?;
+            Ok(())
+        })
+    }
+
+    fn get_ca_cert_key(&self) -> BoxFuture<'_, Result<Option<(String, String)>>> {
+        Box::pin(async move {
+            let (query, values) = Query::select()
+                .columns([Certs::Key, Certs::Value])
+                .from(Certs::Table)
+                .and_where(Expr::col(Certs::Key).is_in([Certs::ca_key(), Certs::ca_cert()]))
+                .build_any_sqlx(&*self.query_builder);
+            let rows = sqlx::query_with(&query, values)
+                .fetch_all(&self.pool)
+                .await?;
+            let maybe_cert_key = rows.into_iter().fold((None, None), |(cert, key), row| {
+                let row_key = row.get::<String, _>(0);
+                let row_value = row.get::<String, _>(1);
+                match &row_key {
+                    row_key if row_key == Certs::ca_key() => (cert, Some(row_value)),
+                    row_key if row_key == Certs::ca_cert() => (Some(row_value), key),
+                    row_key => unreachable!("unexpected key {row_key}"),
+                }
+            });
+            match maybe_cert_key {
+                (Some(cert), Some(key)) => Ok(Some((cert, key))),
+                (None, None) => Ok(None),
+                (None, _) => Err(anyhow::anyhow!("ca cert is missing"))?,
+                (_, None) => Err(anyhow::anyhow!("ca key is missing"))?,
+            }
+        })
+    }
+
+    fn store_ca_cert_key<'a>(&'a self, key: &'a str, cert: &'a str) -> BoxFuture<'a, Result<()>> {
+        Box::pin(async move {
+            let (query, values) = Query::insert()
+                .columns([Certs::Key, Certs::Value, Certs::CreatedAt])
+                .into_table(Certs::Table)
+                .values_panic([
+                    Certs::ca_key().into(),
+                    key.into(),
+                    Expr::current_timestamp().into(),
+                ])
+                .values_panic([
+                    Certs::ca_cert().into(),
+                    cert.into(),
+                    Expr::current_timestamp().into(),
+                ])
+                .build_any_sqlx(&*self.query_builder);
+            sqlx::query_with(&query, values).execute(&self.pool).await?;
+            Ok(())
+        })
+    }
+
+    fn get_control_plane_cert_key(&self) -> BoxFuture<'_, Result<Option<(String, String)>>> {
+        Box::pin(async move {
+            let (query, values) = Query::select()
+                .columns([Certs::Key, Certs::Value])
+                .from(Certs::Table)
+                .and_where(Expr::col(Certs::Key).is_in([Certs::key(), Certs::cert()]))
+                .build_any_sqlx(&*self.query_builder);
+            let rows = sqlx::query_with(&query, values)
+                .fetch_all(&self.pool)
+                .await?;
+            let maybe_cert_key = rows.into_iter().fold((None, None), |(cert, key), row| {
+                let row_key = row.get::<String, _>(0);
+                let row_value = row.get::<String, _>(1);
+                match &row_key {
+                    row_key if row_key == Certs::key() => (cert, Some(row_value)),
+                    row_key if row_key == Certs::cert() => (Some(row_value), key),
+                    row_key => unreachable!("unexpected key {row_key}"),
+                }
+            });
+            match maybe_cert_key {
+                (Some(cert), Some(key)) => Ok(Some((cert, key))),
+                (None, None) => Ok(None),
+                (None, _) => Err(anyhow::anyhow!("cert is missing"))?,
+                (_, None) => Err(anyhow::anyhow!("key is missing"))?,
+            }
+        })
+    }
+
+    fn store_control_plane_cert_key<'a>(
+        &'a self,
+        key: &'a str,
+        cert: &'a str,
+    ) -> BoxFuture<'a, Result<()>> {
+        Box::pin(async move {
+            let (query, values) = Query::insert()
+                .columns([Certs::Key, Certs::Value, Certs::CreatedAt])
+                .into_table(Certs::Table)
+                .values_panic([
+                    Certs::key().into(),
+                    key.into(),
+                    Expr::current_timestamp().into(),
+                ])
+                .values_panic([
+                    Certs::cert().into(),
+                    cert.into(),
+                    Expr::current_timestamp().into(),
+                ])
+                .build_any_sqlx(&*self.query_builder);
+            sqlx::query_with(&query, values).execute(&self.pool).await?;
             Ok(())
         })
     }

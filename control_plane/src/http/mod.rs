@@ -1,19 +1,15 @@
-pub mod assets;
-pub mod workspace;
-pub mod workspaces;
+pub mod api;
+pub mod daemon_api;
 
+use crate::app::{AppError, AppErrorKind};
 use axum::{
     body::Body,
     http::{Method, Request, StatusCode, Uri},
-    middleware::{self, Next},
+    middleware::Next,
     response::{IntoResponse, Response},
-    routing::{delete, get, post},
-    Router,
 };
 use chrono::Utc;
 use std::sync::Arc;
-
-use crate::app::{AppError, AppErrorKind};
 
 pub type Result<T, E = AppError> = core::result::Result<T, E>;
 
@@ -31,8 +27,12 @@ impl IntoResponse for AppError {
     }
 }
 
-// log response middleware
-async fn log_middleware(method: Method, uri: Uri, request: Request<Body>, next: Next) -> Response {
+pub async fn log_middleware(
+    method: Method,
+    uri: Uri,
+    request: Request<Body>,
+    next: Next,
+) -> Response {
     let timestamp = Utc::now();
     let response = next.run(request).await;
     let request_time_ms = Utc::now()
@@ -55,21 +55,4 @@ async fn log_middleware(method: Method, uri: Uri, request: Request<Body>, next: 
         ),
     };
     response
-}
-
-// top level router
-pub fn new(app: crate::app::App) -> Router {
-    Router::new()
-        // workspaces API
-        .route(
-            "/api/workspaces",
-            get(workspaces::read).post(workspaces::create),
-        )
-        .route("/api/workspaces/:name", delete(workspaces::delete))
-        // workspace API
-        .route("/api/workspace", post(workspace::update))
-        .route("/api/workspace/:name", get(workspace::read))
-        .fallback(assets::assets)
-        .layer(middleware::from_fn(log_middleware))
-        .with_state(app)
 }

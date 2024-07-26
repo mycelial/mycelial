@@ -5,6 +5,7 @@ pub mod tables;
 use chrono::{DateTime, Utc};
 use config::prelude::*;
 use config_registry::{self, ConfigRegistry};
+use pki::{CertificateDer, CertifiedKey, KeyPair};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use uuid::Uuid;
@@ -201,5 +202,38 @@ impl App {
         self.db
             .update_workspace(&self.config_registry, updates)
             .await
+    }
+
+    pub async fn get_or_create_ca_cert_key(&self) -> Result<CertifiedKey> {
+        if let Some((ca_cert, ca_key)) = self.db.get_ca_cert_key().await? {
+            let ca_certkey = pki::rebuild_ca_certkey(&ca_key, &ca_cert)
+                .map_err(|e| anyhow::anyhow!("failed to rebuild ca certkey: {e}"))?;
+            return Ok(ca_certkey);
+        }
+        let ca_certkey =
+            pki::generate_ca_certkey("control plane").map_err(|e| anyhow::anyhow!("{e}"))?;
+        let cert = ca_certkey.cert.pem();
+        let key = ca_certkey.key_pair.serialize_pem();
+        self.db.store_ca_cert_key(&key, &cert).await?;
+        Ok(ca_certkey)
+    }
+
+    pub async fn get_or_create_control_plane_cert_key(
+        &self,
+        ca_cert_key: &CertifiedKey,
+    ) -> Result<(CertificateDer<'static>, KeyPair)> {
+        if let Some((cert, key)) = self.db.get_control_plane_cert_key().await? {
+            let cert = pki::parse_certificate(&cert).map_err(|e| anyhow::anyhow!("{e}"))?;
+            let key = pki::parse_keypair(&key).map_err(|e| anyhow::anyhow!("{e}"))?;
+            return Ok((cert, key));
+        }
+        let certkey = pki::generate_control_plane_cert(ca_cert_key, "control plane")
+            .map_err(|e| anyhow::anyhow!("failed to create certificate for control plane: {e}"))?;
+        let cert = certkey.cert.pem();
+        let key = certkey.key_pair.serialize_pem();
+        self.db
+            .store_control_plane_cert_key(key.as_str(), cert.as_str())
+            .await?;
+        Ok((certkey.cert.der().clone(), certkey.key_pair))
     }
 }

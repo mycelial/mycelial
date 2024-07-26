@@ -77,3 +77,33 @@ pub enum Edges {
     FromId,
     ToId,
 }
+
+#[derive(Iden)]
+pub enum Certs {
+    Table,
+    Key,
+    Value,
+    CreatedAt,
+}
+
+impl Certs {
+    #[inline(always)]
+    pub fn ca_key() -> &'static str {
+        "ca_key"
+    }
+
+    #[inline(always)]
+    pub fn ca_cert() -> &'static str {
+        "ca_cert"
+    }
+
+    #[inline(always)]
+    pub fn key() -> &'static str {
+        "key"
+    }
+
+    #[inline(always)]
+    pub fn cert() -> &'static str {
+        "cert"
+    }
+}

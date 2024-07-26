@@ -14,6 +14,7 @@ impl State {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn add_daemon(
         &mut self,
         name: String,
@@ -65,6 +66,7 @@ struct Daemon {
 }
 
 impl Daemon {
+    #[allow(clippy::too_many_arguments)]
     fn new(
         name: &str,
         id: &str,

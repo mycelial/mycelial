@@ -5,6 +5,7 @@ members = [
     "control_plane",
     "config_registry",
     "myceliald",
+    "pki",
 
     "pipe/runtime",
     "pipe/arrow_msg",

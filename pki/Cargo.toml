@@ -1,0 +1,11 @@
+[package]
+name = "pki"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+rcgen = { version = "0.13.1", features=["x509-parser"] }
+rustls = { version = "0.23.12", default-features=false, features=["ring", "std"] }
+rustls-pemfile = "2.1.2"
+rustls-webpki = "0.102.6"
+time = "0.3.36"

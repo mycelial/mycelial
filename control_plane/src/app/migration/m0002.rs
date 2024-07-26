@@ -50,11 +50,31 @@ impl Edges {
     }
 }
 
+#[derive(Iden)]
+enum Certs {
+    Table,
+    Key,
+    Value,
+    CreatedAt,
+}
+
+impl Certs {
+    fn into_query(schema_builder: &dyn SchemaBuilder) -> String {
+        Table::create()
+            .table(Certs::Table)
+            .col(ColumnDef::new(Certs::Key).string().primary_key())
+            .col(ColumnDef::new(Certs::Value).string().not_null())
+            .col(ColumnDef::new(Certs::CreatedAt).timestamp().not_null())
+            .build_any(schema_builder)
+    }
+}
+
 pub fn into_migration(schema_builder: &dyn SchemaBuilder) -> Migration {
     let sql = [
         // tables
         Nodes::into_query(schema_builder),
         Edges::into_query(schema_builder),
+        Certs::into_query(schema_builder),
         // indices
     ]
     .join(";\n");
