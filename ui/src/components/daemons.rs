@@ -91,8 +91,7 @@ impl Daemon {
 }
 
 #[component]
-fn NewDaemon() -> Element {
-    let _workspaces_state = use_context::<Signal<State>>();
+fn NewDaemon(daemon_state: Signal<State>) -> Element {
     let mut render_form_state = use_signal(|| false);
     rsx! {
         if !*render_form_state.read() {
@@ -103,7 +102,7 @@ fn NewDaemon() -> Element {
                         *render_form_state.write() = true;
                     },
                     class: "text-stem-1 px-4 py-2 rounded bg-forest-2 border border-forest-2 hover:bg-forest-3 hover:text-stem-1",
-                    "ADD NEW WORKSPACE"
+                    "ADD NEW DAEMON"
                 }
             }
         } else {
@@ -124,7 +123,7 @@ fn NewDaemon() -> Element {
                         input {
                             class: "border border-night-1 rounded mx-4 py-2 px-2",
                             name: "workspace_name",
-                            placeholder: "New Workspace Name",
+                            placeholder: "",
                         }
                         button {
                             class: "text-stem-1 px-4 py-2 rounded bg-forest-1 border border-forest-1",
@@ -144,7 +143,7 @@ fn NewDaemon() -> Element {
 
 #[component]
 pub fn Daemons() -> Element {
-    let mut daemon_state = use_context_provider(|| {
+    let mut daemon_state = use_signal(|| {
         let mut daemon_state = State::new();
         daemon_state.add_daemon(
             "GCP Daemon".to_string(),
@@ -176,7 +175,7 @@ pub fn Daemons() -> Element {
             "2024-05-16 08:34:44".to_string(),
             "DEGRADED".to_string(),
         );
-        Signal::new(daemon_state)
+        daemon_state
     });
 
     let state_ref = &*daemon_state.read();
@@ -194,7 +193,7 @@ pub fn Daemons() -> Element {
         }
         div {
             class: "pt-5 justify-self-end pr-3",
-            // NewWorkspace {}
+            NewDaemon { daemon_state }
         }
 
         if state_ref.has_daemons() {

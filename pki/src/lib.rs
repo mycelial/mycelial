@@ -1,8 +1,7 @@
 use std::{io::Cursor, sync::Arc};
 
 use rcgen::{
-    BasicConstraints, CertificateParams, DistinguishedName, DnType, ExtendedKeyUsagePurpose, IsCa,
-    KeyUsagePurpose,
+    BasicConstraints, CertificateParams, CertificateSigningRequest, CertificateSigningRequestParams, DistinguishedName, DnType, ExtendedKeyUsagePurpose, IsCa, KeyUsagePurpose, PublicKey
 };
 pub use rcgen::{Certificate, CertifiedKey, KeyPair};
 use rustls::{
@@ -14,9 +13,10 @@ use rustls::{
     DigitallySignedStruct, OtherError,
 };
 use rustls_pemfile::certs;
-use time::OffsetDateTime;
+use ::time::OffsetDateTime;
 pub use webpki::types::CertificateDer;
 use webpki::types::{ServerName, TrustAnchor, UnixTime};
+use x509_parser::prelude::*;
 
 pub type Result<T, E = StdError> = std::result::Result<T, E>;
 pub type StdError = Box<dyn std::error::Error + Send + Sync>;
@@ -66,6 +66,15 @@ pub fn generate_client_cert(ca: &CertifiedKey, name: &str) -> Result<CertifiedKe
     let key_pair = KeyPair::generate()?;
     let cert = params.signed_by(&key_pair, &ca.cert, &ca.key_pair)?;
     Ok(CertifiedKey { cert, key_pair })
+}
+
+pub fn generate_csr_request(id: &str) -> Result<(KeyPair, CertificateSigningRequest)> {
+    let key_pair = KeyPair::generate()?;
+    let mut params = CertificateParams::new(vec![id.to_string()])?;
+    params.distinguished_name.push(DnType::CommonName, id);
+    params.key_usages.push(KeyUsagePurpose::DigitalSignature);
+    let csr = params.serialize_request(&key_pair)?;
+    Ok((key_pair, csr))
 }
 
 /// rebuild ca certkey from certificate params/keypair
@@ -210,4 +219,23 @@ impl ClientCertVerifier for Verifier {
     fn supported_verify_schemes(&self) -> Vec<rustls::SignatureScheme> {
         self.signature_verification_algorithms.supported_schemes()
     }
+}
+
+
+pub fn extract_common_name<'a>(certificate: &'a CertificateDer<'a>) -> Result<&'a str> {
+    let (_, certificate) = x509_parser::parse_x509_certificate(&certificate).unwrap();
+    for extension in certificate.extensions() {
+        if let ParsedExtension::SubjectAlternativeName(SubjectAlternativeName { general_names }) = extension.parsed_extension() {
+            let name = general_names.iter().filter_map(|name| {
+                match name {
+                    GeneralName::DNSName(name) => Some(*name),
+                    _ => None,
+                }
+            }).next();
+            if let Some(name) = name {
+                return Ok(name)
+            }
+        };
+    }
+    Err("common name not present")?
 }

@@ -40,3 +40,4 @@ tokio-rustls = { version = "0.26.0", default-features = false, features=["ring",
 hyper = "1.4.1"
 hyper-util = "0.1.6"
 rustls = { version = "0.23.12", default-features=false, features=["ring"]}
+rand = "0.8.5"

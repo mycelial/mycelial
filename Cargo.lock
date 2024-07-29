@@ -1490,6 +1490,7 @@ dependencies = [
  "hyper-util",
  "mime_guess",
  "pki",
+ "rand",
  "rust-embed",
  "rustls 0.23.12",
  "sea-query",
@@ -4205,6 +4206,7 @@ dependencies = [
  "rustls-pemfile 2.1.2",
  "rustls-webpki 0.102.6",
  "time",
+ "x509-parser",
 ]
 
 [[package]]

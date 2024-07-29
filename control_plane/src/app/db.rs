@@ -6,7 +6,7 @@ use std::{
 
 use crate::app::migration;
 use crate::{
-    app::tables::{Certs, Edges, Nodes, Workspaces},
+    app::tables::*,
     app::{AppError, Result},
 };
 use chrono::{DateTime, NaiveDateTime, Utc};
@@ -21,11 +21,11 @@ use sea_query::{
 use sea_query_binder::{SqlxBinder, SqlxValues};
 use sqlx::{
     database::HasArguments, migrate::Migrate, types::Json, ColumnIndex, Connection as _, Database,
-    Executor, IntoArguments, Pool, Postgres, Row as _, Sqlite, Transaction, Mysql,
+    Executor, IntoArguments, Pool, Postgres, Row as _, Sqlite, Transaction, MySql,
 };
 use uuid::Uuid;
 
-use super::{Edge, Graph, Node, Workspace, WorkspaceOperation, WorkspaceUpdate};
+use super::{DaemonToken, Edge, Graph, Node, Workspace, WorkspaceOperation, WorkspaceUpdate};
 
 // FIXME: pool options and configurable pool size
 pub async fn new(database_url: &str) -> Result<Box<dyn DbTrait>> {
@@ -60,7 +60,7 @@ pub async fn new(database_url: &str) -> Result<Box<dyn DbTrait>> {
             .await?,
         ),
         "mysql" => Box::new(
-            Db::<Mysql>::new(
+            Db::<MySql>::new(
                 database_url.as_ref(),
                 Box::new(MysqlQueryBuilder),
                 Box::new(MysqlQueryBuilder),
@@ -481,8 +481,8 @@ where
     ) -> BoxFuture<'a, Result<()>> {
         Box::pin(async move {
             let (query, values) = Query::insert()
-                .columns([Certs::Key, Certs::Value, Certs::CreatedAt])
                 .into_table(Certs::Table)
+                .columns([Certs::Key, Certs::Value, Certs::CreatedAt])
                 .values_panic([
                     Certs::key().into(),
                     key.into(),
@@ -493,6 +493,36 @@ where
                     cert.into(),
                     Expr::current_timestamp().into(),
                 ])
+                .build_any_sqlx(&*self.query_builder);
+            sqlx::query_with(&query, values).execute(&self.pool).await?;
+            Ok(())
+        })
+    }
+
+    fn store_daemon_token<'a>(&'a self, token: &'a DaemonToken) -> BoxFuture<'a, Result<()>> {
+        Box::pin(async move {
+            let DaemonToken { id, secret, issued_at, used_at } = token;
+            let(query, values) = Query::insert()
+                .into_table(DaemonTokens::Table)
+                .columns([DaemonTokens::Id, DaemonTokens::Secret, DaemonTokens::IssuedAt, DaemonTokens::UsedAt])
+                .values_panic([id.into(), secret.into(), (*issued_at).into(), (*used_at).into()])            
+                .build_any_sqlx(&*self.query_builder);
+            sqlx::query_with(&query, values).execute(&self.pool).await?;
+            Ok(())
+        })
+    }
+    
+    fn list_daemon_tokens<'a>(&'a self) -> BoxFuture<'a, Result<Vec<DaemonToken>>> {
+        Box::pin(async move {
+            Ok(vec![])
+        })
+    }
+    
+    fn delete_daemon_token<'a>(&'a self, id: Uuid) -> BoxFuture<'a, Result<()>> {
+        Box::pin(async move {
+            let (query, values) = Query::delete()
+                .from_table(DaemonTokens::Table)
+                .and_where(Expr::col(DaemonTokens::Id).eq(id))
                 .build_any_sqlx(&*self.query_builder);
             sqlx::query_with(&query, values).execute(&self.pool).await?;
             Ok(())

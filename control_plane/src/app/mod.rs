@@ -116,6 +116,28 @@ pub enum WorkspaceOperation {
     },
 }
 
+#[derive(Debug, Serialize)]
+pub struct Daemon {
+    pub id: uuid::Uuid,
+    pub display_name: String,
+    pub last_online: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct DaemonToken {
+    pub id: String,
+    pub secret: String,
+    pub issued_at: chrono::DateTime<Utc>,
+    pub used_at: Option<chrono::DateTime<Utc>>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct DaemonJoinRequest {
+    pub token_id: String,
+    pub csr: String,
+    pub hash: String,
+}
+
 #[derive(Clone)]
 pub(crate) struct App {
     db: Arc<dyn db::DbTrait>,
@@ -235,5 +257,36 @@ impl App {
             .store_control_plane_cert_key(key.as_str(), cert.as_str())
             .await?;
         Ok((certkey.cert.der().clone(), certkey.key_pair))
+    }
+    
+    // daemon API
+    
+    pub async fn create_daemon_token(&self) -> Result<DaemonToken> {
+        let secret = rand::random::<[u8; 16]>().into_iter().map(|byte| format!("{byte:x}")).collect::<Vec<_>>().join("");
+        let token = DaemonToken {
+            id: uuid::Uuid::now_v7().to_string(),
+            secret: secret,
+            issued_at: Utc::now(),
+            used_at: None,
+        };
+        self.db.store_daemon_token(&token).await?;
+        Ok(token)
+    }
+    
+    pub async fn list_daemon_tokens(&self) -> Result<Vec<DaemonToken>> {
+        Ok(vec![])
+    }
+    
+    pub async fn delete_daemon_token(&self, id: uuid::Uuid) -> Result<()> {
+        self.db.delete_daemon_token(id).await?;
+        Ok(())
+    }
+    
+    pub async fn daemon_join(&self, join_request: DaemonJoinRequest) -> Result<()> {
+        unimplemented!()
+    }
+    
+    pub async fn list_daemons(&self) -> Result<Vec<Daemon>> {
+        unimplemented!() 
     }
 }

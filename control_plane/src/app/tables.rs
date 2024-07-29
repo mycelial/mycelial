@@ -107,3 +107,20 @@ impl Certs {
         "cert"
     }
 }
+
+#[derive(Iden)]
+pub enum Daemons {
+    Table,
+    Id,
+    DisplayName,
+    LastOnline,
+}
+
+#[derive(Iden)]
+pub enum DaemonTokens {
+    Table,
+    Id,
+    Secret,
+    IssuedAt,
+    UsedAt,
+}

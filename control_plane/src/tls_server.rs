@@ -12,6 +12,10 @@ use tokio::{net::TcpListener, time::sleep};
 use tokio_rustls::TlsAcceptor;
 use tower_service::Service as TowerService;
 
+/// Extends axum request
+#[derive(Debug, Clone)]
+pub struct PeerCommonName(pub Arc<str>);
+
 pub async fn serve(
     listen_addr: SocketAddr,
     service: Router,
@@ -61,8 +65,27 @@ pub async fn serve(
                     return
                 }
             };
+            
+            let (_, server_connection) = stream.get_ref();
+            let peer_common_name = match server_connection.peer_certificates() {
+                Some([cert, ..]) => {
+                    match pki::extract_common_name(cert) {
+                        Ok(name) => name,
+                        Err(e) => {
+                            tracing::error!("failed to extract common name from peer certificate: {e}");
+                            return
+                        }
+                    }
+                }
+                _ => {
+                    tracing::error!("peer certificate missing");
+                    return
+                },
+            };
 
-            let hyper_service = hyper::service::service_fn(move |request: Request<Incoming>| {
+            let peer_common_name = PeerCommonName(Arc::from(peer_common_name));
+            let hyper_service = hyper::service::service_fn(move |mut request: Request<Incoming>| {
+                request.extensions_mut().insert(peer_common_name.clone());
                 service.clone().call(request)
             });
 
@@ -73,3 +96,4 @@ pub async fn serve(
         });
     }
 }
+

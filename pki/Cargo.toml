@@ -9,3 +9,4 @@ rustls = { version = "0.23.12", default-features=false, features=["ring", "std"]
 rustls-pemfile = "2.1.2"
 rustls-webpki = "0.102.6"
 time = "0.3.36"
+x509-parser = "0.16.0"
