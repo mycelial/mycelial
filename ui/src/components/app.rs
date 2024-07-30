@@ -1,9 +1,9 @@
-use std::{fmt::Display, future::pending, pin::Pin, rc::Rc};
+use std::{fmt::Display, future::pending, ops::Deref, pin::Pin, rc::Rc};
 
 use crate::components::routing::Route;
 use chrono::{DateTime, Utc};
 use config::prelude::RawConfig;
-use config_registry::{ConfigMetaData, ConfigRegistry};
+use config_registry::ConfigRegistry as _ConfigRegistry;
 use dioxus::prelude::*;
 use futures::{Future, FutureExt, StreamExt};
 use gloo_timers::future::TimeoutFuture;
@@ -116,29 +116,22 @@ fn get_url(paths: &[impl AsRef<str>]) -> Result<url::Url> {
     Ok(location.join(&path)?)
 }
 
-pub struct AppState {
-    config_registry: ConfigRegistry,
+#[derive(Clone, Copy)]
+pub struct ControlPlaneClient {
     coroutine_handle: Coroutine<WorkspaceUpdate>,
 }
 
-#[allow(clippy::new_without_default)]
-impl AppState {
-    pub fn new(coroutine_handle: Coroutine<WorkspaceUpdate>) -> Self {
-        Self {
-            config_registry: config_registry::new().expect("failed to initialize config registry"),
-            coroutine_handle,
-        }
+// component prop requrement
+impl PartialEq for ControlPlaneClient {
+    fn eq(&self, _: &Self) -> bool {
+        true
     }
 }
 
-// ConfigRegistry API
-impl AppState {
-    pub fn menu_items(&self) -> impl Iterator<Item = ConfigMetaData> + '_ {
-        self.config_registry.iter_values()
-    }
-
-    pub fn build_config(&self, name: &str) -> Result<Box<dyn config::Config>> {
-        Ok(self.config_registry.build_config(name)?)
+#[allow(clippy::new_without_default)]
+impl ControlPlaneClient {
+    pub fn new(coroutine_handle: Coroutine<WorkspaceUpdate>) -> Self {
+        Self { coroutine_handle }
     }
 }
 
@@ -151,7 +144,7 @@ pub struct Workspace {
     pub created_at: DateTime<Utc>,
 }
 
-impl AppState {
+impl ControlPlaneClient {
     pub async fn create_workspace(&self, name: &str) -> Result<()> {
         let response = reqwest::Client::new()
             .post(get_url(&[WORKSPACES_API])?)
@@ -251,8 +244,8 @@ impl WorkspaceUpdate {
     }
 }
 
-impl AppState {
-    pub async fn fetch_workspace(&self, name: &str) -> Result<WorkspaceState> {
+impl ControlPlaneClient {
+    pub async fn get_workspace(&self, name: &str) -> Result<WorkspaceState> {
         let response = reqwest::get(get_url(&[WORKSPACE_API, name])?).await?;
         match response.status() {
             status_code if status_code.is_success() => {
@@ -262,14 +255,79 @@ impl AppState {
         }
     }
 
-    pub fn update_workspace(&mut self, update: WorkspaceUpdate) {
+    pub fn update_workspace(&self, update: WorkspaceUpdate) {
         self.coroutine_handle.send(update)
+    }
+}
+
+// Daemon && Daemon Tokens API
+
+const DAEMON_API: &str = "/api/daemon";
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct Token {
+    pub id: Uuid,
+    pub secret: String,
+    pub issued_at: DateTime<Utc>,
+    pub used_at: Option<DateTime<Utc>>,
+}
+
+impl ControlPlaneClient {
+    pub async fn get_tokens(&self) -> Result<Vec<Token>> {
+        let response = reqwest::get(get_url(&[DAEMON_API, "tokens"])?).await?;
+        match response.status() {
+            status_code if status_code.is_success() => Ok(response.json().await?),
+            status_code => Err(AppError::from_status_code(status_code)),
+        }
+    }
+
+    pub async fn create_token(&self) -> Result<Token> {
+        let response = reqwest::Client::new()
+            .post(get_url(&[DAEMON_API, "tokens"])?)
+            .send()
+            .await?;
+        match response.status() {
+            status_code if status_code.is_success() => Ok(response.json().await?),
+            status_code => Err(AppError::from_status_code(status_code)),
+        }
+    }
+    
+    pub async fn delete_token(&self, id: Uuid) -> Result<()> {
+        let response = reqwest::Client::new().delete(get_url(&[DAEMON_API, "tokens", id.to_string().as_str()])?)
+            .send()
+            .await?;
+        match response.status() {
+            status_code if status_code.is_success() => Ok(()),
+            status_code => Err(AppError::from_status_code(status_code)),
+        }
+    }
+}
+
+#[derive(Clone)]
+pub struct ConfigRegistry(Rc<_ConfigRegistry>);
+
+impl Deref for ConfigRegistry {
+    type Target = Rc<_ConfigRegistry>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl PartialEq for ConfigRegistry {
+    fn eq(&self, _: &Self) -> bool {
+        true
     }
 }
 
 pub fn App() -> Element {
     let bg_coroutine = use_coroutine(AppBackgroundCoroutine::enter_loop);
-    let _app_state = use_context_provider(move || Signal::new(AppState::new(bg_coroutine)));
+    let _control_plane_client = use_context_provider(move || ControlPlaneClient::new(bg_coroutine));
+    let _config_registry = use_context_provider(move || {
+        ConfigRegistry(Rc::new(
+            config_registry::new().expect("failed to initialize config registry"),
+        ))
+    });
     rsx! {
         Router::<Route> { }
     }

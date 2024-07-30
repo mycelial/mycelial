@@ -2,7 +2,7 @@ use std::rc::Rc;
 use std::sync::Arc;
 
 use crate::components::app::{
-    AppState, Result, WorkspaceOperation, WorkspaceState, WorkspaceUpdate,
+    ConfigRegistry, ControlPlaneClient, Result, WorkspaceOperation, WorkspaceState, WorkspaceUpdate,
 };
 use crate::components::graph::Graph as GenericGraph;
 use crate::components::icons::{Delete, Edit, Pause, Play, Restart};
@@ -91,7 +91,7 @@ fn MenuItem(
 #[component]
 fn Node(
     workspace: Rc<str>,
-    mut app_state: Signal<AppState>,
+    control_plane_client: ControlPlaneClient,
     mut graph: Signal<Graph>,
     mut dragged_node: Signal<Option<DraggedNode>>,
     mut dragged_edge: Signal<Option<DraggedEdge>>,
@@ -131,7 +131,7 @@ fn Node(
                                 .into_iter()
                                 .map(Into::into)
                                 .collect();
-                            app_state.write().update_workspace(WorkspaceUpdate::new(&workspace, op));
+                            control_plane_client.update_workspace(WorkspaceUpdate::new(&workspace, op));
                             *dragged = None;
                         }
                     }
@@ -213,7 +213,7 @@ fn Node(
                             .into_iter()
                             .map(Into::into)
                             .collect();
-                        app_state.write().update_workspace(WorkspaceUpdate::new(&workspace, op));
+                        control_plane_client.update_workspace(WorkspaceUpdate::new(&workspace, op));
                     }
                 }
             },
@@ -266,7 +266,7 @@ fn Node(
                     onclick: move |_event| {
                         // FIXME: action warning
                         let ops: Vec<_> = graph.write().remove_node(id).into_iter().map(Into::<WorkspaceOperation>::into).collect();
-                        app_state.write().update_workspace(WorkspaceUpdate::new(&workspace, ops));
+                        control_plane_client.update_workspace(WorkspaceUpdate::new(&workspace, ops));
                     },
                     class: "cursor-pointer hover:bg-stem-1",
                     Delete {}
@@ -312,7 +312,8 @@ impl ViewPortState {
 #[component]
 fn ViewPort(
     workspace: Rc<str>,
-    mut app_state: Signal<AppState>,
+    control_plane_client: ControlPlaneClient,
+    config_registry: ConfigRegistry,
     mut graph: Signal<Graph>,
     mut view_port_state: Signal<ViewPortState>,
     mut dragged_menu_item: Signal<Option<DraggedMenuItem>>,
@@ -353,7 +354,7 @@ fn ViewPort(
                     let id = uuid::Uuid::now_v7();
                     let coords = event.client_coordinates();
                     let vps_ref = &*view_port_state.read();
-                    let config = match app_state.read().build_config(&metadata.ty) {
+                    let config = match config_registry.build_config(&metadata.ty) {
                         Ok(config) => config,
                         Err(e) => {
                             tracing::error!("failed to build config for {}: {e}", metadata.ty);
@@ -367,7 +368,7 @@ fn ViewPort(
                         config,
                     ));
                     let op = graph.add_node(id, node_state);
-                    app_state.write().update_workspace(WorkspaceUpdate::new(&workspace, op));
+                    control_plane_client.update_workspace(WorkspaceUpdate::new(&workspace, op));
                 }
                 *dragged_menu_item.write() = None;
             },
@@ -409,7 +410,7 @@ fn ViewPort(
                     for (_, node) in (&*graph.read()).iter_nodes() {
                         Node{
                             workspace: Rc::clone(&workspace),
-                            app_state,
+                            control_plane_client,
                             graph,
                             dragged_node,
                             dragged_edge,
@@ -420,7 +421,7 @@ fn ViewPort(
                     // graph edges
                     Edges {
                         workspace: Rc::clone(&workspace),
-                        app_state,
+                        control_plane_client,
                         graph,
                         view_port_state,
                         dragged_edge
@@ -429,7 +430,7 @@ fn ViewPort(
             } else {
                 NodeStateForm {
                     workspace: Rc::clone(&workspace),
-                    app_state,
+                    control_plane_client,
                     selected_node,
                 }
             }
@@ -440,7 +441,7 @@ fn ViewPort(
 #[component]
 fn Edges(
     workspace: Rc<str>,
-    mut app_state: Signal<AppState>,
+    control_plane_client: ControlPlaneClient,
     graph: Signal<Graph>,
     view_port_state: Signal<ViewPortState>,
     dragged_edge: Signal<Option<DraggedEdge>>,
@@ -565,7 +566,7 @@ fn Edges(
                     move |_event| {
                         if let Some(op) = graph.write().remove_edge(from) {
                             let op: Vec<WorkspaceOperation> = op.into();
-                            app_state.write().update_workspace(WorkspaceUpdate::new(&workspace, op));
+                            control_plane_client.update_workspace(WorkspaceUpdate::new(&workspace, op));
                         };
                     }
                 },
@@ -648,27 +649,22 @@ impl DraggedEdge {
 
 #[component]
 pub fn Workspace(workspace: String) -> Element {
-    let mut app_state = use_context::<Signal<AppState>>();
+    let control_plane_client = use_context::<ControlPlaneClient>();
     let mut graph: Signal<Graph> = use_signal(Graph::new);
+    let config_registry = use_context::<ConfigRegistry>();
     let workspace = Rc::from(workspace);
     let state_fetcher: Resource<Result<WorkspaceState>> = use_resource({
         let workspace = Rc::clone(&workspace);
         move || {
             let workspace = Rc::clone(&workspace);
-            async move {
-                // peek is intentional, we don't want to re-fetch on app update
-                let app_state_ref = &*app_state.peek();
-                app_state_ref.fetch_workspace(&workspace).await
-            }
+            async move { control_plane_client.get_workspace(&workspace).await }
         }
     });
     match &*state_fetcher.read() {
         Some(Ok(workspace_state)) => {
-            // peek is intentional, we don't want to re-fetch on app update
-            let app_state_ref = &*app_state.peek();
             let graph = &mut *graph.write();
             for node in workspace_state.nodes.iter() {
-                let config = match app_state_ref.build_config(node.config.name()) {
+                let config = match config_registry.build_config(node.config.name()) {
                     Ok(mut config) => {
                         if let Err(e) = deserialize_into_config(&*node.config, &mut *config) {
                             tracing::error!("failed to deserialize into config: {e}");
@@ -700,9 +696,8 @@ pub fn Workspace(workspace: String) -> Element {
     let mut dragged_edge: Signal<Option<DraggedEdge>> = use_signal(|| None);
     let mut selected_node: Signal<Option<Signal<NodeState>>> = use_signal(|| None);
     let view_port_state = use_signal(ViewPortState::new);
-    let menu_items = app_state
-        .peek()
-        .menu_items()
+    let menu_items = config_registry
+        .iter_values()
         .collect::<Vec<ConfigMetaData>>();
 
     rsx! {
@@ -717,7 +712,7 @@ pub fn Workspace(workspace: String) -> Element {
                         if dragged_node.old_x == node.x && dragged_node.old_y == node.y {
                             return
                         };
-                        app_state.write().update_workspace(WorkspaceUpdate::new(
+                        control_plane_client.update_workspace(WorkspaceUpdate::new(
                             &workspace,
                             vec![
                                 WorkspaceOperation::UpdateNodePosition { uuid: node.id, x: node.x, y: node.y }
@@ -777,7 +772,8 @@ pub fn Workspace(workspace: String) -> Element {
                 class: "h-[calc(100vh-200px) w-full scroll-none overflow-hidden",
                 ViewPort {
                     workspace: Rc::clone(&workspace),
-                    app_state,
+                    control_plane_client,
+                    config_registry: config_registry.clone(),
                     graph,
                     view_port_state,
                     dragged_menu_item,

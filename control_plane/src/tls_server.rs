@@ -65,29 +65,28 @@ pub async fn serve(
                     return
                 }
             };
-            
+
             let (_, server_connection) = stream.get_ref();
             let peer_common_name = match server_connection.peer_certificates() {
-                Some([cert, ..]) => {
-                    match pki::extract_common_name(cert) {
-                        Ok(name) => name,
-                        Err(e) => {
-                            tracing::error!("failed to extract common name from peer certificate: {e}");
-                            return
-                        }
+                Some([cert, ..]) => match pki::extract_common_name(cert) {
+                    Ok(name) => name,
+                    Err(e) => {
+                        tracing::error!("failed to extract common name from peer certificate: {e}");
+                        return;
                     }
-                }
+                },
                 _ => {
                     tracing::error!("peer certificate missing");
-                    return
-                },
+                    return;
+                }
             };
 
             let peer_common_name = PeerCommonName(Arc::from(peer_common_name));
-            let hyper_service = hyper::service::service_fn(move |mut request: Request<Incoming>| {
-                request.extensions_mut().insert(peer_common_name.clone());
-                service.clone().call(request)
-            });
+            let hyper_service =
+                hyper::service::service_fn(move |mut request: Request<Incoming>| {
+                    request.extensions_mut().insert(peer_common_name.clone());
+                    service.clone().call(request)
+                });
 
             Builder::new(TokioExecutor::new())
                 .serve_connection_with_upgrades(TokioIo::new(stream), hyper_service)
@@ -96,4 +95,3 @@ pub async fn serve(
         });
     }
 }
-

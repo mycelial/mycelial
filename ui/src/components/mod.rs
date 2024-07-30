@@ -2,6 +2,7 @@
 pub mod app;
 pub mod card;
 pub mod daemon;
+pub mod daemon_tokens;
 pub mod daemons;
 pub mod graph;
 pub mod icons;

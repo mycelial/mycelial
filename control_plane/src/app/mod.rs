@@ -125,7 +125,7 @@ pub struct Daemon {
 
 #[derive(Debug, Serialize)]
 pub struct DaemonToken {
-    pub id: String,
+    pub id: uuid::Uuid,
     pub secret: String,
     pub issued_at: chrono::DateTime<Utc>,
     pub used_at: Option<chrono::DateTime<Utc>>,
@@ -258,35 +258,39 @@ impl App {
             .await?;
         Ok((certkey.cert.der().clone(), certkey.key_pair))
     }
-    
+
     // daemon API
-    
+
     pub async fn create_daemon_token(&self) -> Result<DaemonToken> {
-        let secret = rand::random::<[u8; 16]>().into_iter().map(|byte| format!("{byte:x}")).collect::<Vec<_>>().join("");
+        let secret = rand::random::<[u8; 16]>()
+            .into_iter()
+            .map(|byte| format!("{byte:x}"))
+            .collect::<Vec<_>>()
+            .join("");
         let token = DaemonToken {
-            id: uuid::Uuid::now_v7().to_string(),
-            secret: secret,
+            id: uuid::Uuid::now_v7(),
+            secret,
             issued_at: Utc::now(),
             used_at: None,
         };
         self.db.store_daemon_token(&token).await?;
         Ok(token)
     }
-    
+
     pub async fn list_daemon_tokens(&self) -> Result<Vec<DaemonToken>> {
-        Ok(vec![])
+        Ok(self.db.list_daemon_tokens().await?)
     }
-    
+
     pub async fn delete_daemon_token(&self, id: uuid::Uuid) -> Result<()> {
         self.db.delete_daemon_token(id).await?;
         Ok(())
     }
-    
+
     pub async fn daemon_join(&self, join_request: DaemonJoinRequest) -> Result<()> {
         unimplemented!()
     }
-    
+
     pub async fn list_daemons(&self) -> Result<Vec<Daemon>> {
-        unimplemented!() 
+        unimplemented!()
     }
 }

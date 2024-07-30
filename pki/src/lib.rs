@@ -1,7 +1,9 @@
 use std::{io::Cursor, sync::Arc};
 
+use ::time::OffsetDateTime;
 use rcgen::{
-    BasicConstraints, CertificateParams, CertificateSigningRequest, CertificateSigningRequestParams, DistinguishedName, DnType, ExtendedKeyUsagePurpose, IsCa, KeyUsagePurpose, PublicKey
+    BasicConstraints, CertificateParams, CertificateSigningRequest, DistinguishedName, DnType,
+    ExtendedKeyUsagePurpose, IsCa, KeyUsagePurpose,
 };
 pub use rcgen::{Certificate, CertifiedKey, KeyPair};
 use rustls::{
@@ -13,7 +15,6 @@ use rustls::{
     DigitallySignedStruct, OtherError,
 };
 use rustls_pemfile::certs;
-use ::time::OffsetDateTime;
 pub use webpki::types::CertificateDer;
 use webpki::types::{ServerName, TrustAnchor, UnixTime};
 use x509_parser::prelude::*;
@@ -221,19 +222,21 @@ impl ClientCertVerifier for Verifier {
     }
 }
 
-
 pub fn extract_common_name<'a>(certificate: &'a CertificateDer<'a>) -> Result<&'a str> {
-    let (_, certificate) = x509_parser::parse_x509_certificate(&certificate).unwrap();
+    let (_, certificate) = x509_parser::parse_x509_certificate(certificate).unwrap();
     for extension in certificate.extensions() {
-        if let ParsedExtension::SubjectAlternativeName(SubjectAlternativeName { general_names }) = extension.parsed_extension() {
-            let name = general_names.iter().filter_map(|name| {
-                match name {
+        if let ParsedExtension::SubjectAlternativeName(SubjectAlternativeName { general_names }) =
+            extension.parsed_extension()
+        {
+            let name = general_names
+                .iter()
+                .filter_map(|name| match name {
                     GeneralName::DNSName(name) => Some(*name),
                     _ => None,
-                }
-            }).next();
+                })
+                .next();
             if let Some(name) = name {
-                return Ok(name)
+                return Ok(name);
             }
         };
     }

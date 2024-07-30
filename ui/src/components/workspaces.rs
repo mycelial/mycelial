@@ -4,7 +4,7 @@ use chrono::{DateTime, Timelike, Utc};
 use dioxus::prelude::*;
 
 use crate::components::{
-    app::{AppState, Result},
+    app::{ControlPlaneClient, Result},
     routing::Route,
 };
 
@@ -51,7 +51,10 @@ impl Workspace {
 }
 
 #[component]
-fn NewWorkspace(mut app_state: Signal<AppState>) -> Element {
+fn NewWorkspace(
+    control_plane_client: ControlPlaneClient,
+    restart_fetcher: Signal<bool>,
+) -> Element {
     let mut render_form_state = use_signal(|| false);
     rsx! {
         if !*render_form_state.read() {
@@ -71,12 +74,13 @@ fn NewWorkspace(mut app_state: Signal<AppState>) -> Element {
                         render_form_state.set(false);
                         if let Some(name) = event.values().get("workspace_name") {
                             let name = name.as_value();
-                            if let Err(e) = app_state.write().create_workspace(&name).await {
+                            if let Err(e) = control_plane_client.create_workspace(&name).await {
                                 tracing::error!("failed to create workspace {name}: {e}");
                             }
                         } else {
                             tracing::error!("failed to get value of `workspace_name` from form");
                         }
+                        restart_fetcher.set(true);
                     },
                     div {
                         input {
@@ -102,13 +106,11 @@ fn NewWorkspace(mut app_state: Signal<AppState>) -> Element {
 
 #[component]
 pub fn Workspaces() -> Element {
-    let mut app_state = use_context::<Signal<AppState>>();
+    let control_plane_client = use_context::<ControlPlaneClient>();
     let mut workspaces_state = use_signal(WorkspacesState::new);
+    let mut restart_fetcher = use_signal(|| true);
     let fetcher: Resource<Result<usize>> = use_resource(move || async move {
-        // subscribe for updates on app_state
-        // NewWorkspace might modify app_state by writing new value, which will trigger resource re-run
-        let app_state_ref = &*app_state.read();
-        let workspaces = app_state_ref.read_workspaces().await?;
+        let workspaces = control_plane_client.read_workspaces().await?;
         let workspaces_len = workspaces.len();
         {
             let state_ref = &mut *workspaces_state.write();
@@ -120,6 +122,8 @@ pub fn Workspaces() -> Element {
                 )
             });
         }
+        // subscribe to fetcher updates
+        let _ = restart_fetcher.read();
         Ok(workspaces_len)
     });
     let child = match &*fetcher.read() {
@@ -144,7 +148,7 @@ pub fn Workspaces() -> Element {
                 id: "table-container",
                 class: "col-span-2 pt-4 w-full",
                 table {
-                    class: "table-fix border border-solid text-left w-full mx-auto",
+                    class: "table-auto border border-solid text-left w-full mx-auto",
                     thead {
                         tr {
                             class: "border-b border-solid p-4 font-bold bg-night-1/25",
@@ -153,7 +157,7 @@ pub fn Workspaces() -> Element {
                                 "Name"
                             },
                             th {
-                                class: "text-right",
+                                class: "pl-3 text-right",
                                 "Created At"
                             }
                             th { }
@@ -169,21 +173,22 @@ pub fn Workspaces() -> Element {
                                     }
                                 }
                                 td {
-                                    class: "text-right",
+                                    class: "py-3 pl-3 text-right",
                                     "{workspace.created_at}"
                                 }
                                 td {
-                                    class: "text-right",
+                                    class: "text-right py-3 pl-3",
                                     button {
                                         onclick: move |_| async move {
                                             let name = match workspaces_state.write().get_workspace(id) {
                                                 Some(Workspace{ ref name, .. }) => name.to_string(),
                                                 None => return
                                             };
-                                            match app_state.write().remove_workspace(name.as_str()).await {
-                                                Ok(_) => (), //restart_fetcher.set(RestartFetcherState::NeedsRestart),
+                                            match control_plane_client.remove_workspace(name.as_str()).await {
+                                                Ok(_) => (),
                                                 Err(e) => tracing::error!("failed to remove workspace: {e}"),
-                                            }
+                                            };
+                                            restart_fetcher.set(true);
                                         },
                                         class: "text-toadstool-1 border border-toadstool-1 px-4 py-1 my-1 mx-3 rounded bg-white hover:text-white hover:bg-toadstool-2",
                                         "DELETE"
@@ -222,7 +227,7 @@ pub fn Workspaces() -> Element {
             }
             div {
                 class: "pt-5 justify-self-end pr-3",
-                NewWorkspace { app_state }
+                NewWorkspace { control_plane_client, restart_fetcher }
             }
             { child }
         }

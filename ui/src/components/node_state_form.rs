@@ -10,7 +10,7 @@ use uuid::Uuid;
 
 use crate::components::app::{WorkspaceOperation, WorkspaceUpdate};
 
-use super::app::AppState;
+use super::app::ControlPlaneClient;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct NodeState {
@@ -154,7 +154,7 @@ impl IntoIterator for FormState {
 #[component]
 pub fn NodeStateForm(
     workspace: Rc<str>,
-    mut app_state: Signal<AppState>,
+    control_plane_client: ControlPlaneClient,
     selected_node: Signal<Option<Signal<NodeState>>>,
 ) -> Element {
     let node_state = match *selected_node.read() {
@@ -221,7 +221,7 @@ pub fn NodeStateForm(
                             );
                             // do not store secrets in runtime
                             config.strip_secrets();
-                            app_state.write().update_workspace(WorkspaceUpdate::new(
+                            control_plane_client.update_workspace(WorkspaceUpdate::new(
                                 &workspace,
                                 vec![WorkspaceOperation::UpdateNodeConfig{ id, config: config_update }]
                             ));
