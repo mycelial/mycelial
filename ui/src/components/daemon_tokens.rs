@@ -1,9 +1,6 @@
 use std::collections::BTreeMap;
 
-use crate::components::{
-    app::ControlPlaneClient,
-    icons::Copy
-};
+use crate::components::{app::ControlPlaneClient, icons::Copy};
 use chrono::Timelike as _;
 use dioxus::prelude::*;
 use uuid::Uuid;
@@ -17,7 +14,9 @@ struct TokensState {
 
 impl TokensState {
     fn new() -> Self {
-        Self { tokens: BTreeMap::new() }
+        Self {
+            tokens: BTreeMap::new(),
+        }
     }
 
     fn add_token(&mut self, token: Token) {
@@ -27,7 +26,7 @@ impl TokensState {
     fn reset(&mut self) {
         self.tokens.clear()
     }
-    
+
     fn remove_token(&mut self, id: Uuid) {
         self.tokens.remove(&id);
     }
@@ -37,7 +36,7 @@ impl TokensState {
 pub fn DaemonTokens() -> Element {
     let control_plane_client = use_context::<ControlPlaneClient>();
     let mut tokens_state = use_signal(TokensState::new);
-    let _state_fetcher = use_resource(move || async move { 
+    let _state_fetcher = use_resource(move || async move {
         match control_plane_client.get_tokens().await {
             Ok(tokens) => {
                 let tokens_state = &mut *tokens_state.write();
@@ -46,11 +45,11 @@ pub fn DaemonTokens() -> Element {
                     .iter()
                     .cloned()
                     .for_each(|token| tokens_state.add_token(token));
-            },
+            }
             Err(e) => {
                 tracing::error!("failed to fetch tokens state: {e}");
             }
-        } 
+        }
     });
     let state_ref = &*tokens_state.read();
 
@@ -89,7 +88,7 @@ pub fn DaemonTokens() -> Element {
                         for (id, secret, issued_at, used_at) in tokens_iter {
                             tr {
                                 class: "border-b border-gray-100",
-                                td { 
+                                td {
                                     class: "px-3 cursor-pointer hover:bg-stem-1 content-center",
                                     onclick: move |_event| {
                                         let navigator = match web_sys::window() {

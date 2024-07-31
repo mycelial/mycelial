@@ -528,7 +528,7 @@ where
     }
 
     fn list_daemon_tokens(&self) -> BoxFuture<'_, Result<Vec<DaemonToken>>> {
-        Box::pin(async move { 
+        Box::pin(async move {
             let (query, values) = Query::select()
                 .columns([
                     DaemonTokens::Id,
@@ -546,7 +546,7 @@ where
                     id: row.get(0),
                     secret: row.get(1),
                     issued_at: row.get(2),
-                    used_at: row.get(3)
+                    used_at: row.get(3),
                 })
                 .collect();
             Ok(tokens)

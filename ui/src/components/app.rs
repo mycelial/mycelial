@@ -291,9 +291,10 @@ impl ControlPlaneClient {
             status_code => Err(AppError::from_status_code(status_code)),
         }
     }
-    
+
     pub async fn delete_token(&self, id: Uuid) -> Result<()> {
-        let response = reqwest::Client::new().delete(get_url(&[DAEMON_API, "tokens", id.to_string().as_str()])?)
+        let response = reqwest::Client::new()
+            .delete(get_url(&[DAEMON_API, "tokens", id.to_string().as_str()])?)
             .send()
             .await?;
         match response.status() {

@@ -278,7 +278,7 @@ impl App {
     }
 
     pub async fn list_daemon_tokens(&self) -> Result<Vec<DaemonToken>> {
-        Ok(self.db.list_daemon_tokens().await?)
+        self.db.list_daemon_tokens().await
     }
 
     pub async fn delete_daemon_token(&self, id: uuid::Uuid) -> Result<()> {

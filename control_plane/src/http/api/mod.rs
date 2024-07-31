@@ -24,8 +24,7 @@ pub fn new(app: crate::app::App) -> Router {
         .route("/api/daemon/join", post(daemon::join))
         .route(
             "/api/daemon/tokens",
-            post(daemon::create_token)
-                .get(daemon::list_tokens)
+            post(daemon::create_token).get(daemon::list_tokens),
         )
         .route("/api/daemon/tokens/:id", delete(daemon::delete_token))
         // assets
