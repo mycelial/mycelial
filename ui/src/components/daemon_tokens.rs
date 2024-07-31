@@ -80,7 +80,7 @@ pub fn DaemonTokens() -> Element {
                             tr {
                                 class: "border-b border-solid p-4 font-bold bg-night-1/25",
                                 th { },
-                                th { class: "px-3 w-1/4", "Id" },
+                                th { class: "pl-3 w-1/4", "Id" },
                                 th { class: "text-right pl-3 w-1/4", "Issued At" },
                                 th { class: "text-right pl-3 w-1/4", "Used At" },
                                 th { class: "w-1/4"},
@@ -90,7 +90,7 @@ pub fn DaemonTokens() -> Element {
                             tr {
                                 class: "border-b border-gray-100",
                                 td { 
-                                    class: "px-3, cursor-pointer hover:bg-stem-1 content-center",
+                                    class: "px-3 cursor-pointer hover:bg-stem-1 content-center",
                                     onclick: move |_event| {
                                         let navigator = match web_sys::window() {
                                             Some(window) => window.navigator(),

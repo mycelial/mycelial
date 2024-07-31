@@ -10,3 +10,6 @@ lto = true
 codegen-units = 1
 strip = true
 incremental = false
+
+[build]
+rustflags = ["--cfg=web_sys_unstable_apis"]
