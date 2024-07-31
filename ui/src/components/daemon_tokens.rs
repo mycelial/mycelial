@@ -1,6 +1,10 @@
 use std::collections::BTreeMap;
 
-use crate::components::app::ControlPlaneClient;
+use crate::components::{
+    app::ControlPlaneClient,
+    icons::Copy
+};
+use chrono::Timelike as _;
 use dioxus::prelude::*;
 use uuid::Uuid;
 
@@ -56,9 +60,11 @@ pub fn DaemonTokens() -> Element {
             let tokens_iter = state_ref.tokens.values().map(|token| {
                 (
                     token.id,
-                    token.issued_at.to_string(),
+                    token.secret.clone(),
+                    token.issued_at.with_nanosecond(0).unwrap().to_string(),
                     token
                         .used_at
+                        .map(|time| time.with_nanosecond(0).unwrap())
                         .as_ref()
                         .map(ToString::to_string)
                         .unwrap_or_default(),
@@ -67,21 +73,43 @@ pub fn DaemonTokens() -> Element {
             rsx! {
                 div {
                     id: "table-container",
-                    class: "col-span-2 pt-4 w-full",
+                    class: "col-span-10 pt-4 w-full",
                     table {
-                        class: "table-fix border border-solid text-left w-full mx-auto",
+                        class: "table-fix border border-solid text-left w-full",
                         thead {
                             tr {
                                 class: "border-b border-solid p-4 font-bold bg-night-1/25",
-                                th { class: "pl-3", "Id" },
-                                th { class: "text-right pl-3", "Issued At" },
-                                th { class: "text-right pl-3", "Used At" },
-                                th {},
+                                th { },
+                                th { class: "px-3 w-1/4", "Id" },
+                                th { class: "text-right pl-3 w-1/4", "Issued At" },
+                                th { class: "text-right pl-3 w-1/4", "Used At" },
+                                th { class: "w-1/4"},
                             }
                         }
-                        for (id, issued_at, used_at) in tokens_iter {
+                        for (id, secret, issued_at, used_at) in tokens_iter {
                             tr {
                                 class: "border-b border-gray-100",
+                                td { 
+                                    class: "px-3, cursor-pointer hover:bg-stem-1 content-center",
+                                    onclick: move |_event| {
+                                        let navigator = match web_sys::window() {
+                                            Some(window) => window.navigator(),
+                                            None => {
+                                                tracing::error!("window object is not accessible");
+                                                return;
+                                            }
+                                        };
+                                        match navigator.clipboard() {
+                                            Some(clipboard) => {
+                                                let _ = clipboard.write_text(&format!("{id}:{secret}"));
+                                            },
+                                            None => {
+                                                tracing::error!("clipboard is not available");
+                                            }
+                                        }
+                                    },
+                                    Copy{}
+                                },
                                 td { class: "pl-3", "{id}" }
                                 td { class: "text-right pl-3", "{issued_at}" }
                                 td { class: "text-right pl-3", "{used_at}" }

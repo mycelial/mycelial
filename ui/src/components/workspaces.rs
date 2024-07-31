@@ -153,11 +153,11 @@ pub fn Workspaces() -> Element {
                         tr {
                             class: "border-b border-solid p-4 font-bold bg-night-1/25",
                             th {
-                                class: "pl-3",
+                                class: "pl-3 w-1/3",
                                 "Name"
                             },
                             th {
-                                class: "pl-3 text-right",
+                                class: "pl-3 text-right w-1/3",
                                 "Created At"
                             }
                             th { }

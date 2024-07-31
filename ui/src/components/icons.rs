@@ -111,3 +111,18 @@ pub fn Delete() -> Element {
         }
     }
 }
+
+pub fn Copy() -> Element {
+    rsx! {
+        svg {
+            width: "24",
+            height: "24",
+            //style: "fill: #456376; svg:hover {{ fill: #fff }};",
+            g {
+                path {
+                    d: "M4 2h11v2H6v13H4V2zm4 4h12v16H8V6zm2 2v12h8V8h-8z"
+                }
+            }
+        }
+    } 
+}

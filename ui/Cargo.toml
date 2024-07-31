@@ -12,7 +12,7 @@ reqwest = { version = "0.12", default-features=false, features = ["json", "rustl
 serde = { version = "1", features = ["derive", "rc"] }
 serde_json = "1"
 tracing = "0.1"
-web-sys = { version = "0.3", features = ["Window"] }
+web-sys = { version = "0.3", features = ["Navigator", "Window", "Clipboard"] }
 config = { path = "../config" }
 config_registry = { path = "../config_registry" }
 dioxus-logger = "0.5.1"
