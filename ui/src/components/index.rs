@@ -1,6 +1,8 @@
 use crate::components::routing::Route;
 pub use dioxus::prelude::*;
 
+// FIXME:
+// 1. external links
 pub fn Index() -> Element {
     rsx! {
         div {

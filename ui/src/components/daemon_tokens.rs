@@ -32,6 +32,9 @@ impl TokensState {
     }
 }
 
+// FIXME: 
+// 1. instructions are outdated
+// 2. links to external docs
 #[component]
 fn Doc() -> Element {
     rsx! {

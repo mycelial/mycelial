@@ -1,4 +1,3 @@
-use std::{env::current_dir, path::PathBuf};
 
 use anyhow::Result;
 use clap::{error::ErrorKind, Parser};
@@ -6,12 +5,10 @@ use myceliald::Daemon;
 use tracing_subscriber::{prelude::*, EnvFilter};
 
 #[derive(Debug, Parser)]
-#[command(name = "myceliald")]
 #[command(version)]
 struct Cli {
-    /// Path to the TOML config file
-    #[arg(short, long, env = "CONFIG_PATH")]
-    config: String,
+    #[clap(env="DATABASE_PATH", default_value="myceliald.db")]
+    database_path: String
 }
 
 #[tokio::main]
@@ -28,10 +25,6 @@ async fn main() -> Result<()> {
         Err(e) => Err(e)?,
         Ok(cli) => cli,
     };
-    let mut config_path = PathBuf::from(cli.config);
-    if !config_path.is_absolute() {
-        config_path = current_dir()?.join(config_path)
-    }
-    Daemon::start(config_path).await?;
+    Daemon::start(&cli.database_path.as_str()).await?;
     Ok(())
 }

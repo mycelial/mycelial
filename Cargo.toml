@@ -1,4 +1,5 @@
 [workspace]
+resolver = "2"
 members = [
     "ui",
     "config",
@@ -29,4 +30,6 @@ members = [
     "pipe/section/section_impls/redshift_loader",
     "pipe/section/section_impls/inspect",
 ]
-resolver = "2"
+
+[workspace.package]
+version = "0.9.0"
