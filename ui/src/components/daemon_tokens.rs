@@ -33,6 +33,79 @@ impl TokensState {
 }
 
 #[component]
+fn Doc() -> Element {
+    rsx! {
+        div {
+            class: "my-2 p-4 w-9/12 bg-moss-3 text-black drop-shadow-md rounded-sm mx-auto",
+            id: "daemon-install-instructions",
+            p {
+                    "To add your local daemon to this Mycelial network, simply install the
+                    daemon using the instructions found "
+                    a {
+                    class: "underline",
+                    href: "https://docs.mycelial.com/getting-started/CLI/",
+                    target: "_blank",
+                    "here"
+                }
+                " and copied below:"
+            }
+            div {
+                //TODO: make endpoint and token dynamic
+                id: "daemon-install-code-mac",
+                class: "py-2 my-4 bg-white text-night-2 shadow-none",
+                h3 {
+                    class: "text-lg ml-2 py-2 uppercase",
+                    "Mac Installation Instructions"
+                }
+                div {
+                    class: "bg-grey-bright mx-2 py-2 rounded",
+                    p {
+                        class: "ml-2 font-mono",
+                        "$ brew install mycelial/tap/mycelial"
+                    }
+                    p {
+                        class: "ml-2 font-mono",
+                        "$ mycelial init --daemon --endpoint \"http://localhost:7777\" --token \"d135801c-fd73-477c-b0a8-055d0d117485\""
+                    }
+                    p {
+                        class: "ml-2 font-mono",
+                        "$ mycelial start --daemon"
+                    }
+                }
+
+            }
+            div {
+                //TODO: make endpoint and token dynamic
+                id: "daemon-install-code-linux",
+                class: "py-2 my-2 bg-white text-night-2 shadow-none",
+                h3 {
+                    class: "text-lg ml-2 py-2 uppercase",
+                    "Linux Installation Instructions"
+                }
+                div {
+                    class: "bg-grey-bright mx-2 py-2 rounded",
+                    p {
+                        class: "mb-2 ml-2",
+                        "Mycelial maintains CLI builds for Debian and Fedora across several x86 and ARM chip architectures."
+                    }
+                    p {
+                        class: "ml-2",
+                        "Please visit the Mycelial CLI documentation page to find the installation instructions for your system "
+                        a {
+                            href: "https://docs.mycelial.com/getting-started/CLI",
+                            target: "_blank",
+                            class: "underline",
+                            "here"
+                        }
+                        "."
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[component]
 pub fn DaemonTokens() -> Element {
     let control_plane_client = use_context::<ControlPlaneClient>();
     let mut tokens_state = use_signal(TokensState::new);
@@ -135,6 +208,7 @@ pub fn DaemonTokens() -> Element {
         }
     };
     rsx! {
+        Doc {} 
         div {
             class: "container mx-auto grid grid-cols-2",
             div {

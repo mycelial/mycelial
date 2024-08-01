@@ -141,11 +141,13 @@ pub fn Daemons() -> Element {
             }
             div {
                 class: "pt-5 justify-self-end pr-3",
-                div {
-                    class: "text-stem-1 px-4 py-2 rounded bg-forest-2 border border-forest-2 hover:bg-forest-3 hover:text-stem-1",
-                    Link {
-                        to: Route::DaemonTokens{},
-                        children: rsx!{ "ADD NEW DAEMON" }
+                Link {
+                    to: Route::DaemonTokens{},
+                    children: rsx!{
+                        div {
+                            class: "text-stem-1 px-4 py-2 rounded bg-forest-2 border border-forest-2 hover:bg-forest-3 hover:text-stem-1",
+                            "ADD NEW DAEMON"
+                        }
                     }
                 }
             }
