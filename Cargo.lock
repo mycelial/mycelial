@@ -1363,16 +1363,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "common"
-version = "0.1.0"
-dependencies = [
- "runtime",
- "section",
- "serde",
- "serde_json",
-]
-
-[[package]]
 name = "concurrent-queue"
 version = "2.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3665,7 +3655,6 @@ dependencies = [
  "anyhow",
  "base64 0.21.7",
  "clap",
- "common",
  "csv_transform",
  "dir",
  "excel_connector",
@@ -3680,6 +3669,7 @@ dependencies = [
  "notify",
  "notify-debouncer-full",
  "origin_transform",
+ "pki",
  "postgres_connector",
  "redshift_loader",
  "reqwest 0.12.5",

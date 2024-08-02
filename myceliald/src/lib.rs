@@ -1,31 +1,23 @@
 mod constructors;
+mod control_plane_client;
 mod daemon_storage;
 mod runtime;
 mod storage;
 
-use anyhow::{Context, Result};
-use common::ClientConfig;
-use common::PipeConfig;
+use anyhow::Result;
+use control_plane_client::ControlPlaneClient;
 use daemon_storage::DaemonStorage;
 use pipe::scheduler::SchedulerHandle;
-use sha2::Digest;
-use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
 use storage::SqliteStorageHandle;
 use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver};
-
-async fn read_config(path: &Path) -> Result<ClientConfig> {
-    let config = tokio::fs::read_to_string(path)
-        .await
-        .context(format!("failed to open config file at '{path:?}'"))?;
-    Ok(toml::from_str(&config)?)
-}
 
 #[derive(Debug)]
 pub struct Daemon {
     daemon_storage: DaemonStorage,
     section_storage_handle: SqliteStorageHandle,
     scheduler_handle: SchedulerHandle,
+    control_plane_client: ControlPlaneClient,
     rx: UnboundedReceiver<DaemonMessage>,
 }
 
@@ -57,27 +49,7 @@ impl Daemon {
         })
     }
 
-    pub async fn start(database_path: &str) -> Result<()> {
-        loop {
-            let mut daemon = Self::new(database_path)
-                .await
-                .context("failed to initialize application")?;
-            match daemon.run().await {
-                Ok(Reset::State) => {
-                    tracing::info!("daemon state was reset, restarting subsystems");
-                    continue;
-                }
-                Ok(Reset::Restart) => {
-                    tracing::info!("daemon restarting subsystems");
-                    continue;
-                }
-                Err(e) => return Err(e),
-                _ => return Ok(()),
-            }
-        }
-    }
-
-    async fn run(&mut self) -> Result<Reset> {
+    pub async fn run(&mut self) -> Result<Reset> {
         while let Some(message) = self.rx.recv().await {
             match message {
                 _ => unimplemented!()
@@ -85,8 +57,13 @@ impl Daemon {
         }
         Ok(Reset::None)
     }
+    
+    pub async fn join(&mut self, control_plane_url: &str, control_plane_tls_url: &str, join_token: &str) -> Result<()> {
+        // FIXME: check if already joined
+        
+    }
 
-    async fn shutdown(&mut self) -> anyhow::Result<()> {
+    pub async fn shutdown(&mut self) -> anyhow::Result<()> {
         self.scheduler_handle.shutdown().await.ok();
         self.section_storage_handle.shutdown().await.ok();
         Ok(())

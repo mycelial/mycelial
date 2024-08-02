@@ -6,6 +6,10 @@ edition = "2021"
 # See more keys and their definitions at https:/doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+pipe = { path = "../pipe/runtime/", package="runtime" }
+section = { path = "../pipe/section/" }
+pki = { path = "../pki" }
+
 tokio = { version = "1", features = ["full"] }
 clap = { version = "4", features = ["derive", "env"] }
 reqwest = { version = "0.12", default-features = false, features = ["gzip", "json", "rustls-tls"] }
@@ -16,9 +20,6 @@ serde_json = "1"
 sqlx = { version = "0.7", features = ["sqlite", "any", "json", "runtime-tokio-rustls"]}
 log = "0.4"
 toml = "0.7"
-common = { path = "../common" }
-pipe = { version = "0.3", path = "../pipe/runtime/", package="runtime" }
-section = { version = "0.3", path = "../pipe/section/" }
 tracing = "0.1.40"
 tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
 notify = { version = "6.1.1", features = ["macos_kqueue"] }
