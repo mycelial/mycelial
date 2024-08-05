@@ -32,7 +32,7 @@ impl TokensState {
     }
 }
 
-// FIXME: 
+// FIXME:
 // 1. instructions are outdated
 // 2. links to external docs
 #[component]
@@ -211,7 +211,7 @@ pub fn DaemonTokens() -> Element {
         }
     };
     rsx! {
-        Doc {} 
+        Doc {}
         div {
             class: "container mx-auto grid grid-cols-2",
             div {

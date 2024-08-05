@@ -5,7 +5,7 @@ mod runtime;
 mod storage;
 
 use anyhow::Result;
-use control_plane_client::ControlPlaneClient;
+use control_plane_client::ControlPlaneClientHandle;
 use daemon_storage::DaemonStorage;
 use pipe::scheduler::SchedulerHandle;
 use std::path::Path;
@@ -17,12 +17,17 @@ pub struct Daemon {
     daemon_storage: DaemonStorage,
     section_storage_handle: SqliteStorageHandle,
     scheduler_handle: SchedulerHandle,
-    control_plane_client: ControlPlaneClient,
+    control_plane_client_handle: ControlPlaneClientHandle,
     rx: UnboundedReceiver<DaemonMessage>,
 }
 
 #[derive(Debug)]
-pub enum DaemonMessage {
+pub enum DaemonMessage {}
+
+#[derive(Debug)]
+pub struct CertifiedKey {
+    pub key: String,
+    pub certificate: String,
 }
 
 #[derive(Debug)]
@@ -36,36 +41,61 @@ enum Reset {
 
 impl Daemon {
     pub async fn new(database_path: &str) -> Result<Self> {
-        let (_tx, rx) = unbounded_channel();
+        let (tx, rx) = unbounded_channel();
         let database_path = Path::new(database_path);
         let daemon_storage = daemon_storage::new(database_path).await?;
         let section_storage_handle = storage::new(database_path).await?;
         let scheduler_handle = runtime::new(section_storage_handle.clone());
+        let control_plane_client_handle = control_plane_client::new(tx.clone());
         Ok(Self {
             daemon_storage,
             section_storage_handle,
             scheduler_handle,
+            control_plane_client_handle,
             rx,
         })
     }
 
-    pub async fn run(&mut self) -> Result<Reset> {
+    pub async fn run(&mut self) -> Result<()> {
+        self.init_control_plane_client().await?;
         while let Some(message) = self.rx.recv().await {
-            match message {
-                _ => unimplemented!()
-            }
+            unimplemented!()
         }
-        Ok(Reset::None)
+        Ok(())
     }
-    
-    pub async fn join(&mut self, control_plane_url: &str, control_plane_tls_url: &str, join_token: &str) -> Result<()> {
+
+    pub async fn join(
+        &mut self,
+        control_plane_url: &str,
+        control_plane_tls_url: &str,
+        join_token: &str,
+    ) -> Result<()> {
         // FIXME: check if already joined
-        
+        let certifiedkey = self
+            .control_plane_client_handle
+            .join(control_plane_url, join_token)
+            .await?;
+        Ok(())
     }
 
     pub async fn shutdown(&mut self) -> anyhow::Result<()> {
         self.scheduler_handle.shutdown().await.ok();
         self.section_storage_handle.shutdown().await.ok();
+        Ok(())
+    }
+
+    async fn init_control_plane_client(&mut self) -> Result<()> {
+        let tls_url = self.daemon_storage.get_tls_url().await?;
+        let certifiedkey = self.daemon_storage.get_certified_key().await?;
+        match (tls_url, certifiedkey) {
+            (Some(tls_url), Some(certifiedkey)) => {
+                self.control_plane_client_handle
+                    .set_tls_url(tls_url, certifiedkey)
+                    .await?;
+            }
+            (None, _) => tracing::warn!("tls url is not set"),
+            (_, None) => tracing::warn!("certificate and key is absent"),
+        };
         Ok(())
     }
 }

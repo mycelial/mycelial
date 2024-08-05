@@ -1,4 +1,3 @@
-
 use anyhow::Result;
 use clap::{error::ErrorKind, Parser, Subcommand};
 use myceliald::Daemon;
@@ -7,28 +6,23 @@ use tracing_subscriber::{prelude::*, EnvFilter};
 #[derive(Debug, Parser)]
 #[command(version)]
 struct Cli {
-    #[clap(env="DATABASE_PATH", default_value="myceliald.db")]
+    #[clap(env = "DATABASE_PATH", default_value = "myceliald.db")]
     database_path: String,
-    
+
     #[command(subcommand)]
-    command: Option<Commands>
+    command: Option<Commands>,
 }
 
 #[derive(Debug, Subcommand)]
 pub enum Commands {
-    Join{
-        #[clap(long, env="MYCELIAL_CONTROL_PLANE_URL")]
+    Join {
+        #[clap(long, env = "MYCELIAL_CONTROL_PLANE_URL")]
         control_plane_url: String,
-        #[clap(long, env="MYCELIAL_CONTROL_PLANCE_TLS_URL")]
+        #[clap(long, env = "MYCELIAL_CONTROL_PLANCE_TLS_URL")]
         control_plane_tls_url: String,
-        #[clap(long, env="MYCELIAL_JOIN_TOKEN")]
-        join_token: String
-    }
-}
-
-async fn run_daemon(database_path: &str) -> Result<()> {
-    tracing::info!("starting daemon");
-    Daemon::start(database_path).await
+        #[clap(long, env = "MYCELIAL_JOIN_TOKEN")]
+        join_token: String,
+    },
 }
 
 #[tokio::main]
@@ -45,12 +39,24 @@ async fn main() -> Result<()> {
         Err(e) => Err(e)?,
         Ok(cli) => cli,
     };
-    let daemon = Daemon::new(&cli.database_path).await?;
+    let mut daemon = Daemon::new(&cli.database_path).await?;
     match cli.command {
-        Some(Commands::Join { control_plane_url, control_plane_tls_url, join_token }) => {
-            daemon.join(&control_plane_url.as_str(), &control_plane_tls_url.as_str(), join_token.as_str()).await?
+        Some(Commands::Join {
+            control_plane_url,
+            control_plane_tls_url,
+            join_token,
+        }) => {
+            daemon
+                .join(
+                    &control_plane_url.as_str(),
+                    &control_plane_tls_url.as_str(),
+                    join_token.as_str(),
+                )
+                .await?
+        }
+        None => {
+            daemon.run().await?;
         },
-        None => daemon.run.await?,
     };
     Ok(())
 }

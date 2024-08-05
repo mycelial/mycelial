@@ -45,4 +45,5 @@ origin_transform = {path = "../pipe/section/section_impls/origin_transform/" }
 s3 = { path = "../pipe/section/section_impls/s3" }
 redshift_loader = { path = "../pipe/section/section_impls/redshift_loader" }
 inspect = { path = "../pipe/section/section_impls/inspect" }
+tokio-tungstenite = { version = "0.23.1", features = ["rustls", "tokio-rustls"] }
 #sqlite_physical_replication = { path = "../pipe/section/section_impls/sqlite_physical_replication/" }
