@@ -48,15 +48,15 @@ async fn main() -> Result<()> {
         }) => {
             daemon
                 .join(
-                    &control_plane_url.as_str(),
-                    &control_plane_tls_url.as_str(),
+                    control_plane_url.as_str(),
+                    control_plane_tls_url.as_str(),
                     join_token.as_str(),
                 )
                 .await?
         }
         None => {
             daemon.run().await?;
-        },
+        }
     };
     Ok(())
 }

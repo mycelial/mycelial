@@ -59,7 +59,7 @@ impl Daemon {
     pub async fn run(&mut self) -> Result<()> {
         self.init_control_plane_client().await?;
         while let Some(message) = self.rx.recv().await {
-            unimplemented!()
+            tracing::info!("got message: {message:?}");
         }
         Ok(())
     }

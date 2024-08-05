@@ -1,22 +1,21 @@
 use std::sync::Arc;
 
 use anyhow::Result;
-use pki;
 use reqwest::Url;
 use serde::{Deserialize, Serialize};
 use sha2::Digest;
 use tokio::{
     sync::{
         mpsc::{
-            channel, unbounded_channel, Receiver, Sender, UnboundedReceiver, UnboundedSender,
-            WeakSender, WeakUnboundedSender,
+            channel, Receiver, Sender, UnboundedSender,
+            WeakSender,
         },
         oneshot::{channel as oneshot_channel, Sender as OneshotSender},
     },
     task::JoinHandle,
 };
 
-use crate::{CertifiedKey, Daemon, DaemonMessage};
+use crate::{CertifiedKey, DaemonMessage};
 
 #[derive(Debug, Serialize)]
 struct JoinRequest<'a> {
@@ -148,7 +147,7 @@ impl ControlPlaneClient {
         // increment generation of websocket client ( all messages from previous generations will be ignored )
         self.gen += 1;
         // drop previous client
-        self.socket.take().map(|join_handle| join_handle.abort());
+        if let Some(join_handle) = self.socket.take() { join_handle.abort() }
 
         let control_plane_tls_url = self
             .control_plane_tls_url
