@@ -338,10 +338,10 @@ where
                             .build_any_sqlx(&*self.query_builder),
                         WorkspaceOperation::UpdateNodeConfig { id, ref config } => {
                             let (query, values) = Query::select()
-                                .lock_exclusive()
                                 .columns([Nodes::Config])
                                 .from(Nodes::Table)
                                 .and_where(Expr::col(Nodes::Id).eq(id))
+                                .lock_exclusive()
                                 .build_any_sqlx(&*self.query_builder);
                             let mut cur_config = match sqlx::query_with(&query, values)
                                 .fetch_optional(&mut *transaction)
@@ -561,6 +561,39 @@ where
                 .build_any_sqlx(&*self.query_builder);
             sqlx::query_with(&query, values).execute(&self.pool).await?;
             Ok(())
+        })
+    }
+
+    fn consume_token(&self, id: Uuid) -> BoxFuture<'_, Result<Option<DaemonToken>>> {
+        Box::pin(async move {
+            let mut conn = self.pool.acquire().await?;
+            let mut transaction = conn.begin().await?;
+            let (query, values) = Query::select()
+                .columns([
+                    DaemonTokens::Id,
+                    DaemonTokens::Secret,
+                    DaemonTokens::IssuedAt,
+                    DaemonTokens::UsedAt,
+                ])
+                .from(DaemonTokens::Table)
+                .and_where(Expr::col(DaemonTokens::Id).eq(id))
+                .lock_exclusive()
+                .build_any_sqlx(&*self.query_builder);
+            tracing::info!("consume token query: {query}\nid: {id}");
+            let response = sqlx::query_with(&query, values)
+                .fetch_optional(&mut *transaction)
+                .await?
+                .map(|row| DaemonToken {
+                    id: row.get(0),
+                    secret: row.get(1),
+                    issued_at: row.get(2),
+                    used_at: row.get(3),
+                });
+            match response {
+                None => Ok(None),
+                Some(row) if row.used_at.is_none() => Ok(Some(row)),
+                Some(DaemonToken { id, .. }) => Err(AppError::token_used(id)),
+            }
         })
     }
 }

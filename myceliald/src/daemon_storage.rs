@@ -15,6 +15,7 @@ pub struct DaemonStorage {
 const TLS_URL: &str = "tls_url";
 const PRIVATE_KEY: &str = "private_key";
 const CERTIFICATE: &str = "certificate";
+const CA_CERTIFICATE: &str = "ca_certificate";
 
 impl DaemonStorage {
     pub async fn new(path: &Path) -> Result<Self> {
@@ -48,25 +49,32 @@ impl DaemonStorage {
     }
 
     pub async fn get_certified_key(&mut self) -> Result<Option<CertifiedKey>> {
-        let (key, cert) = sqlx::query("SELECT key, value FROM connection WHERE key=? OR key=?")
-            .bind(PRIVATE_KEY)
-            .bind(CERTIFICATE)
-            .fetch_all(&mut self.connection)
-            .await?
-            .into_iter()
-            .fold((None, None), |(acc_key, acc_cert), row| {
-                let key: String = row.get(0);
-                let value: String = row.get(1);
-                match key.as_str() {
-                    PRIVATE_KEY => (Some(value), acc_cert),
-                    CERTIFICATE => (acc_key, Some(value)),
-                    _ => unreachable!("unexpected key: {key}"),
-                }
-            });
-        match (key, cert) {
-            (Some(key), Some(cert)) => Ok(Some(CertifiedKey {
+        let (key, cert, ca_cert) =
+            sqlx::query("SELECT key, value FROM connection WHERE key in (?, ?, ?)")
+                .bind(PRIVATE_KEY)
+                .bind(CERTIFICATE)
+                .bind(CA_CERTIFICATE)
+                .fetch_all(&mut self.connection)
+                .await?
+                .into_iter()
+                .fold(
+                    (None, None, None),
+                    |(acc_key, acc_cert, acc_ca_cert), row| {
+                        let key: String = row.get(0);
+                        let value: String = row.get(1);
+                        match key.as_str() {
+                            PRIVATE_KEY => (Some(value), acc_cert, acc_ca_cert),
+                            CERTIFICATE => (acc_key, Some(value), acc_ca_cert),
+                            CA_CERTIFICATE => (acc_key, acc_cert, Some(value)),
+                            _ => unreachable!("unexpected key: {key}"),
+                        }
+                    },
+                );
+        match (key, cert, ca_cert) {
+            (Some(key), Some(cert), Some(ca_cert)) => Ok(Some(CertifiedKey {
                 key,
                 certificate: cert,
+                ca_certificate: ca_cert,
             })),
             _ => Ok(None),
         }

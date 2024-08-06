@@ -47,11 +47,7 @@ async fn main() -> Result<()> {
             join_token,
         }) => {
             daemon
-                .join(
-                    control_plane_url.as_str(),
-                    control_plane_tls_url.as_str(),
-                    join_token.as_str(),
-                )
+                .join(control_plane_url.as_str(), join_token.as_str())
                 .await?
         }
         None => {

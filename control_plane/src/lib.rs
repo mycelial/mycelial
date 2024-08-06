@@ -2,14 +2,14 @@ pub(crate) mod app;
 pub(crate) mod http;
 pub(crate) mod tls_server;
 
-use std::net::SocketAddr;
+use std::{net::SocketAddr, sync::Arc};
 
 pub use app::{AppError, Result};
 
 use futures::FutureExt;
 use tokio::net::TcpListener;
 
-async fn run_http_api(http_api_addr: &str, app: app::App) -> Result<()> {
+async fn run_http_api(http_api_addr: &str, app: app::AppState) -> Result<()> {
     let http_api_listener = TcpListener::bind(http_api_addr).await?;
     tracing::info!(
         "listening for http API calls at {}",
@@ -19,20 +19,13 @@ async fn run_http_api(http_api_addr: &str, app: app::App) -> Result<()> {
     Ok(())
 }
 
-async fn run_daemon_api(daemon_api_addr: &str, app: app::App) -> Result<()> {
+async fn run_daemon_api(daemon_api_addr: &str, app: app::AppState) -> Result<()> {
     let daemon_api_addr: SocketAddr = daemon_api_addr.parse()?;
     tracing::info!("listening for daemon API calls at {}", daemon_api_addr);
-    // FIXME: potential race between multiple instances of control plane
-    let ca_cert_key = app.get_or_create_ca_cert_key().await?;
-    let (cert, key) = app
-        .get_or_create_control_plane_cert_key(&ca_cert_key)
-        .await?;
     tls_server::serve(
         daemon_api_addr,
-        http::daemon_api::new(app),
-        key,
-        cert,
-        ca_cert_key,
+        http::daemon_api::new(Arc::clone(&app)),
+        app,
     )
     .await
     .map_err(|e| anyhow::anyhow!("{e}"))?;
@@ -40,14 +33,15 @@ async fn run_daemon_api(daemon_api_addr: &str, app: app::App) -> Result<()> {
 }
 
 pub async fn run(http_api_addr: &str, daemon_api_addr: &str, database_url: &str) -> Result<()> {
-    let app = app::App::new(database_url).await?;
-    app.init().await?;
+    let app = Arc::new(app::AppBuilder::new(database_url).await?.build().await?);
+    app.migrate().await?;
+
     futures::select! {
-        res = run_http_api(http_api_addr, app.clone()).fuse() => {
+        res = run_http_api(http_api_addr, Arc::clone(&app)).fuse() => {
             tracing::error!("http api exited");
             res
         },
-        res = run_daemon_api(daemon_api_addr, app.clone()).fuse() => {
+        res = run_daemon_api(daemon_api_addr, app).fuse() => {
             tracing::error!("daemon api exited");
             res
         }

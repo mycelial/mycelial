@@ -14,9 +14,10 @@ use rustls::{
     server::danger::{ClientCertVerified, ClientCertVerifier},
     DigitallySignedStruct, OtherError,
 };
-use rustls_pemfile::certs;
+pub use rustls::{ClientConfig, ServerConfig};
+use rustls_pemfile::{certs, private_key};
 pub use webpki::types::CertificateDer;
-use webpki::types::{ServerName, TrustAnchor, UnixTime};
+use webpki::types::{PrivateKeyDer, ServerName, TrustAnchor, UnixTime};
 use x509_parser::prelude::*;
 
 pub type Result<T, E = StdError> = std::result::Result<T, E>;
@@ -73,7 +74,6 @@ pub fn generate_csr_request(id: &str) -> Result<(KeyPair, CertificateSigningRequ
     let key_pair = KeyPair::generate()?;
     let mut params = CertificateParams::new(vec![id.to_string()])?;
     params.distinguished_name.push(DnType::CommonName, id);
-    params.key_usages.push(KeyUsagePurpose::DigitalSignature);
     let csr = params.serialize_request(&key_pair)?;
     Ok((key_pair, csr))
 }
@@ -101,6 +101,24 @@ pub fn parse_certificate(cert: &str) -> Result<CertificateDer<'static>> {
 /// parse pem-serialized certificate
 pub fn parse_keypair(keypair: &str) -> Result<KeyPair> {
     Ok(KeyPair::from_pem(keypair)?)
+}
+
+pub fn parse_private_key(keypair: &str) -> Result<PrivateKeyDer<'static>> {
+    Ok(private_key(&mut Cursor::new(keypair))?.ok_or("no key found")?)
+}
+
+pub fn sign_csr(ca: &CertifiedKey, csr: &str) -> Result<Certificate> {
+    let mut csr_params = rcgen::CertificateSigningRequestParams::from_pem(csr)?;
+    csr_params
+        .params
+        .key_usages
+        .push(rcgen::KeyUsagePurpose::DigitalSignature);
+    csr_params.params.not_before = OffsetDateTime::now_utc();
+    csr_params
+        .params
+        .extended_key_usages
+        .push(ExtendedKeyUsagePurpose::ClientAuth);
+    Ok(csr_params.signed_by(&ca.cert, &ca.key_pair)?)
 }
 
 #[derive(Debug)]

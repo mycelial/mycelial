@@ -1,19 +1,19 @@
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 
 use anyhow::Result;
+use pki::ClientConfig;
 use reqwest::Url;
+use section::prelude::StreamExt;
 use serde::{Deserialize, Serialize};
 use sha2::Digest;
 use tokio::{
     sync::{
-        mpsc::{
-            channel, Receiver, Sender, UnboundedSender,
-            WeakSender,
-        },
+        mpsc::{channel, Receiver, Sender, UnboundedSender, WeakSender},
         oneshot::{channel as oneshot_channel, Sender as OneshotSender},
     },
     task::JoinHandle,
 };
+use tokio_tungstenite::Connector;
 
 use crate::{CertifiedKey, DaemonMessage};
 
@@ -38,6 +38,7 @@ impl<'a> JoinRequest<'a> {
 #[derive(Deserialize)]
 struct JoinResponse {
     certificate: String,
+    ca_certificate: String,
 }
 
 #[derive(Debug)]
@@ -92,10 +93,31 @@ impl ControlPlaneClient {
                     certifiedkey,
                     reply_to,
                 } => {
-                    let response = self
-                        .setup_websocket_client(&weak_tx, control_plane_tls_url, certifiedkey)
-                        .await;
+                    let url: Url = match control_plane_tls_url.parse() {
+                        Ok(url) => url,
+                        Err(e) => {
+                            reply_to
+                                .send(Err(anyhow::anyhow!("failed to parse url: {e}")))
+                                .ok();
+                            continue;
+                        }
+                    };
+                    self.control_plane_tls_url = Some(Arc::from(url));
+                    self.certifiedkey = Some(Arc::new(certifiedkey));
+                    let response = self.setup_websocket_client(&weak_tx).await;
                     reply_to.send(response).ok();
+                }
+                Message::WebSocketClientDown { generation } => {
+                    tracing::error!("websocket client is down, restarting");
+                    if self.gen != generation {
+                        continue;
+                    }
+                    if self.control_plane_tls_url.is_none() || self.certifiedkey.is_none() {
+                        continue;
+                    };
+                    if let Err(e) = self.setup_websocket_client(&weak_tx).await {
+                        tracing::error!("failed to restart websocket client: {e}");
+                    };
                 }
             }
         }
@@ -126,19 +148,11 @@ impl ControlPlaneClient {
         Ok(CertifiedKey {
             key,
             certificate: response.certificate,
+            ca_certificate: response.ca_certificate,
         })
     }
 
-    async fn setup_websocket_client(
-        &mut self,
-        weak_tx: &WeakSender<Message>,
-        control_plane_tls_url: String,
-        certifiedkey: CertifiedKey,
-    ) -> Result<()> {
-        let url: Url = control_plane_tls_url.parse()?;
-        self.control_plane_tls_url = Some(Arc::from(url));
-        self.certifiedkey = Some(Arc::new(certifiedkey));
-
+    async fn setup_websocket_client(&mut self, weak_tx: &WeakSender<Message>) -> Result<()> {
         // get tx clone before upgrade
         let tx = weak_tx
             .clone()
@@ -146,8 +160,11 @@ impl ControlPlaneClient {
             .ok_or(anyhow::anyhow!("failed to upgrade tx"))?;
         // increment generation of websocket client ( all messages from previous generations will be ignored )
         self.gen += 1;
+
         // drop previous client
-        if let Some(join_handle) = self.socket.take() { join_handle.abort() }
+        if let Some(join_handle) = self.socket.take() {
+            join_handle.abort()
+        }
 
         let control_plane_tls_url = self
             .control_plane_tls_url
@@ -162,9 +179,16 @@ impl ControlPlaneClient {
 
         let gen = self.gen;
         self.socket = Some(tokio::spawn(async move {
-            if let Err(e) = websocket_client(gen, tx, control_plane_tls_url, certifiedkey).await {
+            let mut tx = tx;
+            if let Err(e) =
+                websocket_client(gen, &mut tx, control_plane_tls_url, certifiedkey).await
+            {
                 tracing::error!("websocket error: {e}");
             }
+            tokio::time::sleep(Duration::from_secs(1)).await;
+            tx.send(Message::WebSocketClientDown { generation: gen })
+                .await
+                .ok();
         }));
         Ok(())
     }
@@ -181,15 +205,47 @@ enum Message {
         certifiedkey: CertifiedKey,
         reply_to: OneshotSender<Result<()>>,
     },
+    WebSocketClientDown {
+        generation: u64,
+    },
 }
 
 async fn websocket_client(
     generation: u64,
-    tx: Sender<Message>,
+    tx: &mut Sender<Message>,
     control_plane_url: Arc<Url>,
     certifiedkey: Arc<CertifiedKey>,
 ) -> Result<()> {
-    Ok(())
+    let ca_cert = pki::parse_certificate(&certifiedkey.ca_certificate)
+        .map_err(|e| anyhow::anyhow!("failed to parse ca certificate: {e}"))?;
+    let cert = pki::parse_certificate(&certifiedkey.certificate)
+        .map_err(|e| anyhow::anyhow!("failed to parse certificate: {e}"))?;
+    let key = pki::parse_private_key(&certifiedkey.key)
+        .map_err(|e| anyhow::anyhow!("failed to parse private key: {e}"))?;
+    let connector = Connector::Rustls(Arc::new(
+        ClientConfig::builder()
+            .dangerous()
+            .with_custom_certificate_verifier(Arc::new(
+                pki::Verifier::new(ca_cert)
+                    .map_err(|e| anyhow::anyhow!("failed to build client verifier: {e}"))?,
+            ))
+            .with_client_auth_cert(vec![cert], key)?,
+    ));
+    let (socket, _response) = tokio_tungstenite::connect_async_tls_with_config(
+        control_plane_url.as_str(),
+        None,
+        false,
+        Some(connector),
+    )
+    .await?;
+    let (input, mut output) = socket.split();
+    loop {
+        tokio::select! {
+            msg = output.next() => {
+
+            },
+        }
+    }
 }
 
 #[derive(Debug)]

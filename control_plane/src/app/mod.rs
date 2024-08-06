@@ -7,6 +7,7 @@ use config::prelude::*;
 use config_registry::{self, ConfigRegistry};
 use pki::{CertificateDer, CertifiedKey, KeyPair};
 use serde::{Deserialize, Serialize};
+use sha2::Digest;
 use std::sync::Arc;
 use uuid::Uuid;
 
@@ -38,6 +39,20 @@ impl AppError {
         Self {
             kind: AppErrorKind::NotFound,
             err,
+        }
+    }
+
+    pub fn token_used(id: Uuid) -> Self {
+        Self {
+            kind: AppErrorKind::BadRequest,
+            err: anyhow::anyhow!("token {id} already used"),
+        }
+    }
+
+    pub fn join_hash_missmatch(id: Uuid) -> Self {
+        Self {
+            kind: AppErrorKind::BadRequest,
+            err: anyhow::anyhow!("join request hash missmatch for token id {id}"),
         }
     }
 }
@@ -133,29 +148,103 @@ pub struct DaemonToken {
 
 #[derive(Debug, Deserialize)]
 pub struct DaemonJoinRequest {
-    pub token_id: String,
+    pub id: Uuid,
     pub csr: String,
     pub hash: String,
 }
 
-#[derive(Clone)]
-pub(crate) struct App {
-    db: Arc<dyn db::DbTrait>,
-    config_registry: Arc<ConfigRegistry>,
+#[derive(Debug, Serialize)]
+pub struct DaemonJoinResponse {
+    certificate: String,
+    ca_certificate: String,
 }
 
-impl App {
+pub struct AppBuilder {
+    db: Box<dyn db::DbTrait>,
+}
+
+impl AppBuilder {
     pub async fn new(database_url: &str) -> Result<Self> {
-        Ok(Self {
-            db: Arc::from(db::new(database_url).await?),
-            config_registry: Arc::new(
-                config_registry::new()
-                    .map_err(|e| anyhow::anyhow!("failed to build config registry: {e}"))?,
-            ),
+        let db = db::new(database_url).await?;
+        Ok(Self { db })
+    }
+
+    pub async fn build(self) -> Result<App> {
+        let certificate_bundle = self.get_or_create_certificate_bundle().await?;
+        Ok(App {
+            db: self.db,
+            config_registry: config_registry::new()
+                .map_err(|e| anyhow::anyhow!("failed to build config registry: {e}"))?,
+            certificate_bundle,
         })
     }
 
-    pub async fn init(&self) -> Result<()> {
+    async fn get_or_create_certificate_bundle(&self) -> Result<CertificateBundle> {
+        let ca_cert_key = self.get_or_create_ca_cert_key().await?;
+        let (cert, key) = self
+            .get_or_create_control_plane_cert_key(&ca_cert_key)
+            .await?;
+        Ok(CertificateBundle {
+            ca_cert_key,
+            cert,
+            key,
+        })
+    }
+
+    async fn get_or_create_ca_cert_key(&self) -> Result<CertifiedKey> {
+        if let Some((ca_cert, ca_key)) = self.db.get_ca_cert_key().await? {
+            let ca_certkey = pki::rebuild_ca_certkey(&ca_key, &ca_cert)
+                .map_err(|e| anyhow::anyhow!("failed to rebuild ca certkey: {e}"))?;
+            return Ok(ca_certkey);
+        }
+        let ca_certkey =
+            pki::generate_ca_certkey("control plane").map_err(|e| anyhow::anyhow!("{e}"))?;
+        let cert = ca_certkey.cert.pem();
+        let key = ca_certkey.key_pair.serialize_pem();
+        self.db.store_ca_cert_key(&key, &cert).await?;
+        Ok(ca_certkey)
+    }
+
+    async fn get_or_create_control_plane_cert_key(
+        &self,
+        ca_cert_key: &CertifiedKey,
+    ) -> Result<(CertificateDer<'static>, KeyPair)> {
+        if let Some((cert, key)) = self.db.get_control_plane_cert_key().await? {
+            let cert = pki::parse_certificate(&cert).map_err(|e| anyhow::anyhow!("{e}"))?;
+            let key = pki::parse_keypair(&key).map_err(|e| anyhow::anyhow!("{e}"))?;
+            return Ok((cert, key));
+        }
+        let certkey = pki::generate_control_plane_cert(ca_cert_key, "control plane")
+            .map_err(|e| anyhow::anyhow!("failed to create certificate for control plane: {e}"))?;
+        let cert = certkey.cert.pem();
+        let key = certkey.key_pair.serialize_pem();
+        self.db
+            .store_control_plane_cert_key(key.as_str(), cert.as_str())
+            .await?;
+        Ok((certkey.cert.der().clone(), certkey.key_pair))
+    }
+}
+
+pub type AppState = Arc<App>;
+
+pub(crate) struct App {
+    db: Box<dyn db::DbTrait>,
+    config_registry: ConfigRegistry,
+    certificate_bundle: CertificateBundle,
+}
+
+pub(crate) struct CertificateBundle {
+    pub ca_cert_key: CertifiedKey,
+    pub cert: CertificateDer<'static>,
+    pub key: KeyPair,
+}
+
+impl App {
+    pub fn certificate_bundle(&self) -> &CertificateBundle {
+        &self.certificate_bundle
+    }
+
+    pub async fn migrate(&self) -> Result<()> {
         self.db.migrate().await
     }
 
@@ -226,39 +315,6 @@ impl App {
             .await
     }
 
-    pub async fn get_or_create_ca_cert_key(&self) -> Result<CertifiedKey> {
-        if let Some((ca_cert, ca_key)) = self.db.get_ca_cert_key().await? {
-            let ca_certkey = pki::rebuild_ca_certkey(&ca_key, &ca_cert)
-                .map_err(|e| anyhow::anyhow!("failed to rebuild ca certkey: {e}"))?;
-            return Ok(ca_certkey);
-        }
-        let ca_certkey =
-            pki::generate_ca_certkey("control plane").map_err(|e| anyhow::anyhow!("{e}"))?;
-        let cert = ca_certkey.cert.pem();
-        let key = ca_certkey.key_pair.serialize_pem();
-        self.db.store_ca_cert_key(&key, &cert).await?;
-        Ok(ca_certkey)
-    }
-
-    pub async fn get_or_create_control_plane_cert_key(
-        &self,
-        ca_cert_key: &CertifiedKey,
-    ) -> Result<(CertificateDer<'static>, KeyPair)> {
-        if let Some((cert, key)) = self.db.get_control_plane_cert_key().await? {
-            let cert = pki::parse_certificate(&cert).map_err(|e| anyhow::anyhow!("{e}"))?;
-            let key = pki::parse_keypair(&key).map_err(|e| anyhow::anyhow!("{e}"))?;
-            return Ok((cert, key));
-        }
-        let certkey = pki::generate_control_plane_cert(ca_cert_key, "control plane")
-            .map_err(|e| anyhow::anyhow!("failed to create certificate for control plane: {e}"))?;
-        let cert = certkey.cert.pem();
-        let key = certkey.key_pair.serialize_pem();
-        self.db
-            .store_control_plane_cert_key(key.as_str(), cert.as_str())
-            .await?;
-        Ok((certkey.cert.der().clone(), certkey.key_pair))
-    }
-
     // daemon API
 
     pub async fn create_daemon_token(&self) -> Result<DaemonToken> {
@@ -286,8 +342,29 @@ impl App {
         Ok(())
     }
 
-    pub async fn daemon_join(&self, join_request: DaemonJoinRequest) -> Result<()> {
-        unimplemented!()
+    pub async fn daemon_join(&self, join_request: DaemonJoinRequest) -> Result<DaemonJoinResponse> {
+        let token = match self.db.consume_token(join_request.id).await? {
+            None => return Err(AppError::not_found(anyhow::anyhow!("token not found"))),
+            Some(token) => token,
+        };
+        let mut hasher = sha2::Sha256::new();
+        [&join_request.csr, ":", &token.secret]
+            .into_iter()
+            .for_each(|value| hasher.update(value));
+        let hash = format!("{:x}", hasher.finalize());
+        if hash != join_request.hash {
+            tracing::error!("join request hash doesn't match");
+            Err(AppError::join_hash_missmatch(join_request.id))?
+        };
+        let certificate = pki::sign_csr(
+            &self.certificate_bundle().ca_cert_key,
+            join_request.csr.as_str(),
+        )
+        .map_err(|e| anyhow::anyhow!("failed to sign certificate request: {e}"))?;
+        Ok(DaemonJoinResponse {
+            certificate: certificate.pem(),
+            ca_certificate: self.certificate_bundle.ca_cert_key.cert.pem(),
+        })
     }
 
     pub async fn list_daemons(&self) -> Result<Vec<Daemon>> {

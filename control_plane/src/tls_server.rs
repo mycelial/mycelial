@@ -6,11 +6,12 @@ use hyper_util::{
     rt::{TokioExecutor, TokioIo},
     server::conn::auto::Builder,
 };
-use pki::{CertificateDer, CertifiedKey, KeyPair};
 use rustls::ServerConfig;
 use tokio::{net::TcpListener, time::sleep};
 use tokio_rustls::TlsAcceptor;
 use tower_service::Service as TowerService;
+
+use crate::app;
 
 /// Extends axum request
 #[derive(Debug, Clone)]
@@ -19,14 +20,18 @@ pub struct PeerCommonName(pub Arc<str>);
 pub async fn serve(
     listen_addr: SocketAddr,
     service: Router,
-    key: KeyPair,
-    cert: CertificateDer<'static>,
-    ca_cert: CertifiedKey,
+    app: app::AppState,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let certificate_bundle = app.certificate_bundle();
     let tcp_listener = TcpListener::bind(listen_addr).await?;
     let server_config = ServerConfig::builder()
-        .with_client_cert_verifier(Arc::new(pki::Verifier::new(ca_cert.cert.der().clone())?))
-        .with_single_cert(vec![cert.clone()], key.serialize_der().try_into()?)?;
+        .with_client_cert_verifier(Arc::new(pki::Verifier::new(
+            certificate_bundle.ca_cert_key.cert.der().clone(),
+        )?))
+        .with_single_cert(
+            vec![certificate_bundle.cert.clone()],
+            certificate_bundle.key.serialize_der().try_into()?,
+        )?;
     let tls_acceptor = TlsAcceptor::from(Arc::new(server_config));
 
     loop {

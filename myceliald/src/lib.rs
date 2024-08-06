@@ -28,6 +28,7 @@ pub enum DaemonMessage {}
 pub struct CertifiedKey {
     pub key: String,
     pub certificate: String,
+    pub ca_certificate: String,
 }
 
 #[derive(Debug)]
@@ -64,17 +65,13 @@ impl Daemon {
         Ok(())
     }
 
-    pub async fn join(
-        &mut self,
-        control_plane_url: &str,
-        control_plane_tls_url: &str,
-        join_token: &str,
-    ) -> Result<()> {
+    pub async fn join(&mut self, control_plane_url: &str, join_token: &str) -> Result<()> {
         // FIXME: check if already joined
         let certifiedkey = self
             .control_plane_client_handle
             .join(control_plane_url, join_token)
             .await?;
+        // FIXME: validate and store certificates/keys
         Ok(())
     }
 

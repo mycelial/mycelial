@@ -9,7 +9,7 @@ use axum::{
     Router,
 };
 
-pub fn new(app: crate::app::App) -> Router {
+pub fn new(app: crate::app::AppState) -> Router {
     Router::new()
         // workspaces API
         .route(
