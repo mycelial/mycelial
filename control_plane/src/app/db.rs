@@ -579,8 +579,7 @@ where
                 .and_where(Expr::col(DaemonTokens::Id).eq(id))
                 .lock_exclusive()
                 .build_any_sqlx(&*self.query_builder);
-            tracing::info!("consume token query: {query}\nid: {id}");
-            let response = sqlx::query_with(&query, values)
+            let token = sqlx::query_with(&query, values)
                 .fetch_optional(&mut *transaction)
                 .await?
                 .map(|row| DaemonToken {
@@ -589,11 +588,23 @@ where
                     issued_at: row.get(2),
                     used_at: row.get(3),
                 });
-            match response {
-                None => Ok(None),
-                Some(row) if row.used_at.is_none() => Ok(Some(row)),
-                Some(DaemonToken { id, .. }) => Err(AppError::token_used(id)),
-            }
+            let token = match token {
+                None => return Ok(None),
+                Some(token) if token.used_at.is_none() => token,
+                Some(DaemonToken { id, .. }) => Err(AppError::token_used(id))?,
+            };
+            // update token
+            let (query, values) = Query::update()
+                .table(DaemonTokens::Table)
+                .values([(DaemonTokens::UsedAt, Expr::current_timestamp().into())])
+                .and_where(Expr::col(DaemonTokens::Id).eq(id))
+                .build_any_sqlx(&*self.query_builder);
+
+            sqlx::query_with(&query, values)
+                .execute(&mut *transaction)
+                .await?;
+            transaction.commit().await?;
+            Ok(Some(token))
         })
     }
 }

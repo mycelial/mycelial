@@ -48,6 +48,15 @@ impl DaemonStorage {
             .map(|maybe_row| maybe_row.map(|row| row.get(0)))?)
     }
 
+    pub async fn store_tls_url(&mut self, control_plane_tls_url: &str) -> Result<()> {
+        sqlx::query("INSERT INTO connection(key, value) VALUES(?, ?)")
+            .bind(TLS_URL)
+            .bind(control_plane_tls_url)
+            .execute(&mut self.connection)
+            .await?;
+        Ok(())
+    }
+
     pub async fn get_certified_key(&mut self) -> Result<Option<CertifiedKey>> {
         let (key, cert, ca_cert) =
             sqlx::query("SELECT key, value FROM connection WHERE key in (?, ?, ?)")
@@ -78,6 +87,19 @@ impl DaemonStorage {
             })),
             _ => Ok(None),
         }
+    }
+
+    pub async fn store_certified_key(&mut self, certified_key: CertifiedKey) -> Result<()> {
+        sqlx::query("INSERT INTO connection(key, value) VALUES (?, ?), (?, ?), (?, ?)")
+            .bind(PRIVATE_KEY)
+            .bind(&certified_key.key)
+            .bind(CERTIFICATE)
+            .bind(&certified_key.certificate)
+            .bind(CA_CERTIFICATE)
+            .bind(&certified_key.ca_certificate)
+            .execute(&mut self.connection)
+            .await?;
+        Ok(())
     }
 }
 

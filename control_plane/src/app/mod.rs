@@ -13,12 +13,14 @@ use uuid::Uuid;
 
 pub type Result<T, E = AppError> = std::result::Result<T, E>;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum AppErrorKind {
     Unauthorized,
     BadRequest,
     NotFound,
     Internal,
+    TokenUsed,
+    JoinRequestHashMissmatch,
 }
 
 #[derive(Debug)]
@@ -44,14 +46,14 @@ impl AppError {
 
     pub fn token_used(id: Uuid) -> Self {
         Self {
-            kind: AppErrorKind::BadRequest,
+            kind: AppErrorKind::TokenUsed,
             err: anyhow::anyhow!("token {id} already used"),
         }
     }
 
     pub fn join_hash_missmatch(id: Uuid) -> Self {
         Self {
-            kind: AppErrorKind::BadRequest,
+            kind: AppErrorKind::JoinRequestHashMissmatch,
             err: anyhow::anyhow!("join request hash missmatch for token id {id}"),
         }
     }

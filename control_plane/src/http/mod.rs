@@ -17,7 +17,9 @@ impl IntoResponse for AppError {
     fn into_response(self) -> Response {
         let status_code = match self.kind {
             AppErrorKind::Unauthorized => StatusCode::UNAUTHORIZED,
-            AppErrorKind::BadRequest => StatusCode::BAD_REQUEST,
+            AppErrorKind::BadRequest
+            | AppErrorKind::JoinRequestHashMissmatch
+            | AppErrorKind::TokenUsed => StatusCode::BAD_REQUEST,
             AppErrorKind::NotFound => StatusCode::NOT_FOUND,
             AppErrorKind::Internal => StatusCode::INTERNAL_SERVER_ERROR,
         };

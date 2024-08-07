@@ -65,19 +65,35 @@ impl Daemon {
         Ok(())
     }
 
-    pub async fn join(&mut self, control_plane_url: &str, join_token: &str) -> Result<()> {
-        // FIXME: check if already joined
+    pub async fn join(
+        &mut self,
+        control_plane_url: &str,
+        control_plane_tls_url: &str,
+        join_token: &str,
+    ) -> Result<()> {
+        if self.daemon_storage.get_certified_key().await?.is_some()
+            || self.daemon_storage.get_tls_url().await?.is_some()
+        {
+            tracing::warn!("resetting state");
+            self.daemon_storage.reset_state().await?;
+        }
         let certifiedkey = self
             .control_plane_client_handle
             .join(control_plane_url, join_token)
             .await?;
-        // FIXME: validate and store certificates/keys
+        self.daemon_storage
+            .store_certified_key(certifiedkey)
+            .await?;
+        self.daemon_storage
+            .store_tls_url(control_plane_tls_url)
+            .await?;
         Ok(())
     }
 
     pub async fn shutdown(&mut self) -> anyhow::Result<()> {
         self.scheduler_handle.shutdown().await.ok();
         self.section_storage_handle.shutdown().await.ok();
+        self.control_plane_client_handle.shutdown().await.ok();
         Ok(())
     }
 

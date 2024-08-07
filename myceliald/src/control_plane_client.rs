@@ -5,6 +5,7 @@ use pki::ClientConfig;
 use reqwest::Url;
 use section::prelude::StreamExt;
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use sha2::Digest;
 use tokio::{
     sync::{
@@ -33,6 +34,11 @@ impl<'a> JoinRequest<'a> {
         let hash = format!("{:x}", hasher.finalize());
         Self { id, csr, hash }
     }
+}
+
+#[derive(Deserialize)]
+struct JoinErrorResponse {
+    error: String
 }
 
 #[derive(Deserialize)]
@@ -67,7 +73,7 @@ impl ControlPlaneClient {
         tokio::spawn(async move {
             let mut rx = rx;
             if let Err(e) = self.enter_loop(weak_tx, &mut rx).await {
-                tracing::error!("control plane client error: {e}")
+                tracing::error!("control plane client stopped: {e}")
             };
         });
         ControlPlaneClientHandle { tx }
@@ -93,19 +99,15 @@ impl ControlPlaneClient {
                     certifiedkey,
                     reply_to,
                 } => {
-                    let url: Url = match control_plane_tls_url.parse() {
-                        Ok(url) => url,
-                        Err(e) => {
-                            reply_to
-                                .send(Err(anyhow::anyhow!("failed to parse url: {e}")))
-                                .ok();
-                            continue;
-                        }
+                    let response = match self.set_tls_url(control_plane_tls_url, certifiedkey) {
+                        Ok(()) => self.setup_websocket_client(&weak_tx).await,
+                        Err(e) => Err(e),
                     };
-                    self.control_plane_tls_url = Some(Arc::from(url));
-                    self.certifiedkey = Some(Arc::new(certifiedkey));
-                    let response = self.setup_websocket_client(&weak_tx).await;
                     reply_to.send(response).ok();
+                }
+                Message::Shutdown { reply_to } => {
+                    reply_to.send(Ok(())).ok();
+                    return Ok(());
                 }
                 Message::WebSocketClientDown { generation } => {
                     tracing::error!("websocket client is down, restarting");
@@ -121,7 +123,18 @@ impl ControlPlaneClient {
                 }
             }
         }
-        Err(anyhow::anyhow!("channel closed"))?
+        Err(anyhow::anyhow!("all control plane handles are dropped"))?
+    }
+
+    fn set_tls_url(
+        &mut self,
+        control_plane_tls_url: String,
+        certifiedkey: CertifiedKey,
+    ) -> Result<()> {
+        let url: Url = control_plane_tls_url.parse()?;
+        self.control_plane_tls_url = Some(Arc::from(url));
+        self.certifiedkey = Some(Arc::new(certifiedkey));
+        Ok(())
     }
 
     async fn join(&self, control_plane_url: &str, join_token: &str) -> Result<CertifiedKey> {
@@ -143,7 +156,10 @@ impl ControlPlaneClient {
             .await?;
         let response = match response.status() {
             status if status.is_success() => response.json::<JoinResponse>().await?,
-            status => Err(anyhow::anyhow!("failed to join control plane: {status}"))?,
+            status => {
+                let error = response.json::<JoinErrorResponse>().await?;
+                Err(anyhow::anyhow!("failed to join control plane: {status}, error: {}", error.error))?
+            },
         };
         Ok(CertifiedKey {
             key,
@@ -203,6 +219,9 @@ enum Message {
     SetTlsUrl {
         control_plane_tls_url: String,
         certifiedkey: CertifiedKey,
+        reply_to: OneshotSender<Result<()>>,
+    },
+    Shutdown {
         reply_to: OneshotSender<Result<()>>,
     },
     WebSocketClientDown {
@@ -276,6 +295,13 @@ impl ControlPlaneClientHandle {
             certifiedkey,
             reply_to,
         };
+        self.tx.send(message).await?;
+        rx.await?
+    }
+
+    pub async fn shutdown(&self) -> Result<()> {
+        let (reply_to, rx) = oneshot_channel();
+        let message = Message::Shutdown { reply_to };
         self.tx.send(message).await?;
         rx.await?
     }

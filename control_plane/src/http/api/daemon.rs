@@ -1,8 +1,10 @@
 use axum::extract::{Path, State};
-use axum::Json;
+use axum::{http::StatusCode, Json};
+use serde_json::{json, Value};
 
-use crate::app::{AppState, DaemonJoinRequest, DaemonJoinResponse, DaemonToken};
+use crate::app::{AppErrorKind, AppState, DaemonJoinRequest, DaemonJoinResponse, DaemonToken};
 use crate::http::Result;
+use crate::AppError;
 
 pub async fn create_token(State(app): State<AppState>) -> Result<Json<DaemonToken>> {
     let token = app.create_daemon_token().await?;
@@ -23,7 +25,26 @@ pub async fn delete_token(State(app): State<AppState>, Path(id): Path<String>) -
 pub async fn join(
     State(app): State<AppState>,
     Json(join_request): Json<DaemonJoinRequest>,
-) -> Result<Json<DaemonJoinResponse>> {
-    let response = app.daemon_join(join_request).await?;
-    Ok(Json(response))
+) -> Result<Json<DaemonJoinResponse>, (StatusCode, Json<Value>)> {
+    match app.daemon_join(join_request).await {
+        Ok(response) => Ok(Json(response)),
+        Err(AppError {
+            kind: AppErrorKind::TokenUsed,
+            ..
+        }) => Err((
+            StatusCode::BAD_REQUEST,
+            Json(json!({"error": "token used"})),
+        )),
+        Err(AppError {
+            kind: AppErrorKind::JoinRequestHashMissmatch,
+            ..
+        }) => Err((
+            StatusCode::BAD_REQUEST,
+            Json(json!({"error": "hash missmatch"})),
+        )),
+        Err(_) => Err((
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({"error": "internal error"})),
+        )),
+    }
 }
