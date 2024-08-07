@@ -1,8 +1,13 @@
 [workspace]
+resolver = "2"
 members = [
-    "server",
+    "ui",
+    "config",
+    "control_plane",
+    "config_registry",
     "myceliald",
-    "common",
+    "pki",
+
     "pipe/runtime",
     "pipe/arrow_msg",
     "pipe/section",
@@ -25,4 +30,6 @@ members = [
     "pipe/section/section_impls/redshift_loader",
     "pipe/section/section_impls/inspect",
 ]
-resolver = "2"
+
+[workspace.package]
+version = "0.9.0"

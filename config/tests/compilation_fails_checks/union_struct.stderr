@@ -1,0 +1,5 @@
+error: unit structs are not supported
+ --> tests/compilation_fails_checks/union_struct.rs:5:13
+  |
+5 | struct Union();
+  |             ^^

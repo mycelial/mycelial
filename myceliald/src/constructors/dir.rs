@@ -57,26 +57,3 @@ pub fn source_ctor<S: SectionChannel>(
         stream_binary,
     )?))
 }
-
-#[cfg(test)]
-mod test {
-    use std::collections::HashMap;
-
-    use common::DirSourceConfig;
-    use section::dummy::DummySectionChannel;
-    use serde_json::Value;
-
-    use super::*;
-
-    #[test]
-    fn test_source_ctor_matches_config() {
-        let source_config = DirSourceConfig::default();
-        let mut c: HashMap<String, Value> =
-            serde_json::from_str(&serde_json::to_string(&source_config).unwrap()).unwrap();
-        println!("c: {c:?}");
-
-        let config: Map = c.drain().map(|(k, v)| (k, v.try_into().unwrap())).collect();
-
-        assert!(source_ctor::<DummySectionChannel>(&config).is_ok());
-    }
-}

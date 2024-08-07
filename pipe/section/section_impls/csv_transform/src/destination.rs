@@ -160,17 +160,17 @@ where
                                         ValueView::Time(tu, t) => {
                                             let datetime = to_naive_datetime(tu, t)
                                                 .ok_or(format!("failed to convert '{}' to naivedate", column.name()))?;
-                                            writer.write_field(&datetime.time().to_string())?;
+                                            writer.write_field(datetime.time().to_string())?;
                                         },
                                         ValueView::Date(tu, t) => {
                                             let datetime = to_naive_datetime(tu, t)
                                                 .ok_or(format!("failed to convert '{}' to naivedate", column.name()))?;
-                                            writer.write_field(&datetime.date().to_string())?;
+                                            writer.write_field(datetime.date().to_string())?;
                                         },
                                         ValueView::TimeStamp(tu, t) | ValueView::TimeStampUTC(tu, t) => {
                                             let datetime = to_naive_datetime(tu, t)
                                                 .ok_or(format!("failed to convert '{}' to naivedate", column.name()))?;
-                                            writer.write_field(&datetime.to_string())?;
+                                            writer.write_field(datetime.to_string())?;
                                         }
                                         _ => {
                                             let value = value.to_string();

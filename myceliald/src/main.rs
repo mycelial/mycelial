@@ -1,17 +1,28 @@
-use std::{env::current_dir, path::PathBuf};
-
 use anyhow::Result;
-use clap::{error::ErrorKind, Parser};
+use clap::{error::ErrorKind, Parser, Subcommand};
 use myceliald::Daemon;
 use tracing_subscriber::{prelude::*, EnvFilter};
 
 #[derive(Debug, Parser)]
-#[command(name = "myceliald")]
 #[command(version)]
 struct Cli {
-    /// Path to the TOML config file
-    #[arg(short, long, env = "CONFIG_PATH")]
-    config: String,
+    #[clap(env = "DATABASE_PATH", default_value = "myceliald.db")]
+    database_path: String,
+
+    #[command(subcommand)]
+    command: Option<Commands>,
+}
+
+#[derive(Debug, Subcommand)]
+pub enum Commands {
+    Join {
+        #[clap(long, env = "MYCELIAL_CONTROL_PLANE_URL")]
+        control_plane_url: String,
+        #[clap(long, env = "MYCELIAL_CONTROL_PLANCE_TLS_URL")]
+        control_plane_tls_url: String,
+        #[clap(long, env = "MYCELIAL_JOIN_TOKEN")]
+        join_token: String,
+    },
 }
 
 #[tokio::main]
@@ -28,10 +39,21 @@ async fn main() -> Result<()> {
         Err(e) => Err(e)?,
         Ok(cli) => cli,
     };
-    let mut config_path = PathBuf::from(cli.config);
-    if !config_path.is_absolute() {
-        config_path = current_dir()?.join(config_path)
-    }
-    Daemon::start(config_path).await?;
+    let mut daemon = Daemon::new(&cli.database_path).await?;
+    match cli.command {
+        Some(Commands::Join {
+            control_plane_url,
+            control_plane_tls_url,
+            join_token,
+        }) => {
+            daemon
+                .join(&control_plane_url, &control_plane_tls_url, &join_token)
+                .await?;
+            tracing::info!("join successful");
+        }
+        None => {
+            daemon.run().await?;
+        }
+    };
     Ok(())
 }

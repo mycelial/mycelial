@@ -1,0 +1,5 @@
+error: enums are not supported (yet)
+ --> tests/compilation_fails_checks/enum.rs:4:1
+  |
+4 | enum Enum {}
+  | ^^^^
