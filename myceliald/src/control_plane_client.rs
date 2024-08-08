@@ -5,7 +5,6 @@ use pki::ClientConfig;
 use reqwest::Url;
 use section::prelude::StreamExt;
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 use sha2::Digest;
 use tokio::{
     sync::{
@@ -38,7 +37,7 @@ impl<'a> JoinRequest<'a> {
 
 #[derive(Deserialize)]
 struct JoinErrorResponse {
-    error: String
+    error: String,
 }
 
 #[derive(Deserialize)]
@@ -131,7 +130,12 @@ impl ControlPlaneClient {
         control_plane_tls_url: String,
         certifiedkey: CertifiedKey,
     ) -> Result<()> {
-        let url: Url = control_plane_tls_url.parse()?;
+        let mut url: Url = control_plane_tls_url.parse()?;
+        match url.scheme() {
+            "http" | "https" => Some("wss"),
+            _ => None,
+        }
+        .map(|new_scheme| url.set_scheme(new_scheme));
         self.control_plane_tls_url = Some(Arc::from(url));
         self.certifiedkey = Some(Arc::new(certifiedkey));
         Ok(())
@@ -158,8 +162,11 @@ impl ControlPlaneClient {
             status if status.is_success() => response.json::<JoinResponse>().await?,
             status => {
                 let error = response.json::<JoinErrorResponse>().await?;
-                Err(anyhow::anyhow!("failed to join control plane: {status}, error: {}", error.error))?
-            },
+                Err(anyhow::anyhow!(
+                    "failed to join control plane: {status}, error: {}",
+                    error.error
+                ))?
+            }
         };
         Ok(CertifiedKey {
             key,
@@ -201,7 +208,7 @@ impl ControlPlaneClient {
             {
                 tracing::error!("websocket error: {e}");
             }
-            tokio::time::sleep(Duration::from_secs(1)).await;
+            tokio::time::sleep(Duration::from_secs(3)).await;
             tx.send(Message::WebSocketClientDown { generation: gen })
                 .await
                 .ok();
@@ -250,13 +257,14 @@ async fn websocket_client(
             ))
             .with_client_auth_cert(vec![cert], key)?,
     ));
-    let (socket, _response) = tokio_tungstenite::connect_async_tls_with_config(
+    let (socket, response) = tokio_tungstenite::connect_async_tls_with_config(
         control_plane_url.as_str(),
         None,
         false,
         Some(connector),
     )
     .await?;
+    tracing::info!("response: {:?}", response);
     let (input, mut output) = socket.split();
     loop {
         tokio::select! {

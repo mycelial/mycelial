@@ -8,9 +8,9 @@ use anyhow::Result;
 use control_plane_client::ControlPlaneClientHandle;
 use daemon_storage::DaemonStorage;
 use pipe::scheduler::SchedulerHandle;
-use std::path::Path;
+use std::{path::Path, time::Duration};
 use storage::SqliteStorageHandle;
-use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver};
+use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, WeakUnboundedSender};
 
 #[derive(Debug)]
 pub struct Daemon {
@@ -19,10 +19,13 @@ pub struct Daemon {
     scheduler_handle: SchedulerHandle,
     control_plane_client_handle: ControlPlaneClientHandle,
     rx: UnboundedReceiver<DaemonMessage>,
+    weak_tx: WeakUnboundedSender<DaemonMessage>,
 }
 
 #[derive(Debug)]
-pub enum DaemonMessage {}
+pub enum DaemonMessage {
+    RetryControlPlaneClientInit,
+}
 
 #[derive(Debug)]
 pub struct CertifiedKey {
@@ -54,13 +57,18 @@ impl Daemon {
             scheduler_handle,
             control_plane_client_handle,
             rx,
+            weak_tx: tx.clone().downgrade(),
         })
     }
 
     pub async fn run(&mut self) -> Result<()> {
         self.init_control_plane_client().await?;
         while let Some(message) = self.rx.recv().await {
-            tracing::info!("got message: {message:?}");
+            match message {
+                DaemonMessage::RetryControlPlaneClientInit => {
+                    self.init_control_plane_client().await?;
+                }
+            }
         }
         Ok(())
     }
@@ -90,6 +98,15 @@ impl Daemon {
         Ok(())
     }
 
+    pub async fn reset(&mut self) -> Result<()> {
+        self.daemon_storage.reset_state().await?;
+        self.section_storage_handle
+            .reset_state()
+            .await
+            .map_err(|e| anyhow::anyhow!("failed to reset storage state: {e}"))?;
+        Ok(())
+    }
+
     pub async fn shutdown(&mut self) -> anyhow::Result<()> {
         self.scheduler_handle.shutdown().await.ok();
         self.section_storage_handle.shutdown().await.ok();
@@ -100,15 +117,25 @@ impl Daemon {
     async fn init_control_plane_client(&mut self) -> Result<()> {
         let tls_url = self.daemon_storage.get_tls_url().await?;
         let certifiedkey = self.daemon_storage.get_certified_key().await?;
-        match (tls_url, certifiedkey) {
-            (Some(tls_url), Some(certifiedkey)) => {
-                self.control_plane_client_handle
-                    .set_tls_url(tls_url, certifiedkey)
-                    .await?;
-            }
-            (None, _) => tracing::warn!("tls url is not set"),
-            (_, None) => tracing::warn!("certificate and key is absent"),
+        let success = match (tls_url, certifiedkey) {
+            (Some(tls_url), Some(certifiedkey)) => self
+                .control_plane_client_handle
+                .set_tls_url(tls_url, certifiedkey)
+                .await
+                .map_err(|e| tracing::error!("failed to set tls url: {e}"))
+                .is_ok(),
+            _ => false,
         };
+        if !success {
+            tracing::info!("connection details are not set, scheduling config check in 10 seconds");
+            let tx = self.weak_tx.clone().upgrade();
+            tokio::spawn(async move {
+                tokio::time::sleep(Duration::from_secs(10)).await;
+                if let Some(tx) = tx {
+                    tx.send(DaemonMessage::RetryControlPlaneClientInit).ok();
+                }
+            });
+        }
         Ok(())
     }
 }

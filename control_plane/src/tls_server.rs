@@ -15,7 +15,10 @@ use crate::app;
 
 /// Extends axum request
 #[derive(Debug, Clone)]
-pub struct PeerCommonName(pub Arc<str>);
+pub struct PeerInfo {
+    pub common_name: Arc<str>,
+    pub addr: SocketAddr,
+}
 
 pub async fn serve(
     listen_addr: SocketAddr,
@@ -72,7 +75,7 @@ pub async fn serve(
             };
 
             let (_, server_connection) = stream.get_ref();
-            let peer_common_name = match server_connection.peer_certificates() {
+            let common_name = match server_connection.peer_certificates() {
                 Some([cert, ..]) => match pki::extract_common_name(cert) {
                     Ok(name) => name,
                     Err(e) => {
@@ -86,7 +89,10 @@ pub async fn serve(
                 }
             };
 
-            let peer_common_name = PeerCommonName(Arc::from(peer_common_name));
+            let peer_common_name = PeerInfo {
+                common_name: Arc::from(common_name),
+                addr,
+            };
             let hyper_service =
                 hyper::service::service_fn(move |mut request: Request<Incoming>| {
                     request.extensions_mut().insert(peer_common_name.clone());
