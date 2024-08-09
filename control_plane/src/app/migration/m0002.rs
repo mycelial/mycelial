@@ -92,8 +92,8 @@ impl Daemons {
                     .primary_key()
                     .not_null(),
             )
-            .col(ColumnDef::new(Daemons::DisplayName).string())
-            .col(ColumnDef::new(Daemons::LastOnline).timestamp())
+            .col(ColumnDef::new(Daemons::DisplayName).string().null())
+            .col(ColumnDef::new(Daemons::LastOnline).timestamp().null())
             .build_any(schema_builder)
     }
 }

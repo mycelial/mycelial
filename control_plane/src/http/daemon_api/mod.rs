@@ -2,7 +2,7 @@ use std::{net::SocketAddr, sync::Arc, time::Duration};
 
 use axum::{
     extract::{
-        ws::{Message, WebSocket},
+        ws::WebSocket,
         State, WebSocketUpgrade,
     },
     middleware,
@@ -10,6 +10,8 @@ use axum::{
     routing::get,
     Extension, Router,
 };
+use chrono::Utc;
+use futures::StreamExt;
 
 use crate::{app::AppState, tls_server::PeerInfo};
 
@@ -24,16 +26,21 @@ async fn ws_handler(
 
 async fn handle_socket(
     app: AppState,
-    mut socket: WebSocket,
+    socket: WebSocket,
     addr: SocketAddr,
     common_name: Arc<str>,
 ) {
+    let (input, mut output) = socket.split();
     loop {
-        if socket.send(Message::Ping(vec![])).await.is_ok() {
-            tracing::info!("Pinged {common_name}...");
-        } else {
-            tracing::error!("Could not send ping {common_name}!");
-            return;
+        tokio::select! {
+            msg = output.next() => {
+                if msg.is_none() {
+                    if let Err(e) = app.daemon_set_last_seen(&common_name, Utc::now()).await {
+                        tracing::error!("failed to set last seen for {common_name}: {e}");
+                    }
+                    return;
+                }
+            }
         }
         tokio::time::sleep(Duration::from_secs(5)).await;
     }

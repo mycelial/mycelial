@@ -46,4 +46,5 @@ s3 = { path = "../pipe/section/section_impls/s3" }
 redshift_loader = { path = "../pipe/section/section_impls/redshift_loader" }
 inspect = { path = "../pipe/section/section_impls/inspect" }
 tokio-tungstenite = { version = "0.23.1", features = ["__rustls-tls", "connect", "rustls", "tokio-rustls"] }
+tungstenite = "0.23.0"
 #sqlite_physical_replication = { path = "../pipe/section/section_impls/sqlite_physical_replication/" }

@@ -34,8 +34,6 @@ async fn run_daemon_api(daemon_api_addr: &str, app: app::AppState) -> Result<()>
 
 pub async fn run(http_api_addr: &str, daemon_api_addr: &str, database_url: &str) -> Result<()> {
     let app = Arc::new(app::AppBuilder::new(database_url).await?.build().await?);
-    app.migrate().await?;
-
     futures::select! {
         res = run_http_api(http_api_addr, Arc::clone(&app)).fuse() => {
             tracing::error!("http api exited");

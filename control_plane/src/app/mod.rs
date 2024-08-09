@@ -168,6 +168,7 @@ pub struct AppBuilder {
 impl AppBuilder {
     pub async fn new(database_url: &str) -> Result<Self> {
         let db = db::new(database_url).await?;
+        db.migrate().await?;
         Ok(Self { db })
     }
 
@@ -244,10 +245,6 @@ pub(crate) struct CertificateBundle {
 impl App {
     pub fn certificate_bundle(&self) -> &CertificateBundle {
         &self.certificate_bundle
-    }
-
-    pub async fn migrate(&self) -> Result<()> {
-        self.db.migrate().await
     }
 
     // workspaces api
@@ -361,8 +358,10 @@ impl App {
         let certificate = pki::sign_csr(
             &self.certificate_bundle().ca_cert_key,
             join_request.csr.as_str(),
+            &join_request.id.to_string(),
         )
         .map_err(|e| anyhow::anyhow!("failed to sign certificate request: {e}"))?;
+        self.db.add_daemon(join_request.id).await?;
         Ok(DaemonJoinResponse {
             certificate: certificate.pem(),
             ca_certificate: self.certificate_bundle.ca_cert_key.cert.pem(),
@@ -371,5 +370,11 @@ impl App {
 
     pub async fn list_daemons(&self) -> Result<Vec<Daemon>> {
         unimplemented!()
+    }
+
+    pub async fn daemon_set_last_seen(&self, id: &str, timestamp: DateTime<Utc>) -> Result<()> {
+        let id: Uuid = id.parse()?;
+        self.db.daemon_set_last_seen(id, timestamp).await?;
+        Ok(())
     }
 }

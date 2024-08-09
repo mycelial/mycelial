@@ -72,8 +72,7 @@ pub fn generate_client_cert(ca: &CertifiedKey, name: &str) -> Result<CertifiedKe
 
 pub fn generate_csr_request(id: &str) -> Result<(KeyPair, CertificateSigningRequest)> {
     let key_pair = KeyPair::generate()?;
-    let mut params = CertificateParams::new(vec![id.to_string()])?;
-    params.distinguished_name.push(DnType::CommonName, id);
+    let params = CertificateParams::new(vec![id.to_string()])?;
     let csr = params.serialize_request(&key_pair)?;
     Ok((key_pair, csr))
 }
@@ -107,8 +106,13 @@ pub fn parse_private_key(keypair: &str) -> Result<PrivateKeyDer<'static>> {
     Ok(private_key(&mut Cursor::new(keypair))?.ok_or("no key found")?)
 }
 
-pub fn sign_csr(ca: &CertifiedKey, csr: &str) -> Result<Certificate> {
+pub fn sign_csr(ca: &CertifiedKey, csr: &str, id: &str) -> Result<Certificate> {
     let mut csr_params = rcgen::CertificateSigningRequestParams::from_pem(csr)?;
+    csr_params.params.distinguished_name = {
+        let mut name = DistinguishedName::new();
+        name.push(DnType::CommonName, id);
+        name
+    };
     csr_params
         .params
         .key_usages

@@ -607,4 +607,32 @@ where
             Ok(Some(token))
         })
     }
+
+    fn add_daemon(&self, id: Uuid) -> BoxFuture<'_, Result<()>> {
+        Box::pin(async move {
+            let (query, values) = Query::insert()
+                .columns([Daemons::Id])
+                .into_table(Daemons::Table)
+                .values_panic([id.into()])
+                .build_any_sqlx(&*self.query_builder);
+            sqlx::query_with(&query, values).execute(&self.pool).await?;
+            Ok(())
+        })
+    }
+
+    fn daemon_set_last_seen(
+        &self,
+        id: Uuid,
+        last_seen: DateTime<Utc>,
+    ) -> BoxFuture<'_, Result<()>> {
+        Box::pin(async move {
+            let (query, values) = Query::update()
+                .table(Daemons::Table)
+                .values([(Daemons::LastOnline, last_seen.into())])
+                .and_where(Expr::col(Daemons::Id).eq(id))
+                .build_any_sqlx(&*self.query_builder);
+            sqlx::query_with(&query, values).execute(&self.pool).await?;
+            Ok(())
+        })
+    }
 }

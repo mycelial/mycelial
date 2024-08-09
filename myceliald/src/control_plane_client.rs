@@ -3,7 +3,7 @@ use std::{sync::Arc, time::Duration};
 use anyhow::Result;
 use pki::ClientConfig;
 use reqwest::Url;
-use section::prelude::StreamExt;
+use section::prelude::{SinkExt, StreamExt};
 use serde::{Deserialize, Serialize};
 use sha2::Digest;
 use tokio::{
@@ -14,6 +14,7 @@ use tokio::{
     task::JoinHandle,
 };
 use tokio_tungstenite::Connector;
+use tungstenite::Message as WebsocketMessage;
 
 use crate::{CertifiedKey, DaemonMessage};
 
@@ -34,6 +35,9 @@ impl<'a> JoinRequest<'a> {
         Self { id, csr, hash }
     }
 }
+
+#[derive(Debug, Deserialize)]
+enum ControlPlaneMessage {}
 
 #[derive(Deserialize)]
 struct JoinErrorResponse {
@@ -257,20 +261,36 @@ async fn websocket_client(
             ))
             .with_client_auth_cert(vec![cert], key)?,
     ));
-    let (socket, response) = tokio_tungstenite::connect_async_tls_with_config(
+    let (socket, _response) = tokio_tungstenite::connect_async_tls_with_config(
         control_plane_url.as_str(),
         None,
         false,
         Some(connector),
     )
     .await?;
-    tracing::info!("response: {:?}", response);
-    let (input, mut output) = socket.split();
+    let (mut input, mut output) = socket.split();
+    let mut interval = tokio::time::interval(Duration::from_secs(30));
     loop {
         tokio::select! {
             msg = output.next() => {
-
+                let msg = match msg {
+                    None => Err(anyhow::anyhow!("connection closed"))?,
+                    Some(msg) => msg?,
+                };
+                let data = match msg {
+                    WebsocketMessage::Ping{ .. } => { continue },
+                    WebsocketMessage::Pong{ .. } => { continue },
+                    WebsocketMessage::Close{ .. } => Err(anyhow::anyhow!("connection closed"))?,
+                    WebsocketMessage::Binary{ .. } => Err(anyhow::anyhow!("unexpected binary message"))?,
+                    WebsocketMessage::Frame{ .. } => Err(anyhow::anyhow!("unexpected raw frame"))?,
+                    WebsocketMessage::Text(data) => serde_json::from_str::<ControlPlaneMessage>(&data),
+                };
             },
+            _ = interval.tick() => {
+                if let Err(e) = input.send(WebsocketMessage::Ping(vec![])).await {
+                    Err(anyhow::anyhow!("failed to ping control plane: {e}"))?;
+                }
+            }
         }
     }
 }
