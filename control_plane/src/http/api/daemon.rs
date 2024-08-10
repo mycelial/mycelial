@@ -2,7 +2,9 @@ use axum::extract::{Path, State};
 use axum::{http::StatusCode, Json};
 use serde_json::{json, Value};
 
-use crate::app::{AppErrorKind, AppState, DaemonJoinRequest, DaemonJoinResponse, DaemonToken};
+use crate::app::{
+    AppErrorKind, AppState, Daemon, DaemonJoinRequest, DaemonJoinResponse, DaemonToken,
+};
 use crate::http::Result;
 use crate::AppError;
 
@@ -47,4 +49,8 @@ pub async fn join(
             Json(json!({"error": "internal error"})),
         )),
     }
+}
+
+pub async fn list_daemons(State(app): State<AppState>) -> Result<Json<Vec<Daemon>>> {
+    app.list_daemons().await.map(Json)
 }

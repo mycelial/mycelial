@@ -1,134 +1,64 @@
-use crate::components::routing::Route;
+use std::{collections::BTreeMap, rc::Rc};
+
+use crate::components::{
+    app::{AppError, ControlPlaneClient, Daemon},
+    routing::Route,
+};
+use chrono::Timelike;
 use dioxus::prelude::*;
-use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
 #[derive(Debug)]
 struct DaemonsState {
-    daemons: Vec<Daemon>,
+    map: BTreeMap<Uuid, Rc<Daemon>>,
 }
 
 impl DaemonsState {
     fn new() -> Self {
         Self {
-            daemons: Vec::<Daemon>::new(),
+            map: BTreeMap::new(),
         }
     }
 
-    #[allow(clippy::too_many_arguments)]
-    fn add_daemon(
-        &mut self,
-        name: String,
-        id: String,
-        address: String,
-        active_sections: u64,
-        active_pipelines: u64,
-        // TODO use proper date for last_seen and created_at
-        last_seen: String,
-        created_at: String,
-        // TODO change to enum?
-        status: String,
-    ) {
-        // let id = self.get_id();
-        self.daemons.push(Daemon::new(
-            &name,
-            &id,
-            &address,
-            active_sections,
-            active_pipelines,
-            &last_seen,
-            &created_at,
-            &status,
-        ));
+    fn add_daemon(&mut self, mut daemon: Daemon) {
+        // strip nanoseconds, unwrap is safe since '0' will not overflow second;
+        daemon
+            .last_seen
+            .as_mut()
+            .map(|time| *time = time.with_nanosecond(0).unwrap());
+        daemon
+            .joined_at
+            .as_mut()
+            .map(|time| *time = time.with_nanosecond(0).unwrap());
+        self.map.insert(daemon.id, Rc::new(daemon));
     }
 
-    fn remove_daemon(&mut self, id: &str) {
-        // delete the daemon in self.daemons where the id matches the id in params
-        self.daemons.retain(|daemon| daemon.id != id);
+    fn remove_daemon(&mut self, id: Uuid) {
+        self.map.remove(&id);
     }
 
     // Function to check if there are any daemons
     fn has_daemons(&self) -> bool {
-        !self.daemons.is_empty()
+        !self.map.is_empty()
     }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct Daemon {
-    name: String,
-    id: String,
-    address: String,
-    active_sections: u64,
-    active_pipelines: u64,
-    // TODO use proper date for last_seen and created_at
-    last_seen: String,
-    created_at: String,
-    status: String,
-}
-
-impl Daemon {
-    #[allow(clippy::too_many_arguments)]
-    fn new(
-        name: &str,
-        id: &str,
-        address: &str,
-        active_sections: u64,
-        active_pipelines: u64,
-        last_seen: &str,
-        created_at: &str,
-        status: &str,
-    ) -> Self {
-        Self {
-            name: name.into(),
-            id: id.into(),
-            address: address.into(),
-            active_sections,
-            active_pipelines,
-            last_seen: last_seen.into(),
-            created_at: created_at.into(),
-            status: status.into(),
-        }
-    }
-}
-
-fn get_daemons_state() -> DaemonsState {
-    let mut state = DaemonsState::new();
-    state.add_daemon(
-        "GCP Daemon".to_string(),
-        "ID-1000001".to_string(),
-        "101.74.17.73".to_string(),
-        3,
-        4,
-        "2024-04-12 12:12:12".to_string(),
-        "2024-05-16 08:34:44".to_string(),
-        "HEALTHY".to_string(),
-    );
-    state.add_daemon(
-        "Azure Daemon".to_string(),
-        "ID-1000002".to_string(),
-        "101.74.17.73".to_string(),
-        3,
-        4,
-        "2024-04-12 12:12:12".to_string(),
-        "2024-05-16 08:34:44".to_string(),
-        "PROVISIONING".to_string(),
-    );
-    state.add_daemon(
-        "Edge Compute Daemon".to_string(),
-        "ID-1000003".to_string(),
-        "101.74.17.73".to_string(),
-        3,
-        4,
-        "2024-04-12 12:12:12".to_string(),
-        "2024-05-16 08:34:44".to_string(),
-        "DEGRADED".to_string(),
-    );
-    state
 }
 
 #[component]
 pub fn Daemons() -> Element {
-    let mut daemon_state = use_signal(get_daemons_state);
-    let state_ref = &*daemon_state.read();
+    let control_plane_client = use_context::<ControlPlaneClient>();
+    let mut daemons_state = use_signal(DaemonsState::new);
+    let _state_fetcher: Resource<Result<(), AppError>> = use_resource(move || async move {
+        let daemons = control_plane_client.get_daemons().await.map_err(|e| {
+            tracing::error!("failed to fetch daemons: {e}");
+            e
+        })?;
+        let state = &mut *daemons_state.write();
+        daemons
+            .into_iter()
+            .for_each(|daemon| state.add_daemon(daemon));
+        Ok(())
+    });
+    let state_ref = &*daemons_state.read();
     rsx! {
         div {
             class: "container mx-auto grid grid-cols-2",
@@ -161,44 +91,50 @@ pub fn Daemons() -> Element {
                         thead {
                             tr {
                                 class: "border-b border-solid p-4 font-bold bg-night-1/25",
-                                th { class: "pl-3", "Name" },
-                                th { class: "text-right pl-3", "ID" },
-                                th { class: "text-right pl-3", "Address" },
-                                th { class: "text-right pl-3", "Active Sections" },
-                                th { class: "text-right pl-3", "Active Pipelines" },
-                                th { class: "text-right pl-3", "Last Seen" },
-                                th { class: "text-right px-3", "Created At" },
-                                th { class: "text-right px-3", "Status" },
-                                th {},
+                                th { class: "pl-3 w-1/6", "Id" },
+                                th { class: "text-right pl-3 w-1/12", "Name" },
+                                th { class: "text-right pl-3 w-1/12", "Address" },
+                                th { class: "text-right pl-3 w-1/12", "Last Seen" },
+                                th { class: "text-right px-3 w-1/12", "Created At" },
+                                th { class: "text-right px-3 w-1/12", "Status" },
+                                th { class: "w-1/12" },
                             }
                         }
-                        for daemon in state_ref.daemons.iter().map(Clone::clone) {
+                        for daemon in state_ref.map.values().map(Rc::clone) {
                             tr {
                                 class: "border-b border-gray-100",
-                                td {
-                                    class: "px-1",
+                                td { class: "text-right px-1",
                                     Link {
                                         class: "block py-3 pl-3 hover:underline",
-                                        to: Route::Daemon { daemon: daemon.id.clone() },
-                                        children: rsx! { "{daemon.name}" }
+                                        to: Route::Daemon { daemon: daemon.id.to_string() },
+                                        children: rsx! { "{daemon.id}" }
                                     }
                                 }
-                                td { class: "text-right px-1", "{daemon.id}" }
-                                td { class: "text-right px-1", "{daemon.address}" }
-                                td { class: "text-right px-1", "{daemon.active_sections}" }
-                                td { class: "text-right px-1", "{daemon.active_pipelines}" }
-                                td { class: "text-right px-1", "{daemon.last_seen}" }
-                                td { class: "text-right px-1", "{daemon.created_at}" }
-                                match daemon.status.as_str() {
-                                    "HEALTHY" => rsx! { td { class: "text-right px-1 text-forest-2", "{daemon.status}" } },
-                                    "PROVISIONING" =>  rsx! { td { class: "text-right px-1 text-forest-1", "{daemon.status}" } },
-                                    _ => rsx! { td { class: "text-right px-1 text-toadstool-1", "{daemon.status}" } },
+                                td { class: "px-1", "{daemon.name}" }
+                                match daemon.address {
+                                    Some(ref address) => rsx!{ td { class: "text-right px-1", "{address}" } },
+                                    None => rsx!{ td { class: "text-right px-1", "" } },
                                 }
+                                match daemon.last_seen {
+                                    Some(last_seen) => rsx! { td { class: "text-right px-1", "{last_seen}" } },
+                                    None => rsx! { td { class: "text-right px-1", "" } }
+                                }
+                                match daemon.joined_at  {
+                                    Some(joined_at) => rsx!{ td { class: "text-right px-1", "{joined_at}" } },
+                                    None => rsx!{ td { class: "text-right px-1", "" } },
+                                }
+                                td { class: "text-right px-1 text-forest-2", "{daemon.status}" },
                                 td {
                                     class: "text-right px-1",
                                     button {
                                         onclick: move |_| {
-                                            daemon_state.write().remove_daemon(&daemon.id);
+                                            let daemon = Rc::clone(&daemon);
+                                            async move {
+                                                match control_plane_client.remove_daemon(daemon.id).await  {
+                                                    Ok(()) => daemons_state.write().remove_daemon(daemon.id),
+                                                    Err(e) => tracing::error!("failed to remove daemon: {e}"),
+                                                };
+                                            }
                                         },
                                         class: "text-toadstool-1 border border-toadstool-1 px-4 py-1 my-1 mx-3 rounded bg-white hover:text-white hover:bg-toadstool-2",
                                         "DELETE"

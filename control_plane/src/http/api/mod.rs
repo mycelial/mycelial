@@ -22,11 +22,14 @@ pub fn new(app: crate::app::AppState) -> Router {
         .route("/api/workspace/:name", get(workspace::read))
         // daemon join api
         .route("/api/daemon/join", post(daemon::join))
+        // daemon tokens api
         .route(
             "/api/daemon/tokens",
             post(daemon::create_token).get(daemon::list_tokens),
         )
         .route("/api/daemon/tokens/:id", delete(daemon::delete_token))
+        // daemons api
+        .route("/api/daemon", get(daemon::list_daemons))
         // assets
         .fallback(assets::assets)
         .layer(middleware::from_fn(crate::http::log_middleware))

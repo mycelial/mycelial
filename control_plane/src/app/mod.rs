@@ -8,7 +8,11 @@ use config_registry::{self, ConfigRegistry};
 use pki::{CertificateDer, CertifiedKey, KeyPair};
 use serde::{Deserialize, Serialize};
 use sha2::Digest;
-use std::sync::Arc;
+use std::{collections::BTreeMap, sync::Arc};
+use tokio::sync::{
+    mpsc::{channel, Receiver, Sender},
+    oneshot::{channel as oneshot_channel, Sender as OneshotSender},
+};
 use uuid::Uuid;
 
 pub type Result<T, E = AppError> = std::result::Result<T, E>;
@@ -55,6 +59,13 @@ impl AppError {
         Self {
             kind: AppErrorKind::JoinRequestHashMissmatch,
             err: anyhow::anyhow!("join request hash missmatch for token id {id}"),
+        }
+    }
+
+    pub fn internal(desc: &'static str) -> Self {
+        Self {
+            kind: AppErrorKind::Internal,
+            err: anyhow::anyhow!(desc),
         }
     }
 }
@@ -134,13 +145,6 @@ pub enum WorkspaceOperation {
 }
 
 #[derive(Debug, Serialize)]
-pub struct Daemon {
-    pub id: uuid::Uuid,
-    pub display_name: String,
-    pub last_online: String,
-}
-
-#[derive(Debug, Serialize)]
 pub struct DaemonToken {
     pub id: uuid::Uuid,
     pub secret: String,
@@ -161,6 +165,110 @@ pub struct DaemonJoinResponse {
     ca_certificate: String,
 }
 
+#[derive(Debug, Serialize)]
+pub struct Daemon {
+    pub id: Uuid,
+    pub name: String,
+    pub address: Option<String>,
+    pub last_seen: Option<DateTime<Utc>>,
+    pub joined_at: Option<DateTime<Utc>>,
+    pub status: DaemonStatus,
+}
+
+#[derive(Debug, Serialize)]
+pub enum DaemonStatus {
+    Offline,
+    Online,
+}
+
+impl Default for DaemonStatus {
+    fn default() -> Self {
+        Self::Offline
+    }
+}
+
+/// App actor
+///
+/// Collects various metadata
+//FIXME: better name
+struct AppActor {}
+
+impl AppActor {
+    fn spawn() -> AppActorHandle {
+        let (tx, rx) = channel(8);
+        tokio::spawn(async move {
+            let app = AppActor {};
+            if let Err(e) = app.enter_loop(rx).await {
+                tracing::error!("app actor is down: {e}");
+            }
+        });
+        AppActorHandle { tx }
+    }
+
+    async fn enter_loop(&self, mut rx: Receiver<AppActorMessage>) -> Result<()> {
+        let mut daemons = std::collections::HashSet::new();
+        while let Some(message) = rx.recv().await {
+            match message {
+                AppActorMessage::DaemonConnected { id, reply_to } => {
+                    tracing::info!("daemon connected: {id}");
+                    daemons.insert(id);
+                    reply_to.send(()).ok();
+                }
+                AppActorMessage::DaemonDisconnected { id, reply_to } => {
+                    tracing::info!("daemon disconnected: {id}");
+                    daemons.remove(&id);
+                    reply_to.send(()).ok();
+                }
+                AppActorMessage::ListDaemons { reply_to } => {
+                    reply_to.send(daemons.iter().copied().collect()).ok();
+                }
+            }
+        }
+        Err(anyhow::anyhow!("channel closed"))?
+    }
+}
+
+enum AppActorMessage {
+    DaemonConnected {
+        id: Uuid,
+        reply_to: OneshotSender<()>,
+    },
+    DaemonDisconnected {
+        id: Uuid,
+        reply_to: OneshotSender<()>,
+    },
+    ListDaemons {
+        reply_to: OneshotSender<Vec<Uuid>>,
+    },
+}
+
+struct AppActorHandle {
+    tx: Sender<AppActorMessage>,
+}
+
+impl AppActorHandle {
+    async fn daemon_connected(&self, id: Uuid) -> Result<()> {
+        let (reply_to, rx) = oneshot_channel();
+        let message = AppActorMessage::DaemonConnected { id, reply_to };
+        self.tx.send(message).await?;
+        Ok(rx.await?)
+    }
+
+    async fn daemon_disconnected(&self, id: Uuid) -> Result<()> {
+        let (reply_to, rx) = oneshot_channel();
+        let message = AppActorMessage::DaemonDisconnected { id, reply_to };
+        self.tx.send(message).await?;
+        Ok(rx.await?)
+    }
+
+    async fn list_daemons(&self) -> Result<Vec<Uuid>> {
+        let (reply_to, rx) = oneshot_channel();
+        let message = AppActorMessage::ListDaemons { reply_to };
+        self.tx.send(message).await?;
+        Ok(rx.await?)
+    }
+}
+
 pub struct AppBuilder {
     db: Box<dyn db::DbTrait>,
 }
@@ -179,6 +287,7 @@ impl AppBuilder {
             config_registry: config_registry::new()
                 .map_err(|e| anyhow::anyhow!("failed to build config registry: {e}"))?,
             certificate_bundle,
+            actor: AppActor::spawn(),
         })
     }
 
@@ -234,6 +343,7 @@ pub(crate) struct App {
     db: Box<dyn db::DbTrait>,
     config_registry: ConfigRegistry,
     certificate_bundle: CertificateBundle,
+    actor: AppActorHandle,
 }
 
 pub(crate) struct CertificateBundle {
@@ -369,12 +479,35 @@ impl App {
     }
 
     pub async fn list_daemons(&self) -> Result<Vec<Daemon>> {
-        unimplemented!()
+        let mut stored_daemons = BTreeMap::from_iter(
+            self.db
+                .list_daemons()
+                .await?
+                .into_iter()
+                .map(|daemon| (daemon.id, daemon)),
+        );
+        self.get_online_daemons().await?.into_iter().for_each(|id| {
+            if let Some(daemon) = stored_daemons.get_mut(&id) {
+                daemon.status = DaemonStatus::Online;
+            }
+        });
+        Ok(stored_daemons.into_values().collect())
     }
 
-    pub async fn daemon_set_last_seen(&self, id: &str, timestamp: DateTime<Utc>) -> Result<()> {
-        let id: Uuid = id.parse()?;
+    pub async fn daemon_set_last_seen(&self, id: Uuid, timestamp: DateTime<Utc>) -> Result<()> {
         self.db.daemon_set_last_seen(id, timestamp).await?;
         Ok(())
+    }
+
+    pub async fn get_online_daemons(&self) -> Result<Vec<Uuid>> {
+        self.actor.list_daemons().await
+    }
+
+    pub async fn daemon_connected(&self, id: Uuid) -> Result<()> {
+        self.actor.daemon_connected(id).await
+    }
+
+    pub async fn daemon_disconnected(&self, id: Uuid) -> Result<()> {
+        self.actor.daemon_disconnected(id).await
     }
 }

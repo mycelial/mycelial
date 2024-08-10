@@ -1,10 +1,7 @@
-use std::{net::SocketAddr, sync::Arc, time::Duration};
+use std::{net::SocketAddr, sync::Arc};
 
 use axum::{
-    extract::{
-        ws::WebSocket,
-        State, WebSocketUpgrade,
-    },
+    extract::{ws::WebSocket, State, WebSocketUpgrade},
     middleware,
     response::IntoResponse,
     routing::get,
@@ -12,37 +9,68 @@ use axum::{
 };
 use chrono::Utc;
 use futures::StreamExt;
+use uuid::Uuid;
 
-use crate::{app::AppState, tls_server::PeerInfo};
+use crate::{app::AppState, tls_server::PeerInfo, Result};
 
 async fn ws_handler(
     State(app): State<AppState>,
     ws: WebSocketUpgrade,
     Extension(PeerInfo { common_name, addr }): Extension<PeerInfo>,
-) -> impl IntoResponse {
-    tracing::info!("`{common_name}` from {addr} connected.");
-    ws.on_upgrade(move |socket| handle_socket(app, socket, addr, common_name))
+) -> Result<impl IntoResponse> {
+    let common_name: Uuid = common_name.parse()?;
+    Ok(ws.on_upgrade(move |socket| async move {
+        handle_socket(app, socket, addr, common_name).await.ok();
+    }))
+}
+
+struct Guard {
+    app: AppState,
+    id: Uuid,
+}
+
+impl Guard {
+    async fn new(app: AppState, id: Uuid) -> Result<Self> {
+        app.daemon_connected(id).await?;
+        Ok(Self { app, id })
+    }
+}
+
+impl Drop for Guard {
+    fn drop(&mut self) {
+        let id = self.id;
+        let app = Arc::clone(&self.app);
+        tokio::spawn(async move {
+            tracing::info!("inside drop");
+            app.daemon_disconnected(id).await.ok();
+        });
+    }
 }
 
 async fn handle_socket(
     app: AppState,
     socket: WebSocket,
     addr: SocketAddr,
-    common_name: Arc<str>,
-) {
+    daemon_id: Uuid,
+) -> Result<()> {
+    tracing::info!("daemon with id {daemon_id} connected");
+    let _guard = Guard::new(Arc::clone(&app), daemon_id).await?;
     let (input, mut output) = socket.split();
     loop {
         tokio::select! {
             msg = output.next() => {
-                if msg.is_none() {
-                    if let Err(e) = app.daemon_set_last_seen(&common_name, Utc::now()).await {
-                        tracing::error!("failed to set last seen for {common_name}: {e}");
-                    }
-                    return;
-                }
+                let _msg = match msg {
+                    None => {
+                        tracing::info!("daemon with id {daemon_id} disconnected");
+                        if let Err(e) = app.daemon_set_last_seen(daemon_id, Utc::now()).await {
+                            tracing::error!("failed to set last seen for {daemon_id}: {e}");
+                        }
+                        return Ok(());
+                    },
+                    Some(msg) => msg,
+                };
             }
         }
-        tokio::time::sleep(Duration::from_secs(5)).await;
     }
 }
 

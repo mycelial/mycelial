@@ -128,7 +128,6 @@ impl PartialEq for ControlPlaneClient {
     }
 }
 
-#[allow(clippy::new_without_default)]
 impl ControlPlaneClient {
     pub fn new(coroutine_handle: Coroutine<WorkspaceUpdate>) -> Self {
         Self { coroutine_handle }
@@ -272,6 +271,28 @@ pub struct Token {
     pub used_at: Option<DateTime<Utc>>,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct Daemon {
+    pub id: Uuid,
+    pub name: String,
+    pub address: Option<String>,
+    pub last_seen: Option<DateTime<Utc>>,
+    pub joined_at: Option<DateTime<Utc>>,
+    pub status: DaemonStatus,
+}
+
+#[derive(Debug, Deserialize, Clone, Copy)]
+pub enum DaemonStatus {
+    Online,
+    Offline,
+}
+
+impl Display for DaemonStatus {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{self:?}")
+    }
+}
+
 impl ControlPlaneClient {
     pub async fn get_tokens(&self) -> Result<Vec<Token>> {
         let response = reqwest::get(get_url(&[DAEMON_API, "tokens"])?).await?;
@@ -299,6 +320,29 @@ impl ControlPlaneClient {
             .await?;
         match response.status() {
             status_code if status_code.is_success() => Ok(()),
+            status_code => Err(AppError::from_status_code(status_code)),
+        }
+    }
+
+    pub async fn get_daemons(&self) -> Result<Vec<Daemon>> {
+        let response = reqwest::Client::new()
+            .get(get_url(&[DAEMON_API])?)
+            .send()
+            .await?;
+        match response.status() {
+            status_code if status_code.is_success() => Ok(response.json().await?),
+            status_code => Err(AppError::from_status_code(status_code)),
+        }
+    }
+
+    pub async fn remove_daemon(&self, id: Uuid) -> Result<()> {
+        let id: String = id.to_string();
+        let response = reqwest::Client::new()
+            .delete(get_url(&[DAEMON_API, "daemons", id.as_str()])?)
+            .send()
+            .await?;
+        match response.status() {
+            status_code if status_code.is_success() => Ok(response.json().await?),
             status_code => Err(AppError::from_status_code(status_code)),
         }
     }

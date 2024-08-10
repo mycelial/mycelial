@@ -79,7 +79,9 @@ enum Daemons {
     Table,
     Id,
     DisplayName,
+    Address,
     LastOnline,
+    JoinedAt,
 }
 
 impl Daemons {
@@ -93,7 +95,9 @@ impl Daemons {
                     .not_null(),
             )
             .col(ColumnDef::new(Daemons::DisplayName).string().null())
+            .col(ColumnDef::new(Daemons::Address).string().null())
             .col(ColumnDef::new(Daemons::LastOnline).timestamp().null())
+            .col(ColumnDef::new(Daemons::JoinedAt).timestamp())
             .build_any(schema_builder)
     }
 }

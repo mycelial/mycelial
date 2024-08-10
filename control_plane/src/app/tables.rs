@@ -113,7 +113,9 @@ pub enum Daemons {
     Table,
     Id,
     DisplayName,
+    Address,
     LastOnline,
+    JoinedAt,
 }
 
 #[derive(Iden)]

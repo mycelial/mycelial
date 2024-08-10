@@ -25,7 +25,9 @@ use sqlx::{
 };
 use uuid::Uuid;
 
-use super::{DaemonToken, Edge, Graph, Node, Workspace, WorkspaceOperation, WorkspaceUpdate};
+use super::{
+    Daemon, DaemonToken, Edge, Graph, Node, Workspace, WorkspaceOperation, WorkspaceUpdate,
+};
 
 // FIXME: pool options and configurable pool size
 pub async fn new(database_url: &str) -> Result<Box<dyn DbTrait>> {
@@ -611,9 +613,9 @@ where
     fn add_daemon(&self, id: Uuid) -> BoxFuture<'_, Result<()>> {
         Box::pin(async move {
             let (query, values) = Query::insert()
-                .columns([Daemons::Id])
+                .columns([Daemons::Id, Daemons::JoinedAt])
                 .into_table(Daemons::Table)
-                .values_panic([id.into()])
+                .values_panic([id.into(), Expr::current_timestamp().into()])
                 .build_any_sqlx(&*self.query_builder);
             sqlx::query_with(&query, values).execute(&self.pool).await?;
             Ok(())
@@ -633,6 +635,35 @@ where
                 .build_any_sqlx(&*self.query_builder);
             sqlx::query_with(&query, values).execute(&self.pool).await?;
             Ok(())
+        })
+    }
+
+    fn list_daemons(&self) -> BoxFuture<'_, Result<Vec<Daemon>>> {
+        Box::pin(async move {
+            let (query, values) = Query::select()
+                .columns([
+                    Daemons::Id,
+                    Daemons::DisplayName,
+                    Daemons::Address,
+                    Daemons::LastOnline,
+                    Daemons::JoinedAt,
+                ])
+                .from(Daemons::Table)
+                .build_any_sqlx(&*self.query_builder);
+            let daemons = sqlx::query_with(&query, values)
+                .fetch_all(&self.pool)
+                .await?
+                .into_iter()
+                .map(|row| Daemon {
+                    id: row.get(0),
+                    name: row.get(1),
+                    address: row.get(2),
+                    last_seen: row.get(3),
+                    joined_at: row.get(4),
+                    status: Default::default(),
+                })
+                .collect();
+            Ok(daemons)
         })
     }
 }
