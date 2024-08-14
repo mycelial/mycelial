@@ -9,7 +9,7 @@ fn main() {
         .set_max_level(tracing::Level::DEBUG)
         .build();
     let filter = EnvFilter::builder()
-        .parse("dioxus_core=error,info")
+        .parse("dioxus_core=error,dioxus_web=error,dioxus_signals=error,info")
         .expect("failed to parse filter directive");
     let layer = tracing_wasm::WASMLayer::new(layer_config);
     let reg = Registry::default().with(layer).with(filter);

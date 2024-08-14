@@ -24,24 +24,23 @@ async fn ws_handler(
     }))
 }
 
-struct Guard {
+struct DaemonTrackingGuard {
     app: AppState,
     id: Uuid,
 }
 
-impl Guard {
+impl DaemonTrackingGuard {
     async fn new(app: AppState, id: Uuid) -> Result<Self> {
         app.daemon_connected(id).await?;
         Ok(Self { app, id })
     }
 }
 
-impl Drop for Guard {
+impl Drop for DaemonTrackingGuard {
     fn drop(&mut self) {
         let id = self.id;
         let app = Arc::clone(&self.app);
         tokio::spawn(async move {
-            tracing::info!("inside drop");
             app.daemon_disconnected(id).await.ok();
         });
     }
@@ -53,15 +52,13 @@ async fn handle_socket(
     addr: SocketAddr,
     daemon_id: Uuid,
 ) -> Result<()> {
-    tracing::info!("daemon with id {daemon_id} connected");
-    let _guard = Guard::new(Arc::clone(&app), daemon_id).await?;
+    let _guard = DaemonTrackingGuard::new(Arc::clone(&app), daemon_id).await?;
     let (input, mut output) = socket.split();
     loop {
         tokio::select! {
             msg = output.next() => {
                 let _msg = match msg {
                     None => {
-                        tracing::info!("daemon with id {daemon_id} disconnected");
                         if let Err(e) = app.daemon_set_last_seen(daemon_id, Utc::now()).await {
                             tracing::error!("failed to set last seen for {daemon_id}: {e}");
                         }

@@ -2805,6 +2805,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "graph"
+version = "0.9.0"
+dependencies = [
+ "quickcheck",
+]
+
+[[package]]
 name = "group"
 version = "0.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6532,6 +6539,7 @@ dependencies = [
  "dioxus-logger",
  "futures",
  "gloo-timers 0.3.0",
+ "graph",
  "quickcheck",
  "reqwest 0.12.5",
  "serde",

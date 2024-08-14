@@ -153,31 +153,32 @@ pub fn Workspaces() -> Element {
                         tr {
                             class: "border-b border-solid p-4 font-bold bg-night-1/25",
                             th {
-                                class: "pl-3 w-1/3",
+                                class: "pl-3 w-1/2",
                                 "Name"
                             },
                             th {
-                                class: "pl-3 text-right w-1/3",
+                                class: "pl-3 w-1/3",
                                 "Created At"
                             }
-                            th { }
+                            th { class: "w-1/6" }
                         }
                         for (&id, workspace) in workspaces_state.read().workspaces.iter() {
                             tr {
                                 class: "border-b border-gray-100",
                                 td {
+                                    class: "pl-3 w-1/2",
                                     Link{
-                                        class: "block py-3 pl-3",
+                                        class: "block hover:underline",
                                         to: Route::Workspace { workspace: workspace.name.clone() },
                                         children: rsx! { "{workspace.name}" }
                                     }
                                 }
                                 td {
-                                    class: "py-3 pl-3 text-right",
+                                    class: "pl-3 w-1/3",
                                     "{workspace.created_at}"
                                 }
                                 td {
-                                    class: "text-right py-3 pl-3",
+                                    class: "w-1/6 text-right",
                                     button {
                                         onclick: move |_| async move {
                                             let name = match workspaces_state.write().get_workspace(id) {

@@ -1,0 +1,9 @@
+[package]
+name = "graph"
+edition = "2021"
+version.workspace = true
+
+[dependencies]
+
+[dev-dependencies]
+quickcheck = "1.0.3"

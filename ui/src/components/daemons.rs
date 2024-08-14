@@ -8,6 +8,8 @@ use chrono::Timelike;
 use dioxus::prelude::*;
 use uuid::Uuid;
 
+use super::app::DaemonStatus;
+
 #[derive(Debug)]
 struct DaemonsState {
     map: BTreeMap<Uuid, Rc<Daemon>>,
@@ -26,10 +28,7 @@ impl DaemonsState {
             .last_seen
             .as_mut()
             .map(|time| *time = time.with_nanosecond(0).unwrap());
-        daemon
-            .joined_at
-            .as_mut()
-            .map(|time| *time = time.with_nanosecond(0).unwrap());
+        daemon.joined_at = daemon.joined_at.with_nanosecond(0).unwrap();
         self.map.insert(daemon.id, Rc::new(daemon));
     }
 
@@ -41,6 +40,24 @@ impl DaemonsState {
     fn has_daemons(&self) -> bool {
         !self.map.is_empty()
     }
+}
+
+pub fn render(
+    daemon: &Rc<Daemon>,
+) -> (Rc<Daemon>, String, &str, &str, String, String, DaemonStatus) {
+    (
+        Rc::clone(daemon),
+        daemon.id.to_string(),
+        daemon.name.as_str(),
+        daemon.address.as_deref().unwrap_or(""),
+        daemon
+            .last_seen
+            .as_ref()
+            .map(|s| s.to_string())
+            .unwrap_or_default(),
+        daemon.joined_at.to_string(),
+        daemon.status,
+    )
 }
 
 #[component]
@@ -92,40 +109,32 @@ pub fn Daemons() -> Element {
                             tr {
                                 class: "border-b border-solid p-4 font-bold bg-night-1/25",
                                 th { class: "pl-3 w-1/6", "Id" },
-                                th { class: "text-right pl-3 w-1/12", "Name" },
-                                th { class: "text-right pl-3 w-1/12", "Address" },
-                                th { class: "text-right pl-3 w-1/12", "Last Seen" },
-                                th { class: "text-right px-3 w-1/12", "Created At" },
-                                th { class: "text-right px-3 w-1/12", "Status" },
-                                th { class: "w-1/12" },
+                                th { class: "pl-3 w-1/12", "Name" },
+                                th { class: "pl-3 w-1/12", "Address" },
+                                th { class: "pl-3 w-1/12", "Last Seen" },
+                                th { class: "pl-3 w-1/12", "Created At" },
+                                th { class: "pl-3 w-1/12", "Status" },
+                                th { class: "pl-3 w-1/12" },
                             }
                         }
-                        for daemon in state_ref.map.values().map(Rc::clone) {
+                        for (daemon, id, name, address, last_seen, joined_at, status) in state_ref.map.values().map(render) {
                             tr {
                                 class: "border-b border-gray-100",
-                                td { class: "text-right px-1",
+                                td {
+                                    class: "pl-3",
                                     Link {
-                                        class: "block py-3 pl-3 hover:underline",
-                                        to: Route::Daemon { daemon: daemon.id.to_string() },
+                                        class: "block hover:underline",
+                                        to: Route::Daemon { daemon: id },
                                         children: rsx! { "{daemon.id}" }
                                     }
                                 }
-                                td { class: "px-1", "{daemon.name}" }
-                                match daemon.address {
-                                    Some(ref address) => rsx!{ td { class: "text-right px-1", "{address}" } },
-                                    None => rsx!{ td { class: "text-right px-1", "" } },
-                                }
-                                match daemon.last_seen {
-                                    Some(last_seen) => rsx! { td { class: "text-right px-1", "{last_seen}" } },
-                                    None => rsx! { td { class: "text-right px-1", "" } }
-                                }
-                                match daemon.joined_at  {
-                                    Some(joined_at) => rsx!{ td { class: "text-right px-1", "{joined_at}" } },
-                                    None => rsx!{ td { class: "text-right px-1", "" } },
-                                }
-                                td { class: "text-right px-1 text-forest-2", "{daemon.status}" },
+                                td { class: "pl-3", "{name}" }
+                                td { class: "pl-3", "{address}" }
+                                td { class: "pl-3", "{last_seen}" }
+                                td { class: "pl-3", "{joined_at}" }
+                                td { class: "pl-3", "{status}" }
                                 td {
-                                    class: "text-right px-1",
+                                    class: "pl-3 text-right",
                                     button {
                                         onclick: move |_| {
                                             let daemon = Rc::clone(&daemon);

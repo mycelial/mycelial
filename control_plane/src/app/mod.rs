@@ -1,4 +1,6 @@
+mod daemon_tracker;
 pub mod db;
+mod graph_manager;
 pub mod migration;
 pub mod tables;
 
@@ -9,10 +11,6 @@ use pki::{CertificateDer, CertifiedKey, KeyPair};
 use serde::{Deserialize, Serialize};
 use sha2::Digest;
 use std::{collections::BTreeMap, sync::Arc};
-use tokio::sync::{
-    mpsc::{channel, Receiver, Sender},
-    oneshot::{channel as oneshot_channel, Sender as OneshotSender},
-};
 use uuid::Uuid;
 
 pub type Result<T, E = AppError> = std::result::Result<T, E>;
@@ -187,88 +185,6 @@ impl Default for DaemonStatus {
     }
 }
 
-/// App actor
-///
-/// Collects various metadata
-//FIXME: better name
-struct AppActor {}
-
-impl AppActor {
-    fn spawn() -> AppActorHandle {
-        let (tx, rx) = channel(8);
-        tokio::spawn(async move {
-            let app = AppActor {};
-            if let Err(e) = app.enter_loop(rx).await {
-                tracing::error!("app actor is down: {e}");
-            }
-        });
-        AppActorHandle { tx }
-    }
-
-    async fn enter_loop(&self, mut rx: Receiver<AppActorMessage>) -> Result<()> {
-        let mut daemons = std::collections::HashSet::new();
-        while let Some(message) = rx.recv().await {
-            match message {
-                AppActorMessage::DaemonConnected { id, reply_to } => {
-                    tracing::info!("daemon connected: {id}");
-                    daemons.insert(id);
-                    reply_to.send(()).ok();
-                }
-                AppActorMessage::DaemonDisconnected { id, reply_to } => {
-                    tracing::info!("daemon disconnected: {id}");
-                    daemons.remove(&id);
-                    reply_to.send(()).ok();
-                }
-                AppActorMessage::ListDaemons { reply_to } => {
-                    reply_to.send(daemons.iter().copied().collect()).ok();
-                }
-            }
-        }
-        Err(anyhow::anyhow!("channel closed"))?
-    }
-}
-
-enum AppActorMessage {
-    DaemonConnected {
-        id: Uuid,
-        reply_to: OneshotSender<()>,
-    },
-    DaemonDisconnected {
-        id: Uuid,
-        reply_to: OneshotSender<()>,
-    },
-    ListDaemons {
-        reply_to: OneshotSender<Vec<Uuid>>,
-    },
-}
-
-struct AppActorHandle {
-    tx: Sender<AppActorMessage>,
-}
-
-impl AppActorHandle {
-    async fn daemon_connected(&self, id: Uuid) -> Result<()> {
-        let (reply_to, rx) = oneshot_channel();
-        let message = AppActorMessage::DaemonConnected { id, reply_to };
-        self.tx.send(message).await?;
-        Ok(rx.await?)
-    }
-
-    async fn daemon_disconnected(&self, id: Uuid) -> Result<()> {
-        let (reply_to, rx) = oneshot_channel();
-        let message = AppActorMessage::DaemonDisconnected { id, reply_to };
-        self.tx.send(message).await?;
-        Ok(rx.await?)
-    }
-
-    async fn list_daemons(&self) -> Result<Vec<Uuid>> {
-        let (reply_to, rx) = oneshot_channel();
-        let message = AppActorMessage::ListDaemons { reply_to };
-        self.tx.send(message).await?;
-        Ok(rx.await?)
-    }
-}
-
 pub struct AppBuilder {
     db: Box<dyn db::DbTrait>,
 }
@@ -282,12 +198,14 @@ impl AppBuilder {
 
     pub async fn build(self) -> Result<App> {
         let certificate_bundle = self.get_or_create_certificate_bundle().await?;
+        let db = Arc::from(self.db);
         Ok(App {
-            db: self.db,
+            db: Arc::clone(&db),
             config_registry: config_registry::new()
                 .map_err(|e| anyhow::anyhow!("failed to build config registry: {e}"))?,
             certificate_bundle,
-            actor: AppActor::spawn(),
+            daemon_tracker: daemon_tracker::DaemonTracker::spawn(),
+            graph_manager: (),
         })
     }
 
@@ -340,10 +258,11 @@ impl AppBuilder {
 pub type AppState = Arc<App>;
 
 pub(crate) struct App {
-    db: Box<dyn db::DbTrait>,
+    db: Arc<dyn db::DbTrait>,
     config_registry: ConfigRegistry,
     certificate_bundle: CertificateBundle,
-    actor: AppActorHandle,
+    daemon_tracker: daemon_tracker::DaemonTrackerHandle,
+    graph_manager: (),
 }
 
 pub(crate) struct CertificateBundle {
@@ -500,14 +419,14 @@ impl App {
     }
 
     pub async fn get_online_daemons(&self) -> Result<Vec<Uuid>> {
-        self.actor.list_daemons().await
+        self.daemon_tracker.list_daemons().await
     }
 
     pub async fn daemon_connected(&self, id: Uuid) -> Result<()> {
-        self.actor.daemon_connected(id).await
+        self.daemon_tracker.daemon_connected(id).await
     }
 
     pub async fn daemon_disconnected(&self, id: Uuid) -> Result<()> {
-        self.actor.daemon_disconnected(id).await
+        self.daemon_tracker.daemon_disconnected(id).await
     }
 }

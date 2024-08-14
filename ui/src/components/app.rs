@@ -11,7 +11,8 @@ use reqwest::StatusCode;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use super::{graph::GraphOperation, node_state_form::NodeState};
+use super::node_state_form::NodeState;
+use graph::GraphOperation;
 
 pub type Result<T, E = AppError> = std::result::Result<T, E>;
 
@@ -221,13 +222,6 @@ impl From<GraphOperation<Uuid, Signal<NodeState>>> for WorkspaceOperation {
     }
 }
 
-impl From<GraphOperation<Uuid, Signal<NodeState>>> for Vec<WorkspaceOperation> {
-    fn from(val: GraphOperation<Uuid, Signal<NodeState>>) -> Self {
-        let workspace_op: WorkspaceOperation = val.into();
-        vec![workspace_op]
-    }
-}
-
 #[derive(Debug, Serialize)]
 pub struct WorkspaceUpdate {
     name: Rc<str>,
@@ -235,10 +229,14 @@ pub struct WorkspaceUpdate {
 }
 
 impl WorkspaceUpdate {
-    pub fn new(name: &Rc<str>, operations: impl Into<Vec<WorkspaceOperation>>) -> Self {
+    pub fn new<IntoIter>(name: &Rc<str>, operations: IntoIter) -> Self
+    where
+        IntoIter: IntoIterator,
+        IntoIter::Item: Into<WorkspaceOperation>,
+    {
         Self {
             name: Rc::clone(name),
-            operations: operations.into(),
+            operations: operations.into_iter().map(Into::into).collect(),
         }
     }
 }
@@ -277,7 +275,7 @@ pub struct Daemon {
     pub name: String,
     pub address: Option<String>,
     pub last_seen: Option<DateTime<Utc>>,
-    pub joined_at: Option<DateTime<Utc>>,
+    pub joined_at: DateTime<Utc>,
     pub status: DaemonStatus,
 }
 

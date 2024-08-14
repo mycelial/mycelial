@@ -4,7 +4,6 @@ use std::sync::Arc;
 use crate::components::app::{
     ConfigRegistry, ControlPlaneClient, Result, WorkspaceOperation, WorkspaceState, WorkspaceUpdate,
 };
-use crate::components::graph::Graph as GenericGraph;
 use crate::components::icons::{Delete, Edit, Pause, Play, Restart};
 use crate::components::node_state_form::NodeStateForm;
 use config::prelude::deserialize_into_config;
@@ -15,7 +14,7 @@ use uuid::Uuid;
 
 use super::node_state_form::NodeState;
 
-pub type Graph = GenericGraph<Uuid, Signal<NodeState>>;
+pub type Graph = graph::Graph<Uuid, Signal<NodeState>>;
 
 // representation of section in sections menu, which can be dragged into viewport container
 #[component]
@@ -125,13 +124,11 @@ fn Node(
                     move |_event|  {
                         let dragged = &mut *dragged_edge.write();
                         if let Some(DraggedEdge{from_node, ..}) = dragged {
-                            let op: Vec<WorkspaceOperation> = graph
+                            let ops = graph
                                 .write()
                                 .add_edge(*from_node, id)
-                                .into_iter()
-                                .map(Into::into)
-                                .collect();
-                            control_plane_client.update_workspace(WorkspaceUpdate::new(&workspace, op));
+                                .into_iter();
+                            control_plane_client.update_workspace(WorkspaceUpdate::new(&workspace, ops));
                             *dragged = None;
                         }
                     }
@@ -207,13 +204,8 @@ fn Node(
                     }
                     let dragged = &mut *dragged_edge.write();
                     if let Some(DraggedEdge{from_node, ..}) = dragged.take() {
-                        let op: Vec<WorkspaceOperation> = graph
-                            .write()
-                            .add_edge(from_node, id)
-                            .into_iter()
-                            .map(Into::into)
-                            .collect();
-                        control_plane_client.update_workspace(WorkspaceUpdate::new(&workspace, op));
+                        let ops = graph.write().add_edge(from_node, id);
+                        control_plane_client.update_workspace(WorkspaceUpdate::new(&workspace, ops));
                     }
                 }
             },
@@ -265,7 +257,7 @@ fn Node(
                 span {
                     onclick: move |_event| {
                         // FIXME: action warning
-                        let ops: Vec<_> = graph.write().remove_node(id).into_iter().map(Into::<WorkspaceOperation>::into).collect();
+                        let ops = graph.write().remove_node(id);
                         control_plane_client.update_workspace(WorkspaceUpdate::new(&workspace, ops));
                     },
                     class: "cursor-pointer hover:bg-stem-1",
@@ -368,7 +360,7 @@ fn ViewPort(
                         config,
                     ));
                     let op = graph.add_node(id, node_state);
-                    control_plane_client.update_workspace(WorkspaceUpdate::new(&workspace, op));
+                    control_plane_client.update_workspace(WorkspaceUpdate::new(&workspace, [op]));
                 }
                 *dragged_menu_item.write() = None;
             },
@@ -565,8 +557,7 @@ fn Edges(
                     let workspace = Rc::clone(&workspace);
                     move |_event| {
                         if let Some(op) = graph.write().remove_edge(from) {
-                            let op: Vec<WorkspaceOperation> = op.into();
-                            control_plane_client.update_workspace(WorkspaceUpdate::new(&workspace, op));
+                            control_plane_client.update_workspace(WorkspaceUpdate::new(&workspace, [op]));
                         };
                     }
                 },
@@ -714,7 +705,7 @@ pub fn Workspace(workspace: String) -> Element {
                         };
                         control_plane_client.update_workspace(WorkspaceUpdate::new(
                             &workspace,
-                            vec![
+                            [
                                 WorkspaceOperation::UpdateNodePosition { uuid: node.id, x: node.x, y: node.y }
                             ]
                         ));
