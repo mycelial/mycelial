@@ -26,7 +26,8 @@ use sqlx::{
 use uuid::Uuid;
 
 use super::{
-    Daemon, DaemonGraph, DaemonNode, DaemonToken, Edge, Workspace, WorkspaceGraph, WorkspaceNode, WorkspaceOperation, WorkspaceUpdate
+    Daemon, DaemonGraph, DaemonNode, DaemonToken, Edge, Workspace, WorkspaceGraph, WorkspaceNode,
+    WorkspaceOperation, WorkspaceUpdate,
 };
 
 // FIXME: pool options and configurable pool size
@@ -199,7 +200,10 @@ where
     }
 
     // Workspace api
-    fn get_workspace_graph<'a>(&'a self, workspace_name: &'a str) -> BoxFuture<'a, Result<WorkspaceGraph>> {
+    fn get_workspace_graph<'a>(
+        &'a self,
+        workspace_name: &'a str,
+    ) -> BoxFuture<'a, Result<WorkspaceGraph>> {
         Box::pin(async move {
             let (query, values) = Query::select()
                 .columns([Workspaces::Id])
@@ -666,14 +670,11 @@ where
             Ok(daemons)
         })
     }
-    
+
     fn get_daemon_graph(&self, id: Uuid) -> BoxFuture<'_, Result<DaemonGraph>> {
         Box::pin(async move {
             let (query, values) = Query::select()
-                .columns([
-                    Nodes::Id,
-                    Nodes::Config,
-                ])
+                .columns([Nodes::Id, Nodes::Config])
                 .from(Nodes::Table)
                 .and_where(Expr::col(Nodes::DaemonId).eq(id))
                 .build_any_sqlx(&*self.query_builder);
@@ -706,6 +707,30 @@ where
                 })
                 .collect::<Vec<_>>();
             Ok(DaemonGraph { nodes, edges })
+        })
+    }
+
+    fn set_daemon_name<'a>(&'a self, id: Uuid, name: &'a str) -> BoxFuture<'a, Result<()>> {
+        Box::pin(async move {
+            let (query, values) = Query::update()
+                .table(Daemons::Table)
+                .values([(Daemons::DisplayName, name.into())])
+                .and_where(Expr::col(Daemons::Id).eq(id))
+                .build_any_sqlx(&*self.query_builder);
+            sqlx::query_with(&query, values).execute(&self.pool).await?;
+            Ok(())
+        })
+    }
+
+    fn unset_daemon_name(&self, id: Uuid) -> BoxFuture<'_, Result<()>> {
+        Box::pin(async move {
+            let (query, values) = Query::update()
+                .table(Daemons::Table)
+                .values([(Daemons::DisplayName, Option::<String>::None.into())])
+                .and_where(Expr::col(Daemons::Id).eq(id))
+                .build_any_sqlx(&*self.query_builder);
+            sqlx::query_with(&query, values).execute(&self.pool).await?;
+            Ok(())
         })
     }
 }

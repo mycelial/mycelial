@@ -184,6 +184,7 @@ const WORKSPACE_API: &str = "/api/workspace";
 pub struct WorkspaceState {
     pub nodes: Vec<Node>,
     pub edges: Vec<Edge>,
+    pub daemons: Vec<Daemon>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -269,7 +270,7 @@ pub struct Token {
     pub used_at: Option<DateTime<Utc>>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct Daemon {
     pub id: Uuid,
     pub name: String,
@@ -337,6 +338,18 @@ impl ControlPlaneClient {
         let id: String = id.to_string();
         let response = reqwest::Client::new()
             .delete(get_url(&[DAEMON_API, "daemons", id.as_str()])?)
+            .send()
+            .await?;
+        match response.status() {
+            status_code if status_code.is_success() => Ok(response.json().await?),
+            status_code => Err(AppError::from_status_code(status_code)),
+        }
+    }
+
+    pub async fn set_daemon_name(&self, id: Uuid, name: &str) -> Result<()> {
+        let response = reqwest::Client::new()
+            .post(get_url(&[DAEMON_API, "set_name", &id.to_string()])?)
+            .json(&serde_json::json!({"name": name}))
             .send()
             .await?;
         match response.status() {

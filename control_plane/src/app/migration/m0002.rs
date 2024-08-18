@@ -1,6 +1,6 @@
+use super::m0001;
 use sea_query::{ColumnDef, ForeignKey, ForeignKeyAction, Iden, Index, SchemaBuilder, Table};
 use sqlx::migrate::{Migration, MigrationType};
-use super::m0001;
 
 // Graph nodes
 
@@ -35,7 +35,7 @@ impl Nodes {
                     .from(Nodes::Table, Nodes::WorkspaceId)
                     .to(m0001::Workspaces::Table, m0001::Workspaces::Id)
                     .on_update(ForeignKeyAction::Cascade)
-                    .on_delete(ForeignKeyAction::Cascade)
+                    .on_delete(ForeignKeyAction::Cascade),
             )
             .build_any(schema_builder)
     }
@@ -64,14 +64,14 @@ impl Edges {
                     .from(Edges::Table, Edges::FromId)
                     .to(Nodes::Table, Nodes::Id)
                     .on_update(ForeignKeyAction::Cascade)
-                    .on_delete(ForeignKeyAction::Cascade)
+                    .on_delete(ForeignKeyAction::Cascade),
             )
             .foreign_key(
                 ForeignKey::create()
                     .from(Edges::Table, Edges::ToId)
                     .to(Nodes::Table, Nodes::Id)
                     .on_update(ForeignKeyAction::Cascade)
-                    .on_delete(ForeignKeyAction::Cascade)
+                    .on_delete(ForeignKeyAction::Cascade),
             )
             .build_any(schema_builder)
     }
@@ -174,7 +174,7 @@ pub fn into_migration(schema_builder: &dyn SchemaBuilder) -> Migration {
         Daemons::into_query(schema_builder),
         DaemonTokens::into_query(schema_builder),
         // indices
-        EdgesToIdIndex::into_query(schema_builder)
+        EdgesToIdIndex::into_query(schema_builder),
     ]
     .join(";\n");
     Migration::new(

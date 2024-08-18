@@ -9,12 +9,12 @@ pub struct Graph {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Node {
     pub id: uuid::Uuid,
-    #[serde(skip_serializing_if="Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub display_name: Option<String>,
     pub config: Box<dyn config::Config>,
-    #[serde(skip_serializing_if="Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub x: Option<f64>,
-    #[serde(skip_serializing_if="Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub y: Option<f64>,
 }
 
@@ -25,12 +25,10 @@ pub struct Edge {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-#[serde(tag="type")]
+#[serde(tag = "type")]
 pub enum Message {
     GetGraph,
-    GetGraphResponse {
-
-    }
+    GetGraphResponse {},
 }
 
 impl Message {

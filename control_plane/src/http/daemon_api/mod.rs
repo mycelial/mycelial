@@ -1,7 +1,10 @@
 use std::{net::SocketAddr, sync::Arc};
 
 use axum::{
-    extract::{ws::{WebSocket, Message as WebsocketMessage}, State, WebSocketUpgrade},
+    extract::{
+        ws::{Message as WebsocketMessage, WebSocket},
+        State, WebSocketUpgrade,
+    },
     middleware,
     response::IntoResponse,
     routing::get,
@@ -9,7 +12,6 @@ use axum::{
 };
 use chrono::Utc;
 use futures::StreamExt;
-use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::{app::AppState, tls_server::PeerInfo, Result};
@@ -84,7 +86,7 @@ async fn handle_socket(
                 }
                 tracing::info!("got msg: {:?}", msg);
             }
-            
+
         }
     }
 }

@@ -2,6 +2,7 @@ use std::{collections::BTreeMap, rc::Rc};
 
 use crate::components::{
     app::{AppError, ControlPlaneClient, Daemon},
+    icons::Edit,
     routing::Route,
 };
 use chrono::Timelike;
@@ -61,9 +62,58 @@ pub fn render(
 }
 
 #[component]
+fn EditDaemonName(
+    edit_daemon_name: Signal<Option<Uuid>>,
+    name: String,
+    restart_fetcher: Signal<()>,
+) -> Element {
+    let control_plane_client = use_context::<ControlPlaneClient>();
+    rsx! {
+        div {
+            class: "w-full",
+            form {
+                class: "grid gap-1 grid-cols-6 gap-1",
+                onsubmit: move |event| async move {
+                    let id = match *edit_daemon_name.read() {
+                        Some(id) => id,
+                        None => return
+                    };
+                    if let Some(name) = event.values().get("new_daemon_name") {
+                        let name = name.as_value();
+                        if let Err(e) = control_plane_client.set_daemon_name(id, &name).await {
+                            tracing::error!("failed to create workspace {name}: {e}");
+                        }
+                    } else {
+                        tracing::error!("failed to get value of `new_daemon_name` from form");
+                    }
+                    edit_daemon_name.set(None);
+                    restart_fetcher.set(());
+                },
+                input {
+                    class: "col-span-4 border border-night-1 rounded py-1",
+                    name: "new_daemon_name",
+                    value: "{name}"
+                }
+                button {
+                    class: "text-stem-1 py-1 rounded bg-forest-2 border border-forest-1",
+                    "UPDATE"
+                }
+                button {
+                    class: "text-toadstool-1 py-1 rounded border border-toadstool-1 hover:text-white hover:bg-toadstool-2",
+                    onclick: move |_| { edit_daemon_name.set(None); },
+                    "CANCEL"
+                }
+            }
+        }
+    }
+}
+
+#[component]
 pub fn Daemons() -> Element {
     let control_plane_client = use_context::<ControlPlaneClient>();
     let mut daemons_state = use_signal(DaemonsState::new);
+    let mut edit_daemon_name: Signal<Option<Uuid>> = use_signal(|| None);
+    let restart_fetcher = use_signal(|| ());
     let _state_fetcher: Resource<Result<(), AppError>> = use_resource(move || async move {
         let daemons = control_plane_client.get_daemons().await.map_err(|e| {
             tracing::error!("failed to fetch daemons: {e}");
@@ -73,6 +123,7 @@ pub fn Daemons() -> Element {
         daemons
             .into_iter()
             .for_each(|daemon| state.add_daemon(daemon));
+        restart_fetcher.read();
         Ok(())
     });
     let state_ref = &*daemons_state.read();
@@ -104,17 +155,17 @@ pub fn Daemons() -> Element {
                     id: "table-container",
                     class: "col-span-2 pt-4 w-full",
                     table {
-                        class: "table-fix border border-solid text-left w-full mx-auto",
+                        class: "table-fix border border-solid text-left w-full mx-auto border-1",
                         thead {
                             tr {
                                 class: "border-b border-solid p-4 font-bold bg-night-1/25",
-                                th { class: "pl-3 w-1/6", "Id" },
-                                th { class: "pl-3 w-1/12", "Name" },
-                                th { class: "pl-3 w-1/12", "Address" },
-                                th { class: "pl-3 w-1/12", "Last Seen" },
-                                th { class: "pl-3 w-1/12", "Created At" },
-                                th { class: "pl-3 w-1/12", "Status" },
-                                th { class: "pl-3 w-1/12" },
+                                th { class: "pl-3 w-[20%]", "Id" },
+                                th { class: "pl-3 w-[30%]", "Name" },
+                                th { class: "pl-3 w-[15%]", "Address" },
+                                th { class: "pl-3 w-[12.5%]", "Last Seen" },
+                                th { class: "pl-3 w-[12.5%]", "Created At" },
+                                th { class: "pl-3 w-[5%]", "Status" },
+                                th { class: "pl-3 w-[5%]" },
                             }
                         }
                         for (daemon, id, name, address, last_seen, joined_at, status) in state_ref.map.values().map(render) {
@@ -128,7 +179,28 @@ pub fn Daemons() -> Element {
                                         children: rsx! { "{daemon.id}" }
                                     }
                                 }
-                                td { class: "pl-3", "{name}" }
+                                td {
+                                    class: "pl-3",
+                                    match *edit_daemon_name.read() == Some(daemon.id) {
+                                        false => rsx!{
+                                            div {
+                                                class: "flex items-center",
+                                                div {
+                                                    class: "pr-2",
+                                                    onclick: {
+                                                        let id = daemon.id;
+                                                        move |_| {
+                                                            edit_daemon_name.set(Some(id))
+                                                        }
+                                                    },
+                                                    Edit{}
+                                                }
+                                                "{name}"
+                                            },
+                                        },
+                                        true => rsx!{ EditDaemonName { edit_daemon_name, name, restart_fetcher} }
+                                    }
+                                }
                                 td { class: "pl-3", "{address}" }
                                 td { class: "pl-3", "{last_seen}" }
                                 td { class: "pl-3", "{joined_at}" }

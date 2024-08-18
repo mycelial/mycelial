@@ -127,7 +127,7 @@ pub fn Workspaces() -> Element {
         Ok(workspaces_len)
     });
     let child = match &*fetcher.read() {
-        Some(Ok(0)) => rsx! { },
+        Some(Ok(0)) => rsx! {},
         Some(Ok(_)) => rsx! {
             div {
                 id: "table-container",

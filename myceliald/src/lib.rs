@@ -9,13 +9,13 @@ use chrono::{DateTime, Utc};
 use control_plane_client::ControlPlaneClientHandle;
 use daemon_storage::DaemonStorage;
 use pipe::scheduler::SchedulerHandle;
-use uuid::Uuid;
 use std::{path::Path, time::Duration};
 use storage::SqliteStorageHandle;
 use tokio::sync::{
     mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender, WeakUnboundedSender},
     oneshot::Sender as OneshotSender,
 };
+use uuid::Uuid;
 
 #[derive(Debug)]
 pub struct Daemon {
@@ -32,7 +32,7 @@ pub enum DaemonMessage {
     RetryControlPlaneClientInit,
     GetOffset {
         reply_to: OneshotSender<Option<Offset>>,
-    }
+    },
 }
 
 #[derive(Debug)]
@@ -50,12 +50,12 @@ pub struct Offset {
 
 #[derive(Debug, Clone)]
 pub struct DaemonHandle {
-    tx: UnboundedSender<DaemonMessage>
+    tx: UnboundedSender<DaemonMessage>,
 }
 
 impl DaemonHandle {
     fn new(tx: &UnboundedSender<DaemonMessage>) -> Self {
-        Self {tx: tx.clone()}
+        Self { tx: tx.clone() }
     }
 
     /// get last known node id and timestamp for control plane client
@@ -92,7 +92,7 @@ impl Daemon {
                 DaemonMessage::GetOffset { reply_to } => {
                     reply_to.send(None).ok();
                     //
-                },
+                }
             }
         }
         Ok(())

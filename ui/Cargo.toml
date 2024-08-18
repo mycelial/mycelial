@@ -10,7 +10,7 @@ chrono = { version = "0.4.38", features = ["serde"] }
 config = { path = "../config" }
 config_registry = { path = "../config_registry" }
 dioxus = { version = "0.5", features = ["web", "router"] }
-dioxus-logger = "0.5.1"
+dioxus-logger = "0.5"
 futures = "0.3"
 graph = {path = "../graph" }
 gloo-timers = { version = "0.3.0", features = ["futures"] }

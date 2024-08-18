@@ -2,7 +2,8 @@ use std::rc::Rc;
 use std::sync::Arc;
 
 use crate::components::app::{
-    ConfigRegistry, ControlPlaneClient, Result, WorkspaceOperation, WorkspaceState, WorkspaceUpdate,
+    ConfigRegistry, ControlPlaneClient, Daemon, Result, WorkspaceOperation, WorkspaceState,
+    WorkspaceUpdate,
 };
 use crate::components::icons::{Delete, Edit, Pause, Play, Restart};
 use crate::components::node_state_form::NodeStateForm;
@@ -90,6 +91,7 @@ fn MenuItem(
 #[component]
 fn Node(
     workspace: Rc<str>,
+    daemons: Signal<Vec<Daemon>>,
     control_plane_client: ControlPlaneClient,
     mut graph: Signal<Graph>,
     mut dragged_node: Signal<Option<DraggedNode>>,
@@ -214,16 +216,38 @@ fn Node(
                 }
             },
             div {
-                class: "pt-5 uppercase",
-                style: "font-size: 0.65rem",
-                "{id}"
-            }
-            div {
-                class: "",
+                class: "mt-2",
                 "{node_type}"
             }
             div {
-                class: "grid grid-flow-col justify-items-center border p-2 rounded bg-grey-bright",
+                class: "mt-1 mb-1",
+                onmousedown: move |_| {
+                    disable_drag.set(true);
+                },
+                onmouseup: move |_| {
+                    disable_drag.set(false);
+                },
+                select {
+                    onchange: move |event| {
+
+                        tracing::info!("{event:?}");
+                    },
+                    class: "block p-1 w-full rounded-md text-gray-900 ring-1 ring-night-1 drop-shadow-sm focus:ring-1 focus:ring-night-1 focus:outline-none",
+                    option {
+                        selected: true,
+                        value: "-",
+                        "<select daemon>"
+                    }
+                    for daemon in daemons.read().iter() {
+                        match daemon.name.is_empty() {
+                            true => rsx!{ option { "{daemon.id}" } },
+                            false => rsx!{ option { "{daemon.name}"} },
+                        }
+                    }
+                }
+            }
+            div {
+                class: "grid grid-flow-col justify-items-center border p-2 rounded bg-grey-bright mb-2",
                 if *is_playing.read() {
                     span {
                         onclick: move |_event| {
@@ -262,23 +286,6 @@ fn Node(
                     },
                     class: "cursor-pointer hover:bg-stem-1",
                     Delete {}
-                }
-            }
-            div {
-                class: "mb-2",
-                onmousedown: move |_| {
-                    disable_drag.set(true);
-                },
-                onmouseup: move |_| {
-                    disable_drag.set(false);
-                },
-                select {
-                    name: "daemon",
-                    class: "block p-1 w-full rounded-md text-gray-900 ring-1 ring-night-1 drop-shadow-sm focus:ring-1 focus:ring-night-1 focus:outline-none",
-                    option {
-                        value: "-",
-                        "All",
-                    }
                 }
             }
         }
@@ -321,6 +328,7 @@ impl ViewPortState {
 #[component]
 fn ViewPort(
     workspace: Rc<str>,
+    daemons: Signal<Vec<Daemon>>,
     control_plane_client: ControlPlaneClient,
     config_registry: ConfigRegistry,
     mut graph: Signal<Graph>,
@@ -425,6 +433,7 @@ fn ViewPort(
                     for (_, node) in (&*graph.read()).iter_nodes() {
                         Node{
                             workspace: Rc::clone(&workspace),
+                            daemons,
                             control_plane_client,
                             graph,
                             dragged_node,
@@ -666,6 +675,7 @@ impl DraggedEdge {
 pub fn Workspace(workspace: String) -> Element {
     let control_plane_client = use_context::<ControlPlaneClient>();
     let mut graph: Signal<Graph> = use_signal(Graph::new);
+    let mut daemons: Signal<Vec<Daemon>> = use_signal(Vec::new);
     let config_registry = use_context::<ConfigRegistry>();
     let workspace = Rc::from(workspace);
     let state_fetcher: Resource<Result<WorkspaceState>> = use_resource({
@@ -678,6 +688,7 @@ pub fn Workspace(workspace: String) -> Element {
     match &*state_fetcher.read() {
         Some(Ok(workspace_state)) => {
             let graph = &mut *graph.write();
+            daemons.set(workspace_state.daemons.clone());
             for node in workspace_state.nodes.iter() {
                 let config = match config_registry.build_config(node.config.name()) {
                     Ok(mut config) => {
@@ -788,6 +799,7 @@ pub fn Workspace(workspace: String) -> Element {
                 class: "h-[calc(100vh-200px) w-full scroll-none overflow-hidden",
                 ViewPort {
                     workspace: Rc::clone(&workspace),
+                    daemons,
                     control_plane_client,
                     config_registry: config_registry.clone(),
                     graph,

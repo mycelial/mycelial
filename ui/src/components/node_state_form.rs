@@ -140,7 +140,7 @@ impl FormState {
             entry.update(value)
         }
     }
-    
+
     fn get_value(&self, field_name: &str) -> &str {
         self.fields.get(field_name).unwrap().value.as_str()
     }
@@ -178,17 +178,13 @@ pub fn NodeStateForm(
     }
     let fs_state = &*form_state.read();
     let fs = fs_state.as_ref().unwrap();
-    
 
     // since field.name is not &'static str, we need to clone it so all event handlers can capture field name by value
-    let config_fields = config
-        .fields()
-        .into_iter()
-        .map(|field| {
-            // use value from form_state
-            let value = fs.get_value(field.name);
-            (field.name.to_string(), field, value)
-        });
+    let config_fields = config.fields().into_iter().map(|field| {
+        // use value from form_state
+        let value = fs.get_value(field.name);
+        (field.name.to_string(), field, value)
+    });
     return rsx! {
         div {
             class: "border border-solid rounded-md drop-shadow px-5 py-4 mt-4 mx-4",

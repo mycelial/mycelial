@@ -88,10 +88,18 @@ pub struct Workspace {
     pub created_at: Option<DateTime<Utc>>,
 }
 
-/// Workspace graph
-/// 
+/// Workspace State
+///
+/// Contains graph and list of daemons
 /// Workspace graph nodes are stripped from sensitive data
 #[derive(Debug, Serialize)]
+pub struct WorkspaceState {
+    pub nodes: Vec<WorkspaceNode>,
+    pub edges: Vec<Edge>,
+    pub daemons: Vec<Daemon>,
+}
+
+#[derive(Debug)]
 pub struct WorkspaceGraph {
     pub nodes: Vec<WorkspaceNode>,
     pub edges: Vec<Edge>,
@@ -107,8 +115,20 @@ pub struct WorkspaceNode {
 }
 
 impl WorkspaceNode {
-    pub fn new(id: uuid::Uuid, display_name: String, config: Box<dyn config::Config>, x: f64, y: f64) -> Self {
-        Self { id, display_name, config, x, y }
+    pub fn new(
+        id: uuid::Uuid,
+        display_name: String,
+        config: Box<dyn config::Config>,
+        x: f64,
+        y: f64,
+    ) -> Self {
+        Self {
+            id,
+            display_name,
+            config,
+            x,
+            y,
+        }
     }
 
     pub fn strip_secrets(&mut self, config_registry: &ConfigRegistry) -> Result<()> {
@@ -125,12 +145,10 @@ impl WorkspaceNode {
                 std::mem::swap(&mut self.config, &mut config);
                 Ok(())
             }
-            Err(e) => {
-                Err(anyhow::anyhow!(
-                    "failed to build config from config registry for {}: {e}",
-                    self.config.name()
-                ))?
-            }
+            Err(e) => Err(anyhow::anyhow!(
+                "failed to build config from config registry for {}: {e}",
+                self.config.name()
+            ))?,
         }
     }
 }
@@ -138,7 +156,7 @@ impl WorkspaceNode {
 #[derive(Debug, Serialize)]
 pub struct DaemonGraph {
     pub nodes: Vec<DaemonNode>,
-    pub edges: Vec<Edge>
+    pub edges: Vec<Edge>,
 }
 
 #[derive(Debug, Serialize)]
@@ -334,10 +352,19 @@ impl App {
     }
 
     // workspace api
-    pub async fn get_workspace_graph(&self, name: &str) -> Result<WorkspaceGraph> {
+    pub async fn get_workspace_graph(&self, name: &str) -> Result<WorkspaceState> {
+        let daemons = self.db.list_daemons().await?;
         let mut graph = self.db.get_workspace_graph(name).await?;
-        graph.nodes.iter_mut().for_each(|node| { node.strip_secrets(&self.config_registry).ok(); });
-        Ok(graph)
+        graph.nodes.iter_mut().for_each(|node| {
+            if let Err(e) = node.strip_secrets(&self.config_registry) {
+                tracing::error!("{e}");
+            }
+        });
+        Ok(WorkspaceState {
+            nodes: graph.nodes,
+            edges: graph.edges,
+            daemons,
+        })
     }
 
     pub async fn update_workspace(&self, updates: &mut [WorkspaceUpdate]) -> Result<()> {
@@ -450,8 +477,16 @@ impl App {
     pub async fn daemon_disconnected(&self, id: Uuid) -> Result<()> {
         self.daemon_tracker.daemon_disconnected(id).await
     }
-    
+
     pub async fn get_daemon_graph(&self, id: Uuid) -> Result<DaemonGraph> {
         self.db.get_daemon_graph(id).await
+    }
+
+    pub async fn set_daemon_name(&self, id: Uuid, name: &str) -> Result<()> {
+        self.db.set_daemon_name(id, name).await
+    }
+
+    pub async fn unset_daemon_name(&self, id: Uuid) -> Result<()> {
+        self.db.unset_daemon_name(id).await
     }
 }

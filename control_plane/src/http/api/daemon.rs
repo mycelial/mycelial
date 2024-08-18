@@ -1,5 +1,6 @@
 use axum::extract::{Path, State};
 use axum::{http::StatusCode, Json};
+use serde::Deserialize;
 use serde_json::{json, Value};
 
 use crate::app::{
@@ -53,4 +54,23 @@ pub async fn join(
 
 pub async fn list_daemons(State(app): State<AppState>) -> Result<Json<Vec<Daemon>>> {
     app.list_daemons().await.map(Json)
+}
+
+#[derive(Deserialize)]
+pub struct SetName {
+    name: String,
+}
+
+pub async fn set_name(
+    State(app): State<AppState>,
+    Path(id): Path<String>,
+    name: Json<SetName>,
+) -> Result<()> {
+    app.set_daemon_name(id.parse()?, &name.name).await?;
+    Ok(())
+}
+
+pub async fn unset_name(State(app): State<AppState>, Path(id): Path<String>) -> Result<()> {
+    app.unset_daemon_name(id.parse()?).await?;
+    Ok(())
 }

@@ -1,9 +1,9 @@
 use std::{sync::Arc, time::Duration};
 
 use anyhow::Result;
+use futures::{SinkExt as _, StreamExt as _};
 use pki::ClientConfig;
 use reqwest::Url;
-use futures::{SinkExt as _, StreamExt as _};
 use serde::{Deserialize, Serialize};
 use sha2::Digest;
 use tokio::{
@@ -196,16 +196,14 @@ impl ControlPlaneClient {
 
         let daemon_handle = self.daemon_handle.clone();
         self.socket = Some(tokio::spawn(async move {
-            let mut tx = tx;
+            let tx = tx;
             if let Err(e) =
                 websocket_client(daemon_handle, control_plane_tls_url, certifiedkey).await
             {
                 tracing::error!("websocket error: {e}");
             }
             tokio::time::sleep(Duration::from_secs(3)).await;
-            tx.send(Message::WebSocketClientDown { })
-                .await
-                .ok();
+            tx.send(Message::WebSocketClientDown {}).await.ok();
         }));
         Ok(())
     }
@@ -258,7 +256,11 @@ async fn websocket_client(
     .await?;
     let (mut input, mut output) = socket.split();
     let mut interval = tokio::time::interval(Duration::from_secs(30));
-    input.send(WebsocketMessage::Text(serde_json::to_string(&protocol::Message::get_graph())?)).await?;
+    input
+        .send(WebsocketMessage::Text(serde_json::to_string(
+            &protocol::Message::get_graph(),
+        )?))
+        .await?;
     loop {
         tokio::select! {
             msg = output.next() => {

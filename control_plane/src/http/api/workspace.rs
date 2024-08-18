@@ -1,5 +1,5 @@
 use crate::{
-    app::{AppState, WorkspaceGraph, WorkspaceUpdate},
+    app::{AppState, WorkspaceState, WorkspaceUpdate},
     http::Result,
 };
 use axum::{
@@ -12,7 +12,7 @@ use axum::{
 pub async fn read(
     State(app): State<AppState>,
     Path(workspace_name): Path<String>,
-) -> Result<Json<WorkspaceGraph>> {
+) -> Result<Json<WorkspaceState>> {
     app.get_workspace_graph(&workspace_name).await.map(Json)
 }
 
