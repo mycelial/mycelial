@@ -96,6 +96,7 @@ fn Node(
     mut dragged_edge: Signal<Option<DraggedEdge>>,
     mut node: Signal<NodeState>,
     mut selected_node: Signal<Option<Signal<NodeState>>>,
+    mut disable_drag: Signal<bool>,
 ) -> Element {
     let node_ref = &*node.read();
     let (id, x, y, _w, _h, port_diameter, config, input_pos, output_pos) = (
@@ -186,6 +187,9 @@ fn Node(
                 }
             },
             onmousedown: move |event| {
+                if *disable_drag.read() {
+                    return
+                }
                 if dragged_node.read().is_none() {
                     let coords = event.client_coordinates();
                     let (delta_x, delta_y) = {
@@ -215,15 +219,11 @@ fn Node(
                 "{id}"
             }
             div {
-                class: "text-night-2",
-                "Daemon: Name of Daemon"
+                class: "",
+                "{node_type}"
             }
             div {
-                class: "pb-3",
-                "Section Type: {node_type}"
-            }
-            div {
-                class: "grid grid-flow-col justify-items-center mb-2 border p-2 rounded bg-grey-bright",
+                class: "grid grid-flow-col justify-items-center border p-2 rounded bg-grey-bright",
                 if *is_playing.read() {
                     span {
                         onclick: move |_event| {
@@ -262,6 +262,23 @@ fn Node(
                     },
                     class: "cursor-pointer hover:bg-stem-1",
                     Delete {}
+                }
+            }
+            div {
+                class: "mb-2",
+                onmousedown: move |_| {
+                    disable_drag.set(true);
+                },
+                onmouseup: move |_| {
+                    disable_drag.set(false);
+                },
+                select {
+                    name: "daemon",
+                    class: "block p-1 w-full rounded-md text-gray-900 ring-1 ring-night-1 drop-shadow-sm focus:ring-1 focus:ring-night-1 focus:outline-none",
+                    option {
+                        value: "-",
+                        "All",
+                    }
                 }
             }
         }
@@ -312,6 +329,7 @@ fn ViewPort(
     dragged_node: Signal<Option<DraggedNode>>,
     dragged_edge: Signal<Option<DraggedEdge>>,
     selected_node: Signal<Option<Signal<NodeState>>>,
+    mut disable_drag: Signal<bool>,
 ) -> Element {
     let mut grab_point = use_signal(|| (0.0, 0.0));
     let state_ref = &*view_port_state.read();
@@ -366,6 +384,10 @@ fn ViewPort(
             },
 
             onmousedown: move |event| {
+                // if drag disabled
+                if *disable_drag.read() {
+                    return
+                }
                 // if node or edge is currently dragged or node selected - do nothing
                 if dragged_edge.read().is_some() || dragged_node.read().is_some() || selected_node.read().is_some() {
                     return
@@ -393,6 +415,7 @@ fn ViewPort(
 
             onmouseup: move |_event| {
                 view_port_state.write().grabbed = false;
+                disable_drag.set(false);
             },
 
             if selected_node.read().is_none() {
@@ -408,6 +431,7 @@ fn ViewPort(
                             dragged_edge,
                             node: *node,
                             selected_node,
+                            disable_drag,
                         }
                     }
                     // graph edges
@@ -686,6 +710,7 @@ pub fn Workspace(workspace: String) -> Element {
     let mut dragged_node: Signal<Option<DraggedNode>> = use_signal(|| None);
     let mut dragged_edge: Signal<Option<DraggedEdge>> = use_signal(|| None);
     let mut selected_node: Signal<Option<Signal<NodeState>>> = use_signal(|| None);
+    let disable_drag: Signal<bool> = use_signal(|| false);
     let view_port_state = use_signal(ViewPortState::new);
     let menu_items = config_registry
         .iter_values()
@@ -771,6 +796,7 @@ pub fn Workspace(workspace: String) -> Element {
                     dragged_node,
                     dragged_edge,
                     selected_node,
+                    disable_drag,
                 }
             }
         }

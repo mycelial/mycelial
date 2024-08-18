@@ -249,33 +249,8 @@ pub fn NodeStateForm(
                             "Section Type: {node_type}"
                         }
                     }
-                    // FIXME: add daemon field
                     for (field_name, field, field_value) in config_fields {
                         div {
-                          //if field.ty.is_vec() {
-                          //    div {
-                          //        class: "flex items-center justify-start",
-                          //        label {
-                          //            r#for: "{field_name}",
-                          //            class: "text-sm font-medium leading-6 text-night-1 uppercase min-w-24",
-                          //            "{field_name}"
-                          //        }
-                          //        select {
-                          //            oninput: move |event| {
-                          //                tracing::info!("input event: {:?}", event);
-                          //            },
-                          //            id: "{field_name}",
-                          //            name: "{field_name}",
-                          //            class: "p-2 ml-3 min-w-32 r unded-md py-1.5 text-gray-900 drop-shadow-sm ring-1 ring-night-1 focus:ring-2 focus:ring-night-2 focus:outline-none",
-                          //            class: if fs.is_field_valid(&field_name) { "" } else { "outline outline-red-500" },
-                          //            //multiple: "true",
-                          //            option {
-                          //                value: "*",
-                          //                "*",
-                          //            }
-                          //        }
-                          //    }
-                          //} else
                             if field.ty.is_bool() {
                                 div { class: "flex items-center justify-start",
                                     label {

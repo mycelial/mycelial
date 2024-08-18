@@ -1,4 +1,4 @@
-use sea_query::{ColumnDef, ForeignKey, ForeignKeyAction, Iden, SchemaBuilder, Table};
+use sea_query::{ColumnDef, ForeignKey, ForeignKeyAction, Iden, Index, SchemaBuilder, Table};
 use sqlx::migrate::{Migration, MigrationType};
 use super::m0001;
 
@@ -36,7 +36,6 @@ impl Nodes {
                     .to(m0001::Workspaces::Table, m0001::Workspaces::Id)
                     .on_update(ForeignKeyAction::Cascade)
                     .on_delete(ForeignKeyAction::Cascade)
-                    .on_update(ForeignKeyAction::Cascade)
             )
             .build_any(schema_builder)
     }
@@ -60,6 +59,31 @@ impl Edges {
                     .not_null(),
             )
             .col(ColumnDef::new(Edges::ToId).uuid().not_null())
+            .foreign_key(
+                ForeignKey::create()
+                    .from(Edges::Table, Edges::FromId)
+                    .to(Nodes::Table, Nodes::Id)
+                    .on_update(ForeignKeyAction::Cascade)
+                    .on_delete(ForeignKeyAction::Cascade)
+            )
+            .foreign_key(
+                ForeignKey::create()
+                    .from(Edges::Table, Edges::ToId)
+                    .to(Nodes::Table, Nodes::Id)
+                    .on_update(ForeignKeyAction::Cascade)
+                    .on_delete(ForeignKeyAction::Cascade)
+            )
+            .build_any(schema_builder)
+    }
+}
+struct EdgesToIdIndex {}
+
+impl EdgesToIdIndex {
+    fn into_query(schema_builder: &dyn SchemaBuilder) -> String {
+        Index::create()
+            .name("edges_to_id_idx")
+            .table(Edges::Table)
+            .col(Edges::ToId)
             .build_any(schema_builder)
     }
 }
@@ -150,6 +174,7 @@ pub fn into_migration(schema_builder: &dyn SchemaBuilder) -> Migration {
         Daemons::into_query(schema_builder),
         DaemonTokens::into_query(schema_builder),
         // indices
+        EdgesToIdIndex::into_query(schema_builder)
     ]
     .join(";\n");
     Migration::new(
