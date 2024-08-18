@@ -174,14 +174,7 @@ pub fn DaemonTokens() -> Element {
                                                 return;
                                             }
                                         };
-                                        match navigator.clipboard() {
-                                            Some(clipboard) => {
-                                                let _ = clipboard.write_text(&format!("{id}:{secret}"));
-                                            },
-                                            None => {
-                                                tracing::error!("clipboard is not available");
-                                            }
-                                        }
+                                        let _ = navigator.clipboard().write_text(&format!("{id}:{secret}"));
                                     },
                                     Copy{}
                                 },

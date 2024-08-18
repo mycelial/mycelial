@@ -12,6 +12,7 @@ path = "src/main.rs"
 derive_trait = { path = "./derive_trait" }
 config = { path = "../config" }
 config_registry = { path = "../config_registry" }
+protocol = { path = "../protocol" }
 pki = { path = "../pki" }
 anyhow = "1"
 async-stream = "0.3"

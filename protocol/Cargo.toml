@@ -1,0 +1,9 @@
+[package]
+name = "protocol"
+edition = "2021"
+version.workspace = true
+
+[dependencies]
+serde = "1.0.208"
+uuid = { version = "1.10.0", features = ["serde"] }
+config = { path = "../config/" }

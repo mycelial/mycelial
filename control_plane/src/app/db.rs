@@ -26,7 +26,7 @@ use sqlx::{
 use uuid::Uuid;
 
 use super::{
-    Daemon, DaemonToken, Edge, Graph, Node, Workspace, WorkspaceOperation, WorkspaceUpdate,
+    Daemon, DaemonGraph, DaemonNode, DaemonToken, Edge, Workspace, WorkspaceGraph, WorkspaceNode, WorkspaceOperation, WorkspaceUpdate
 };
 
 // FIXME: pool options and configurable pool size
@@ -199,7 +199,7 @@ where
     }
 
     // Workspace api
-    fn get_graph<'a>(&'a self, workspace_name: &'a str) -> BoxFuture<'a, Result<Graph>> {
+    fn get_workspace_graph<'a>(&'a self, workspace_name: &'a str) -> BoxFuture<'a, Result<WorkspaceGraph>> {
         Box::pin(async move {
             let (query, values) = Query::select()
                 .columns([Workspaces::Id])
@@ -233,13 +233,13 @@ where
                 .into_iter()
                 .map(|row| {
                     let config = row.get::<Json<_>, _>(2).0;
-                    Ok(Node {
-                        id: row.get(0),
-                        display_name: row.get(1),
-                        config: serde_json::from_value(config)?,
-                        x: row.get(3),
-                        y: row.get(4),
-                    })
+                    Ok(WorkspaceNode::new(
+                        row.get(0),
+                        row.get(1),
+                        serde_json::from_value(config)?,
+                        row.get(3),
+                        row.get(4),
+                    ))
                 })
                 .collect::<Result<Vec<_>>>()?;
 
@@ -258,7 +258,7 @@ where
                     to_id: row.get(1),
                 })
                 .collect::<Vec<_>>();
-            Ok(Graph { nodes, edges })
+            Ok(WorkspaceGraph { nodes, edges })
         })
     }
 
@@ -664,6 +664,48 @@ where
                 })
                 .collect();
             Ok(daemons)
+        })
+    }
+    
+    fn get_daemon_graph(&self, id: Uuid) -> BoxFuture<'_, Result<DaemonGraph>> {
+        Box::pin(async move {
+            let (query, values) = Query::select()
+                .columns([
+                    Nodes::Id,
+                    Nodes::Config,
+                ])
+                .from(Nodes::Table)
+                .and_where(Expr::col(Nodes::DaemonId).eq(id))
+                .build_any_sqlx(&*self.query_builder);
+            let nodes = sqlx::query_with(&query, values)
+                .fetch_all(&self.pool)
+                .await?
+                .into_iter()
+                .map(|row| {
+                    let config = row.get::<Json<_>, _>(2).0;
+                    Ok(DaemonNode {
+                        id: row.get(0),
+                        config: serde_json::from_value(config)?,
+                    })
+                })
+                .collect::<Result<Vec<_>>>()?;
+
+            let node_ids = nodes.iter().map(|node| node.id);
+            let (query, values) = Query::select()
+                .columns([Edges::FromId, Edges::ToId])
+                .from(Edges::Table)
+                .and_where(Expr::col(Edges::FromId).is_in(node_ids))
+                .build_any_sqlx(&*self.query_builder);
+            let edges = sqlx::query_with(&query, values)
+                .fetch_all(&self.pool)
+                .await?
+                .into_iter()
+                .map(|row| Edge {
+                    from_id: row.get(0),
+                    to_id: row.get(1),
+                })
+                .collect::<Vec<_>>();
+            Ok(DaemonGraph { nodes, edges })
         })
     }
 }

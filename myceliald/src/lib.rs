@@ -5,12 +5,17 @@ mod runtime;
 mod storage;
 
 use anyhow::Result;
+use chrono::{DateTime, Utc};
 use control_plane_client::ControlPlaneClientHandle;
 use daemon_storage::DaemonStorage;
 use pipe::scheduler::SchedulerHandle;
+use uuid::Uuid;
 use std::{path::Path, time::Duration};
 use storage::SqliteStorageHandle;
-use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, WeakUnboundedSender};
+use tokio::sync::{
+    mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender, WeakUnboundedSender},
+    oneshot::Sender as OneshotSender,
+};
 
 #[derive(Debug)]
 pub struct Daemon {
@@ -25,6 +30,9 @@ pub struct Daemon {
 #[derive(Debug)]
 pub enum DaemonMessage {
     RetryControlPlaneClientInit,
+    GetOffset {
+        reply_to: OneshotSender<Option<Offset>>,
+    }
 }
 
 #[derive(Debug)]
@@ -35,12 +43,25 @@ pub struct CertifiedKey {
 }
 
 #[derive(Debug)]
-enum Reset {
-    None,
-    // state reset - daemon storage and section storage are wiped
-    State,
-    // storage path was changed, restart all subsystems with updated path
-    Restart,
+pub struct Offset {
+    id: Uuid,
+    timestamp: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone)]
+pub struct DaemonHandle {
+    tx: UnboundedSender<DaemonMessage>
+}
+
+impl DaemonHandle {
+    fn new(tx: &UnboundedSender<DaemonMessage>) -> Self {
+        Self {tx: tx.clone()}
+    }
+
+    /// get last known node id and timestamp for control plane client
+    pub async fn get_offset(&self) -> Option<(Uuid, DateTime<Utc>)> {
+        None
+    }
 }
 
 impl Daemon {
@@ -50,7 +71,7 @@ impl Daemon {
         let daemon_storage = daemon_storage::new(database_path).await?;
         let section_storage_handle = storage::new(database_path).await?;
         let scheduler_handle = runtime::new(section_storage_handle.clone());
-        let control_plane_client_handle = control_plane_client::new(tx.clone());
+        let control_plane_client_handle = control_plane_client::new(DaemonHandle::new(&tx));
         Ok(Self {
             daemon_storage,
             section_storage_handle,
@@ -68,6 +89,10 @@ impl Daemon {
                 DaemonMessage::RetryControlPlaneClientInit => {
                     self.init_control_plane_client().await?;
                 }
+                DaemonMessage::GetOffset { reply_to } => {
+                    reply_to.send(None).ok();
+                    //
+                },
             }
         }
         Ok(())

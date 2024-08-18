@@ -3,12 +3,12 @@ use std::{sync::Arc, time::Duration};
 use anyhow::Result;
 use pki::ClientConfig;
 use reqwest::Url;
-use section::prelude::{SinkExt, StreamExt};
+use futures::{SinkExt as _, StreamExt as _};
 use serde::{Deserialize, Serialize};
 use sha2::Digest;
 use tokio::{
     sync::{
-        mpsc::{channel, Receiver, Sender, UnboundedSender, WeakSender},
+        mpsc::{channel, Receiver, Sender, WeakSender},
         oneshot::{channel as oneshot_channel, Sender as OneshotSender},
     },
     task::JoinHandle,
@@ -16,7 +16,7 @@ use tokio::{
 use tokio_tungstenite::Connector;
 use tungstenite::Message as WebsocketMessage;
 
-use crate::{CertifiedKey, DaemonMessage};
+use crate::{CertifiedKey, DaemonHandle};
 
 #[derive(Debug, Serialize)]
 struct JoinRequest<'a> {
@@ -36,9 +36,6 @@ impl<'a> JoinRequest<'a> {
     }
 }
 
-#[derive(Debug, Deserialize)]
-enum ControlPlaneMessage {}
-
 #[derive(Deserialize)]
 struct JoinErrorResponse {
     error: String,
@@ -52,21 +49,19 @@ struct JoinResponse {
 
 #[derive(Debug)]
 struct ControlPlaneClient {
-    tx: UnboundedSender<DaemonMessage>,
+    daemon_handle: DaemonHandle,
     socket: Option<JoinHandle<()>>,
     control_plane_tls_url: Option<Arc<Url>>,
     certifiedkey: Option<Arc<CertifiedKey>>,
-    gen: u64,
 }
 
 impl ControlPlaneClient {
-    fn new(tx: UnboundedSender<DaemonMessage>) -> Self {
+    fn new(daemon_handle: DaemonHandle) -> Self {
         Self {
-            tx,
+            daemon_handle,
             socket: None,
             control_plane_tls_url: None,
             certifiedkey: None,
-            gen: 0,
         }
     }
 
@@ -112,14 +107,11 @@ impl ControlPlaneClient {
                     reply_to.send(Ok(())).ok();
                     return Ok(());
                 }
-                Message::WebSocketClientDown { generation } => {
-                    tracing::error!("websocket client is down, restarting");
-                    if self.gen != generation {
-                        continue;
-                    }
+                Message::WebSocketClientDown => {
                     if self.control_plane_tls_url.is_none() || self.certifiedkey.is_none() {
                         continue;
                     };
+                    tracing::error!("websocket client is down, restarting");
                     if let Err(e) = self.setup_websocket_client(&weak_tx).await {
                         tracing::error!("failed to restart websocket client: {e}");
                     };
@@ -185,8 +177,6 @@ impl ControlPlaneClient {
             .clone()
             .upgrade()
             .ok_or(anyhow::anyhow!("failed to upgrade tx"))?;
-        // increment generation of websocket client ( all messages from previous generations will be ignored )
-        self.gen += 1;
 
         // drop previous client
         if let Some(join_handle) = self.socket.take() {
@@ -204,16 +194,16 @@ impl ControlPlaneClient {
             .map(Clone::clone)
             .ok_or(anyhow::anyhow!("certified key is not set"))?;
 
-        let gen = self.gen;
+        let daemon_handle = self.daemon_handle.clone();
         self.socket = Some(tokio::spawn(async move {
             let mut tx = tx;
             if let Err(e) =
-                websocket_client(gen, &mut tx, control_plane_tls_url, certifiedkey).await
+                websocket_client(daemon_handle, control_plane_tls_url, certifiedkey).await
             {
                 tracing::error!("websocket error: {e}");
             }
             tokio::time::sleep(Duration::from_secs(3)).await;
-            tx.send(Message::WebSocketClientDown { generation: gen })
+            tx.send(Message::WebSocketClientDown { })
                 .await
                 .ok();
         }));
@@ -235,17 +225,15 @@ enum Message {
     Shutdown {
         reply_to: OneshotSender<Result<()>>,
     },
-    WebSocketClientDown {
-        generation: u64,
-    },
+    WebSocketClientDown,
 }
 
 async fn websocket_client(
-    generation: u64,
-    tx: &mut Sender<Message>,
+    daemon_handle: DaemonHandle,
     control_plane_url: Arc<Url>,
     certifiedkey: Arc<CertifiedKey>,
 ) -> Result<()> {
+    tracing::info!("connected to control plane");
     let ca_cert = pki::parse_certificate(&certifiedkey.ca_certificate)
         .map_err(|e| anyhow::anyhow!("failed to parse ca certificate: {e}"))?;
     let cert = pki::parse_certificate(&certifiedkey.certificate)
@@ -270,6 +258,7 @@ async fn websocket_client(
     .await?;
     let (mut input, mut output) = socket.split();
     let mut interval = tokio::time::interval(Duration::from_secs(30));
+    input.send(WebsocketMessage::Text(serde_json::to_string(&protocol::Message::get_graph())?)).await?;
     loop {
         tokio::select! {
             msg = output.next() => {
@@ -283,7 +272,7 @@ async fn websocket_client(
                     WebsocketMessage::Close{ .. } => Err(anyhow::anyhow!("connection closed"))?,
                     WebsocketMessage::Binary{ .. } => Err(anyhow::anyhow!("unexpected binary message"))?,
                     WebsocketMessage::Frame{ .. } => Err(anyhow::anyhow!("unexpected raw frame"))?,
-                    WebsocketMessage::Text(data) => serde_json::from_str::<ControlPlaneMessage>(&data),
+                    WebsocketMessage::Text(data) => serde_json::from_str::<protocol::Message>(&data),
                 };
             },
             _ = interval.tick() => {
@@ -335,7 +324,7 @@ impl ControlPlaneClientHandle {
     }
 }
 
-pub fn new(tx: UnboundedSender<DaemonMessage>) -> ControlPlaneClientHandle {
-    let client = ControlPlaneClient::new(tx);
+pub fn new(daemon_handle: DaemonHandle) -> ControlPlaneClientHandle {
+    let client = ControlPlaneClient::new(daemon_handle);
     client.spawn()
 }

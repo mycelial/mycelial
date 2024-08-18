@@ -11,7 +11,7 @@ run_dev: build_ui run_control_plane
 
 .PHONY: build_ui
 build_ui: 
-	cd ui && dx build 
+	cd ui && dx build
 
 
 .PHONY: run_console

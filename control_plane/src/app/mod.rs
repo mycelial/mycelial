@@ -88,19 +88,63 @@ pub struct Workspace {
     pub created_at: Option<DateTime<Utc>>,
 }
 
+/// Workspace graph
+/// 
+/// Workspace graph nodes are stripped from sensitive data
 #[derive(Debug, Serialize)]
-pub struct Graph {
-    pub nodes: Vec<Node>,
+pub struct WorkspaceGraph {
+    pub nodes: Vec<WorkspaceNode>,
     pub edges: Vec<Edge>,
 }
 
 #[derive(Debug, Serialize)]
-pub struct Node {
+pub struct WorkspaceNode {
     pub id: uuid::Uuid,
     pub display_name: String,
     pub config: Box<dyn config::Config>,
     pub x: f64,
     pub y: f64,
+}
+
+impl WorkspaceNode {
+    pub fn new(id: uuid::Uuid, display_name: String, config: Box<dyn config::Config>, x: f64, y: f64) -> Self {
+        Self { id, display_name, config, x, y }
+    }
+
+    pub fn strip_secrets(&mut self, config_registry: &ConfigRegistry) -> Result<()> {
+        match config_registry.build_config(self.config.name()) {
+            Ok(mut config) => {
+                if let Err(e) = deserialize_into_config(&mut *self.config, &mut *config) {
+                    // FIXME: emit warning which will be visible in UI
+                    tracing::error!(
+                        "failed to deserialize stored config with name: {}: {e}",
+                        config.name()
+                    );
+                };
+                config.strip_secrets();
+                std::mem::swap(&mut self.config, &mut config);
+                Ok(())
+            }
+            Err(e) => {
+                Err(anyhow::anyhow!(
+                    "failed to build config from config registry for {}: {e}",
+                    self.config.name()
+                ))?
+            }
+        }
+    }
+}
+
+#[derive(Debug, Serialize)]
+pub struct DaemonGraph {
+    pub nodes: Vec<DaemonNode>,
+    pub edges: Vec<Edge>
+}
+
+#[derive(Debug, Serialize)]
+pub struct DaemonNode {
+    id: uuid::Uuid,
+    config: Box<dyn config::Config>,
 }
 
 #[derive(Debug, Serialize)]
@@ -290,32 +334,9 @@ impl App {
     }
 
     // workspace api
-    pub async fn get_graph(&self, name: &str) -> Result<Graph> {
-        let mut graph = self.db.get_graph(name).await?;
-        let mut nodes = Vec::with_capacity(graph.nodes.len());
-        for mut node in graph.nodes.into_iter() {
-            match self.config_registry.build_config(node.config.name()) {
-                Ok(mut config) => {
-                    if let Err(e) = deserialize_into_config(&*node.config, &mut *config) {
-                        // FIXME: emit warning which will be visible in UI
-                        tracing::error!(
-                            "failed to deserialize stored config with name: {}: {e}",
-                            config.name()
-                        );
-                    };
-                    config.strip_secrets();
-                    std::mem::swap(&mut node.config, &mut config);
-                    nodes.push(node)
-                }
-                Err(e) => {
-                    tracing::error!(
-                        "failed to build config from config registry for {}: {e}",
-                        node.config.name()
-                    );
-                }
-            }
-        }
-        graph.nodes = nodes;
+    pub async fn get_workspace_graph(&self, name: &str) -> Result<WorkspaceGraph> {
+        let mut graph = self.db.get_workspace_graph(name).await?;
+        graph.nodes.iter_mut().for_each(|node| { node.strip_secrets(&self.config_registry).ok(); });
         Ok(graph)
     }
 
@@ -428,5 +449,9 @@ impl App {
 
     pub async fn daemon_disconnected(&self, id: Uuid) -> Result<()> {
         self.daemon_tracker.daemon_disconnected(id).await
+    }
+    
+    pub async fn get_daemon_graph(&self, id: Uuid) -> Result<DaemonGraph> {
+        self.db.get_daemon_graph(id).await
     }
 }

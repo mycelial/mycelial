@@ -140,6 +140,10 @@ impl FormState {
             entry.update(value)
         }
     }
+    
+    fn get_value(&self, field_name: &str) -> &str {
+        self.fields.get(field_name).unwrap().value.as_str()
+    }
 }
 
 impl IntoIterator for FormState {
@@ -172,13 +176,19 @@ pub fn NodeStateForm(
     if form_state.peek().is_none() {
         *form_state.write() = Some(FormState::new(node_state));
     }
-    let fs = form_state.read().as_ref().map(|form| form.clone()).unwrap();
+    let fs_state = &*form_state.read();
+    let fs = fs_state.as_ref().unwrap();
+    
 
     // since field.name is not &'static str, we need to clone it so all event handlers can capture field name by value
     let config_fields = config
         .fields()
         .into_iter()
-        .map(|field| (field.name.to_string(), field));
+        .map(|field| {
+            // use value from form_state
+            let value = fs.get_value(field.name);
+            (field.name.to_string(), field, value)
+        });
     return rsx! {
         div {
             class: "border border-solid rounded-md drop-shadow px-5 py-4 mt-4 mx-4",
@@ -240,7 +250,7 @@ pub fn NodeStateForm(
                         }
                     }
                     // FIXME: add daemon field
-                    for (field_name, field) in config_fields {
+                    for (field_name, field, field_value) in config_fields {
                         div {
                           //if field.ty.is_vec() {
                           //    div {
@@ -284,7 +294,7 @@ pub fn NodeStateForm(
                                                 form_state.update_value(field_name.as_str(), event.value());
                                             }
                                         },
-                                        checked: "{field.value}",
+                                        checked: "{field_value}",
                                     }
                                 }
                             } else if field.metadata.is_text_area {
@@ -306,7 +316,7 @@ pub fn NodeStateForm(
                                                 form_state.update_value(field_name.as_str(), event.value())
                                             }
                                         },
-                                        value: "{field.value}",
+                                        value: "{field_value}",
                                     }
                                 }
                             } else {
@@ -330,7 +340,7 @@ pub fn NodeStateForm(
                                                 form_state.update_value(field_name.as_str(), event.value())
                                             }
                                         },
-                                        value: if field.metadata.is_password { String::new() } else { field.value.to_string() },
+                                        value: "{ field_value }",
                                     }
                                 }
                             }

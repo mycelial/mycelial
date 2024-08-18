@@ -2,7 +2,7 @@ use sea_query::{ColumnDef, Expr, Iden, Index, SchemaBuilder, Table};
 use sqlx::migrate::{Migration, MigrationType};
 
 #[derive(Iden)]
-enum Clients {
+pub enum Clients {
     Table,
     Id,
     DisplayName,
@@ -51,7 +51,7 @@ impl ClientsUniqueClientIdIndex {
 }
 
 #[derive(Iden)]
-enum Messages {
+pub enum Messages {
     Table,
     Id,
     Topic,
@@ -136,7 +136,7 @@ impl MessageChunksChunkIdIndex {
 }
 
 #[derive(Iden)]
-enum Workspaces {
+pub enum Workspaces {
     Table,
     Id,
     UserId,

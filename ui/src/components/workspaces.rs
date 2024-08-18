@@ -127,22 +127,7 @@ pub fn Workspaces() -> Element {
         Ok(workspaces_len)
     });
     let child = match &*fetcher.read() {
-        Some(Ok(0)) => rsx! {
-            div {
-                class: "mt-10 p-4 w-9/12 bg-moss-3 text-black drop-shadow-md rounded-sm mx-auto col-span-2",
-                div {
-                    class: "py-2 my-2 bg-white text-night-2 shadow-none",
-                    h3 {
-                        class: "text-lg ml-2 py-2",
-                        "Create your first workspace to start building pipelines!"
-                    }
-                    div {
-                        class: "bg-grey-bright mx-2 p-2 rounded",
-                        "Mycelial pipelines are organized into groups called Workspaces. Click the \"Add New Workspace\" button above to create your first workspace."
-                    }
-                }
-            }
-        },
+        Some(Ok(0)) => rsx! { },
         Some(Ok(_)) => rsx! {
             div {
                 id: "table-container",

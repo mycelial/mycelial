@@ -9,6 +9,7 @@ edition = "2021"
 pipe = { path = "../pipe/runtime/", package="runtime" }
 section = { path = "../pipe/section/" }
 pki = { path = "../pki" }
+protocol = { path = "../protocol" }
 
 tokio = { version = "1", features = ["full"] }
 clap = { version = "4", features = ["derive", "env"] }
@@ -47,4 +48,7 @@ redshift_loader = { path = "../pipe/section/section_impls/redshift_loader" }
 inspect = { path = "../pipe/section/section_impls/inspect" }
 tokio-tungstenite = { version = "0.23.1", features = ["__rustls-tls", "connect", "rustls", "tokio-rustls"] }
 tungstenite = "0.23.0"
+uuid = "1.10.0"
+chrono = "0.4.38"
+futures = "0.3.30"
 #sqlite_physical_replication = { path = "../pipe/section/section_impls/sqlite_physical_replication/" }

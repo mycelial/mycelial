@@ -7,6 +7,7 @@ members = [
     "graph",
     "myceliald",
     "pki",
+    "protocol",
     "ui",
 
     "pipe/arrow_msg",

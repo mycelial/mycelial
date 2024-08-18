@@ -1,7 +1,7 @@
 use std::{net::SocketAddr, sync::Arc};
 
 use axum::{
-    extract::{ws::WebSocket, State, WebSocketUpgrade},
+    extract::{ws::{WebSocket, Message as WebsocketMessage}, State, WebSocketUpgrade},
     middleware,
     response::IntoResponse,
     routing::get,
@@ -9,6 +9,7 @@ use axum::{
 };
 use chrono::Utc;
 use futures::StreamExt;
+use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::{app::AppState, tls_server::PeerInfo, Result};
@@ -57,16 +58,33 @@ async fn handle_socket(
     loop {
         tokio::select! {
             msg = output.next() => {
-                let _msg = match msg {
+                let msg = match msg {
                     None => {
                         if let Err(e) = app.daemon_set_last_seen(daemon_id, Utc::now()).await {
                             tracing::error!("failed to set last seen for {daemon_id}: {e}");
                         }
                         return Ok(());
                     },
-                    Some(msg) => msg,
+                    Some(msg) => msg?,
                 };
+                let msg = match msg {
+                    WebsocketMessage::Text(data) => serde_json::from_str::<protocol::Message>(&data)?,
+                    WebsocketMessage::Ping(_) => continue,
+                    WebsocketMessage::Pong(_) => continue,
+                    _ => Err(anyhow::anyhow!("unexpected message: {msg:?}"))?,
+                };
+                match msg {
+                    protocol::Message::GetGraph => {
+                        let graph = app.get_daemon_graph(daemon_id).await?;
+                        tracing::info!("graph: {:?}", graph);
+                    },
+                    _ => {
+                        tracing::info!("unexpected message: {msg:?}");
+                    },
+                }
+                tracing::info!("got msg: {:?}", msg);
             }
+            
         }
     }
 }

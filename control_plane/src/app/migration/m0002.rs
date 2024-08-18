@@ -1,5 +1,6 @@
-use sea_query::{ColumnDef, Iden, SchemaBuilder, Table};
+use sea_query::{ColumnDef, ForeignKey, ForeignKeyAction, Iden, SchemaBuilder, Table};
 use sqlx::migrate::{Migration, MigrationType};
+use super::m0001;
 
 // Graph nodes
 
@@ -29,6 +30,14 @@ impl Nodes {
             .col(ColumnDef::new(Nodes::WorkspaceId).big_integer().not_null())
             .col(ColumnDef::new(Nodes::DaemonId).big_integer())
             .col(ColumnDef::new(Nodes::Config).json().not_null())
+            .foreign_key(
+                ForeignKey::create()
+                    .from(Nodes::Table, Nodes::WorkspaceId)
+                    .to(m0001::Workspaces::Table, m0001::Workspaces::Id)
+                    .on_update(ForeignKeyAction::Cascade)
+                    .on_delete(ForeignKeyAction::Cascade)
+                    .on_update(ForeignKeyAction::Cascade)
+            )
             .build_any(schema_builder)
     }
 }
