@@ -110,6 +110,7 @@ pub struct WorkspaceNode {
     pub id: uuid::Uuid,
     pub display_name: String,
     pub config: Box<dyn config::Config>,
+    pub daemon_id: Option<Uuid>,
     pub x: f64,
     pub y: f64,
 }
@@ -119,6 +120,7 @@ impl WorkspaceNode {
         id: uuid::Uuid,
         display_name: String,
         config: Box<dyn config::Config>,
+        daemon_id: Option<Uuid>,
         x: f64,
         y: f64,
     ) -> Self {
@@ -126,6 +128,7 @@ impl WorkspaceNode {
             id,
             display_name,
             config,
+            daemon_id,
             x,
             y,
         }
@@ -488,5 +491,15 @@ impl App {
 
     pub async fn unset_daemon_name(&self, id: Uuid) -> Result<()> {
         self.db.unset_daemon_name(id).await
+    }
+
+    pub async fn assign_node_to_daemon(&self, node_id: Uuid, daemon_id: Uuid) -> Result<()> {
+        self.db.assign_node_to_daemon(node_id, daemon_id).await?;
+        Ok(())
+    }
+
+    pub async fn unassign_node_from_daemon(&self, node_id: Uuid) -> Result<()> {
+        self.db.unassign_node_from_daemon(node_id).await?;
+        Ok(())
     }
 }

@@ -225,6 +225,7 @@ where
                     Nodes::Id,
                     Nodes::DisplayName,
                     Nodes::Config,
+                    Nodes::DaemonId,
                     Nodes::X,
                     Nodes::Y,
                 ])
@@ -243,6 +244,7 @@ where
                         serde_json::from_value(config)?,
                         row.get(3),
                         row.get(4),
+                        row.get(5),
                     ))
                 })
                 .collect::<Result<Vec<_>>>()?;
@@ -728,6 +730,30 @@ where
                 .table(Daemons::Table)
                 .values([(Daemons::DisplayName, Option::<String>::None.into())])
                 .and_where(Expr::col(Daemons::Id).eq(id))
+                .build_any_sqlx(&*self.query_builder);
+            sqlx::query_with(&query, values).execute(&self.pool).await?;
+            Ok(())
+        })
+    }
+
+    fn assign_node_to_daemon(&self, node_id: Uuid, daemon_id: Uuid) -> BoxFuture<'_, Result<()>> {
+        Box::pin(async move {
+            let (query, values) = Query::update()
+                .table(Nodes::Table)
+                .values([(Nodes::DaemonId, daemon_id.into())])
+                .and_where(Expr::col(Nodes::Id).eq(node_id))
+                .build_any_sqlx(&*self.query_builder);
+            sqlx::query_with(&query, values).execute(&self.pool).await?;
+            Ok(())
+        })
+    }
+
+    fn unassign_node_from_daemon(&self, node_id: Uuid) -> BoxFuture<'_, Result<()>> {
+        Box::pin(async move {
+            let (query, values) = Query::update()
+                .table(Nodes::Table)
+                .values([(Nodes::DaemonId, Option::<Uuid>::None.into())])
+                .and_where(Expr::col(Nodes::Id).eq(node_id))
                 .build_any_sqlx(&*self.query_builder);
             sqlx::query_with(&query, values).execute(&self.pool).await?;
             Ok(())

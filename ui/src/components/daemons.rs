@@ -25,10 +25,9 @@ impl DaemonsState {
 
     fn add_daemon(&mut self, mut daemon: Daemon) {
         // strip nanoseconds, unwrap is safe since '0' will not overflow second;
-        daemon
+        daemon.last_seen = daemon
             .last_seen
-            .as_mut()
-            .map(|time| *time = time.with_nanosecond(0).unwrap());
+            .map(|time| time.with_nanosecond(0).unwrap());
         daemon.joined_at = daemon.joined_at.with_nanosecond(0).unwrap();
         self.map.insert(daemon.id, Rc::new(daemon));
     }
@@ -49,7 +48,7 @@ pub fn render(
     (
         Rc::clone(daemon),
         daemon.id.to_string(),
-        daemon.name.as_str(),
+        daemon.name.as_deref().unwrap_or(""),
         daemon.address.as_deref().unwrap_or(""),
         daemon
             .last_seen

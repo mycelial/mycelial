@@ -193,6 +193,7 @@ pub struct Node {
     pub x: f64,
     pub y: f64,
     pub config: Box<dyn config::Config>,
+    pub daemon_id: Option<Uuid>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -273,7 +274,7 @@ pub struct Token {
 #[derive(Debug, Clone, Deserialize)]
 pub struct Daemon {
     pub id: Uuid,
-    pub name: String,
+    pub name: Option<String>,
     pub address: Option<String>,
     pub last_seen: Option<DateTime<Utc>>,
     pub joined_at: DateTime<Utc>,
@@ -354,6 +355,49 @@ impl ControlPlaneClient {
             .await?;
         match response.status() {
             status_code if status_code.is_success() => Ok(response.json().await?),
+            status_code => Err(AppError::from_status_code(status_code)),
+        }
+    }
+
+    pub async fn assign_daemon(&self, daemon_id: Uuid, node_id: Uuid) -> Result<()> {
+        let response = reqwest::Client::new()
+            .post(get_url(&[
+                DAEMON_API,
+                "assign",
+                &daemon_id.to_string(),
+                &node_id.to_string(),
+            ])?)
+            .send()
+            .await?;
+        match response.status() {
+            status_code if status_code.is_success() => Ok(response.json().await?),
+            status_code => Err(AppError::from_status_code(status_code)),
+        }
+    }
+
+    pub async fn assign_node_to_daemon(&self, node_id: Uuid, daemon_id: Uuid) -> Result<()> {
+        let response = reqwest::Client::new()
+            .post(get_url(&[
+                DAEMON_API,
+                "assign",
+                &node_id.to_string(),
+                &daemon_id.to_string(),
+            ])?)
+            .send()
+            .await?;
+        match response.status() {
+            status_code if status_code.is_success() => Ok(()),
+            status_code => Err(AppError::from_status_code(status_code)),
+        }
+    }
+
+    pub async fn unassign_node_from_daemon(&self, node_id: Uuid) -> Result<()> {
+        let response = reqwest::Client::new()
+            .delete(get_url(&[DAEMON_API, "unassign", &node_id.to_string()])?)
+            .send()
+            .await?;
+        match response.status() {
+            status_code if status_code.is_success() => Ok(()),
             status_code => Err(AppError::from_status_code(status_code)),
         }
     }

@@ -101,7 +101,7 @@ fn Node(
     mut disable_drag: Signal<bool>,
 ) -> Element {
     let node_ref = &*node.read();
-    let (id, x, y, _w, _h, port_diameter, config, input_pos, output_pos) = (
+    let (id, x, y, _w, _h, port_diameter, config, daemon_id, input_pos, output_pos) = (
         node_ref.id,
         node_ref.x,
         node_ref.y,
@@ -109,6 +109,7 @@ fn Node(
         node_ref.h,
         node_ref.port_diameter,
         &*(node_ref.config),
+        node_ref.daemon_id,
         node_ref.input_pos(),
         node_ref.output_pos(),
     );
@@ -154,6 +155,26 @@ fn Node(
             }
         },
     };
+
+    let no_daemon_option = rsx! {
+        option {
+            selected: daemon_id.is_none(),
+            label: "<select daemon>",
+            ""
+        }
+    };
+    let daemons_state = daemons.read();
+    let daemon_select_options_iter = daemons_state.iter().map(|daemon| {
+        let selected = match daemon_id {
+            Some(id) => daemon.id == id,
+            None => false,
+        };
+        match daemon.name.as_ref() {
+            None => rsx! { option { selected: selected, "{daemon.id}" } },
+            Some(name) => rsx! { option { selected: selected, "{name}" } },
+        }
+    });
+    let options_iter = std::iter::once(no_daemon_option).chain(daemon_select_options_iter);
 
     rsx! {
         div {
@@ -228,21 +249,34 @@ fn Node(
                     disable_drag.set(false);
                 },
                 select {
-                    onchange: move |event| {
-
-                        tracing::info!("{event:?}");
+                    onchange: move |event| async move {
+                        let (result, daemon_id) = match event.value().as_str() {
+                            "" => {
+                                (control_plane_client.unassign_node_from_daemon(id).await, None)
+                            },
+                            value => {
+                                let daemon_id = {
+                                    let daemons = daemons.peek();
+                                    let daemon = daemons.iter().find(|daemon| daemon.name.as_deref() == Some(value));
+                                    if daemon.is_none() {
+                                        tracing::error!("can't find daemon with name: {value}");
+                                        return
+                                    };
+                                    daemon.unwrap().id
+                                };
+                                (control_plane_client.assign_node_to_daemon(id, daemon_id).await, Some(daemon_id))
+                            }
+                        };
+                        match result {
+                            Err(e) => tracing::error!("failed update node daemon: {e}"),
+                            Ok(()) => {
+                                node.write().daemon_id = daemon_id;
+                            }
+                        };
                     },
                     class: "block p-1 w-full rounded-md text-gray-900 ring-1 ring-night-1 drop-shadow-sm focus:ring-1 focus:ring-night-1 focus:outline-none",
-                    option {
-                        selected: true,
-                        value: "-",
-                        "<select daemon>"
-                    }
-                    for daemon in daemons.read().iter() {
-                        match daemon.name.is_empty() {
-                            true => rsx!{ option { "{daemon.id}" } },
-                            false => rsx!{ option { "{daemon.name}"} },
-                        }
+                    for option in options_iter {
+                        {option}
                     }
                 }
             }
@@ -384,6 +418,7 @@ fn ViewPort(
                         coords.x - *delta_x - vps_ref.delta_x(),
                         coords.y - *delta_y - vps_ref.delta_y(),
                         config,
+                        None,
                     ));
                     let op = graph.add_node(id, node_state);
                     control_plane_client.update_workspace(WorkspaceUpdate::new(&workspace, [op]));
@@ -705,7 +740,13 @@ pub fn Workspace(workspace: String) -> Element {
                 };
                 graph.add_node(
                     node.id,
-                    Signal::new(NodeState::new(node.id, node.x, node.y, config)),
+                    Signal::new(NodeState::new(
+                        node.id,
+                        node.x,
+                        node.y,
+                        config,
+                        node.daemon_id,
+                    )),
                 );
             }
             for edge in workspace_state.edges.iter() {

@@ -74,3 +74,20 @@ pub async fn unset_name(State(app): State<AppState>, Path(id): Path<String>) -> 
     app.unset_daemon_name(id.parse()?).await?;
     Ok(())
 }
+
+pub async fn assign_node_to_daemon(
+    State(app): State<AppState>,
+    Path((node_id, daemon_id)): Path<(String, String)>,
+) -> Result<()> {
+    app.assign_node_to_daemon(node_id.parse()?, daemon_id.parse()?)
+        .await?;
+    Ok(())
+}
+
+pub async fn unassign_node_from_daemon(
+    State(app): State<AppState>,
+    Path(node_id): Path<String>,
+) -> Result<()> {
+    app.unassign_node_from_daemon(node_id.parse()?).await?;
+    Ok(())
+}
