@@ -34,14 +34,6 @@ pub fn new(app: crate::app::AppState) -> Router {
             "/api/daemon/set_name/:id",
             post(daemon::set_name).delete(daemon::unset_name),
         )
-        .route(
-            "/api/daemon/assign/:node_id/:daemon_id",
-            post(daemon::assign_node_to_daemon),
-        )
-        .route(
-            "/api/daemon/unassign/:node_id",
-            delete(daemon::unassign_node_from_daemon),
-        )
         // assets
         .fallback(assets::assets)
         .layer(middleware::from_fn(crate::http::log_middleware))

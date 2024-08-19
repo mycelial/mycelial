@@ -249,30 +249,38 @@ fn Node(
                     disable_drag.set(false);
                 },
                 select {
-                    onchange: move |event| async move {
-                        let (result, daemon_id) = match event.value().as_str() {
-                            "" => {
-                                (control_plane_client.unassign_node_from_daemon(id).await, None)
-                            },
-                            value => {
-                                let daemon_id = {
-                                    let daemons = daemons.peek();
-                                    let daemon = daemons.iter().find(|daemon| daemon.name.as_deref() == Some(value));
-                                    if daemon.is_none() {
-                                        tracing::error!("can't find daemon with name: {value}");
-                                        return
+                    onchange: {
+                        let workspace = Rc::clone(&workspace);
+                        move |event| {
+                            let daemon_id = match event.value().as_str() {
+                                "" => {
+                                    control_plane_client.update_workspace(
+                                        WorkspaceUpdate::new(&workspace, [
+                                            WorkspaceOperation::UnassignNodeFromDaemon{ node_id: id }
+                                        ])
+                                    );
+                                    None
+                                },
+                                value => {
+                                    let daemon_id = {
+                                        let daemons = daemons.peek();
+                                        let daemon = daemons.iter().find(|daemon| daemon.name.as_deref() == Some(value));
+                                        if daemon.is_none() {
+                                            tracing::error!("can't find daemon with name: {value}");
+                                            return
+                                        };
+                                        daemon.unwrap().id
                                     };
-                                    daemon.unwrap().id
-                                };
-                                (control_plane_client.assign_node_to_daemon(id, daemon_id).await, Some(daemon_id))
-                            }
-                        };
-                        match result {
-                            Err(e) => tracing::error!("failed update node daemon: {e}"),
-                            Ok(()) => {
-                                node.write().daemon_id = daemon_id;
-                            }
-                        };
+                                    control_plane_client.update_workspace(
+                                        WorkspaceUpdate::new(&workspace, [
+                                            WorkspaceOperation::AssignNodeToDaemon{node_id: id, daemon_id}
+                                        ])
+                                    );
+                                    Some(daemon_id)
+                                }
+                            };
+                            node.write().daemon_id = daemon_id;
+                        }
                     },
                     class: "block p-1 w-full rounded-md text-gray-900 ring-1 ring-night-1 drop-shadow-sm focus:ring-1 focus:ring-night-1 focus:outline-none",
                     for option in options_iter {

@@ -95,11 +95,12 @@ impl AppBackgroundCoroutine {
                             },
                             Ok(response) => {
                                 tracing::error!("{}", AppError::from_status_code(response.status()));
+                                TimeoutFuture::new(1000).await;
                                 break
                             },
                             Err(e) => tracing::error!("Failed to perform update request: {}", e),
                         }
-                        TimeoutFuture::new(1_000).await;
+                        TimeoutFuture::new(1000).await;
                     }
                 }
             }
@@ -211,6 +212,8 @@ pub enum WorkspaceOperation {
     AddEdge { from: Uuid, to: Uuid },
     RemoveEdge { from: Uuid, to: Uuid },
     UpdatePan { x: f64, y: f64 },
+    AssignNodeToDaemon { node_id: Uuid, daemon_id: Uuid },
+    UnassignNodeFromDaemon { node_id: Uuid },
 }
 
 impl From<GraphOperation<Uuid, Signal<NodeState>>> for WorkspaceOperation {
@@ -371,33 +374,6 @@ impl ControlPlaneClient {
             .await?;
         match response.status() {
             status_code if status_code.is_success() => Ok(response.json().await?),
-            status_code => Err(AppError::from_status_code(status_code)),
-        }
-    }
-
-    pub async fn assign_node_to_daemon(&self, node_id: Uuid, daemon_id: Uuid) -> Result<()> {
-        let response = reqwest::Client::new()
-            .post(get_url(&[
-                DAEMON_API,
-                "assign",
-                &node_id.to_string(),
-                &daemon_id.to_string(),
-            ])?)
-            .send()
-            .await?;
-        match response.status() {
-            status_code if status_code.is_success() => Ok(()),
-            status_code => Err(AppError::from_status_code(status_code)),
-        }
-    }
-
-    pub async fn unassign_node_from_daemon(&self, node_id: Uuid) -> Result<()> {
-        let response = reqwest::Client::new()
-            .delete(get_url(&[DAEMON_API, "unassign", &node_id.to_string()])?)
-            .send()
-            .await?;
-        match response.status() {
-            status_code if status_code.is_success() => Ok(()),
             status_code => Err(AppError::from_status_code(status_code)),
         }
     }

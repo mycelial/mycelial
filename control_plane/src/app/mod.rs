@@ -205,6 +205,13 @@ pub enum WorkspaceOperation {
     RemoveEdge {
         from: Uuid,
     },
+    AssignNodeToDaemon {
+        node_id: Uuid,
+        daemon_id: Uuid,
+    },
+    UnassignNodeFromDaemon {
+        node_id: Uuid,
+    },
 }
 
 #[derive(Debug, Serialize)]
@@ -491,15 +498,5 @@ impl App {
 
     pub async fn unset_daemon_name(&self, id: Uuid) -> Result<()> {
         self.db.unset_daemon_name(id).await
-    }
-
-    pub async fn assign_node_to_daemon(&self, node_id: Uuid, daemon_id: Uuid) -> Result<()> {
-        self.db.assign_node_to_daemon(node_id, daemon_id).await?;
-        Ok(())
-    }
-
-    pub async fn unassign_node_from_daemon(&self, node_id: Uuid) -> Result<()> {
-        self.db.unassign_node_from_daemon(node_id).await?;
-        Ok(())
     }
 }
