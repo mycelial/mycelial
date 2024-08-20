@@ -90,6 +90,16 @@ impl AppBackgroundCoroutine {
                             .await;
                         match response {
                             Ok(response) if response.status().is_success() => {
+                                match response.json::<Vec<WorkspaceUpdateResult>>().await {
+                                    Ok(response) => {
+                                        response.into_iter().enumerate().for_each(|(pos, update_result)| {
+                                            if let WorkspaceUpdateResult::Error{ kind, description }= update_result {
+                                                if let Some(update) = updates.get(pos) { tracing::error!("failed to perform update, err: {kind} {description}, for update {update:?}") }
+                                            }
+                                        });
+                                    },
+                                    Err(e) => tracing::error!("failed to decode response: {e}"),
+                                };
                                 updates.clear();
                                 break
                             },
@@ -231,6 +241,13 @@ impl From<GraphOperation<Uuid, Signal<NodeState>>> for WorkspaceOperation {
 pub struct WorkspaceUpdate {
     name: Rc<str>,
     operations: Vec<WorkspaceOperation>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(tag = "result")]
+pub enum WorkspaceUpdateResult {
+    Success,
+    Error { kind: String, description: String },
 }
 
 impl WorkspaceUpdate {

@@ -23,6 +23,9 @@ pub enum AppErrorKind {
     Internal,
     TokenUsed,
     JoinRequestHashMissmatch,
+    WorkspaceNotFound,
+    ConfigNotFound,
+    ConfigIsInvalid,
 }
 
 #[derive(Debug)]
@@ -46,6 +49,13 @@ impl AppError {
         }
     }
 
+    pub fn workspace_not_found(workspace: &str) -> Self {
+        Self {
+            kind: AppErrorKind::WorkspaceNotFound,
+            err: anyhow::anyhow!("{workspace} not found"),
+        }
+    }
+
     pub fn token_used(id: Uuid) -> Self {
         Self {
             kind: AppErrorKind::TokenUsed,
@@ -64,6 +74,24 @@ impl AppError {
         Self {
             kind: AppErrorKind::Internal,
             err: anyhow::anyhow!(desc),
+        }
+    }
+
+    pub fn is_internal(&self) -> bool {
+        self.kind == AppErrorKind::Internal
+    }
+
+    pub fn config_not_found(name: &str) -> Self {
+        Self {
+            kind: AppErrorKind::ConfigNotFound,
+            err: anyhow::anyhow!("config with {name} not found in config registry"),
+        }
+    }
+
+    pub fn invalid_config(name: &str) -> Self {
+        Self {
+            kind: AppErrorKind::ConfigIsInvalid,
+            err: anyhow::anyhow!("configuration for {name} is invalid"),
         }
     }
 }
@@ -178,6 +206,26 @@ pub struct Edge {
 pub struct WorkspaceUpdate {
     name: String,
     operations: Vec<WorkspaceOperation>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(tag = "result")]
+pub enum WorkspaceUpdateResult {
+    Success,
+    Error { kind: String, description: String },
+}
+
+impl WorkspaceUpdateResult {
+    fn success() -> Self {
+        Self::Success
+    }
+
+    fn from_app_error(err: AppError) -> Self {
+        Self::Error {
+            kind: format!("{:?}", err.kind),
+            description: err.err.to_string(),
+        }
+    }
 }
 
 #[derive(Debug, Deserialize)]
@@ -377,28 +425,45 @@ impl App {
         })
     }
 
-    pub async fn update_workspace(&self, updates: &mut [WorkspaceUpdate]) -> Result<()> {
-        // validate configs
-        for update in updates.iter_mut() {
-            for operation in update.operations.as_mut_slice() {
-                if let WorkspaceOperation::AddNode { config, .. } = operation {
-                    let config_name = config.name();
-                    let mut default_config = self
-                        .config_registry
-                        .build_config(config_name)
-                        .map_err(|e| {
-                            anyhow::anyhow!("failed to build config for {config_name}: {e}")
-                        })?;
-                    deserialize_into_config(&**config, &mut *default_config).map_err(|e| {
-                        anyhow::anyhow!("failed to deserialize config {config_name}: {e}")
-                    })?;
-                    std::mem::swap(config, &mut default_config);
-                }
+    pub async fn update_workspace(
+        &self,
+        updates: &mut [WorkspaceUpdate],
+    ) -> Result<Vec<WorkspaceUpdateResult>> {
+        let mut result = Vec::with_capacity(updates.len());
+        // validate operation
+        let validate_operation = |operation: &mut WorkspaceOperation| -> Result<()> {
+            if let WorkspaceOperation::AddNode { config, .. } = operation {
+                let config_name = config.name();
+                let mut default_config = self
+                    .config_registry
+                    .build_config(config_name)
+                    .map_err(|_| AppError::config_not_found(config_name))?;
+                deserialize_into_config(&**config, &mut *default_config)
+                    .map_err(|_| AppError::invalid_config(config_name))?;
+                std::mem::swap(config, &mut default_config);
             }
+            Ok(())
+        };
+        for update in updates.iter_mut() {
+            let update_result = match update
+                .operations
+                .iter_mut().try_for_each(validate_operation)
+            {
+                Err(e) => Err(e),
+                Ok(()) => {
+                    self.db
+                        .update_workspace(&self.config_registry, update)
+                        .await
+                }
+            };
+            let update_result = match update_result {
+                Ok(()) => WorkspaceUpdateResult::success(),
+                Err(e) if e.is_internal() => Err(e)?,
+                Err(e) => WorkspaceUpdateResult::from_app_error(e),
+            };
+            result.push(update_result);
         }
-        self.db
-            .update_workspace(&self.config_registry, updates)
-            .await
+        Ok(result)
     }
 
     // daemon API

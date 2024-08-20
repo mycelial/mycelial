@@ -1,6 +1,6 @@
 use std::{
     borrow::Cow,
-    collections::{BTreeMap, HashMap},
+    collections::HashMap,
     ops::{Deref, DerefMut},
 };
 
@@ -272,145 +272,136 @@ where
     fn update_workspace<'a>(
         &'a self,
         config_registry: &'a ConfigRegistry,
-        updates: &'a [WorkspaceUpdate],
+        update: &'a WorkspaceUpdate,
     ) -> BoxFuture<'a, Result<()>> {
         Box::pin(async move {
             let conn = &mut *self.pool.acquire().await?;
             let mut transaction = conn.begin().await?;
-            let mut workspaces_cache = BTreeMap::<String, i64>::new();
-            for update in updates {
-                let workspace_name = update.name.as_str();
-                let workspace_id = match workspaces_cache.get(workspace_name) {
-                    None => {
+            let workspace_name = update.name.as_str();
+            let (query, values) = Query::select()
+                .columns([Workspaces::Id])
+                .from(Workspaces::Table)
+                .and_where(Expr::col(Workspaces::Name).eq(workspace_name))
+                .build_any_sqlx(&*self.query_builder);
+            let workspace_id = match sqlx::query_with(&query, values)
+                .fetch_optional(&mut *transaction)
+                .await?
+            {
+                Some(row) => row.get::<i64, _>(0),
+                None => Err(AppError::workspace_not_found(workspace_name))?,
+            };
+            for op in update.operations.iter() {
+                let (query, values) = match *op {
+                    WorkspaceOperation::AddNode {
+                        id,
+                        x,
+                        y,
+                        ref config,
+                    } => {
+                        let config_json = serde_json::to_string(config)?;
+                        Query::insert()
+                            .columns([
+                                Nodes::Id,
+                                Nodes::X,
+                                Nodes::Y,
+                                Nodes::Config,
+                                Nodes::WorkspaceId,
+                            ])
+                            .into_table(Nodes::Table)
+                            .values_panic([
+                                id.into(),
+                                x.into(),
+                                y.into(),
+                                config_json.into(),
+                                workspace_id.into(),
+                            ])
+                            .build_any_sqlx(&*self.query_builder)
+                    }
+                    WorkspaceOperation::RemoveNode(uuid) => Query::delete()
+                        .from_table(Nodes::Table)
+                        .and_where(Expr::col(Nodes::Id).eq(uuid))
+                        .build_any_sqlx(&*self.query_builder),
+                    WorkspaceOperation::UpdateNodePosition { uuid, x, y } => Query::update()
+                        .table(Nodes::Table)
+                        .values([(Nodes::X, x.into()), (Nodes::Y, y.into())])
+                        .and_where(Expr::col(Nodes::Id).eq(uuid))
+                        .build_any_sqlx(&*self.query_builder),
+                    WorkspaceOperation::AddEdge { from, to } => Query::insert()
+                        .columns([Edges::FromId, Edges::ToId])
+                        .into_table(Edges::Table)
+                        .values_panic([from.into(), to.into()])
+                        .build_any_sqlx(&*self.query_builder),
+                    WorkspaceOperation::RemoveEdge { from } => Query::delete()
+                        .from_table(Edges::Table)
+                        .and_where(Expr::col(Edges::FromId).eq(from))
+                        .build_any_sqlx(&*self.query_builder),
+                    WorkspaceOperation::UpdateNodeConfig { id, ref config } => {
                         let (query, values) = Query::select()
-                            .columns([Workspaces::Id])
-                            .from(Workspaces::Table)
-                            .and_where(Expr::col(Workspaces::Name).eq(workspace_name))
+                            .columns([Nodes::Config])
+                            .from(Nodes::Table)
+                            .and_where(Expr::col(Nodes::Id).eq(id))
+                            .lock_exclusive()
                             .build_any_sqlx(&*self.query_builder);
-                        let id = match sqlx::query_with(&query, values)
+                        let mut cur_config = match sqlx::query_with(&query, values)
                             .fetch_optional(&mut *transaction)
                             .await?
                         {
-                            Some(row) => row.get::<i64, _>(0),
-                            None => Err(anyhow::anyhow!("failed to perform workspace update: no such workspace {workspace_name}"))?,  
+                            Some(row) => {
+                                let raw_config = row.get::<Json<_>, _>(0).0;
+                                let raw_config: Box<dyn config::Config> =
+                                    serde_json::from_value(raw_config)?;
+                                let mut cur_config = config_registry
+                                    .build_config(raw_config.name())
+                                    .map_err(|e| {
+                                        anyhow::anyhow!(
+                                            "failed to build config '{}': {e}",
+                                            raw_config.name()
+                                        )
+                                    })?;
+                                deserialize_into_config(&*raw_config, &mut *cur_config).map_err(
+                                    |e| {
+                                        anyhow::anyhow!(
+                                            "failed to deserialize into config: {}: {e}",
+                                            raw_config.name()
+                                        )
+                                    },
+                                )?;
+                                cur_config
+                            }
+                            None => {
+                                tracing::error!("can't update node config for node with id {id}, node not found");
+                                continue;
+                            }
                         };
-                        workspaces_cache.insert(workspace_name.to_string(), id);
-                        id
+                        deserialize_into_config(&**config, &mut *cur_config).map_err(|e| {
+                            anyhow::anyhow!(
+                                "failed to deserialize incoming update into config: {}: {e}",
+                                cur_config.name()
+                            )
+                        })?;
+                        let config_json = serde_json::to_string(&*cur_config)?;
+                        Query::update()
+                            .table(Nodes::Table)
+                            .values([(Nodes::Config, config_json.into())])
+                            .and_where(Expr::col(Nodes::Id).eq(id))
+                            .build_any_sqlx(&*self.query_builder)
                     }
-                    Some(id) => *id,
-                };
-                for op in update.operations.iter() {
-                    let (query, values) = match *op {
-                        WorkspaceOperation::AddNode {
-                            id,
-                            x,
-                            y,
-                            ref config,
-                        } => {
-                            let config_json = serde_json::to_string(config)?;
-                            Query::insert()
-                                .columns([
-                                    Nodes::Id,
-                                    Nodes::X,
-                                    Nodes::Y,
-                                    Nodes::Config,
-                                    Nodes::WorkspaceId,
-                                ])
-                                .into_table(Nodes::Table)
-                                .values_panic([
-                                    id.into(),
-                                    x.into(),
-                                    y.into(),
-                                    config_json.into(),
-                                    workspace_id.into(),
-                                ])
-                                .build_any_sqlx(&*self.query_builder)
-                        }
-                        WorkspaceOperation::RemoveNode(uuid) => Query::delete()
-                            .from_table(Nodes::Table)
-                            .and_where(Expr::col(Nodes::Id).eq(uuid))
-                            .build_any_sqlx(&*self.query_builder),
-                        WorkspaceOperation::UpdateNodePosition { uuid, x, y } => Query::update()
+                    WorkspaceOperation::AssignNodeToDaemon { node_id, daemon_id } => {
+                        Query::update()
                             .table(Nodes::Table)
-                            .values([(Nodes::X, x.into()), (Nodes::Y, y.into())])
-                            .and_where(Expr::col(Nodes::Id).eq(uuid))
-                            .build_any_sqlx(&*self.query_builder),
-                        WorkspaceOperation::AddEdge { from, to } => Query::insert()
-                            .columns([Edges::FromId, Edges::ToId])
-                            .into_table(Edges::Table)
-                            .values_panic([from.into(), to.into()])
-                            .build_any_sqlx(&*self.query_builder),
-                        WorkspaceOperation::RemoveEdge { from } => Query::delete()
-                            .from_table(Edges::Table)
-                            .and_where(Expr::col(Edges::FromId).eq(from))
-                            .build_any_sqlx(&*self.query_builder),
-                        WorkspaceOperation::UpdateNodeConfig { id, ref config } => {
-                            let (query, values) = Query::select()
-                                .columns([Nodes::Config])
-                                .from(Nodes::Table)
-                                .and_where(Expr::col(Nodes::Id).eq(id))
-                                .lock_exclusive()
-                                .build_any_sqlx(&*self.query_builder);
-                            let mut cur_config = match sqlx::query_with(&query, values)
-                                .fetch_optional(&mut *transaction)
-                                .await?
-                            {
-                                Some(row) => {
-                                    let raw_config = row.get::<Json<_>, _>(0).0;
-                                    let raw_config: Box<dyn config::Config> =
-                                        serde_json::from_value(raw_config)?;
-                                    let mut cur_config = config_registry
-                                        .build_config(raw_config.name())
-                                        .map_err(|e| {
-                                            anyhow::anyhow!(
-                                                "failed to build config '{}': {e}",
-                                                raw_config.name()
-                                            )
-                                        })?;
-                                    deserialize_into_config(&*raw_config, &mut *cur_config)
-                                        .map_err(|e| {
-                                            anyhow::anyhow!(
-                                                "failed to deserialize into config: {}: {e}",
-                                                raw_config.name()
-                                            )
-                                        })?;
-                                    cur_config
-                                }
-                                None => {
-                                    tracing::error!("can't update node config for node with id {id}, node not found");
-                                    continue;
-                                }
-                            };
-                            deserialize_into_config(&**config, &mut *cur_config).map_err(|e| {
-                                anyhow::anyhow!(
-                                    "failed to deserialize incoming update into config: {}: {e}",
-                                    cur_config.name()
-                                )
-                            })?;
-                            let config_json = serde_json::to_string(&*cur_config)?;
-                            Query::update()
-                                .table(Nodes::Table)
-                                .values([(Nodes::Config, config_json.into())])
-                                .and_where(Expr::col(Nodes::Id).eq(id))
-                                .build_any_sqlx(&*self.query_builder)
-                        }
-                        WorkspaceOperation::AssignNodeToDaemon { node_id, daemon_id } => {
-                            Query::update()
-                                .table(Nodes::Table)
-                                .values([(Nodes::DaemonId, daemon_id.into())])
-                                .and_where(Expr::col(Nodes::Id).eq(node_id))
-                                .build_any_sqlx(&*self.query_builder)
-                        }
-                        WorkspaceOperation::UnassignNodeFromDaemon { node_id } => Query::update()
-                            .table(Nodes::Table)
-                            .values([(Nodes::DaemonId, Option::<Uuid>::None.into())])
+                            .values([(Nodes::DaemonId, daemon_id.into())])
                             .and_where(Expr::col(Nodes::Id).eq(node_id))
-                            .build_any_sqlx(&*self.query_builder),
-                    };
-                    sqlx::query_with(&query, values)
-                        .execute(&mut *transaction)
-                        .await?;
-                }
+                            .build_any_sqlx(&*self.query_builder)
+                    }
+                    WorkspaceOperation::UnassignNodeFromDaemon { node_id } => Query::update()
+                        .table(Nodes::Table)
+                        .values([(Nodes::DaemonId, Option::<Uuid>::None.into())])
+                        .and_where(Expr::col(Nodes::Id).eq(node_id))
+                        .build_any_sqlx(&*self.query_builder),
+                };
+                sqlx::query_with(&query, values)
+                    .execute(&mut *transaction)
+                    .await?;
             }
             transaction.commit().await?;
             Ok(())

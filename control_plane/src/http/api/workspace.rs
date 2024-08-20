@@ -1,5 +1,5 @@
 use crate::{
-    app::{AppState, WorkspaceState, WorkspaceUpdate},
+    app::{AppState, WorkspaceState, WorkspaceUpdate, WorkspaceUpdateResult},
     http::Result,
 };
 use axum::{
@@ -19,6 +19,6 @@ pub async fn read(
 pub async fn update(
     State(app): State<AppState>,
     Json(mut updates): Json<Vec<WorkspaceUpdate>>,
-) -> Result<()> {
-    app.update_workspace(updates.as_mut_slice()).await
+) -> Result<Json<Vec<WorkspaceUpdateResult>>> {
+    app.update_workspace(updates.as_mut_slice()).await.map(Json)
 }

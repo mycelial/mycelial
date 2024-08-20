@@ -21,7 +21,7 @@ impl IntoResponse for AppError {
             | AppErrorKind::JoinRequestHashMissmatch
             | AppErrorKind::TokenUsed => StatusCode::BAD_REQUEST,
             AppErrorKind::NotFound => StatusCode::NOT_FOUND,
-            AppErrorKind::Internal => StatusCode::INTERNAL_SERVER_ERROR,
+            AppErrorKind::Internal | _ => StatusCode::INTERNAL_SERVER_ERROR,
         };
         let mut response = status_code.into_response();
         response.extensions_mut().insert(Arc::new(self));
