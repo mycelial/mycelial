@@ -15,6 +15,7 @@ pub enum SectionIO {
     None,
     Bin,
     DataFrame,
+    BinOrDataFrame,
 }
 
 impl SectionIO {
@@ -299,7 +300,8 @@ macro_rules! try_into_field_value_impl {
 try_into_field_value_impl!(usize, v,
     Usize => { v },
     String => { v.parse()? },
-    U8, U16, U32, U64, I8, I16, I32, I64 => { v.try_into()? }
+    U8, U16 => { v.into() },
+    U32, U64, I8, I16, I32, I64 => { v.try_into()? }
 );
 
 try_into_field_value_impl!(u8, v,

@@ -1,8 +1,7 @@
-#[cfg(feature="section")]
+#[cfg(feature = "section")]
 pub mod destination;
-#[cfg(feature="section")]
+#[cfg(feature = "section")]
 pub mod source;
-
 
 #[derive(Debug, Clone, config::Config)]
 #[section(input=bin, output=dataframe)]
@@ -12,9 +11,7 @@ pub struct FromCsv {
 
 impl Default for FromCsv {
     fn default() -> Self {
-        Self {
-            batch_size: 512
-        }
+        Self { batch_size: 512 }
     }
 }
 
@@ -32,8 +29,6 @@ pub struct ToCsv {
 
 impl Default for ToCsv {
     fn default() -> Self {
-        Self {
-            buf_size: 4096,
-        }     
+        Self { buf_size: 4096 }
     }
 }

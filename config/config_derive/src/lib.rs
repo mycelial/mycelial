@@ -66,6 +66,7 @@ enum SectionIO {
     None,
     Bin,
     DataFrame,
+    BinOrDataFrame
 }
 
 impl From<SectionIO> for proc_macro2::TokenStream {
@@ -74,6 +75,7 @@ impl From<SectionIO> for proc_macro2::TokenStream {
             SectionIO::None => quote! { config::SectionIO::None },
             SectionIO::Bin => quote! { config::SectionIO::Bin },
             SectionIO::DataFrame => quote! { config::SectionIO::DataFrame },
+            SectionIO::BinOrDataFrame => quote! { config::SectionIO::BinOrDataFrame },
         }
     }
 }
@@ -81,7 +83,7 @@ impl From<SectionIO> for proc_macro2::TokenStream {
 impl From<&ConfigFieldType> for proc_macro2::TokenStream {
     fn from(val: &ConfigFieldType) -> Self {
         match val {
-            ConfigFieldType::Usize => quote!{ config::FieldType::Usize },
+            ConfigFieldType::Usize => quote! { config::FieldType::Usize },
             ConfigFieldType::I8 => quote! { config::FieldType::I8 },
             ConfigFieldType::I16 => quote! { config::FieldType::I16 },
             ConfigFieldType::I32 => quote! { config::FieldType::I32 },
@@ -147,6 +149,7 @@ fn parse_section_attr(
                                 ("input", "=", "dataframe") => i = SectionIO::DataFrame,
                                 ("output", "=", "bin") => o = SectionIO::Bin,
                                 ("output", "=", "dataframe") => o = SectionIO::DataFrame,
+                                ("output", "=", "bin_or_dataframe") => o = SectionIO::BinOrDataFrame,
                                 _ => {
                                     return Err(ConfigError {
                                         span: attr.span(),

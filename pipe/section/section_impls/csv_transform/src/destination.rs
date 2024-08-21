@@ -2,6 +2,7 @@
 
 use std::pin::pin;
 
+use crate::ToCsv;
 use chrono::{DateTime, NaiveDateTime};
 use section::{
     command_channel::{Command, SectionChannel},
@@ -11,8 +12,6 @@ use section::{
     SectionError, SectionFuture, SectionMessage,
 };
 use tokio::sync::mpsc::{channel, Receiver, Sender};
-use crate::ToCsv;
-
 
 impl ToCsv {
     pub fn new(buf_size: usize) -> Self {

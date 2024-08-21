@@ -1,5 +1,13 @@
+#[cfg(feature="section")]
 mod bin;
+#[cfg(feature="section")]
 mod df;
 
-pub use bin::ExecBin;
-pub use df::ExecDf;
+#[derive(Debug, Clone, config::Config)]
+pub struct Exec {
+    command: String,
+    args: String,
+    ack_passthrough: bool,
+    env: String,
+    stream_binary: bool,
+}

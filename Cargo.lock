@@ -1403,6 +1403,8 @@ version = "0.1.0"
 dependencies = [
  "config",
  "csv_transform",
+ "dir",
+ "excel_connector",
 ]
 
 [[package]]
@@ -2100,6 +2102,7 @@ name = "dir"
 version = "0.1.0"
 dependencies = [
  "clap",
+ "config",
  "regex",
  "section",
  "stub",
@@ -2289,7 +2292,7 @@ version = "0.1.0"
 dependencies = [
  "calamine",
  "chrono",
- "futures",
+ "config",
  "glob",
  "globset",
  "notify",
@@ -2306,6 +2309,7 @@ name = "exec"
 version = "0.1.0"
 dependencies = [
  "clap",
+ "config",
  "section",
  "shlex",
  "tokio",

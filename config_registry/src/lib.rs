@@ -70,5 +70,7 @@ pub fn new() -> Result<ConfigRegistry> {
     let mut registry = ConfigRegistry::new();
     registry.add_config(|| Box::from(csv_transform::FromCsv::default()))?;
     registry.add_config(|| Box::from(csv_transform::ToCsv::default()))?;
+    registry.add_config(|| Box::from(dir::DirSource::default()))?;
+    registry.add_config(|| Box::from(excel_connector::Excel::default()))?;
     Ok(registry)
 }

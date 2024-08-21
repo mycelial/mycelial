@@ -6,3 +6,5 @@ edition = "2021"
 [dependencies]
 config = { path = "../config" }
 csv_transform = { path = "../pipe/section/section_impls/csv_transform", default-features=false }
+dir = { path = "../pipe/section/section_impls/dir", default-features=false }
+excel_connector = { path = "../pipe/section/section_impls/excel_connector", default-features=false }

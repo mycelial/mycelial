@@ -1,4 +1,4 @@
-mod constructors;
+//mod constructors;
 mod control_plane_client;
 mod daemon_storage;
 mod runtime;
@@ -11,10 +11,7 @@ use daemon_storage::DaemonStorage;
 use pipe::scheduler::SchedulerHandle;
 use std::{path::Path, time::Duration};
 use storage::SqliteStorageHandle;
-use tokio::sync::{
-    mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender, WeakUnboundedSender},
-    oneshot::Sender as OneshotSender,
-};
+use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender, WeakUnboundedSender};
 use uuid::Uuid;
 
 #[derive(Debug)]
@@ -30,9 +27,6 @@ pub struct Daemon {
 #[derive(Debug)]
 pub enum DaemonMessage {
     RetryControlPlaneClientInit,
-    GetOffset {
-        reply_to: OneshotSender<Option<Offset>>,
-    },
 }
 
 #[derive(Debug)]
@@ -40,12 +34,6 @@ pub struct CertifiedKey {
     pub key: String,
     pub certificate: String,
     pub ca_certificate: String,
-}
-
-#[derive(Debug)]
-pub struct Offset {
-    id: Uuid,
-    timestamp: DateTime<Utc>,
 }
 
 #[derive(Debug, Clone)]
@@ -88,10 +76,6 @@ impl Daemon {
             match message {
                 DaemonMessage::RetryControlPlaneClientInit => {
                     self.init_control_plane_client().await?;
-                }
-                DaemonMessage::GetOffset { reply_to } => {
-                    reply_to.send(None).ok();
-                    //
                 }
             }
         }

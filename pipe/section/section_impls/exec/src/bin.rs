@@ -61,7 +61,7 @@ impl Message for Msg {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, config::Config,)]
 pub struct ExecBin {
     // command to rnu
     command: String,

@@ -1,4 +1,5 @@
 #![allow(unused)]
+use crate::DirSource;
 use regex::Regex;
 use section::{
     command_channel::{Command, SectionChannel, WeakSectionChannel},
@@ -115,53 +116,30 @@ impl Message for DirSourceMessage {
     }
 }
 
-#[derive(Debug)]
-pub struct DirSource {
-    path: PathBuf,
-    pattern: Option<Regex>,
-    start_after: Option<String>,
-    walk_stack: Vec<DirEntry>,
-    interval: Duration,
-    stream_binary: bool,
-}
+//#[derive(Debug)]
+//pub struct DirSource {
+//    path: PathBuf,
+//    pattern: Option<Regex>,
+//    start_after: Option<String>,
+//    walk_stack: Vec<DirEntry>,
+//    interval: Duration,
+//    stream_binary: bool,
+//}
 
 impl DirSource {
-    pub fn new(
-        path: PathBuf,
-        pattern: Option<String>,
-        start_after: Option<String>,
-        interval: Duration,
-        stream_binary: bool,
-    ) -> Result<Self> {
-        let pattern = match pattern {
-            Some(s) => Some(Regex::try_from(s)?),
-            None => None,
-        };
-        Ok(Self {
-            path,
-            pattern,
-            start_after,
-            walk_stack: vec![],
-            stream_binary,
-            interval,
-        })
-    }
-
     // initiate walking stack
-    async fn init_walk_stack(&mut self) -> Result<()> {
-        let mut read_dir = tokio::fs::read_dir(self.path.as_path()).await?;
-        while let Some(entry) = read_dir.next_entry().await.map_err(|e| {
-            format!(
-                "failed to initialize walking stack at {:?}: {e}",
-                self.path.as_path()
-            )
-        })? {
+    async fn init_walk_stack(&mut self) -> Result<Vec<DirEntry>> {
+        let mut walk_stack = vec![];
+        let path = Path::new(self.path.as_str());
+        let mut read_dir = tokio::fs::read_dir(path).await?;
+        while let Some(entry) = read_dir
+            .next_entry()
+            .await
+            .map_err(|e| format!("failed to initialize walking stack at {:?}: {e}", path))?
+        {
             let full_path = entry.path();
-            let rel_fname = full_path
-                .strip_prefix(self.path.as_path())?
-                .to_string_lossy()
-                .to_string();
-            if Some(&rel_fname) < self.start_after.as_ref() {
+            let rel_fname = full_path.strip_prefix(path)?.to_string_lossy().to_string();
+            if rel_fname < self.start_after {
                 tracing::debug!(
                     "{:?} filtered, less than current `start_after`: {:?}",
                     full_path,
@@ -169,20 +147,24 @@ impl DirSource {
                 );
                 continue;
             }
-            self.walk_stack.push(entry);
+            walk_stack.push(entry);
         }
         // sort in reverse order
-        self.walk_stack
-            .sort_by_key(|right| std::cmp::Reverse(right.path()));
-        Ok(())
+        walk_stack.sort_by_key(|right| std::cmp::Reverse(right.path()));
+        Ok(walk_stack)
     }
 
     // walk path
     // apply pattern/start_after filters
     // sort result, since `read_dir` is not guaranteed to be sorted
-    async fn walk_path(&mut self) -> Result<Option<String>> {
+    async fn walk_path(
+        &mut self,
+        walk_stack: &mut Vec<DirEntry>,
+        pattern: &Option<Regex>,
+    ) -> Result<Option<String>> {
+        let path = Path::new(self.path.as_str());
         loop {
-            let entry = match self.walk_stack.pop() {
+            let entry = match walk_stack.pop() {
                 Some(entry) => entry,
                 None => return Ok(None),
             };
@@ -207,25 +189,19 @@ impl DirSource {
                     }
                     // sort in reverse order to preserve proper order after pushing values to front of vec deque
                     entries.sort_by_key(|right| std::cmp::Reverse(right.file_name()));
-                    entries
-                        .into_iter()
-                        .for_each(|entry| self.walk_stack.push(entry));
+                    entries.into_iter().for_each(|entry| walk_stack.push(entry));
                 }
                 (_, true) => {
-                    let rel_fname = entry_path
-                        .strip_prefix(self.path.as_path())?
-                        .to_string_lossy()
-                        .to_string();
+                    let rel_fname = entry_path.strip_prefix(path)?.to_string_lossy().to_string();
                     let fname = entry_path.to_string_lossy().to_string();
-                    if self.start_after.as_ref() >= Some(&fname) {
+                    if self.start_after.as_str() >= fname.as_str() {
                         tracing::debug!(
                             "'{fname}' filtered, less than value of `start_after` {:?}",
                             self.start_after
                         );
                         continue;
                     }
-                    if self
-                        .pattern
+                    if pattern
                         .as_ref()
                         .map(|pattern| !pattern.is_match(&rel_fname))
                         .unwrap_or(false)
@@ -234,7 +210,7 @@ impl DirSource {
                         continue;
                     }
                     // updating start_after filter here
-                    self.start_after = Some(fname);
+                    self.start_after = fname;
                     // FIXME: converting pathbuf to string, good enough for now, but incorrect in general
                     return Ok(Some(entry.path().to_string_lossy().to_string()));
                 }
@@ -264,7 +240,12 @@ where
     ) -> Self::Future {
         Box::pin(async move {
             let mut output = pin!(output);
-            let mut interval = tokio::time::interval(self.interval);
+            let mut interval = tokio::time::interval(Duration::from_secs(self.interval));
+            let pattern = match self.pattern.is_empty() {
+                true => None,
+                false => Some(Regex::try_from(self.pattern.as_str())?),
+            };
+
             let mut state = section_channel
                 .retrieve_state()
                 .await?
@@ -274,22 +255,22 @@ where
             // reset can happen if:
             // - section path was changed
             match state.get::<String>(PATH_KEY)? {
-                Some(ref path) if PathBuf::from(path) != self.path => {
+                Some(ref path) if path.as_str() != self.path.as_str() => {
                     tracing::warn!("path changed, resetting state");
                     state = State::new();
                     section_channel.store_state(state.clone()).await?;
                 }
                 _ => (),
             };
-            state.set(PATH_KEY, self.path.to_string_lossy().to_string())?;
+            state.set(PATH_KEY, self.path.clone())?;
             self.start_after = state.get(START_AFTER_KEY)?.unwrap_or(self.start_after);
 
             loop {
                 futures::select! {
                     _ = interval.tick().fuse() => {
-                        self.init_walk_stack().await?;
+                        let mut walk_stack = self.init_walk_stack().await?;
                         loop {
-                            let file = match self.walk_path().await {
+                            let file = match self.walk_path(&mut walk_stack, &pattern).await {
                                 Err(e) => {
                                     tracing::error!("failed to traverse path: {}", e);
                                     break

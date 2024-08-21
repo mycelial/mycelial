@@ -447,7 +447,8 @@ impl App {
         for update in updates.iter_mut() {
             let update_result = match update
                 .operations
-                .iter_mut().try_for_each(validate_operation)
+                .iter_mut()
+                .try_for_each(validate_operation)
             {
                 Err(e) => Err(e),
                 Ok(()) => {
