@@ -10,19 +10,10 @@ use section::{
 };
 use std::{pin::pin, sync::Arc};
 use tokio::sync::mpsc::{channel, Receiver, Sender};
+use crate::FromCsv;
 
 type Result<T, E = SectionError> = std::result::Result<T, E>;
 
-#[derive(Debug)]
-pub struct FromCsv {
-    batch_size: usize,
-}
-
-impl FromCsv {
-    pub fn new(batch_size: usize) -> Self {
-        Self { batch_size }
-    }
-}
 
 struct FromCsvMsg {
     origin: String,

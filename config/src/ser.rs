@@ -42,6 +42,7 @@ impl<'a> Serialize for &'a Field<'a> {
         let mut map = serializer.serialize_map(Some(2))?;
         map.serialize_entry("name", self.name)?;
         match &self.value {
+            FieldValue::Usize(v) => map.serialize_entry("value", &v)?,
             FieldValue::I8(v) => map.serialize_entry("value", &v)?,
             FieldValue::I16(v) => map.serialize_entry("value", &v)?,
             FieldValue::I32(v) => map.serialize_entry("value", &v)?,

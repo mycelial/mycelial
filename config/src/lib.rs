@@ -52,6 +52,9 @@ pub trait Config: std::fmt::Debug + DynClone + std::any::Any + Send + Sync + 'st
         match iter.next() {
             Some(field) => {
                 match field.ty {
+                    FieldType::Usize => {
+                        let _: usize = value.try_into()?;
+                    }
                     FieldType::Bool => {
                         let _: bool = value.try_into()?;
                     }
@@ -91,6 +94,7 @@ pub trait Config: std::fmt::Debug + DynClone + std::any::Any + Send + Sync + 'st
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum FieldType {
+    Usize,
     I8,
     I16,
     I32,
@@ -126,6 +130,7 @@ pub struct Field<'a> {
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum FieldValue<'a> {
+    Usize(usize),
     I8(i8),
     I16(i16),
     I32(i32),
@@ -141,6 +146,7 @@ pub enum FieldValue<'a> {
 impl FieldValue<'_> {
     pub fn field_type(&self) -> FieldType {
         match self {
+            FieldValue::Usize(_) => FieldType::Usize,
             FieldValue::I8(_) => FieldType::I8,
             FieldValue::I16(_) => FieldType::I16,
             FieldValue::I32(_) => FieldType::I32,
@@ -158,6 +164,7 @@ impl FieldValue<'_> {
 impl std::fmt::Display for FieldValue<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            FieldValue::Usize(v) => write!(f, "{v}"),
             FieldValue::I8(v) => write!(f, "{v}"),
             FieldValue::I16(v) => write!(f, "{v}"),
             FieldValue::I32(v) => write!(f, "{v}"),
@@ -182,6 +189,7 @@ macro_rules! impl_from_ref {
     }
 }
 
+impl_from_ref!(usize, Usize, *);
 impl_from_ref!(u8, U8, *);
 impl_from_ref!(u16, U16, *);
 impl_from_ref!(u32, U32, *);
@@ -203,6 +211,7 @@ macro_rules! impl_from_value {
     };
 }
 
+impl_from_value!(usize, Usize);
 impl_from_value!(u8, U8);
 impl_from_value!(u16, U16);
 impl_from_value!(u32, U32);
@@ -286,6 +295,12 @@ macro_rules! try_into_field_value_impl {
         $($token)*
     }
 }
+
+try_into_field_value_impl!(usize, v,
+    Usize => { v },
+    String => { v.parse()? },
+    U8, U16, U32, U64, I8, I16, I32, I64 => { v.try_into()? }
+);
 
 try_into_field_value_impl!(u8, v,
     U8 => { v },

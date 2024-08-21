@@ -3,12 +3,16 @@ name = "csv_transform"
 version = "0.1.0"
 edition = "2021"
 
-[dependencies]
-csv = "1.3"
-tokio = { version = "1", features = ["full"] }
-section = { path = "../../" }
-chrono = "0.4"
+[features]
+default = ["section"]
+section = ["dep:tokio", "dep:chrono", "dep:csv", "dep:section"]
 
+[dependencies]
+csv = { version = "1.3", optional=true }
+tokio = { version = "1", features = ["full"], optional=true }
+section = { path = "../../", optional=true }
+chrono = { version = "0.4", optional=true }
+config = { path = "../../../../config" }
 
 [dev-dependencies]
 stub = { path = "../stub" }

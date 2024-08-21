@@ -103,6 +103,7 @@ impl From<Field<'_>> for RawField {
 
 #[derive(Debug, Clone)]
 enum RawFieldValue {
+    Usize(usize),
     I8(i8),
     I16(i16),
     I32(i32),
@@ -118,6 +119,7 @@ enum RawFieldValue {
 impl From<FieldValue<'_>> for RawFieldValue {
     fn from(value: FieldValue<'_>) -> Self {
         match value {
+            FieldValue::Usize(v) => RawFieldValue::Usize(v),
             FieldValue::I8(v) => RawFieldValue::I8(v),
             FieldValue::I16(v) => RawFieldValue::I16(v),
             FieldValue::I32(v) => RawFieldValue::I32(v),
@@ -135,6 +137,7 @@ impl From<FieldValue<'_>> for RawFieldValue {
 impl<'a> From<&'a RawFieldValue> for FieldValue<'a> {
     fn from(value: &'a RawFieldValue) -> FieldValue<'a> {
         match value {
+            RawFieldValue::Usize(v) => v.into(),
             RawFieldValue::I8(v) => v.into(),
             RawFieldValue::I16(v) => v.into(),
             RawFieldValue::I32(v) => v.into(),

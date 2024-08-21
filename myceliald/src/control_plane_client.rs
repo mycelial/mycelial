@@ -200,7 +200,7 @@ impl ControlPlaneClient {
             if let Err(e) =
                 websocket_client(daemon_handle, control_plane_tls_url, certifiedkey).await
             {
-                tracing::error!("websocket error: {e}");
+                tracing::error!("websocket connection closed");
             }
             tokio::time::sleep(Duration::from_secs(3)).await;
             tx.send(Message::WebSocketClientDown {}).await.ok();
@@ -268,7 +268,7 @@ async fn websocket_client(
                     None => Err(anyhow::anyhow!("connection closed"))?,
                     Some(msg) => msg?,
                 };
-                let data = match msg {
+                let message = match msg {
                     WebsocketMessage::Ping{ .. } => { continue },
                     WebsocketMessage::Pong{ .. } => { continue },
                     WebsocketMessage::Close{ .. } => Err(anyhow::anyhow!("connection closed"))?,
@@ -276,6 +276,7 @@ async fn websocket_client(
                     WebsocketMessage::Frame{ .. } => Err(anyhow::anyhow!("unexpected raw frame"))?,
                     WebsocketMessage::Text(data) => serde_json::from_str::<protocol::Message>(&data),
                 };
+                tracing::info!("message: {message:?}")
             },
             _ = interval.tick() => {
                 if let Err(e) = input.send(WebsocketMessage::Ping(vec![])).await {

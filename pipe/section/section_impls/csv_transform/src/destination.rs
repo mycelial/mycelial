@@ -11,11 +11,8 @@ use section::{
     SectionError, SectionFuture, SectionMessage,
 };
 use tokio::sync::mpsc::{channel, Receiver, Sender};
+use crate::ToCsv;
 
-#[derive(Debug)]
-pub struct ToCsv {
-    buf_size: usize,
-}
 
 impl ToCsv {
     pub fn new(buf_size: usize) -> Self {

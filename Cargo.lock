@@ -1402,6 +1402,7 @@ name = "config_registry"
 version = "0.1.0"
 dependencies = [
  "config",
+ "csv_transform",
 ]
 
 [[package]]
@@ -1658,6 +1659,7 @@ name = "csv_transform"
 version = "0.1.0"
 dependencies = [
  "chrono",
+ "config",
  "csv",
  "section",
  "stub",

@@ -47,6 +47,7 @@ struct ConfigField<'a> {
 
 #[derive(Clone)]
 enum ConfigFieldType {
+    Usize,
     I8,
     I16,
     I32,
@@ -80,6 +81,7 @@ impl From<SectionIO> for proc_macro2::TokenStream {
 impl From<&ConfigFieldType> for proc_macro2::TokenStream {
     fn from(val: &ConfigFieldType) -> Self {
         match val {
+            ConfigFieldType::Usize => quote!{ config::FieldType::Usize },
             ConfigFieldType::I8 => quote! { config::FieldType::I8 },
             ConfigFieldType::I16 => quote! { config::FieldType::I16 },
             ConfigFieldType::I32 => quote! { config::FieldType::I32 },
@@ -221,6 +223,7 @@ fn get_field_type(field: &Field) -> Result<ConfigFieldType> {
         .map(|ident| ident.to_string())
         .as_deref()
     {
+        Some("usize") => ConfigFieldType::Usize,
         Some("i8") => ConfigFieldType::I8,
         Some("i16") => ConfigFieldType::I16,
         Some("i32") => ConfigFieldType::I32,
@@ -413,6 +416,7 @@ fn parse_config(input: TokenStream) -> Result<TokenStream> {
 
     let name = ident.to_string();
     let tokens = quote! {
+        #[automatically_derived]
         impl config::Config for #ident {
             fn name(&self) -> &str {
                 #name
@@ -432,14 +436,14 @@ fn parse_config(input: TokenStream) -> Result<TokenStream> {
                 ]
             }
 
-            fn get_field_value(&self, name: &str)  -> Result<FieldValue<'_>, Box<dyn std::error::Error + Send + Sync + 'static>> {
+            fn get_field_value(&self, name: &str)  -> Result<config::FieldValue<'_>, Box<dyn std::error::Error + Send + Sync + 'static>> {
                 match name {
                     #(#get_field_value_arms),*
                     _ => Err(format!("no field with name '{name}' exist"))?,
                 }
             }
 
-            fn set_field_value(&mut self, name: &str, value: FieldValue<'_>) -> Result<(), Box<dyn std::error::Error + Send + Sync + 'static>> {
+            fn set_field_value(&mut self, name: &str, value: config::FieldValue<'_>) -> Result<(), Box<dyn std::error::Error + Send + Sync + 'static>> {
                 match name {
                     #(#set_field_value_arms),*
                     _ => Err(format!("no field with name '{name}' exist"))?,

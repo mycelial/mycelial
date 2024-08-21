@@ -1,36 +1,7 @@
-use config::prelude::*;
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
 type Result<T, E = Box<dyn std::error::Error + Send + Sync + 'static>> = std::result::Result<T, E>;
-
-#[derive(Debug, Default, Clone, Config)]
-#[section(output=dataframe)]
-pub struct ConfigExample {
-    host: String,
-    #[validate(min = 1)]
-    port: u16,
-    user: String,
-    #[field_type(password)]
-    password: String,
-    database: String,
-    #[field_type(text_area)]
-    query: String,
-}
-
-#[derive(Debug, Default, Clone, Config)]
-#[section(input=dataframe)]
-pub struct ConfigExampleSecond {
-    host: String,
-    #[field_type(password)]
-    password: String,
-    database: String,
-    truncate: bool,
-}
-
-#[derive(Debug, Default, Clone, Config)]
-#[section(input=dataframe, output=dataframe)]
-pub struct ConfigTransform {}
 
 pub type ConfigConstructor = fn() -> Box<dyn config::Config>;
 
@@ -97,8 +68,7 @@ impl ConfigRegistry {
 
 pub fn new() -> Result<ConfigRegistry> {
     let mut registry = ConfigRegistry::new();
-    registry.add_config(|| Box::from(ConfigExample::default()))?;
-    registry.add_config(|| Box::from(ConfigExampleSecond::default()))?;
-    registry.add_config(|| Box::from(ConfigTransform::default()))?;
+    registry.add_config(|| Box::from(csv_transform::FromCsv::default()))?;
+    registry.add_config(|| Box::from(csv_transform::ToCsv::default()))?;
     Ok(registry)
 }

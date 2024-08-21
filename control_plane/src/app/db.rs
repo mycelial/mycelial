@@ -688,7 +688,7 @@ where
                 .await?
                 .into_iter()
                 .map(|row| {
-                    let config = row.get::<Json<_>, _>(2).0;
+                    let config = row.get::<Json<_>, _>(1).0;
                     Ok(DaemonNode {
                         id: row.get(0),
                         config: serde_json::from_value(config)?,
