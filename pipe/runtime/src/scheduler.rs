@@ -1,14 +1,8 @@
-//! Pipe scheduler
+//! Section scheduler
 
 use crate::storage::Storage;
-use crate::{config::Config, pipe::Pipe, registry::Registry};
 
-use section::{
-    command_channel::{Command, ReplyTo, RootChannel, SectionChannel, SectionRequest},
-    section::Section,
-    SectionError,
-};
-use std::collections::HashMap;
+use section::prelude::*;
 use std::time::Duration;
 use stub::Stub;
 use tokio::sync::mpsc::WeakSender;
@@ -20,41 +14,18 @@ use tokio::{
 
 #[allow(dead_code)]
 pub struct Scheduler<T: Storage<<R::SectionChannel as SectionChannel>::State>, R: RootChannel> {
-    registry: Registry<<R as RootChannel>::SectionChannel>,
     storage: T,
-    pipe_configs: HashMap<u64, Config>,
-    pipes: HashMap<u64, PipeState>,
     root_chan: R,
     restart_delay: Duration,
 }
 
-#[derive(Debug)]
-enum PipeState {
-    Running(JoinHandle<Result<(), SectionError>>),
-    Restarting(JoinHandle<()>),
-}
-
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub enum PipeStatus {
-    Running,
-    Restarting,
-}
-
-impl From<&PipeState> for PipeStatus {
-    fn from(value: &PipeState) -> Self {
-        match value {
-            PipeState::Running(_) => Self::Running,
-            PipeState::Restarting(_) => Self::Restarting,
-        }
-    }
-}
 
 #[derive(Debug)]
 pub enum Message {
     /// Add new pipe to schedule
-    AddPipe {
-        id: u64,
-        config: Config,
+    AddNode {
+        id: 
+        config: Box<dyn config::Config>,
         reply_to: OneshotSender<Result<ScheduleResult, SectionError>>,
     },
 
@@ -76,7 +47,7 @@ pub enum Message {
 
     /// List pipe statuses
     ListStatus {
-        reply_to: OneshotSender<Result<Vec<(u64, PipeStatus)>, SectionError>>,
+        reply_to: OneshotSender<Result<Vec<(u64, ())>, SectionError>>,
     },
 
     /// Reschedule pipe

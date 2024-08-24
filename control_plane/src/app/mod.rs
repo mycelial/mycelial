@@ -1,6 +1,5 @@
 mod daemon_tracker;
 pub mod db;
-mod graph_manager;
 pub mod migration;
 pub mod tables;
 
@@ -166,7 +165,7 @@ impl WorkspaceNode {
         match config_registry.build_config(self.config.name()) {
             Ok(mut config) => {
                 if let Err(e) = deserialize_into_config(&mut *self.config, &mut *config) {
-                    // FIXME: emit warning which will be visible in UI
+                    // FIXME: emit warning which will be visible in UI?
                     tracing::error!(
                         "failed to deserialize stored config with name: {}: {e}",
                         config.name()
@@ -184,19 +183,31 @@ impl WorkspaceNode {
     }
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct DaemonGraph {
     pub nodes: Vec<DaemonNode>,
     pub edges: Vec<Edge>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct DaemonNode {
     id: uuid::Uuid,
     config: Box<dyn config::Config>,
 }
 
-#[derive(Debug, Serialize)]
+impl DaemonNode {
+    fn build_config(&mut self, config_registry: &ConfigRegistry) -> Result<()> {
+        let mut new_config = config_registry
+            .build_config(self.config.name())
+            .map_err(|e| anyhow::anyhow!("failed to build config {}: {e}", self.config.name()))?;
+        deserialize_into_config(&mut *self.config, &mut *new_config)
+            .map_err(|e| anyhow::anyhow!("failed to deserialize config: {e}"))?;
+        std::mem::swap(&mut new_config, &mut self.config);
+        Ok(())
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Edge {
     pub from_id: uuid::Uuid,
     pub to_id: uuid::Uuid,
@@ -325,7 +336,6 @@ impl AppBuilder {
                 .map_err(|e| anyhow::anyhow!("failed to build config registry: {e}"))?,
             certificate_bundle,
             daemon_tracker: daemon_tracker::DaemonTracker::spawn(),
-            graph_manager: (),
         })
     }
 
@@ -382,7 +392,6 @@ pub(crate) struct App {
     config_registry: ConfigRegistry,
     certificate_bundle: CertificateBundle,
     daemon_tracker: daemon_tracker::DaemonTrackerHandle,
-    graph_manager: (),
 }
 
 pub(crate) struct CertificateBundle {
@@ -555,7 +564,13 @@ impl App {
     }
 
     pub async fn get_daemon_graph(&self, id: Uuid) -> Result<DaemonGraph> {
-        self.db.get_daemon_graph(id).await
+        let mut daemon_graph = self.db.get_daemon_graph(id).await?;
+        daemon_graph
+            .nodes
+            .iter_mut()
+            .map(|node| node.build_config(&self.config_registry))
+            .collect::<Result<()>>()?;
+        Ok(daemon_graph)
     }
 
     pub async fn set_daemon_name(&self, id: Uuid, name: &str) -> Result<()> {

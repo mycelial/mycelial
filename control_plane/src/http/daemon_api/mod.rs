@@ -11,10 +11,15 @@ use axum::{
     Extension, Router,
 };
 use chrono::Utc;
-use futures::StreamExt;
+use futures::{SinkExt, StreamExt};
+use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::{app::AppState, tls_server::PeerInfo, Result};
+use crate::{
+    app::{AppState, DaemonGraph},
+    tls_server::PeerInfo,
+    Result,
+};
 
 async fn ws_handler(
     State(app): State<AppState>,
@@ -49,6 +54,15 @@ impl Drop for DaemonTrackingGuard {
     }
 }
 
+// FIXME:
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(tag = "message")]
+pub enum Message {
+    GetGraph,
+    GetGraphResponse { graph: DaemonGraph },
+    RefetchGraph,
+}
+
 async fn handle_socket(
     app: AppState,
     socket: WebSocket,
@@ -56,7 +70,7 @@ async fn handle_socket(
     daemon_id: Uuid,
 ) -> Result<()> {
     let _guard = DaemonTrackingGuard::new(Arc::clone(&app), daemon_id).await?;
-    let (input, mut output) = socket.split();
+    let (mut input, mut output) = socket.split();
     loop {
         tokio::select! {
             msg = output.next() => {
@@ -70,15 +84,15 @@ async fn handle_socket(
                     Some(msg) => msg?,
                 };
                 let msg = match msg {
-                    WebsocketMessage::Text(data) => serde_json::from_str::<protocol::Message>(&data)?,
+                    WebsocketMessage::Text(data) => serde_json::from_str::<Message>(&data)?,
                     WebsocketMessage::Ping(_) => continue,
                     WebsocketMessage::Pong(_) => continue,
                     _ => Err(anyhow::anyhow!("unexpected message: {msg:?}"))?,
                 };
                 match msg {
-                    protocol::Message::GetGraph => {
-                        let graph = app.get_daemon_graph(daemon_id).await?;
-                        tracing::info!("graph: {:?}", graph);
+                    Message::GetGraph => {
+                        let response = Message::GetGraphResponse { graph: app.get_daemon_graph(daemon_id).await?};
+                        input.send(serde_json::to_string(&response)?.into()).await?;
                     },
                     _ => {
                         tracing::info!("unexpected message: {msg:?}");

@@ -6,10 +6,10 @@ edition = "2021"
 # See more keys and their definitions at https:/doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-pipe = { path = "../pipe/runtime/", package="runtime" }
+runtime = { path = "../pipe/runtime/", package="runtime" }
 section = { path = "../pipe/section/" }
 pki = { path = "../pki" }
-protocol = { path = "../protocol" }
+config_registry = { path = "../config_registry/", features=["section"] }
 
 tokio = { version = "1", features = ["full"] }
 clap = { version = "4", features = ["derive", "env"] }
@@ -23,32 +23,9 @@ log = "0.4"
 toml = "0.7"
 tracing = "0.1.40"
 tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
-notify = { version = "6.1.1", features = ["macos_kqueue"] }
-notify-debouncer-full = "0.3.1"
 sha2 = "0.10.8"
 
-## sections
-hello_world = { path = "../pipe/section/section_impls/hello_world/" }
-sqlite_connector = { path = "../pipe/section/section_impls/sqlite_connector/" }
-excel_connector = { path = "../pipe/section/section_impls/excel_connector/" }
-postgres_connector = { path = "../pipe/section/section_impls/postgres_connector/" }
-kafka_connector = { path = "../pipe/section/section_impls/kafka_connector/" }
-mycelial_server = { path = "../pipe/section/section_impls/mycelial_server/" }
-snowflake = { path = "../pipe/section/section_impls/snowflake/" }
-tagging_transformer = { path = "../pipe/section/section_impls/tagging_transformer/" }
-typecast_transformer = { path = "../pipe/section/section_impls/typecast_transformer" }
-mysql_connector = { path = "../pipe/section/section_impls/mysql_connector/" }
-file = { path = "../pipe/section/section_impls/file/" }
-dir = { path = "../pipe/section/section_impls/dir/" }
-exec = { path = "../pipe/section/section_impls/exec/" }
-csv_transform = { path = "../pipe/section/section_impls/csv_transform/" }
-origin_transform = {path = "../pipe/section/section_impls/origin_transform/" }
-s3 = { path = "../pipe/section/section_impls/s3" }
-redshift_loader = { path = "../pipe/section/section_impls/redshift_loader" }
-inspect = { path = "../pipe/section/section_impls/inspect" }
 tokio-tungstenite = { version = "0.23.1", features = ["__rustls-tls", "connect", "rustls", "tokio-rustls"] }
 tungstenite = "0.23.0"
-uuid = "1.10.0"
+uuid = { version = "1.10.0", features = ["serde"] }
 chrono = "0.4.38"
-futures = "0.3.30"
-#sqlite_physical_replication = { path = "../pipe/section/section_impls/sqlite_physical_replication/" }

@@ -1,11 +1,9 @@
-use std::borrow::Cow;
 use proc_macro::TokenStream;
 use proc_macro2::{Span, TokenTree};
 use quote::{quote, quote_spanned};
+use std::borrow::Cow;
 use std::error::Error;
-use syn::{
-    spanned::Spanned, Attribute, Data, DeriveInput, Field, Fields, Meta, Type,
-};
+use syn::{spanned::Spanned, Attribute, Data, DeriveInput, Field, Fields, Meta, Type};
 
 type Result<T, E = ConfigurationError> = std::result::Result<T, E>;
 
@@ -189,12 +187,10 @@ fn parse_field_attributes(field_attributes: &[Attribute]) -> Result<ConfigFieldM
             .unwrap();
         }
         [attr] if attr.path().is_ident("validate") => {}
-        [attr] => {
-            Err(ConfigurationError {
-                span: attr.span(),
-                reason: format!("unsupported attribute: {:?}", attr.path()).into(),
-            })?
-        }
+        [attr] => Err(ConfigurationError {
+            span: attr.span(),
+            reason: format!("unsupported attribute: {:?}", attr.path()).into(),
+        })?,
         _ => (),
     };
     Ok(ConfigFieldMetadata {
@@ -389,22 +385,16 @@ fn parse_config(input: TokenStream) -> Result<TokenStream> {
     let strip_secrets_impl = config_fields
         .iter()
         .filter(|ConfigField { metadata, .. }| metadata.is_password)
-        .map(
-            |ConfigField {
-                 name_ident,
-                 ty,
-                 ..
-             }| {
-                let value: proc_macro2::TokenStream = match ty {
-                    ConfigFieldType::Bool => quote! { false },
-                    ConfigFieldType::String => quote! { String::new() },
-                    _ => quote! { 0 },
-                };
-                quote! {
-                    self.#name_ident = #value;
-                }
-            },
-        )
+        .map(|ConfigField { name_ident, ty, .. }| {
+            let value: proc_macro2::TokenStream = match ty {
+                ConfigFieldType::Bool => quote! { false },
+                ConfigFieldType::String => quote! { String::new() },
+                _ => quote! { 0 },
+            };
+            quote! {
+                self.#name_ident = #value;
+            }
+        })
         .collect::<Vec<proc_macro2::TokenStream>>();
 
     let name = ident.to_string();
@@ -447,7 +437,7 @@ fn parse_config(input: TokenStream) -> Result<TokenStream> {
             fn strip_secrets(&mut self) {
                 #(#strip_secrets_impl)*
             }
-            
+
             fn clone_config(&self) -> Box<dyn config::Config> {
                 Box::new(self.clone())
             }

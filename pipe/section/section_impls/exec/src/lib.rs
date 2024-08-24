@@ -1,6 +1,6 @@
-#[cfg(feature="section")]
+#[cfg(feature = "section")]
 mod bin;
-#[cfg(feature="section")]
+#[cfg(feature = "section")]
 mod df;
 
 #[derive(Debug, Clone, config::Config)]

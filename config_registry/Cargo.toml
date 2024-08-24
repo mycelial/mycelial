@@ -3,8 +3,19 @@ name = "config_registry"
 version = "0.1.0"
 edition = "2021"
 
+[features]
+default = []
+section = [
+    "csv_transform/section",
+    "dir/section",
+    "excel_connector/section",
+]
+
 [dependencies]
 config = { path = "../config" }
+section = { path = "../pipe/section" }
+
 csv_transform = { path = "../pipe/section/section_impls/csv_transform", default-features=false }
 dir = { path = "../pipe/section/section_impls/dir", default-features=false }
 excel_connector = { path = "../pipe/section/section_impls/excel_connector", default-features=false }
+serde = "1.0.209"

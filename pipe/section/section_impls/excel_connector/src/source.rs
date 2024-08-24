@@ -5,7 +5,7 @@
 //! - Syncs an entire file when a change is detected.
 //! - Uses glob pattern for matching filepaths / directories. (e.g. ** for recursive, * for all files)
 //! - For sheets, use * to sync all sheets, otherwise a list of strings.
-//! 
+//!
 //! FIXME:
 //! - contains calls which block async scheduler
 
@@ -21,10 +21,9 @@ use std::pin::{pin, Pin};
 use std::time::Duration;
 use std::{future::Future, sync::Arc};
 
+use crate::Excel;
 use glob::glob;
 use globset::Glob;
-use crate::Excel;
-
 
 #[derive(Debug)]
 pub(crate) struct Sheet {
@@ -179,7 +178,7 @@ impl Excel {
             true => DataType::Str,
             false => DataType::Any,
         };
-        
+
         let mut result = Vec::with_capacity(sheets.len());
 
         for s in sheet_names {
@@ -270,9 +269,8 @@ where
     type Error = SectionError;
     type Future = Pin<Box<dyn Future<Output = Result<(), Self::Error>> + Send + 'static>>;
 
-    fn start(self, input: Input, output: Output, mut section_channel: SectionChan) -> Self::Future 
-    {
-        Box::pin(async move { 
+    fn start(self, input: Input, output: Output, mut section_channel: SectionChan) -> Self::Future {
+        Box::pin(async move {
             let path = &self.path;
             let sheets = self.sheets.split(',').collect::<Vec<&str>>();
             let (tx, rx) = tokio::sync::mpsc::channel(4);

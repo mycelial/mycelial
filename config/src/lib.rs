@@ -1,11 +1,13 @@
 mod raw_config;
 mod ser;
 
+pub use config_derive::Configuration;
+
 pub mod prelude {
     pub use super::raw_config::{de::deserialize_into_config, RawConfig};
-    pub use config_derive::Configuration;
     pub use super::Config;
     pub use super::{Field, FieldType, FieldValue, Metadata, SectionIO};
+    pub use config_derive::Configuration;
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -85,15 +87,15 @@ pub trait Config: std::fmt::Debug + Send + Sync + 'static {
             None => Err("no such field")?,
         }
     }
-    
-    fn clone_config(&self) -> Box<dyn Config>;
+
+    fn clone_config(&self) -> Box<dyn crate::Config>;
 }
 
-//impl Clone for Box<dyn Config> {
-//    fn clone(&self) -> Self {
-//        self.clone_config()
-//    }
-//}
+impl Clone for Box<dyn Config> {
+    fn clone(&self) -> Self {
+        self.clone_config()
+    }
+}
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum FieldType {

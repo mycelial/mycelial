@@ -72,7 +72,7 @@ fn test_json_serialization() {
 #[test]
 fn test_serialization_deserialization() {
     #[derive(Debug, Clone, Configuration, Default, PartialEq)]
-    struct Conf{
+    struct Conf {
         i8: i8,
         i16: i16,
         i32: i32,
@@ -85,7 +85,7 @@ fn test_serialization_deserialization() {
         string: String,
     }
 
-    let cfg: Box<dyn Config> = Box::new(Conf{
+    let cfg: Box<dyn Config> = Box::new(Conf {
         i8: -8,
         i16: -16,
         i32: -32,

@@ -17,7 +17,7 @@ build_ui:
 .PHONY: run_console
 run_control_plane:
 	RUST_LOG=$(RUST_LOG)  cargo run \
-		--bin control_plane \
+		-p control_plane \
 		-- \
 		--database-url sqlite://control_plane/control_plane.db
 

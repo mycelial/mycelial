@@ -3,7 +3,7 @@ pub mod destination;
 #[cfg(feature = "section")]
 pub mod source;
 
-#[derive(Debug, Clone, config::Config)]
+#[derive(Debug, Clone, config::Configuration)]
 #[section(input=bin, output=dataframe)]
 pub struct FromCsv {
     batch_size: usize,
@@ -21,7 +21,7 @@ impl FromCsv {
     }
 }
 
-#[derive(Debug, Clone, config::Config)]
+#[derive(Debug, Clone, config::Configuration)]
 #[section(input=dataframe, output=bin)]
 pub struct ToCsv {
     buf_size: usize,

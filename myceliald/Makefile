@@ -10,6 +10,8 @@ clean:
 .PHONY: dev
 dev:
 	cargo-watch \
+		-q \
+		-c \
 		--why \
 		-E RUST_LOG="$(RUST_LOG)" \
 		-i myceliald.db \

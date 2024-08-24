@@ -1,9 +1,9 @@
 use std::{sync::Arc, time::Duration};
 
 use anyhow::Result;
-use futures::{SinkExt as _, StreamExt as _};
 use pki::ClientConfig;
 use reqwest::Url;
+use section::futures::{SinkExt as _, StreamExt as _};
 use serde::{Deserialize, Serialize};
 use sha2::Digest;
 use tokio::{
@@ -16,7 +16,7 @@ use tokio::{
 use tokio_tungstenite::Connector;
 use tungstenite::Message as WebsocketMessage;
 
-use crate::{CertifiedKey, DaemonHandle};
+use crate::{CertifiedKey, DaemonHandle, Graph};
 
 #[derive(Debug, Serialize)]
 struct JoinRequest<'a> {
@@ -226,6 +226,14 @@ enum Message {
     WebSocketClientDown,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(tag = "message")]
+pub enum ControlPlaneMessage {
+    GetGraph,
+    GetGraphResponse { graph: Graph },
+    RefetchGraph,
+}
+
 async fn websocket_client(
     daemon_handle: DaemonHandle,
     control_plane_url: Arc<Url>,
@@ -258,7 +266,7 @@ async fn websocket_client(
     let mut interval = tokio::time::interval(Duration::from_secs(30));
     input
         .send(WebsocketMessage::Text(serde_json::to_string(
-            &protocol::Message::get_graph(),
+            &ControlPlaneMessage::GetGraph {},
         )?))
         .await?;
     loop {
@@ -274,9 +282,12 @@ async fn websocket_client(
                     WebsocketMessage::Close{ .. } => Err(anyhow::anyhow!("connection closed"))?,
                     WebsocketMessage::Binary{ .. } => Err(anyhow::anyhow!("unexpected binary message"))?,
                     WebsocketMessage::Frame{ .. } => Err(anyhow::anyhow!("unexpected raw frame"))?,
-                    WebsocketMessage::Text(data) => serde_json::from_str::<protocol::Message>(&data),
+                    WebsocketMessage::Text(data) => serde_json::from_str::<ControlPlaneMessage>(&data)?,
                 };
-                tracing::info!("message: {message:?}")
+                match message {
+                    ControlPlaneMessage::GetGraphResponse{ graph } => daemon_handle.graph(graph)?,
+                    _ => (),
+                }
             },
             _ = interval.tick() => {
                 if let Err(e) = input.send(WebsocketMessage::Ping(vec![])).await {

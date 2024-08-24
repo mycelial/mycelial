@@ -120,6 +120,7 @@ impl<S: StateTrait> RootChannelTrait for RootChannel<S> {
 }
 
 // section channels
+#[derive(Debug)]
 pub struct SectionChannel<S>
 where
     S: StateTrait,

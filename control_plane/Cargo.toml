@@ -12,13 +12,13 @@ path = "src/main.rs"
 derive_trait = { path = "./derive_trait" }
 config = { path = "../config" }
 config_registry = { path = "../config_registry" }
-protocol = { path = "../protocol" }
+
 pki = { path = "../pki" }
 anyhow = "1"
 async-stream = "0.3"
 axum = { version = "0.7", features=["ws"] }
 axum-extra = { version = "0.9.2", features = ["typed-header"] }
-clap = { version = "4", features = ["derive"] }
+clap = { version = "4", features = ["derive", "env"] }
 tokio = { version = "1", features = ["full"] }
 tracing = "0.1"
 tracing-subscriber = "0.3"
@@ -33,7 +33,7 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1.0.117"
 futures = "0.3.30"
 mime_guess = "2.0.4"
-uuid = { version = "1", features = ["serde"] }
+uuid = { version = "1", features = ["serde", "v7"] }
 chrono = { version = "0.4", features = ["serde"] }
 url = "2.5.0"
 tower-service = "0.3.2"

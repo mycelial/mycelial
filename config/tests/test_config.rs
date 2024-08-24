@@ -129,7 +129,7 @@ fn test_compilations() {
 #[test]
 fn test_set_field() {
     #[derive(Debug, Clone, Default, Configuration, PartialEq)]
-    struct Conf{
+    struct Conf {
         bool: bool,
         i8: i8,
         i16: i16,

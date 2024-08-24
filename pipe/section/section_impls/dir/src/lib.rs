@@ -1,7 +1,7 @@
 #[cfg(feature = "section")]
 pub mod source;
 
-#[derive(Debug, Clone, config::Config)]
+#[derive(Debug, Clone, config::Configuration)]
 #[section(output=bin_or_dataframe)]
 pub struct DirSource {
     path: String,

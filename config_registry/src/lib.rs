@@ -1,72 +1,30 @@
-use std::collections::BTreeMap;
-use std::sync::Arc;
+// Config Registry API is a mess
+// Config registry is used everywhere:
+// - UI use it to render and validate forms
+// - Control plane use it for input validation/secret stripping
+// - Myceliald use it for input validation and section start
+//
+// Since runtime of daemon is type erased and use Box<dyn Section> pretty much everywhere - we need to have
+// a subtrait for configs, since structs which implement configuration are also sections.
+// It's not hard merge Config and Section together, but section interface, at least in current runtime implementation is
+// generic over SectionChannel.
+// This fact makes implementation of config regsisty tricky, since 'config only' version for ui and control plane don't need to know
+// anything about section channel.
+// Generic parameter turns generic everything it touches.
+// It would be nice to just have DynSection with dyn SectionChannel implementation,
+// but it will take some time to do.
+// So instead we have this giant mess of a library.
+#[cfg_attr(not(feature = "section"), path = "config_only.rs")]
+#[cfg_attr(feature = "section", path = "config_section.rs")]
+mod config_registry_impl;
 
-type Result<T, E = Box<dyn std::error::Error + Send + Sync + 'static>> = std::result::Result<T, E>;
+pub use config_registry_impl::{Config, ConfigMetaData, ConfigRegistry};
+use section::prelude::SectionChannel;
 
-pub type ConfigConstructor = fn() -> Box<dyn config::Config>;
+pub(crate) type Result<T, E = Box<dyn std::error::Error + Send + Sync + 'static>> =
+    std::result::Result<T, E>;
 
-#[derive(Debug, Clone, PartialEq)]
-pub struct ConfigMetaData {
-    pub input: bool,
-    pub output: bool,
-    pub ty: Arc<str>,
-    ctor: ConfigConstructor,
-}
-
-impl ConfigMetaData {
-    pub fn build_config(&self) -> Box<dyn config::Config> {
-        (self.ctor)()
-    }
-}
-
-#[derive(Debug)]
-pub struct ConfigRegistry {
-    registry: BTreeMap<Arc<str>, ConfigMetaData>,
-}
-
-impl Default for ConfigRegistry {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl ConfigRegistry {
-    pub fn new() -> Self {
-        Self {
-            registry: BTreeMap::new(),
-        }
-    }
-
-    pub fn add_config(&mut self, ctor: ConfigConstructor) -> Result<()> {
-        let config = ctor();
-        let name: Arc<str> = Arc::from(config.name());
-        let (input, output) = (!config.input().is_none(), !config.output().is_none());
-        let metadata = ConfigMetaData {
-            input,
-            output,
-            ty: Arc::clone(&name),
-            ctor,
-        };
-        if self.registry.contains_key(&*name) {
-            Err(format!("{name} already present"))?
-        };
-        self.registry.insert(Arc::clone(&name), metadata);
-        Ok(())
-    }
-
-    pub fn iter_values(&self) -> impl Iterator<Item = ConfigMetaData> + '_ {
-        self.registry.values().cloned()
-    }
-
-    pub fn build_config(&self, name: &str) -> Result<Box<dyn config::Config>> {
-        match self.registry.get(name) {
-            Some(metadata) => Ok(metadata.build_config()),
-            None => Err(format!("no config constructor for {name} found"))?,
-        }
-    }
-}
-
-pub fn new() -> Result<ConfigRegistry> {
+pub fn new<Chan: SectionChannel>() -> Result<ConfigRegistry<Chan>> {
     let mut registry = ConfigRegistry::new();
     registry.add_config(|| Box::from(csv_transform::FromCsv::default()))?;
     registry.add_config(|| Box::from(csv_transform::ToCsv::default()))?;

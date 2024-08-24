@@ -1,32 +1,76 @@
-//mod constructors;
 mod control_plane_client;
 mod daemon_storage;
-mod runtime;
 mod storage;
 
 use anyhow::Result;
-use chrono::{DateTime, Utc};
+use config_registry::{Config as _Config, ConfigRegistry as _ConfigRegistry};
 use control_plane_client::ControlPlaneClientHandle;
 use daemon_storage::DaemonStorage;
-use pipe::scheduler::SchedulerHandle;
+use serde::{Deserialize, Serialize};
 use std::{path::Path, time::Duration};
-use storage::SqliteStorageHandle;
-use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender, WeakUnboundedSender};
-use uuid::Uuid;
+use storage::{SqliteState, SqliteStorageHandle};
+use tokio::sync::mpsc::{
+    unbounded_channel, UnboundedReceiver, UnboundedSender, WeakUnboundedSender,
+};
+
+pub type SectionChannel = runtime::command_channel::SectionChannel<SqliteState>;
+pub type ConfigRegistry = _ConfigRegistry<SectionChannel>;
+pub type Config = Box<dyn _Config<SectionChannel>>;
 
 #[derive(Debug)]
 pub struct Daemon {
     daemon_storage: DaemonStorage,
     section_storage_handle: SqliteStorageHandle,
-    scheduler_handle: SchedulerHandle,
     control_plane_client_handle: ControlPlaneClientHandle,
+    config_registry: ConfigRegistry,
     rx: UnboundedReceiver<DaemonMessage>,
     weak_tx: WeakUnboundedSender<DaemonMessage>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Graph {
+    nodes: Vec<Node>,
+    edges: Vec<Edge>,
+}
+
+impl Graph {
+    pub fn deserialize_node_configs(&mut self, registry: &ConfigRegistry) -> Result<()> {
+        self.nodes
+            .iter_mut()
+            .map(|node| node.deserialize_config(registry))
+            .collect()
+    }
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct Node {
+    pub id: uuid::Uuid,
+    pub config: Config,
+}
+
+impl Node {
+    pub fn deserialize_config(&mut self, registry: &ConfigRegistry) -> Result<()> {
+        let mut config = registry.deserialize_config(&*self.config).map_err(|e| {
+            anyhow::anyhow!(
+                "failed to deserialize raw config into config: {}: {e:?}",
+                self.config.name()
+            )
+        })?;
+        std::mem::swap(&mut self.config, &mut config);
+        Ok(())
+    }
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct Edge {
+    pub from_id: uuid::Uuid,
+    pub to_id: uuid::Uuid,
 }
 
 #[derive(Debug)]
 pub enum DaemonMessage {
     RetryControlPlaneClientInit,
+    Graph(Graph),
 }
 
 #[derive(Debug)]
@@ -46,9 +90,9 @@ impl DaemonHandle {
         Self { tx: tx.clone() }
     }
 
-    /// get last known node id and timestamp for control plane client
-    pub async fn get_offset(&self) -> Option<(Uuid, DateTime<Utc>)> {
-        None
+    pub fn graph(&self, graph: Graph) -> Result<()> {
+        self.tx.send(DaemonMessage::Graph(graph))?;
+        Ok(())
     }
 }
 
@@ -58,24 +102,31 @@ impl Daemon {
         let database_path = Path::new(database_path);
         let daemon_storage = daemon_storage::new(database_path).await?;
         let section_storage_handle = storage::new(database_path).await?;
-        let scheduler_handle = runtime::new(section_storage_handle.clone());
         let control_plane_client_handle = control_plane_client::new(DaemonHandle::new(&tx));
         Ok(Self {
             daemon_storage,
             section_storage_handle,
-            scheduler_handle,
             control_plane_client_handle,
+            config_registry: config_registry::new()
+                .map_err(|e| anyhow::anyhow!("failed to intialize config registry: {e:?}"))?,
             rx,
             weak_tx: tx.clone().downgrade(),
         })
     }
 
     pub async fn run(&mut self) -> Result<()> {
+        let registry: config_registry::ConfigRegistry<
+            runtime::command_channel::SectionChannel<storage::SqliteState>,
+        > = config_registry::new().unwrap();
         self.init_control_plane_client().await?;
         while let Some(message) = self.rx.recv().await {
             match message {
                 DaemonMessage::RetryControlPlaneClientInit => {
                     self.init_control_plane_client().await?;
+                }
+                DaemonMessage::Graph(mut graph) => {
+                    graph.deserialize_node_configs(&self.config_registry);
+                    tracing::info!("got graph: {graph:#?}");
                 }
             }
         }
@@ -117,7 +168,7 @@ impl Daemon {
     }
 
     pub async fn shutdown(&mut self) -> anyhow::Result<()> {
-        self.scheduler_handle.shutdown().await.ok();
+        //self.scheduler_handle.shutdown().await.ok();
         self.section_storage_handle.shutdown().await.ok();
         self.control_plane_client_handle.shutdown().await.ok();
         Ok(())
