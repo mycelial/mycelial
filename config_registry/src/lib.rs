@@ -11,8 +11,7 @@
 // This fact makes implementation of config regsisty tricky, since 'config only' version for ui and control plane don't need to know
 // anything about section channel.
 // Generic parameter turns generic everything it touches.
-// It would be nice to just have DynSection with dyn SectionChannel implementation,
-// but it will take some time to do.
+// It would be nice to just have DynSection with dyn SectionChannel implementation, but it will take some time to do.
 // So instead we have this giant mess of a library.
 #[cfg_attr(not(feature = "section"), path = "config_only.rs")]
 #[cfg_attr(feature = "section", path = "config_section.rs")]

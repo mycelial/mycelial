@@ -3,7 +3,7 @@ use std::{sync::Arc, time::Duration};
 use anyhow::Result;
 use pki::ClientConfig;
 use reqwest::Url;
-use section::futures::{SinkExt as _, StreamExt as _};
+use section::{futures::{SinkExt as _, StreamExt as _}, prelude::Sink};
 use serde::{Deserialize, Serialize};
 use sha2::Digest;
 use tokio::{
@@ -200,7 +200,7 @@ impl ControlPlaneClient {
             if let Err(e) =
                 websocket_client(daemon_handle, control_plane_tls_url, certifiedkey).await
             {
-                tracing::error!("websocket connection closed");
+                tracing::error!("websocket connection closed: {e}");
             }
             tokio::time::sleep(Duration::from_secs(3)).await;
             tx.send(Message::WebSocketClientDown {}).await.ok();
@@ -234,6 +234,28 @@ pub enum ControlPlaneMessage {
     RefetchGraph,
 }
 
+struct WebsocketInput<S> {
+    input: S
+}
+
+impl<S: Sink<WebsocketMessage> + Unpin> WebsocketInput<S> {
+    async fn get_graph(&mut self) -> Result<()> {
+        self.input.send(WebsocketMessage::Text(
+            serde_json::to_string(&ControlPlaneMessage::GetGraph {})?
+        ))
+            .await
+            .map_err(|_| anyhow::anyhow!("failed to send websocket message"))?;
+        Ok(())
+    }
+    
+    async fn ping(&mut self) -> Result<()> {
+        self.input.send(WebsocketMessage::Ping(vec![]))
+            .await
+            .map_err(|_| anyhow::anyhow!("failed to send websocket message"))?;
+        Ok(())
+    }
+}
+
 async fn websocket_client(
     daemon_handle: DaemonHandle,
     control_plane_url: Arc<Url>,
@@ -262,13 +284,10 @@ async fn websocket_client(
         Some(connector),
     )
     .await?;
-    let (mut input, mut output) = socket.split();
+    let (input, mut output) = socket.split();
+    let input = &mut WebsocketInput{ input };
+    input.get_graph().await?;
     let mut interval = tokio::time::interval(Duration::from_secs(30));
-    input
-        .send(WebsocketMessage::Text(serde_json::to_string(
-            &ControlPlaneMessage::GetGraph {},
-        )?))
-        .await?;
     loop {
         tokio::select! {
             msg = output.next() => {
@@ -286,13 +305,12 @@ async fn websocket_client(
                 };
                 match message {
                     ControlPlaneMessage::GetGraphResponse{ graph } => daemon_handle.graph(graph)?,
+                    ControlPlaneMessage::RefetchGraph => input.get_graph().await?,
                     _ => (),
                 }
             },
             _ = interval.tick() => {
-                if let Err(e) = input.send(WebsocketMessage::Ping(vec![])).await {
-                    Err(anyhow::anyhow!("failed to ping control plane: {e}"))?;
-                }
+                input.ping().await?;
             }
         }
     }

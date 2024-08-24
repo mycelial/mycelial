@@ -115,9 +115,6 @@ impl Daemon {
     }
 
     pub async fn run(&mut self) -> Result<()> {
-        let registry: config_registry::ConfigRegistry<
-            runtime::command_channel::SectionChannel<storage::SqliteState>,
-        > = config_registry::new().unwrap();
         self.init_control_plane_client().await?;
         while let Some(message) = self.rx.recv().await {
             match message {
@@ -125,7 +122,13 @@ impl Daemon {
                     self.init_control_plane_client().await?;
                 }
                 DaemonMessage::Graph(mut graph) => {
-                    graph.deserialize_node_configs(&self.config_registry);
+                    match graph.deserialize_node_configs(&self.config_registry) {
+                        Err(e) => {
+                            tracing::error!("failed to deserialize node configs: {e}");
+                            continue
+                        },
+                        Ok(()) => (),
+                    }
                     tracing::info!("got graph: {graph:#?}");
                 }
             }

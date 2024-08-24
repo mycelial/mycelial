@@ -1,6 +1,8 @@
+use std::collections::BTreeMap;
+
 use crate::app::Result;
 use tokio::sync::{
-    mpsc::{channel, Receiver, Sender},
+    mpsc::{channel, unbounded_channel, Receiver, Sender, UnboundedReceiver, UnboundedSender},
     oneshot::{channel as oneshot_channel, Sender as OneshotSender},
 };
 use uuid::Uuid;
@@ -19,13 +21,15 @@ impl DaemonTracker {
     }
 
     async fn enter_loop(&self, mut rx: Receiver<DaemonTrackerMessage>) -> Result<()> {
-        let mut daemons = std::collections::HashSet::new();
+        let mut daemons = BTreeMap::new();
         while let Some(message) = rx.recv().await {
             match message {
                 DaemonTrackerMessage::DaemonConnected { id, reply_to } => {
-                    tracing::info!("daemon connected: {id}");
-                    daemons.insert(id);
-                    reply_to.send(()).ok();
+                    tracing::info!("daemon connected: {}", id);
+                    let (tx, rx) = unbounded_channel();
+                    let daemon_handle = DaemonHandle { tx };
+                    daemons.insert(id, daemon_handle);
+                    reply_to.send(rx).ok();
                 }
                 DaemonTrackerMessage::DaemonDisconnected { id, reply_to } => {
                     tracing::info!("daemon disconnected: {id}");
@@ -33,7 +37,12 @@ impl DaemonTracker {
                     reply_to.send(()).ok();
                 }
                 DaemonTrackerMessage::ListDaemons { reply_to } => {
-                    reply_to.send(daemons.iter().copied().collect()).ok();
+                    reply_to.send(daemons.keys().copied().collect()).ok();
+                },
+                DaemonTrackerMessage::NotifyGraphUpdate => {
+                    for daemon in daemons.values() {
+                        daemon.notify_graph_update();
+                    }
                 }
             }
         }
@@ -41,10 +50,24 @@ impl DaemonTracker {
     }
 }
 
+pub enum DaemonMessage {
+    NotifyGraphUpdate,
+}
+
+pub struct DaemonHandle {
+    tx: UnboundedSender<DaemonMessage>
+}
+
+impl DaemonHandle {
+    pub fn notify_graph_update(&self) {
+        self.tx.send(DaemonMessage::NotifyGraphUpdate).ok();
+    }
+}
+
 enum DaemonTrackerMessage {
     DaemonConnected {
         id: Uuid,
-        reply_to: OneshotSender<()>,
+        reply_to: OneshotSender<UnboundedReceiver<DaemonMessage>>,
     },
     DaemonDisconnected {
         id: Uuid,
@@ -53,6 +76,7 @@ enum DaemonTrackerMessage {
     ListDaemons {
         reply_to: OneshotSender<Vec<Uuid>>,
     },
+    NotifyGraphUpdate,
 }
 
 pub struct DaemonTrackerHandle {
@@ -60,7 +84,7 @@ pub struct DaemonTrackerHandle {
 }
 
 impl DaemonTrackerHandle {
-    pub async fn daemon_connected(&self, id: Uuid) -> Result<()> {
+    pub async fn daemon_connected(&self, id: Uuid) -> Result<UnboundedReceiver<DaemonMessage>> {
         let (reply_to, rx) = oneshot_channel();
         let message = DaemonTrackerMessage::DaemonConnected { id, reply_to };
         self.tx.send(message).await?;
@@ -79,5 +103,10 @@ impl DaemonTrackerHandle {
         let message = DaemonTrackerMessage::ListDaemons { reply_to };
         self.tx.send(message).await?;
         Ok(rx.await?)
+    }
+    
+    pub async fn notify_graph_update(&self) -> Result<()> {
+        self.tx.send(DaemonTrackerMessage::NotifyGraphUpdate).await?;
+        Ok(())
     }
 }

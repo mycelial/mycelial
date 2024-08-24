@@ -11,9 +11,11 @@ use axum::{
     Extension, Router,
 };
 use chrono::Utc;
-use futures::{SinkExt, StreamExt};
+use futures::{Sink, SinkExt, StreamExt};
 use serde::{Deserialize, Serialize};
+use tokio::sync::mpsc::UnboundedReceiver;
 use uuid::Uuid;
+use crate::{app::daemon_tracker::DaemonMessage, AppError};
 
 use crate::{
     app::{AppState, DaemonGraph},
@@ -32,19 +34,21 @@ async fn ws_handler(
     }))
 }
 
-struct DaemonTrackingGuard {
-    app: AppState,
+struct Daemon {
     id: Uuid,
+    rx: UnboundedReceiver<DaemonMessage>,
+    app: AppState,
 }
 
-impl DaemonTrackingGuard {
+
+impl Daemon {
     async fn new(app: AppState, id: Uuid) -> Result<Self> {
-        app.daemon_connected(id).await?;
-        Ok(Self { app, id })
+        let rx = app.daemon_connected(id).await?;
+        Ok(Self { app, rx, id })
     }
 }
 
-impl Drop for DaemonTrackingGuard {
+impl Drop for Daemon {
     fn drop(&mut self) {
         let id = self.id;
         let app = Arc::clone(&self.app);
@@ -63,14 +67,32 @@ pub enum Message {
     RefetchGraph,
 }
 
+struct WebsocketInput<S> {
+    input: S
+}
+
+impl<S: Sink<WebsocketMessage> + Unpin> WebsocketInput<S> {
+    fn new(input: S) -> Self {
+        Self { input }
+    }
+
+    async fn send_message(&mut self, message: &Message) -> Result<()> {
+        self.input.send(WebsocketMessage::Text(serde_json::to_string(&message)?))
+            .await
+            .map_err(|_| anyhow::anyhow!("failed to send websocket message"))?;
+        Ok(())
+    }
+}
+
 async fn handle_socket(
     app: AppState,
     socket: WebSocket,
     addr: SocketAddr,
     daemon_id: Uuid,
 ) -> Result<()> {
-    let _guard = DaemonTrackingGuard::new(Arc::clone(&app), daemon_id).await?;
-    let (mut input, mut output) = socket.split();
+    let daemon = &mut Daemon::new(Arc::clone(&app), daemon_id).await?;
+    let (input, mut output) = socket.split();
+    let input = &mut WebsocketInput::new(input);
     loop {
         tokio::select! {
             msg = output.next() => {
@@ -91,19 +113,31 @@ async fn handle_socket(
                 };
                 match msg {
                     Message::GetGraph => {
-                        let response = Message::GetGraphResponse { graph: app.get_daemon_graph(daemon_id).await?};
-                        input.send(serde_json::to_string(&response)?.into()).await?;
+                        input.send_message(
+                            &Message::GetGraphResponse { graph: app.get_daemon_graph(daemon_id).await?}
+                        ).await?;
                     },
                     _ => {
                         tracing::info!("unexpected message: {msg:?}");
                     },
                 }
-                tracing::info!("got msg: {:?}", msg);
-            }
+            },
 
+            msg = daemon.rx.recv() => {
+                let msg = match msg {
+                    None => Err(AppError::internal("daemon tracker is down"))?,
+                    Some(msg) => msg
+                };
+                match msg {
+                    DaemonMessage::NotifyGraphUpdate => {
+                        input.send_message(&Message::RefetchGraph).await?;
+                    }
+                }
+            }
         }
     }
 }
+
 
 pub fn new(app: AppState) -> Router {
     Router::new()

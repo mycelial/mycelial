@@ -1,4 +1,4 @@
-mod daemon_tracker;
+pub mod daemon_tracker;
 pub mod db;
 pub mod migration;
 pub mod tables;
@@ -6,9 +6,11 @@ pub mod tables;
 use chrono::{DateTime, Utc};
 use config::prelude::*;
 use config_registry::{self, ConfigRegistry};
+use daemon_tracker::DaemonMessage;
 use pki::{CertificateDer, CertifiedKey, KeyPair};
 use serde::{Deserialize, Serialize};
 use sha2::Digest;
+use tokio::sync::mpsc::UnboundedReceiver;
 use std::{collections::BTreeMap, sync::Arc};
 use uuid::Uuid;
 
@@ -273,6 +275,21 @@ pub enum WorkspaceOperation {
     },
 }
 
+impl WorkspaceOperation {
+    fn needs_daemon_notification(&self) -> bool {
+        match self {
+            WorkspaceOperation::AddNode { .. } => true,
+            WorkspaceOperation::RemoveNode(_) => true,
+            WorkspaceOperation::AddEdge { .. } => true,
+            WorkspaceOperation::RemoveEdge{ .. } => true,
+            WorkspaceOperation::UpdateNodeConfig { .. } => true,
+            WorkspaceOperation::AssignNodeToDaemon { .. } => true,
+            WorkspaceOperation::UnassignNodeFromDaemon { .. } => true,
+            _ => false,
+        }
+    }
+}
+
 #[derive(Debug, Serialize)]
 pub struct DaemonToken {
     pub id: uuid::Uuid,
@@ -453,14 +470,20 @@ impl App {
             }
             Ok(())
         };
+        let mut notify_daemons = false;
         for update in updates.iter_mut() {
             let update_result = match update
                 .operations
                 .iter_mut()
-                .try_for_each(validate_operation)
+                .try_fold(notify_daemons, |mut acc, op| { 
+                    acc |= op.needs_daemon_notification();
+                    validate_operation(op)?;
+                    Ok(acc)
+                })
             {
                 Err(e) => Err(e),
-                Ok(()) => {
+                Ok(nd) => {
+                    notify_daemons = nd;
                     self.db
                         .update_workspace(&self.config_registry, update)
                         .await
@@ -472,6 +495,10 @@ impl App {
                 Err(e) => WorkspaceUpdateResult::from_app_error(e),
             };
             result.push(update_result);
+        }
+        // notify all daemons and ask to re-fetch graph.
+        if notify_daemons {
+            self.daemon_tracker.notify_graph_update().await?;
         }
         Ok(result)
     }
@@ -555,7 +582,7 @@ impl App {
         self.daemon_tracker.list_daemons().await
     }
 
-    pub async fn daemon_connected(&self, id: Uuid) -> Result<()> {
+    pub async fn daemon_connected(&self, id: Uuid) -> Result<UnboundedReceiver<DaemonMessage>> {
         self.daemon_tracker.daemon_connected(id).await
     }
 
