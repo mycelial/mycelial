@@ -125,8 +125,8 @@ impl Daemon {
                     match graph.deserialize_node_configs(&self.config_registry) {
                         Err(e) => {
                             tracing::error!("failed to deserialize node configs: {e}");
-                            continue
-                        },
+                            continue;
+                        }
                         Ok(()) => (),
                     }
                     tracing::info!("got graph: {graph:#?}");

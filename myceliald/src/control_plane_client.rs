@@ -3,7 +3,10 @@ use std::{sync::Arc, time::Duration};
 use anyhow::Result;
 use pki::ClientConfig;
 use reqwest::Url;
-use section::{futures::{SinkExt as _, StreamExt as _}, prelude::Sink};
+use section::{
+    futures::{SinkExt as _, StreamExt as _},
+    prelude::Sink,
+};
 use serde::{Deserialize, Serialize};
 use sha2::Digest;
 use tokio::{
@@ -235,21 +238,23 @@ pub enum ControlPlaneMessage {
 }
 
 struct WebsocketInput<S> {
-    input: S
+    input: S,
 }
 
 impl<S: Sink<WebsocketMessage> + Unpin> WebsocketInput<S> {
     async fn get_graph(&mut self) -> Result<()> {
-        self.input.send(WebsocketMessage::Text(
-            serde_json::to_string(&ControlPlaneMessage::GetGraph {})?
-        ))
+        self.input
+            .send(WebsocketMessage::Text(serde_json::to_string(
+                &ControlPlaneMessage::GetGraph {},
+            )?))
             .await
             .map_err(|_| anyhow::anyhow!("failed to send websocket message"))?;
         Ok(())
     }
-    
+
     async fn ping(&mut self) -> Result<()> {
-        self.input.send(WebsocketMessage::Ping(vec![]))
+        self.input
+            .send(WebsocketMessage::Ping(vec![]))
             .await
             .map_err(|_| anyhow::anyhow!("failed to send websocket message"))?;
         Ok(())
@@ -285,7 +290,7 @@ async fn websocket_client(
     )
     .await?;
     let (input, mut output) = socket.split();
-    let input = &mut WebsocketInput{ input };
+    let input = &mut WebsocketInput { input };
     input.get_graph().await?;
     let mut interval = tokio::time::interval(Duration::from_secs(30));
     loop {

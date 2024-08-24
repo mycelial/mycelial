@@ -38,7 +38,7 @@ impl DaemonTracker {
                 }
                 DaemonTrackerMessage::ListDaemons { reply_to } => {
                     reply_to.send(daemons.keys().copied().collect()).ok();
-                },
+                }
                 DaemonTrackerMessage::NotifyGraphUpdate => {
                     for daemon in daemons.values() {
                         daemon.notify_graph_update();
@@ -55,7 +55,7 @@ pub enum DaemonMessage {
 }
 
 pub struct DaemonHandle {
-    tx: UnboundedSender<DaemonMessage>
+    tx: UnboundedSender<DaemonMessage>,
 }
 
 impl DaemonHandle {
@@ -104,9 +104,11 @@ impl DaemonTrackerHandle {
         self.tx.send(message).await?;
         Ok(rx.await?)
     }
-    
+
     pub async fn notify_graph_update(&self) -> Result<()> {
-        self.tx.send(DaemonTrackerMessage::NotifyGraphUpdate).await?;
+        self.tx
+            .send(DaemonTrackerMessage::NotifyGraphUpdate)
+            .await?;
         Ok(())
     }
 }

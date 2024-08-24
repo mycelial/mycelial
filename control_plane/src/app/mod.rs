@@ -10,8 +10,8 @@ use daemon_tracker::DaemonMessage;
 use pki::{CertificateDer, CertifiedKey, KeyPair};
 use serde::{Deserialize, Serialize};
 use sha2::Digest;
-use tokio::sync::mpsc::UnboundedReceiver;
 use std::{collections::BTreeMap, sync::Arc};
+use tokio::sync::mpsc::UnboundedReceiver;
 use uuid::Uuid;
 
 pub type Result<T, E = AppError> = std::result::Result<T, E>;
@@ -281,7 +281,7 @@ impl WorkspaceOperation {
             WorkspaceOperation::AddNode { .. } => true,
             WorkspaceOperation::RemoveNode(_) => true,
             WorkspaceOperation::AddEdge { .. } => true,
-            WorkspaceOperation::RemoveEdge{ .. } => true,
+            WorkspaceOperation::RemoveEdge { .. } => true,
             WorkspaceOperation::UpdateNodeConfig { .. } => true,
             WorkspaceOperation::AssignNodeToDaemon { .. } => true,
             WorkspaceOperation::UnassignNodeFromDaemon { .. } => true,
@@ -472,23 +472,23 @@ impl App {
         };
         let mut notify_daemons = false;
         for update in updates.iter_mut() {
-            let update_result = match update
-                .operations
-                .iter_mut()
-                .try_fold(notify_daemons, |mut acc, op| { 
-                    acc |= op.needs_daemon_notification();
-                    validate_operation(op)?;
-                    Ok(acc)
-                })
-            {
-                Err(e) => Err(e),
-                Ok(nd) => {
-                    notify_daemons = nd;
-                    self.db
-                        .update_workspace(&self.config_registry, update)
-                        .await
-                }
-            };
+            let update_result =
+                match update
+                    .operations
+                    .iter_mut()
+                    .try_fold(notify_daemons, |mut acc, op| {
+                        acc |= op.needs_daemon_notification();
+                        validate_operation(op)?;
+                        Ok(acc)
+                    }) {
+                    Err(e) => Err(e),
+                    Ok(nd) => {
+                        notify_daemons = nd;
+                        self.db
+                            .update_workspace(&self.config_registry, update)
+                            .await
+                    }
+                };
             let update_result = match update_result {
                 Ok(()) => WorkspaceUpdateResult::success(),
                 Err(e) if e.is_internal() => Err(e)?,

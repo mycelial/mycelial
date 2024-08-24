@@ -1,5 +1,6 @@
 use std::{net::SocketAddr, sync::Arc};
 
+use crate::{app::daemon_tracker::DaemonMessage, AppError};
 use axum::{
     extract::{
         ws::{Message as WebsocketMessage, WebSocket},
@@ -15,7 +16,6 @@ use futures::{Sink, SinkExt, StreamExt};
 use serde::{Deserialize, Serialize};
 use tokio::sync::mpsc::UnboundedReceiver;
 use uuid::Uuid;
-use crate::{app::daemon_tracker::DaemonMessage, AppError};
 
 use crate::{
     app::{AppState, DaemonGraph},
@@ -39,7 +39,6 @@ struct Daemon {
     rx: UnboundedReceiver<DaemonMessage>,
     app: AppState,
 }
-
 
 impl Daemon {
     async fn new(app: AppState, id: Uuid) -> Result<Self> {
@@ -68,7 +67,7 @@ pub enum Message {
 }
 
 struct WebsocketInput<S> {
-    input: S
+    input: S,
 }
 
 impl<S: Sink<WebsocketMessage> + Unpin> WebsocketInput<S> {
@@ -77,7 +76,8 @@ impl<S: Sink<WebsocketMessage> + Unpin> WebsocketInput<S> {
     }
 
     async fn send_message(&mut self, message: &Message) -> Result<()> {
-        self.input.send(WebsocketMessage::Text(serde_json::to_string(&message)?))
+        self.input
+            .send(WebsocketMessage::Text(serde_json::to_string(&message)?))
             .await
             .map_err(|_| anyhow::anyhow!("failed to send websocket message"))?;
         Ok(())
@@ -137,7 +137,6 @@ async fn handle_socket(
         }
     }
 }
-
 
 pub fn new(app: AppState) -> Router {
     Router::new()
