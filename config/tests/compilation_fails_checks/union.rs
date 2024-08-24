@@ -1,7 +1,7 @@
 use config::prelude::*;
 
 
-#[derive(Config)]
+#[derive(Configuration)]
 union Union {
     f64: f64,
     i32: i32

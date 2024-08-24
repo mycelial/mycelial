@@ -1,41 +1,32 @@
-#![allow(unused)]
 use std::borrow::Cow;
-
-use proc_macro::{Ident, TokenStream};
+use proc_macro::TokenStream;
 use proc_macro2::{Span, TokenTree};
 use quote::{quote, quote_spanned};
 use std::error::Error;
 use syn::{
-    spanned::Spanned, AngleBracketedGenericArguments, Attribute, Data, DeriveInput, Field, Fields,
-    GenericArgument, Meta, PathArguments, PathSegment, Type, TypePath,
+    spanned::Spanned, Attribute, Data, DeriveInput, Field, Fields, Meta, Type,
 };
 
-type Result<T, E = ConfigError> = std::result::Result<T, E>;
+type Result<T, E = ConfigurationError> = std::result::Result<T, E>;
 
 #[derive(Debug)]
-struct ConfigError {
+struct ConfigurationError {
     reason: Cow<'static, str>,
     span: Span,
 }
 
-impl std::fmt::Display for ConfigError {
+impl std::fmt::Display for ConfigurationError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{:?}", self)
     }
 }
 
-impl Error for ConfigError {}
+impl Error for ConfigurationError {}
 
 struct ConfigFieldMetadata {
     is_password: bool,
     is_text_area: bool,
     is_read_only: bool,
-}
-
-struct ConfigFieldValidate {}
-struct FieldAttributes {
-    metadata: ConfigFieldMetadata,
-    validate: ConfigFieldValidate,
 }
 
 struct ConfigField<'a> {
@@ -66,7 +57,7 @@ enum SectionIO {
     None,
     Bin,
     DataFrame,
-    BinOrDataFrame
+    BinOrDataFrame,
 }
 
 impl From<SectionIO> for proc_macro2::TokenStream {
@@ -114,7 +105,7 @@ fn parse_section_attr(
                 let tokens = match &attr.meta {
                     Meta::List(list) => &list.tokens,
                     other => {
-                        return Err(ConfigError {
+                        return Err(ConfigurationError {
                             span: other.span(),
                             reason: "expected section attributes as list".into(),
                         })
@@ -128,11 +119,11 @@ fn parse_section_attr(
                             iter.next();
                             continue;
                         }
-                        Some(TokenTree::Ident(ident)) => {
+                        Some(TokenTree::Ident(_)) => {
                             let (io, eq, value) = match (iter.next(), iter.next(), iter.next()) {
                                 (Some(io), Some(eq), Some(value)) => (io, eq, value),
                                 _ => {
-                                    return Err(ConfigError {
+                                    return Err(ConfigurationError {
                                         span: attr.span(),
                                         reason: "malformed parameters".into(),
                                     })
@@ -149,9 +140,11 @@ fn parse_section_attr(
                                 ("input", "=", "dataframe") => i = SectionIO::DataFrame,
                                 ("output", "=", "bin") => o = SectionIO::Bin,
                                 ("output", "=", "dataframe") => o = SectionIO::DataFrame,
-                                ("output", "=", "bin_or_dataframe") => o = SectionIO::BinOrDataFrame,
+                                ("output", "=", "bin_or_dataframe") => {
+                                    o = SectionIO::BinOrDataFrame
+                                }
                                 _ => {
-                                    return Err(ConfigError {
+                                    return Err(ConfigurationError {
                                         span: attr.span(),
                                         reason: "malformed parameters".into(),
                                     })
@@ -159,7 +152,7 @@ fn parse_section_attr(
                             }
                         }
                         _ => {
-                            return Err(ConfigError {
+                            return Err(ConfigurationError {
                                 span: attr.span(),
                                 reason: "malformed parameters".into(),
                             })
@@ -197,8 +190,7 @@ fn parse_field_attributes(field_attributes: &[Attribute]) -> Result<ConfigFieldM
         }
         [attr] if attr.path().is_ident("validate") => {}
         [attr] => {
-            let span = attr.span();
-            Err(ConfigError {
+            Err(ConfigurationError {
                 span: attr.span(),
                 reason: format!("unsupported attribute: {:?}", attr.path()).into(),
             })?
@@ -215,7 +207,7 @@ fn parse_field_attributes(field_attributes: &[Attribute]) -> Result<ConfigFieldM
 fn get_field_type(field: &Field) -> Result<ConfigFieldType> {
     let path = match &field.ty {
         Type::Path(p) => p,
-        ty => Err(ConfigError {
+        ty => Err(ConfigurationError {
             span: ty.span(),
             reason: format!("unsupported field type: {ty:?}").into(),
         })?,
@@ -237,7 +229,7 @@ fn get_field_type(field: &Field) -> Result<ConfigFieldType> {
         Some("u64") => ConfigFieldType::U64,
         Some("String") => ConfigFieldType::String,
         Some("bool") => ConfigFieldType::Bool,
-        other => Err(ConfigError {
+        other => Err(ConfigurationError {
             span: path.span(),
             reason: format!("Unsupported field type: {other:?}").into(),
         })?,
@@ -270,7 +262,7 @@ fn get_field_type(field: &Field) -> Result<ConfigFieldType> {
 //                    Some("u64") => ConfigFieldType::U64,
 //                    Some("String") => ConfigFieldType::String,
 //                    Some("bool") => ConfigFieldType::Bool,
-//                    Some(other) => Err(ConfigError {
+//                    Some(other) => Err(ConfigurationError {
 //                        span: path.span(),
 //                        reason: format!("Unsupported field type: {other}").into(),
 //                    })?,
@@ -278,12 +270,12 @@ fn get_field_type(field: &Field) -> Result<ConfigFieldType> {
 //                };
 //                Ok(ConfigFieldType::Vec(Box::new(ty)))
 //            }
-//            _ => Err(ConfigError {
+//            _ => Err(ConfigurationError {
 //                span: args.span(),
 //                reason: "unexpected Vec arguments".into(),
 //            })?,
 //        },
-//        _ => Err(ConfigError {
+//        _ => Err(ConfigurationError {
 //            span: path.span(),
 //            reason: "unexpected complex type".into(),
 //        })?,
@@ -304,7 +296,7 @@ fn build_config_field(field: &Field) -> Result<ConfigField<'_>> {
 fn parse_config(input: TokenStream) -> Result<TokenStream> {
     let input: DeriveInput = syn::parse(input).unwrap();
     if !input.generics.params.is_empty() {
-        Err(ConfigError {
+        Err(ConfigurationError {
             reason: "generics are not supported".into(),
             span: input.span(),
         })?;
@@ -312,11 +304,11 @@ fn parse_config(input: TokenStream) -> Result<TokenStream> {
     let (section_input, section_output) = parse_section_attr(&input.attrs)?;
     let ident = &input.ident;
     let strct = match &input.data {
-        Data::Union(_) => Err(ConfigError {
+        Data::Union(_) => Err(ConfigurationError {
             span: input.span(),
             reason: "unions are not supported".into(),
         })?,
-        Data::Enum(_) => Err(ConfigError {
+        Data::Enum(_) => Err(ConfigurationError {
             span: input.span(),
             reason: "enums are not supported (yet)".into(),
         })?,
@@ -324,7 +316,7 @@ fn parse_config(input: TokenStream) -> Result<TokenStream> {
     };
     let fields = match strct.fields {
         Fields::Named(ref fields) => fields,
-        Fields::Unnamed(_) | Fields::Unit => Err(ConfigError {
+        Fields::Unnamed(_) | Fields::Unit => Err(ConfigurationError {
             span: strct.fields.span(),
             reason: "unit structs are not supported".into(),
         })?,
@@ -350,7 +342,6 @@ fn parse_config(input: TokenStream) -> Result<TokenStream> {
                     is_text_area,
                     is_read_only,
                 } = metadata;
-                let name_tokens = quote! { #name };
                 quote! {
                     config::Field{
                         name: #name,
@@ -400,7 +391,6 @@ fn parse_config(input: TokenStream) -> Result<TokenStream> {
         .filter(|ConfigField { metadata, .. }| metadata.is_password)
         .map(
             |ConfigField {
-                 name,
                  name_ident,
                  ty,
                  ..
@@ -457,16 +447,20 @@ fn parse_config(input: TokenStream) -> Result<TokenStream> {
             fn strip_secrets(&mut self) {
                 #(#strip_secrets_impl)*
             }
+            
+            fn clone_config(&self) -> Box<dyn config::Config> {
+                Box::new(self.clone())
+            }
         }
     };
     Ok(tokens.into())
 }
 
-#[proc_macro_derive(Config, attributes(section, field_type, validate))]
-pub fn config(input: TokenStream) -> TokenStream {
+#[proc_macro_derive(Configuration, attributes(section, field_type, validate))]
+pub fn configuration(input: TokenStream) -> TokenStream {
     match parse_config(input) {
         Ok(tokens) => tokens,
-        Err(ConfigError { reason, span }) => {
+        Err(ConfigurationError { reason, span }) => {
             quote_spanned! { span => compile_error!(#reason); }.into()
         }
     }

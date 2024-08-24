@@ -1,50 +1,50 @@
 use config::prelude::*;
 
-#[derive(Config)]
+#[derive(Configuration)]
 #[section(input)]
-struct Config0 {
+struct Config0{
     
 }
 
-#[derive(Config)]
+#[derive(Configuration)]
 #[section(input=)]
-struct Config1 {
+struct Config1{
     
 }
 
-#[derive(Config)]
+#[derive(Configuration)]
 #[section(output)]
-struct Config2 {
+struct Config2{
     
 }
 
-#[derive(Config)]
+#[derive(Configuration)]
 #[section(output=)]
-struct Config3 {
+struct Config3{
     
 }
 
-#[derive(Config)]
+#[derive(Configuration)]
 #[section(input=foo)]
-struct Config4 {
+struct Config4{
     
 }
 
-#[derive(Config)]
+#[derive(Configuration)]
 #[section(input=baz)]
-struct Config5 {
+struct Config5{
     
 }
 
-#[derive(Config)]
+#[derive(Configuration)]
 #[section(inut=typo)]
-struct Config6 {
+struct Config6{
     
 }
 
-#[derive(Config)]
+#[derive(Configuration)]
 #[section(input-bin)]
-struct Config7 {
+struct Config7{
     
 }
 

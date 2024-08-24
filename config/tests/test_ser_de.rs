@@ -2,7 +2,7 @@ use config::prelude::*;
 
 #[test]
 fn test_json_serialization() {
-    #[derive(Debug, Clone, config::Config, Default)]
+    #[derive(Debug, Clone, Configuration, Default)]
     struct Config {
         i8: i8,
         i16: i16,
@@ -71,8 +71,8 @@ fn test_json_serialization() {
 
 #[test]
 fn test_serialization_deserialization() {
-    #[derive(Debug, Clone, config::Config, Default, PartialEq)]
-    struct Config {
+    #[derive(Debug, Clone, Configuration, Default, PartialEq)]
+    struct Conf{
         i8: i8,
         i16: i16,
         i32: i32,
@@ -85,7 +85,7 @@ fn test_serialization_deserialization() {
         string: String,
     }
 
-    let cfg: Box<dyn config::Config> = Box::new(Config {
+    let cfg: Box<dyn Config> = Box::new(Conf{
         i8: -8,
         i16: -16,
         i32: -32,
@@ -100,7 +100,7 @@ fn test_serialization_deserialization() {
 
     let serialized = serde_json::to_string(&cfg).unwrap();
     let raw_config = serde_json::from_str::<RawConfig>(&serialized);
-    let dyn_config = serde_json::from_str::<Box<dyn config::Config>>(&serialized);
+    let dyn_config = serde_json::from_str::<Box<dyn Config>>(&serialized);
     assert!(raw_config.is_ok(), "{:?}", raw_config);
     assert!(dyn_config.is_ok(), "{:?}", dyn_config);
     let dyn_config = dyn_config.unwrap();
@@ -214,9 +214,9 @@ fn test_serialization_deserialization() {
             }
         ]
     );
-    let mut cfg2: Box<dyn config::Config> = Box::new(Config::default());
+    let mut cfg2: Box<dyn Config> = Box::new(Conf::default());
     deserialize_into_config(&raw_config, &mut *cfg2).unwrap();
-    let cfg = unsafe { &*(&*cfg as *const _ as *const () as *const Config) };
-    let cfg2 = unsafe { &*(&*cfg2 as *const _ as *const () as *const Config) };
+    let cfg = unsafe { &*(&*cfg as *const _ as *const () as *const Conf) };
+    let cfg2 = unsafe { &*(&*cfg2 as *const _ as *const () as *const Conf) };
     assert_eq!(cfg, cfg2);
 }

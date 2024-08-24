@@ -4,10 +4,8 @@ version = { workspace = true }
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
 config_derive = {path = "config_derive"}
-dyn-clone = "1"
 serde = { version = "1", features = ["derive"] }
 tracing = "0.1"
 

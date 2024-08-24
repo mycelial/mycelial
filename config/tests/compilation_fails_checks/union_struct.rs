@@ -1,7 +1,7 @@
 use config::prelude::*;
 
 
-#[derive(Config)]
+#[derive(Configuration)]
 struct Union();
 
 fn main() {}

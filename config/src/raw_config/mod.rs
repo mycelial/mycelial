@@ -84,6 +84,10 @@ impl Config for RawConfig {
     fn strip_secrets(&mut self) {
         // raw config doesn't have any metadata
     }
+    
+    fn clone_config(&self) -> Box<dyn Config> {
+        Box::new(self.clone())
+    }
 }
 
 #[derive(Debug, Clone, Deserialize)]

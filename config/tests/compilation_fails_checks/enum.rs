@@ -1,6 +1,6 @@
 use config::prelude::*;
 
-#[derive(Config)]
+#[derive(Configuration)]
 enum Enum {}
 
 fn main() {}

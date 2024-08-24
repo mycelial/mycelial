@@ -3,7 +3,7 @@ use quickcheck::{quickcheck, TestResult};
 
 #[test]
 fn test_simple_config() {
-    #[derive(Debug, Clone, Config)]
+    #[derive(Debug, Clone, Configuration)]
     #[section(input=dataframe, output=dataframe)]
     struct SimpleConfig {
         login: String,
@@ -71,7 +71,7 @@ fn test_simple_config() {
 
 #[test]
 fn test_config_all_types() {
-    #[derive(Debug, Clone, Config)]
+    #[derive(Debug, Clone, Configuration)]
     struct _Config {
         i8: i8,
         i16: i16,
@@ -89,30 +89,30 @@ fn test_config_all_types() {
 
 #[test]
 fn test_section_input_output() {
-    #[derive(Debug, Clone, Config)]
+    #[derive(Debug, Clone, Configuration)]
     struct NoInput {}
     assert_eq!(NoInput {}.input(), SectionIO::None);
     assert_eq!(NoInput {}.output(), SectionIO::None);
 
-    #[derive(Debug, Clone, Config)]
+    #[derive(Debug, Clone, Configuration)]
     #[section(input=bin)]
     struct InputBin {}
     assert_eq!(InputBin {}.input(), SectionIO::Bin);
     assert_eq!(InputBin {}.output(), SectionIO::None);
 
-    #[derive(Debug, Clone, Config)]
+    #[derive(Debug, Clone, Configuration)]
     #[section(input=dataframe)]
     struct InputDf {}
     assert_eq!(InputDf {}.input(), SectionIO::DataFrame);
     assert_eq!(InputDf {}.output(), SectionIO::None);
 
-    #[derive(Debug, Clone, Config)]
+    #[derive(Debug, Clone, Configuration)]
     #[section(output=bin)]
     struct OutputBin {}
     assert_eq!(OutputBin {}.input(), SectionIO::None);
     assert_eq!(OutputBin {}.output(), SectionIO::Bin);
 
-    #[derive(Debug, Clone, Config)]
+    #[derive(Debug, Clone, Configuration)]
     #[section(output=dataframe)]
     struct OutputDf {}
     assert_eq!(OutputDf {}.input(), SectionIO::None);
@@ -128,8 +128,8 @@ fn test_compilations() {
 // test combination of types over config set field
 #[test]
 fn test_set_field() {
-    #[derive(Debug, Clone, Default, Config, PartialEq)]
-    struct Config {
+    #[derive(Debug, Clone, Default, Configuration, PartialEq)]
+    struct Conf{
         bool: bool,
         i8: i8,
         i16: i16,
@@ -155,8 +155,8 @@ fn test_set_field() {
             + TryInto<u32>
             + TryInto<u64>,
     {
-        let mut config = Box::new(Config::default());
-        let mut config_from_strings = Box::new(Config::default());
+        let mut config = Box::new(Conf::default());
+        let mut config_from_strings = Box::new(Conf::default());
         let str = t.to_string();
         let string_field_value: FieldValue = (&str).into();
 
@@ -337,8 +337,8 @@ fn test_set_field() {
 
         // config set from type should be equal config set from string values of that type
         assert_eq!(
-            unsafe { &*((&*config) as *const _ as *const () as *const Config) },
-            unsafe { &*((&*config_from_strings) as *const _ as *const () as *const Config) },
+            unsafe { &*((&*config) as *const _ as *const () as *const Conf) },
+            unsafe { &*((&*config_from_strings) as *const _ as *const () as *const Conf) },
         );
         TestResult::from_bool(true)
     }
