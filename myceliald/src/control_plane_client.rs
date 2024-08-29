@@ -1,6 +1,5 @@
 use std::{sync::Arc, time::Duration};
 
-use anyhow::Result;
 use pki::ClientConfig;
 use reqwest::Url;
 use section::{
@@ -19,7 +18,11 @@ use tokio::{
 use tokio_tungstenite::Connector;
 use tungstenite::Message as WebsocketMessage;
 
-use crate::{CertifiedKey, DaemonHandle, Graph};
+use crate::{
+    runtime::{CertifiedKey, Graph, RuntimeHandle},
+    runtime_error::RuntimeError,
+    Result,
+};
 
 #[derive(Debug, Serialize)]
 struct JoinRequest<'a> {
@@ -52,16 +55,16 @@ struct JoinResponse {
 
 #[derive(Debug)]
 struct ControlPlaneClient {
-    daemon_handle: DaemonHandle,
+    runtime_handle: RuntimeHandle,
     socket: Option<JoinHandle<()>>,
     control_plane_tls_url: Option<Arc<Url>>,
     certifiedkey: Option<Arc<CertifiedKey>>,
 }
 
 impl ControlPlaneClient {
-    fn new(daemon_handle: DaemonHandle) -> Self {
+    fn new(runtime_handle: RuntimeHandle) -> Self {
         Self {
-            daemon_handle,
+            runtime_handle,
             socket: None,
             control_plane_tls_url: None,
             certifiedkey: None,
@@ -121,7 +124,7 @@ impl ControlPlaneClient {
                 }
             }
         }
-        Err(anyhow::anyhow!("all control plane handles are dropped"))?
+        Ok(())
     }
 
     fn set_tls_url(
@@ -129,7 +132,9 @@ impl ControlPlaneClient {
         control_plane_tls_url: String,
         certifiedkey: CertifiedKey,
     ) -> Result<()> {
-        let mut url: Url = control_plane_tls_url.parse()?;
+        let mut url: Url = control_plane_tls_url
+            .parse()
+            .map_err(|_| RuntimeError::ControlPlaneUrlParseError(control_plane_tls_url))?;
         match url.scheme() {
             "http" | "https" => Some("wss"),
             _ => None,
@@ -141,19 +146,25 @@ impl ControlPlaneClient {
     }
 
     async fn join(&self, control_plane_url: &str, join_token: &str) -> Result<CertifiedKey> {
-        let control_plane_url: Url = control_plane_url.parse()?;
+        let control_plane_url: Url = control_plane_url
+            .parse()
+            .map_err(|_| RuntimeError::ControlPlaneUrlParseError(control_plane_url.into()))?;
         let split = join_token.splitn(2, ":").collect::<Vec<_>>();
         let (token, secret) = match split.as_slice() {
             [token, secret] => (token, secret),
-            _ => Err(anyhow::anyhow!("malformed token"))?,
+            _ => Err(RuntimeError::ControlPlaneMalformedToken)?,
         };
         let (key, csr) = pki::generate_csr_request(token)
             .map(|(key, csr)| (key.serialize_pem(), csr.pem()))
-            .map_err(|e| anyhow::anyhow!("failed to generate csr: {e}"))?;
-        let csr = csr?;
+            .map_err(RuntimeError::PkiCsrError)?;
+        let csr = csr.map_err(|e| RuntimeError::PkiCsrError(e.into()))?;
         let request = JoinRequest::new(token, &csr, secret);
         let response = reqwest::Client::new()
-            .post(control_plane_url.join("api/daemon/join")?)
+            .post(
+                control_plane_url
+                    .join("api/daemon/join")
+                    .map_err(|e| RuntimeError::ControlPlaneUrlError(e.into()))?,
+            )
             .json(&request)
             .send()
             .await?;
@@ -161,10 +172,10 @@ impl ControlPlaneClient {
             status if status.is_success() => response.json::<JoinResponse>().await?,
             status => {
                 let error = response.json::<JoinErrorResponse>().await?;
-                Err(anyhow::anyhow!(
-                    "failed to join control plane: {status}, error: {}",
-                    error.error
-                ))?
+                Err(RuntimeError::ControlPlaneJoinError {
+                    status,
+                    desc: error.error,
+                })?
             }
         };
         Ok(CertifiedKey {
@@ -179,7 +190,7 @@ impl ControlPlaneClient {
         let tx = weak_tx
             .clone()
             .upgrade()
-            .ok_or(anyhow::anyhow!("failed to upgrade tx"))?;
+            .ok_or(RuntimeError::ChannelUpgradeError)?;
 
         // drop previous client
         if let Some(join_handle) = self.socket.take() {
@@ -190,18 +201,18 @@ impl ControlPlaneClient {
             .control_plane_tls_url
             .as_ref()
             .map(Clone::clone)
-            .ok_or(anyhow::anyhow!("control plane tls url is not set"))?;
+            .ok_or(RuntimeError::ControlPlaneTlsUrlNotSet)?;
         let certifiedkey = self
             .certifiedkey
             .as_ref()
             .map(Clone::clone)
-            .ok_or(anyhow::anyhow!("certified key is not set"))?;
+            .ok_or(RuntimeError::ControlPlaneCertifiedNotSet)?;
 
-        let daemon_handle = self.daemon_handle.clone();
+        let runtime_handle = self.runtime_handle.clone();
         self.socket = Some(tokio::spawn(async move {
             let tx = tx;
             if let Err(e) =
-                websocket_client(daemon_handle, control_plane_tls_url, certifiedkey).await
+                websocket_client(runtime_handle, control_plane_tls_url, certifiedkey).await
             {
                 tracing::error!("websocket connection closed: {e}");
             }
@@ -248,7 +259,7 @@ impl<S: Sink<WebsocketMessage> + Unpin> WebsocketInput<S> {
                 &ControlPlaneMessage::GetGraph {},
             )?))
             .await
-            .map_err(|_| anyhow::anyhow!("failed to send websocket message"))?;
+            .map_err(|_| RuntimeError::ControlPlaneWebsocketSendError)?;
         Ok(())
     }
 
@@ -256,31 +267,31 @@ impl<S: Sink<WebsocketMessage> + Unpin> WebsocketInput<S> {
         self.input
             .send(WebsocketMessage::Ping(vec![]))
             .await
-            .map_err(|_| anyhow::anyhow!("failed to send websocket message"))?;
+            .map_err(|_| RuntimeError::ControlPlaneWebsocketSendError)?;
         Ok(())
     }
 }
 
 async fn websocket_client(
-    daemon_handle: DaemonHandle,
+    runtime_handle: RuntimeHandle,
     control_plane_url: Arc<Url>,
     certifiedkey: Arc<CertifiedKey>,
 ) -> Result<()> {
     tracing::info!("connected to control plane");
     let ca_cert = pki::parse_certificate(&certifiedkey.ca_certificate)
-        .map_err(|e| anyhow::anyhow!("failed to parse ca certificate: {e}"))?;
+        .map_err(RuntimeError::PkiParseCaCertificateError)?;
     let cert = pki::parse_certificate(&certifiedkey.certificate)
-        .map_err(|e| anyhow::anyhow!("failed to parse certificate: {e}"))?;
-    let key = pki::parse_private_key(&certifiedkey.key)
-        .map_err(|e| anyhow::anyhow!("failed to parse private key: {e}"))?;
+        .map_err(RuntimeError::PkiParseCertificateError)?;
+    let key =
+        pki::parse_private_key(&certifiedkey.key).map_err(RuntimeError::PkiParsePrivateKeyError)?;
     let connector = Connector::Rustls(Arc::new(
         ClientConfig::builder()
             .dangerous()
             .with_custom_certificate_verifier(Arc::new(
-                pki::Verifier::new(ca_cert)
-                    .map_err(|e| anyhow::anyhow!("failed to build client verifier: {e}"))?,
+                pki::Verifier::new(ca_cert).map_err(RuntimeError::PkiVerifiedInitError)?,
             ))
-            .with_client_auth_cert(vec![cert], key)?,
+            .with_client_auth_cert(vec![cert], key)
+            .map_err(|e| RuntimeError::RustlsConfigInitError(e.into()))?,
     ));
     let (socket, _response) = tokio_tungstenite::connect_async_tls_with_config(
         control_plane_url.as_str(),
@@ -297,19 +308,19 @@ async fn websocket_client(
         tokio::select! {
             msg = output.next() => {
                 let msg = match msg {
-                    None => Err(anyhow::anyhow!("connection closed"))?,
+                    None => Err(RuntimeError::ControlPlaneWebsocketClosed)?,
                     Some(msg) => msg?,
                 };
                 let message = match msg {
                     WebsocketMessage::Ping{ .. } => { continue },
                     WebsocketMessage::Pong{ .. } => { continue },
-                    WebsocketMessage::Close{ .. } => Err(anyhow::anyhow!("connection closed"))?,
-                    WebsocketMessage::Binary{ .. } => Err(anyhow::anyhow!("unexpected binary message"))?,
-                    WebsocketMessage::Frame{ .. } => Err(anyhow::anyhow!("unexpected raw frame"))?,
+                    WebsocketMessage::Close{ .. } => Err(RuntimeError::ControlPlaneWebsocketClosed)?,
+                    WebsocketMessage::Binary{ .. } => Err(RuntimeError::ControlPlaneWebsocketUnexpectedBinarydMessage)?,
+                    WebsocketMessage::Frame{ .. } => Err(RuntimeError::ControlPlaneWebsocketUnexpectedFrameMessage)?,
                     WebsocketMessage::Text(data) => serde_json::from_str::<ControlPlaneMessage>(&data)?,
                 };
                 match message {
-                    ControlPlaneMessage::GetGraphResponse{ graph } => daemon_handle.graph(graph)?,
+                    ControlPlaneMessage::GetGraphResponse{ graph } => runtime_handle.graph(graph)?,
                     ControlPlaneMessage::RefetchGraph => input.get_graph().await?,
                     _ => (),
                 }
@@ -361,7 +372,7 @@ impl ControlPlaneClientHandle {
     }
 }
 
-pub fn new(daemon_handle: DaemonHandle) -> ControlPlaneClientHandle {
-    let client = ControlPlaneClient::new(daemon_handle);
+pub fn new(runtime_handle: RuntimeHandle) -> ControlPlaneClientHandle {
+    let client = ControlPlaneClient::new(runtime_handle);
     client.spawn()
 }

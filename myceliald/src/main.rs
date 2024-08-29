@@ -1,6 +1,5 @@
 use anyhow::Result;
 use clap::{error::ErrorKind, Parser, Subcommand};
-use myceliald::Daemon;
 use tracing::level_filters::LevelFilter;
 use tracing_subscriber::{prelude::*, EnvFilter};
 
@@ -45,26 +44,26 @@ async fn main() -> Result<()> {
         Err(e) => Err(e)?,
         Ok(cli) => cli,
     };
-    let mut daemon = Daemon::new(&cli.database_path).await?;
+    let mut runtime = myceliald::new(&cli.database_path).await?;
     match cli.command {
         Some(Commands::Join {
             control_plane_url,
             control_plane_tls_url,
             join_token,
         }) => {
-            daemon
+            runtime
                 .join(&control_plane_url, &control_plane_tls_url, &join_token)
                 .await?;
             tracing::info!("join successful");
         }
         Some(Commands::Reset) => {
-            daemon.reset().await?;
-            tracing::info!("daemon state reset");
+            runtime.reset().await?;
+            tracing::info!("runtime state reset");
         }
         None => {
-            daemon.run().await?;
+            runtime.run().await?;
         }
     };
-    daemon.shutdown().await?;
+    runtime.shutdown().await?;
     Ok(())
 }

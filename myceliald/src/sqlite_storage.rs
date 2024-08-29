@@ -1,13 +1,11 @@
 //! storage backend for sections
 
-use anyhow::Context;
-use runtime::storage::Storage;
+use crate::Result;
 use section::prelude::*;
 use serde::{Deserialize, Serialize};
 use sqlx::{sqlite::SqliteConnectOptions, ConnectOptions, Row, SqliteConnection};
 use std::any::{type_name, Any, TypeId};
-use std::future::Future;
-use std::{path::Path, pin::Pin};
+use std::path::Path;
 use tokio::sync::{
     mpsc::{channel, Receiver, Sender},
     oneshot::{channel as oneshot_channel, Sender as OneshotSender},
@@ -119,7 +117,7 @@ impl State for SqliteState {
 }
 
 impl SqliteStorage {
-    pub async fn new(path: &Path) -> anyhow::Result<Self> {
+    pub async fn new(path: &Path) -> Result<Self> {
         let mut connection = SqliteConnectOptions::new()
             .filename(path)
             .create_if_missing(true)
@@ -140,7 +138,7 @@ impl SqliteStorage {
         SqliteStorageHandle { tx }
     }
 
-    async fn enter_loop(&mut self, rx: &mut Receiver<Message>) -> anyhow::Result<()> {
+    async fn enter_loop(&mut self, rx: &mut Receiver<Message>) -> Result<()> {
         while let Some(msg) = rx.recv().await {
             match msg {
                 Message::StoreState {
@@ -222,43 +220,7 @@ impl SqliteStorageHandle {
     async fn send(&self, message: Message) -> anyhow::Result<()> {
         Ok(self.tx.send(message).await?)
     }
-}
 
-impl Storage<SqliteState> for SqliteStorageHandle {
-    fn store_state(
-        &self,
-        pipe_id: u64,
-        state: SqliteState,
-    ) -> Pin<Box<dyn Future<Output = Result<(), SectionError>> + Send + 'static>> {
-        let this = self.clone();
-        Box::pin(async move {
-            let (reply_to, rx) = oneshot_channel();
-            this.send(Message::StoreState {
-                pipe_id,
-                state,
-                reply_to,
-            })
-            .await?;
-            rx.await?
-        })
-    }
-
-    fn retrieve_state(
-        &self,
-        pipe_id: u64,
-    ) -> Pin<Box<dyn Future<Output = Result<Option<SqliteState>, SectionError>> + Send + 'static>>
-    {
-        let this = self.clone();
-        Box::pin(async move {
-            let (reply_to, rx) = oneshot_channel();
-            this.send(Message::RetrieveState { pipe_id, reply_to })
-                .await?;
-            rx.await?
-        })
-    }
-}
-
-impl SqliteStorageHandle {
     pub async fn reset_state(&self) -> Result<(), SectionError> {
         let (reply_to, rx) = oneshot_channel();
         self.send(Message::ResetState { reply_to }).await?;
@@ -270,13 +232,28 @@ impl SqliteStorageHandle {
         self.send(Message::Shutdown { reply_to }).await?;
         Ok(rx.await?)
     }
+
+    pub async fn store_state(&self, pipe_id: u64, state: SqliteState) -> Result<(), SectionError> {
+        let (reply_to, rx) = oneshot_channel();
+        self.send(Message::StoreState {
+            pipe_id,
+            state,
+            reply_to,
+        })
+        .await?;
+        rx.await?
+    }
+
+    pub async fn retrieve_state(&self, pipe_id: u64) -> Result<Option<SqliteState>, SectionError> {
+        let (reply_to, rx) = oneshot_channel();
+        self.send(Message::RetrieveState { pipe_id, reply_to })
+            .await?;
+        rx.await?
+    }
 }
 
-pub async fn new(storage_path: &Path) -> anyhow::Result<SqliteStorageHandle> {
-    let handle = SqliteStorage::new(storage_path)
-        .await
-        .context("failed to initialize sqlite storage for sections")?
-        .spawn();
+pub async fn new(storage_path: &Path) -> Result<SqliteStorageHandle> {
+    let handle = SqliteStorage::new(storage_path).await?.spawn();
     Ok(handle)
 }
 

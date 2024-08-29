@@ -11,7 +11,7 @@ pub trait Config<Chan: SectionChannel>: BaseConfig + DynSection<Chan> {
     fn as_dyn_config_mut_ref(&mut self) -> &mut dyn BaseConfig;
 }
 
-impl<Chan: SectionChannel, T: BaseConfig + DynSection<Chan>> Config<Chan> for T {
+impl<Chan: SectionChannel, T: BaseConfig + DynSection<Chan> + Clone> Config<Chan> for T {
     fn as_dyn_section(self: Box<Self>) -> Box<dyn DynSection<Chan>> {
         self
     }

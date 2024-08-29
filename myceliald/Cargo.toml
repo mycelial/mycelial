@@ -6,10 +6,11 @@ edition = "2021"
 # See more keys and their definitions at https:/doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-runtime = { path = "../pipe/runtime/", package="runtime" }
 section = { path = "../pipe/section/" }
 pki = { path = "../pki" }
 config_registry = { path = "../config_registry/", features=["section"] }
+config = { path = "../config" }
+graph = { path = "../graph" }
 
 tokio = { version = "1", features = ["full"] }
 clap = { version = "4", features = ["derive", "env"] }

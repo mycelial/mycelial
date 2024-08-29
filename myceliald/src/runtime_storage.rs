@@ -1,14 +1,12 @@
-//! storage backend for daemon
-//!
+//! Runtime storage backend
 
-use anyhow::{Context, Result};
-use sqlx::{sqlite::SqliteConnectOptions, ConnectOptions, Connection, Row, SqliteConnection};
+use sqlx::{sqlite::SqliteConnectOptions, ConnectOptions, Row, SqliteConnection};
 use std::path::Path;
 
-use crate::CertifiedKey;
+use crate::{runtime::CertifiedKey, Result};
 
 #[derive(Debug)]
-pub struct DaemonStorage {
+pub struct RuntimeStorage {
     connection: SqliteConnection,
 }
 
@@ -17,7 +15,7 @@ const PRIVATE_KEY: &str = "private_key";
 const CERTIFICATE: &str = "certificate";
 const CA_CERTIFICATE: &str = "ca_certificate";
 
-impl DaemonStorage {
+impl RuntimeStorage {
     pub async fn new(path: &Path) -> Result<Self> {
         let mut connection = SqliteConnectOptions::new()
             .filename(path)
@@ -103,8 +101,6 @@ impl DaemonStorage {
     }
 }
 
-pub async fn new(storage_path: &Path) -> Result<DaemonStorage> {
-    DaemonStorage::new(storage_path)
-        .await
-        .context("failed to initialized daemon storage")
+pub async fn new(storage_path: &Path) -> Result<RuntimeStorage> {
+    RuntimeStorage::new(storage_path).await
 }
