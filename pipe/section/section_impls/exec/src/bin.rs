@@ -61,18 +61,6 @@ impl Message for Msg {
     }
 }
 
-#[derive(Debug)]
-pub struct ExecBin {
-    // command to rnu
-    command: String,
-    // command arguments
-    args: Vec<String>,
-    // passthrough ack into downstream
-    ack_passthrough: bool,
-    // command env
-    env: Vec<(String, String)>,
-}
-
 impl ExecBin {
     pub fn new(
         command: &str,

@@ -1,28 +1,33 @@
 [workspace]
+resolver = "2"
 members = [
-    "server",
+    "config",
+    "config_registry",
+    "control_plane",
+    "graph",
     "myceliald",
-    "common",
-    "pipe/runtime",
+    "pki",
+    "ui",
+
     "pipe/arrow_msg",
     "pipe/section",
-    "pipe/section/section_impls/hello_world",
-    "pipe/section/section_impls/sqlite_connector",
-    "pipe/section/section_impls/excel_connector",
-    "pipe/section/section_impls/postgres_connector",
-    "pipe/section/section_impls/mycelial_server",
-    "pipe/section/section_impls/kafka_connector",
-    "pipe/section/section_impls/snowflake",
-    "pipe/section/section_impls/typecast_transformer",
-    "pipe/section/section_impls/tagging_transformer",
-    "pipe/section/section_impls/mysql_connector",
-    "pipe/section/section_impls/file",
     "pipe/section/section_impls/dir",
-    "pipe/section/section_impls/exec",
-    "pipe/section/section_impls/run",
-    "pipe/section/section_impls/origin_transform",
-    "pipe/section/section_impls/s3",
-    "pipe/section/section_impls/redshift_loader",
+    "pipe/section/section_impls/excel_connector",
+#   "pipe/section/section_impls/exec",
+    "pipe/section/section_impls/file",
     "pipe/section/section_impls/inspect",
+    "pipe/section/section_impls/kafka_connector",
+    "pipe/section/section_impls/mysql_connector",
+    "pipe/section/section_impls/origin_transform",
+    "pipe/section/section_impls/postgres_connector",
+    "pipe/section/section_impls/redshift_loader",
+    "pipe/section/section_impls/run",
+    "pipe/section/section_impls/s3",
+    "pipe/section/section_impls/snowflake",
+    "pipe/section/section_impls/sqlite_connector",
+    "pipe/section/section_impls/tagging_transformer",
+    "pipe/section/section_impls/typecast_transformer",
 ]
-resolver = "2"
+
+[workspace.package]
+version = "0.9.0"

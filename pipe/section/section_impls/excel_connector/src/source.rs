@@ -5,19 +5,13 @@
 //! - Syncs an entire file when a change is detected.
 //! - Uses glob pattern for matching filepaths / directories. (e.g. ** for recursive, * for all files)
 //! - For sheets, use * to sync all sheets, otherwise a list of strings.
+//!
+//! FIXME:
+//! - contains calls which block async scheduler
 
-use crate::{ExcelDataTypeWrapper, ExcelMessage, ExcelPayload, Sheet, TableColumn};
 use notify::{Event, RecursiveMode, Watcher};
-use section::{
-    command_channel::{Command, SectionChannel},
-    futures::{self, FutureExt, Sink, SinkExt, Stream, StreamExt},
-    message::{DataType, Value},
-    section::Section,
-    state::State,
-    SectionError, SectionMessage,
-};
+use section::prelude::*;
 
-// FIXME: drop direct dependency
 use tokio::sync::mpsc::Sender;
 use tokio_stream::wrappers::ReceiverStream;
 
@@ -27,14 +21,121 @@ use std::pin::{pin, Pin};
 use std::time::Duration;
 use std::{future::Future, sync::Arc};
 
+use crate::Excel;
 use glob::glob;
 use globset::Glob;
 
 #[derive(Debug)]
-pub struct Excel {
-    path: String,
-    sheets: Vec<String>,
+pub(crate) struct Sheet {
+    pub name: Arc<str>,
+    pub columns: Arc<[TableColumn]>,
+}
+
+#[derive(Debug)]
+pub(crate) struct TableColumn {
+    name: Arc<str>,
+    data_type: DataType,
+}
+
+#[derive(Debug)]
+pub(crate) struct ExcelPayload {
+    columns: Arc<[TableColumn]>,
+    values: Vec<Vec<Value>>,
+}
+
+impl DataFrame for ExcelPayload {
+    fn columns(&self) -> Vec<Column<'_>> {
+        self.columns
+            .iter()
+            .zip(self.values.iter())
+            .map(|(col, column)| {
+                Column::new(
+                    col.name.as_ref(),
+                    col.data_type,
+                    Box::new(column.iter().map(Into::into)),
+                )
+            })
+            .collect()
+    }
+}
+
+pub struct ExcelMessage {
+    origin: Arc<str>,
+    payload: Option<Box<dyn DataFrame>>,
+    ack: Option<Ack>,
+}
+
+impl ExcelMessage {
+    fn new(origin: Arc<str>, payload: ExcelPayload, ack: Option<Ack>) -> Self {
+        Self {
+            origin,
+            payload: Some(Box::new(payload)),
+            ack,
+        }
+    }
+}
+
+impl Message for ExcelMessage {
+    fn origin(&self) -> &str {
+        self.origin.as_ref()
+    }
+
+    fn next(&mut self) -> section::message::Next<'_> {
+        let v = self.payload.take().map(Chunk::DataFrame);
+        Box::pin(async move { Ok(v) })
+    }
+
+    fn ack(&mut self) -> section::message::Ack {
+        self.ack.take().unwrap_or(Box::pin(async {}))
+    }
+}
+
+impl std::fmt::Debug for ExcelMessage {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ExcelMessage")
+            .field("origin", &self.origin)
+            .field("payload", &self.payload)
+            .finish()
+    }
+}
+
+pub(crate) struct ExcelDataTypeWrapper<'a> {
+    value: &'a ExcelDataType,
     stringify: bool,
+}
+
+impl<'a> ExcelDataTypeWrapper<'a> {
+    pub fn new(value: &'a ExcelDataType, stringify: bool) -> Self {
+        Self { value, stringify }
+    }
+}
+
+impl From<ExcelDataTypeWrapper<'_>> for Value {
+    fn from(val: ExcelDataTypeWrapper<'_>) -> Self {
+        match val.value {
+            value if val.stringify => Value::from(value.to_string()),
+            ExcelDataType::Int(v) => Value::I64(*v),
+            ExcelDataType::Float(f) => Value::F64(*f),
+            ExcelDataType::String(s) => Value::from(s.to_string()),
+            ExcelDataType::Bool(b) => Value::Bool(*b),
+            ExcelDataType::DateTime(_) => {
+                // TODO: do we have a datetime format rather than string?
+                // FIXME: unwrap
+                Value::from(
+                    val.value
+                        .as_datetime()
+                        .unwrap()
+                        .format("%Y-%m-%d %H:%M:%S")
+                        .to_string(),
+                )
+            }
+            ExcelDataType::Duration(f) => Value::F64(*f),
+            ExcelDataType::DateTimeIso(d) => Value::Str(d.as_str().into()),
+            ExcelDataType::DurationIso(d) => Value::Str(d.as_str().into()),
+            ExcelDataType::Error(e) => Value::Str(e.to_string().into()),
+            ExcelDataType::Empty => Value::Null,
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -43,110 +144,6 @@ enum FsEvent {
 }
 
 impl Excel {
-    pub fn new(path: impl Into<String>, sheets: &[&str], stringify: bool) -> Self {
-        Self {
-            path: path.into(),
-            sheets: sheets.iter().map(|&x| x.into()).collect(),
-            stringify,
-        }
-    }
-
-    async fn enter_loop<Input, Output, SectionChan>(
-        self,
-        input: Input,
-        output: Output,
-        mut section_channel: SectionChan,
-    ) -> Result<(), SectionError>
-    where
-        Input: Stream + Send,
-        Output: Sink<SectionMessage, Error = SectionError> + Send,
-        SectionChan: SectionChannel + Send + Sync,
-    {
-        let path = &self.path;
-        let (tx, rx) = tokio::sync::mpsc::channel(4);
-
-        // on init, sync all the files.
-        for entry in glob(path).expect("Failed to read glob pattern") {
-            match entry {
-                Ok(path) => tx.send(FsEvent::Change(path.display().to_string())).await?,
-                Err(_) => todo!(),
-            }
-        }
-
-        let _watcher = self.watch_excel_paths(self.path.as_str(), tx);
-
-        let mut _input = pin!(input.fuse());
-        let mut output = pin!(output);
-
-        let mut state = section_channel
-            .retrieve_state()
-            .await?
-            .unwrap_or(<<SectionChan as SectionChannel>::State>::new());
-        let rx = ReceiverStream::new(rx);
-        let mut rx = pin!(rx.fuse());
-
-        loop {
-            futures::select_biased! {
-                cmd = section_channel.recv().fuse() => {
-                    match cmd? {
-                        Command::Ack(any) => {
-                            match any.downcast::<AckMessage>() {
-                                Ok(ack) => {
-                                    state.set(&ack.sheet, ack.offset)?;
-                                    section_channel.store_state(state.clone()).await?;
-                                },
-                                Err(_) =>
-                                    Err("Failed to downcast incoming Ack message to Message")?,
-                            };
-                        },
-                        Command::Stop => return Ok(()),
-                        _ => {},
-                    }
-                },
-                msg = rx.next() => {
-                    match msg {
-                        Some(event) => {
-                            match event {
-                                // When there's a change to a file, sync that file
-                                FsEvent::Change(path) => {
-                                    // ignore temp files
-                                    if !path.contains('~') {
-                                        let mut workbook: calamine::Sheets<std::io::BufReader<std::fs::File>> =
-                                            open_workbook_auto(path.clone()).expect("Cannot open file");
-
-                                        let mut sheets = self.init_schema(&mut workbook).await?;
-
-                                        for sheet in sheets.iter_mut() {
-                                            if let Some(Ok(range)) = workbook.worksheet_range(&sheet.name) {
-                                                // the first is the header, so don't send it in the data payload since it's already part of the schema
-                                                let mut rows = range.rows();
-                                                rows.next();
-                                                let excel_payload = self.build_excel_payload(sheet, rows)?;
-
-                                                let origin: Arc<str> = Arc::from(format!("{}:{}", path, sheet.name));
-                                                let message = Box::new(
-                                                    ExcelMessage::new(
-                                                        origin,
-                                                        excel_payload,
-                                                        None,
-                                                    )
-                                                );
-                                                output.send(message).await.map_err(|e| format!("failed to send data to sink {:?}", e))?;
-                                            }
-
-                                        }
-                                    }
-                                },
-                            }
-                        },
-                        None => Err("excel file watched exited")?
-                    };
-
-                }
-            }
-        }
-    }
-
     fn build_excel_payload(
         &self,
         sheet: &Sheet,
@@ -170,15 +167,11 @@ impl Excel {
     async fn init_schema(
         &self,
         workbook: &mut calamine::Sheets<std::io::BufReader<std::fs::File>>,
+        sheets: &[&str],
     ) -> Result<Vec<Sheet>, SectionError> {
-        let mut sheets = Vec::with_capacity(self.sheets.len());
-        let all_sheets: Vec<String>;
-        let sheet_names = match self.sheets.iter().any(|sheet| sheet == "*") {
-            true => {
-                all_sheets = workbook.sheet_names().to_owned();
-                all_sheets.as_slice()
-            }
-            false => self.sheets.as_slice(),
+        let sheet_names = match sheets.iter().any(|&sheet| sheet == "*") {
+            true => workbook.sheet_names().to_owned(),
+            false => sheets.iter().map(|s| s.to_string()).collect::<Vec<_>>(),
         };
 
         let data_type = match self.stringify {
@@ -186,8 +179,10 @@ impl Excel {
             false => DataType::Any,
         };
 
+        let mut result = Vec::with_capacity(sheets.len());
+
         for s in sheet_names {
-            if let Some(Ok(range)) = workbook.worksheet_range(s) {
+            if let Some(Ok(range)) = workbook.worksheet_range(&s) {
                 let name = s.as_str();
 
                 let mut rows = range.rows();
@@ -229,10 +224,10 @@ impl Excel {
                     name: Arc::from(name),
                     columns: Arc::from(cols),
                 };
-                sheets.push(sheet);
+                result.push(sheet);
             }
         }
-        Ok(sheets)
+        Ok(result)
     }
 
     fn watch_excel_paths(
@@ -267,15 +262,100 @@ struct AckMessage {
 
 impl<Input, Output, SectionChan> Section<Input, Output, SectionChan> for Excel
 where
-    Input: Stream + Send + 'static,
-    Output: Sink<SectionMessage, Error = SectionError> + Send + 'static,
-    SectionChan: SectionChannel + Send + Sync + 'static,
+    Input: SectionStream,
+    Output: SectionSink,
+    SectionChan: SectionChannel,
 {
     type Error = SectionError;
     type Future = Pin<Box<dyn Future<Output = Result<(), Self::Error>> + Send + 'static>>;
 
-    fn start(self, input: Input, output: Output, command: SectionChan) -> Self::Future {
-        Box::pin(async move { self.enter_loop(input, output, command).await })
+    fn start(self, input: Input, output: Output, mut section_channel: SectionChan) -> Self::Future {
+        Box::pin(async move {
+            let path = &self.path;
+            let sheets = self.sheets.split(',').collect::<Vec<&str>>();
+            let (tx, rx) = tokio::sync::mpsc::channel(4);
+
+            // on init, sync all the files.
+            for entry in glob(path).expect("Failed to read glob pattern") {
+                match entry {
+                    Ok(path) => tx.send(FsEvent::Change(path.display().to_string())).await?,
+                    Err(_) => todo!(),
+                }
+            }
+
+            let _watcher = self.watch_excel_paths(self.path.as_str(), tx);
+
+            let mut _input = pin!(input.fuse());
+            let mut output = pin!(output);
+
+            let mut state = section_channel
+                .retrieve_state()
+                .await?
+                .unwrap_or(<<SectionChan as SectionChannel>::State>::new());
+            let rx = ReceiverStream::new(rx);
+            let mut rx = pin!(rx.fuse());
+
+            loop {
+                futures::select_biased! {
+                    cmd = section_channel.recv().fuse() => {
+                        match cmd? {
+                            Command::Ack(any) => {
+                                match any.downcast::<AckMessage>() {
+                                    Ok(ack) => {
+                                        state.set(&ack.sheet, ack.offset)?;
+                                        section_channel.store_state(state.clone()).await?;
+                                    },
+                                    Err(_) =>
+                                        Err("Failed to downcast incoming Ack message to Message")?,
+                                };
+                            },
+                            Command::Stop => return Ok(()),
+                            _ => {},
+                        }
+                    },
+                    msg = rx.next() => {
+                        match msg {
+                            Some(event) => {
+                                match event {
+                                    // When there's a change to a file, sync that file
+                                    FsEvent::Change(path) => {
+                                        // ignore temp files
+                                        if !path.contains('~') {
+                                            let mut workbook: calamine::Sheets<std::io::BufReader<std::fs::File>> =
+                                                open_workbook_auto(path.clone()).expect("Cannot open file");
+
+                                            let mut sheets = self.init_schema(&mut workbook, sheets.as_slice()).await?;
+
+                                            for sheet in sheets.iter_mut() {
+                                                if let Some(Ok(range)) = workbook.worksheet_range(&sheet.name) {
+                                                    // the first is the header, so don't send it in the data payload since it's already part of the schema
+                                                    let mut rows = range.rows();
+                                                    rows.next();
+                                                    let excel_payload = self.build_excel_payload(sheet, rows)?;
+
+                                                    let origin: Arc<str> = Arc::from(format!("{}:{}", path, sheet.name));
+                                                    let message = Box::new(
+                                                        ExcelMessage::new(
+                                                            origin,
+                                                            excel_payload,
+                                                            None,
+                                                        )
+                                                    );
+                                                    output.send(message).await.map_err(|e| format!("failed to send data to sink {:?}", e))?;
+                                                }
+
+                                            }
+                                        }
+                                    },
+                                }
+                            },
+                            None => Err("excel file watched exited")?
+                        };
+
+                    }
+                }
+            }
+        })
     }
 }
 

@@ -1,0 +1,25 @@
+[application]
+name = "ui"
+default_platform = "web"
+out_dir = "dist"
+asset_dir = "assets"
+
+[web.app]
+title = "ui"
+
+[web.watcher]
+watch_path = [
+  "src",
+  "assets",
+  "Dioxus.toml",
+]
+
+[web.resource]
+style = [
+  "/mycelial.css",
+  "/tailwind.css",
+]
+script = [
+]
+
+[web.resource.dev]

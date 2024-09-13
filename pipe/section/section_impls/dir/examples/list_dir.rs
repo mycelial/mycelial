@@ -2,12 +2,11 @@
 //! This example outputs dataframe with full paths
 
 use clap::Parser;
-use dir::source::DirSource;
+use dir::DirSource;
 use section::{
     dummy::DummySectionChannel, futures::SinkExt, message::Chunk, pretty_print::pretty_print,
     section::Section, SectionError, SectionMessage,
 };
-use std::{path::PathBuf, time::Duration};
 use stub::Stub;
 use tokio::sync::mpsc::channel;
 use tokio_util::sync::PollSender;
@@ -15,24 +14,17 @@ use tokio_util::sync::PollSender;
 #[derive(Debug, Parser)]
 struct Cli {
     #[clap(short, long)]
-    dir_path: PathBuf,
-    #[clap(short, long)]
-    pattern: Option<String>,
-    #[clap(short, long)]
-    start_after: Option<String>,
+    dir_path: String,
+    #[clap(short, long, default_value = "")]
+    pattern: String,
+    #[clap(short, long, default_value = "")]
+    start_after: String,
 }
 
 #[tokio::main]
 async fn main() {
     let cli = Cli::parse();
-    let source = DirSource::new(
-        cli.dir_path,
-        cli.pattern,
-        cli.start_after,
-        Duration::from_secs(3),
-        false,
-    )
-    .unwrap();
+    let source = DirSource::new(cli.dir_path, cli.pattern, cli.start_after, 3, false);
 
     let (tx, mut rx) = channel(1);
     let tx = PollSender::new(tx).sink_map_err(|_| "send error".into());

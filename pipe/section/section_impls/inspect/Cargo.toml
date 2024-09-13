@@ -3,6 +3,11 @@ name = "inspect"
 version = "0.1.0"
 edition = "2021"
 
+[features]
+default = ["section"]
+section = []
+
 [dependencies]
 section = { path = "../../" }
 tracing = "0.1"
+config = { path = "../../../../config" }

@@ -1,108 +1,205 @@
-//! Runtime
-//!
-//! Pipe scheduling and peristance
-
 use crate::{
-    constructors,
-    storage::{SqliteState, SqliteStorageHandle},
+    control_plane_client::{self, ControlPlaneClientHandle},
+    runtime_error::RuntimeError,
+    runtime_storage::{self, RuntimeStorage},
+    scheduler::{self, SchedulerHandle},
+    sqlite_storage::{self, SqliteStorageHandle},
+    Config, ConfigRegistry, Result,
 };
-use pipe::{
-    registry::{Constructor, Registry},
-    scheduler::{Scheduler, SchedulerHandle},
+use serde::{Deserialize, Serialize};
+use std::{path::Path, time::Duration};
+use tokio::sync::mpsc::{
+    unbounded_channel, UnboundedReceiver, UnboundedSender, WeakUnboundedSender,
 };
-use section::command_channel::SectionChannel;
 
-/// Setup & populate registry
-fn setup_registry<S: SectionChannel>() -> Registry<S> {
-    let arr: &[(&str, Constructor<S>)] = &[
-        (
-            "hello_world_destination",
-            constructors::hello_world::destination_ctor,
-        ),
-        ("hello_world_source", constructors::hello_world::source_ctor),
-        (
-            "tagging_transformer",
-            constructors::tagging_transformer::transform_ctor,
-        ),
-        (
-            "typecast_transformer",
-            constructors::typecast_transformer::transformer,
-        ),
-        (
-            "sqlite_connector_destination",
-            constructors::sqlite_connector::destination_ctor,
-        ),
-        (
-            "sqlite_connector_source",
-            constructors::sqlite_connector::source_ctor,
-        ),
-        (
-            "excel_connector_source",
-            constructors::excel_connector::source_ctor,
-        ),
-        (
-            "postgres_connector_destination",
-            constructors::postgres_connector::destination_ctor,
-        ),
-        (
-            "postgres_connector_source",
-            constructors::postgres_connector::source_ctor,
-        ),
-        (
-            "kafka_destination",
-            constructors::kafka_connector::destination_ctor,
-        ),
-        (
-            "mycelial_server_destination",
-            constructors::mycelial_server::destination_ctor,
-        ),
-        (
-            "mycelial_server_source",
-            constructors::mycelial_server::source_ctor,
-        ),
-        (
-            "snowflake_destination",
-            constructors::snowflake::destination_ctor,
-        ),
-        ("snowflake_source", constructors::snowflake::source_ctor),
-        (
-            "mysql_connector_destination",
-            constructors::mysql_connector::destination_ctor,
-        ),
-        (
-            "mysql_connector_source",
-            constructors::mysql_connector::source_ctor,
-        ),
-        ("file_source", constructors::file::source_ctor),
-        ("file_destination", constructors::file::destination_ctor),
-        ("dir_source", constructors::dir::source_ctor),
-        ("exec", constructors::exec::exec_ctor),
-        ("from_csv", constructors::csv_transform::source_ctor),
-        ("to_csv", constructors::csv_transform::destination_ctor),
-        (
-            "origin_regex_transform",
-            constructors::origin_transform::regex_ctor,
-        ),
-        (
-            "origin_time_nanos_transform",
-            constructors::origin_transform::time_nanos_ctor,
-        ),
-        ("s3_source", constructors::s3::source_ctor),
-        ("s3_destination", constructors::s3::destination_ctor),
-        (
-            "redshift_loader_destination",
-            constructors::redshift_loader::ctor,
-        ),
-        ("inspect", constructors::inspect::inspect_ctor),
-    ];
-    arr.iter()
-        .fold(Registry::new(), |mut acc, &(section_name, constructor)| {
-            acc.register_section(section_name, constructor);
-            acc
-        })
+#[derive(Debug)]
+pub struct Runtime {
+    scheduler_handle: SchedulerHandle,
+    runtime_storage: RuntimeStorage,
+    section_storage_handle: SqliteStorageHandle,
+    control_plane_client_handle: ControlPlaneClientHandle,
+    config_registry: ConfigRegistry,
+    rx: UnboundedReceiver<RuntimeMessage>,
+    weak_tx: WeakUnboundedSender<RuntimeMessage>,
 }
 
-pub fn new(storage: SqliteStorageHandle) -> SchedulerHandle {
-    Scheduler::<_, pipe::command_channel::RootChannel<SqliteState>>::new(setup_registry(), storage)
-        .spawn()
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Graph {
+    pub nodes: Vec<Node>,
+    pub edges: Vec<Edge>,
+}
+
+impl Graph {
+    pub fn new() -> Self {
+        Self {
+            nodes: vec![],
+            edges: vec![],
+        }
+    }
+
+    pub fn deserialize_node_configs(&mut self, registry: &ConfigRegistry) -> Result<()> {
+        self.nodes
+            .iter_mut()
+            .try_for_each(|node| node.deserialize_config(registry))
+    }
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct Node {
+    pub id: uuid::Uuid,
+    pub config: Config,
+}
+
+impl Node {
+    pub fn deserialize_config(&mut self, registry: &ConfigRegistry) -> Result<()> {
+        let mut config = registry.deserialize_config(&*self.config).map_err(|_| {
+            RuntimeError::RawConfigDeserializeError {
+                config_name: self.config.name().into(),
+                raw_config: self.config.as_dyn_config_ref().clone_config(),
+            }
+        })?;
+        std::mem::swap(&mut self.config, &mut config);
+        Ok(())
+    }
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct Edge {
+    pub from_id: uuid::Uuid,
+    pub to_id: uuid::Uuid,
+}
+
+#[derive(Debug)]
+pub enum RuntimeMessage {
+    RetryControlPlaneClientInit,
+    Graph(Graph),
+}
+
+#[derive(Debug)]
+pub struct CertifiedKey {
+    pub key: String,
+    pub certificate: String,
+    pub ca_certificate: String,
+}
+
+#[derive(Debug, Clone)]
+pub struct RuntimeHandle {
+    tx: UnboundedSender<RuntimeMessage>,
+}
+
+impl RuntimeHandle {
+    fn new(tx: &UnboundedSender<RuntimeMessage>) -> Self {
+        Self { tx: tx.clone() }
+    }
+
+    pub fn graph(&self, graph: Graph) -> Result<()> {
+        self.tx.send(RuntimeMessage::Graph(graph))?;
+        Ok(())
+    }
+}
+
+impl Runtime {
+    pub async fn new(database_path: &str) -> Result<Self> {
+        let (tx, rx) = unbounded_channel();
+        let database_path = Path::new(database_path);
+        let section_storage_handle = sqlite_storage::new(database_path).await?;
+        let scheduler_handle = scheduler::new(section_storage_handle.clone());
+        let runtime_storage = runtime_storage::new(database_path).await?;
+        let control_plane_client_handle = control_plane_client::new(RuntimeHandle::new(&tx));
+        Ok(Self {
+            scheduler_handle,
+            runtime_storage,
+            section_storage_handle,
+            control_plane_client_handle,
+            config_registry: config_registry::new()
+                .map_err(RuntimeError::ConfigRegistryInitError)?,
+            rx,
+            weak_tx: tx.clone().downgrade(),
+        })
+    }
+
+    pub async fn run(&mut self) -> Result<()> {
+        self.init_control_plane_client().await?;
+        while let Some(message) = self.rx.recv().await {
+            match message {
+                RuntimeMessage::RetryControlPlaneClientInit => {
+                    self.init_control_plane_client().await?;
+                }
+                RuntimeMessage::Graph(mut graph) => {
+                    if let Err(e) = graph.deserialize_node_configs(&self.config_registry) {
+                        tracing::error!("failed to deserialize node configs: {e}");
+                        continue;
+                    }
+                    self.scheduler_handle.schedule(graph).await?
+                }
+            }
+        }
+        Ok(())
+    }
+
+    pub async fn join(
+        &mut self,
+        control_plane_url: &str,
+        control_plane_tls_url: &str,
+        join_token: &str,
+    ) -> Result<()> {
+        if self.runtime_storage.get_certified_key().await?.is_some()
+            || self.runtime_storage.get_tls_url().await?.is_some()
+        {
+            tracing::warn!("resetting state");
+            self.runtime_storage.reset_state().await?;
+        }
+        let certifiedkey = self
+            .control_plane_client_handle
+            .join(control_plane_url, join_token)
+            .await?;
+        self.runtime_storage
+            .store_certified_key(certifiedkey)
+            .await?;
+        self.runtime_storage
+            .store_tls_url(control_plane_tls_url)
+            .await?;
+        Ok(())
+    }
+
+    pub async fn reset(&mut self) -> Result<()> {
+        self.runtime_storage.reset_state().await?;
+        self.section_storage_handle
+            .reset_state()
+            .await
+            .map_err(RuntimeError::ResetError)?;
+        Ok(())
+    }
+
+    pub async fn shutdown(&mut self) -> anyhow::Result<()> {
+        self.scheduler_handle.shutdown().await.ok();
+        self.section_storage_handle.shutdown().await.ok();
+        self.control_plane_client_handle.shutdown().await.ok();
+        Ok(())
+    }
+
+    async fn init_control_plane_client(&mut self) -> Result<()> {
+        let tls_url = self.runtime_storage.get_tls_url().await?;
+        let certifiedkey = self.runtime_storage.get_certified_key().await?;
+        let success = match (tls_url, certifiedkey) {
+            (Some(tls_url), Some(certifiedkey)) => self
+                .control_plane_client_handle
+                .set_tls_url(tls_url, certifiedkey)
+                .await
+                .map_err(|e| tracing::error!("failed to set tls url: {e}"))
+                .is_ok(),
+            _ => false,
+        };
+        if !success {
+            tracing::info!("connection details are not set, scheduling config check in 10 seconds");
+            let tx = self.weak_tx.clone().upgrade();
+            tokio::spawn(async move {
+                tokio::time::sleep(Duration::from_secs(10)).await;
+                if let Some(tx) = tx {
+                    tx.send(RuntimeMessage::RetryControlPlaneClientInit).ok();
+                }
+            });
+        }
+        Ok(())
+    }
 }

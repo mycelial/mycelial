@@ -1,5 +1,6 @@
 //! Transforms incoming binary csv stream into dataframe stream
 
+use crate::FromCsv;
 use csv::StringRecord;
 use section::{
     command_channel::{Command, SectionChannel},
@@ -12,17 +13,6 @@ use std::{pin::pin, sync::Arc};
 use tokio::sync::mpsc::{channel, Receiver, Sender};
 
 type Result<T, E = SectionError> = std::result::Result<T, E>;
-
-#[derive(Debug)]
-pub struct FromCsv {
-    batch_size: usize,
-}
-
-impl FromCsv {
-    pub fn new(batch_size: usize) -> Self {
-        Self { batch_size }
-    }
-}
 
 struct FromCsvMsg {
     origin: String,

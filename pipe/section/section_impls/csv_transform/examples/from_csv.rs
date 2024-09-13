@@ -2,7 +2,7 @@
 
 use std::time::Duration;
 
-use csv_transform::source::FromCsv;
+use csv_transform::FromCsv;
 use section::{
     dummy::DummySectionChannel,
     futures::SinkExt,
