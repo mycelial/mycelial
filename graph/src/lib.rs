@@ -15,7 +15,7 @@ pub enum GraphOperation<K: GraphKey, T: GraphValue> {
     RemoveEdge(K, K),
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct Graph<K: GraphKey, V: GraphValue> {
     nodes: BTreeMap<K, V>,
     edges: BTreeMap<K, K>,
@@ -129,30 +129,45 @@ impl<K: GraphKey, V: GraphValue> Graph<K, V> {
         self.edges.iter().map(|(key, value)| (*key, *value))
     }
 
-    pub fn iter_subgraphs(&self) -> IterSubGraphs<'_, K, V> {
-        IterSubGraphs::new(self)
-    }
-}
-
-pub struct IterSubGraphs<'a, K: GraphKey, V: GraphValue> {
-    visited: HashSet<K>,
-    graph: &'a Graph<K, V>,
-}
-
-impl<'a, K: GraphKey, V: GraphValue> IterSubGraphs<'a, K, V> {
-    fn new(graph: &'a Graph<K, V>) -> Self {
-        Self {
-            visited: HashSet::new(),
-            graph,
+    pub fn get_subgraphs(&self) -> Vec<Graph<K, V>> {
+        let mut graphs = Vec::<Graph<K, V>>::new();
+        let mut node_stack = Vec::<(K, V)>::new();
+        let mut visited = BTreeMap::<K, usize>::new();
+        for (mut key, node) in self.iter_nodes() {
+            if visited.contains_key(&key) {
+                continue;
+            }
+            let graph_index;
+            node_stack.push((key, node.clone()));
+            loop {
+                match self.edges.get(&key) {
+                    None => {
+                        graph_index = graphs.len();
+                        graphs.push(Graph::new());
+                        break;
+                    }
+                    Some(next_key) => match visited.get(&next_key) {
+                        Some(index) => {
+                            graph_index = *index;
+                            break;
+                        }
+                        None => {
+                            node_stack.push((*next_key, self.nodes.get(next_key).unwrap().clone()));
+                            key = *next_key;
+                        }
+                    },
+                }
+            }
+            let sub_graph = graphs.get_mut(graph_index).unwrap();
+            while let Some((key, node)) = node_stack.pop() {
+                sub_graph.add_node(key, node);
+                if let Some(to) = self.edges.get(&key) {
+                    sub_graph.add_edge(key, *to);
+                }
+                visited.insert(key, graph_index);
+            }
         }
-    }
-}
-
-impl<'a, K: GraphKey, V: GraphValue> Iterator for IterSubGraphs<'a, K, V> {
-    type Item = Graph<K, V>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        None
+        graphs
     }
 }
 
@@ -320,5 +335,38 @@ mod test {
             TestResult::from_bool(true)
         };
         quickcheck::quickcheck(check as fn(Vec<u64>) -> TestResult)
+    }
+
+    #[test]
+    fn test_subgraphs() {
+        let build_graph = |nodes: &mut dyn Iterator<Item=usize>| {
+            let mut graph = Graph::new();
+            nodes.for_each(|node| { graph.add_node(node, node); });
+            graph
+        };
+        let add_edges = |graph: &mut Graph<usize, usize>, edges: &mut dyn Iterator<Item=(usize, usize)>| {
+            edges.for_each(|(from, to)| { graph.add_edge(from, to); });
+        };
+
+        let mut graph = build_graph(&mut (1..10));
+        add_edges(&mut graph, &mut [(1, 2), (2, 4), (5, 2), (3, 4), (6, 7), (8, 3)].into_iter());
+        assert_eq!(
+            vec![
+                {
+                    let mut sub_graph = build_graph(&mut [1, 2, 3, 4, 5, 8].into_iter());
+                    add_edges(&mut sub_graph, &mut [(1, 2), (2, 4), (3, 4), (5, 2), (8, 3)].into_iter());
+                    sub_graph
+                },
+                {
+                    let mut sub_graph = build_graph(&mut [6, 7].into_iter());
+                    add_edges(&mut sub_graph, &mut [(6, 7)].into_iter());
+                    sub_graph
+                },
+                {
+                    build_graph(&mut [9].into_iter())
+                },
+            ],
+            graph.get_subgraphs()
+        )
     }
 }

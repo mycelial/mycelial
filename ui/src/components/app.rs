@@ -362,7 +362,7 @@ impl ControlPlaneClient {
             .send()
             .await?;
         match response.status() {
-            status_code if status_code.is_success() => Ok(response.json().await?),
+            status_code if status_code.is_success() => Ok(()),
             status_code => Err(AppError::from_status_code(status_code)),
         }
     }

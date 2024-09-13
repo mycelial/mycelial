@@ -5,7 +5,9 @@ use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
 use uuid::Uuid;
 
 use crate::{runtime::Graph as RawGraph, Config, Result};
-use tokio::sync::oneshot::{channel as oneshot_channel, Sender as OneshotSender};
+use tokio::sync::oneshot::{
+    channel as oneshot_channel, Sender as OneshotSender,
+};
 
 type Graph = GenericGraph<Uuid, Config>;
 
@@ -35,8 +37,7 @@ impl Scheduler {
                     {
                         self.shutdown().await;
                         reply_to.send(())
-                    }
-                    .ok();
+                    }.ok();
                 }
             }
         }

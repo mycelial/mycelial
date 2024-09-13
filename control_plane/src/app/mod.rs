@@ -27,6 +27,7 @@ pub enum AppErrorKind {
     WorkspaceNotFound,
     ConfigNotFound,
     ConfigIsInvalid,
+    DaemonNotFound,
 }
 
 #[derive(Debug)]
@@ -93,6 +94,13 @@ impl AppError {
         Self {
             kind: AppErrorKind::ConfigIsInvalid,
             err: anyhow::anyhow!("configuration for {name} is invalid"),
+        }
+    }
+    
+    pub fn daemon_not_found(id: Uuid) -> Self {
+        Self {
+            kind: AppErrorKind::DaemonNotFound,
+            err: anyhow::anyhow!("daemon with {id} not found"),
         }
     }
 }
@@ -527,6 +535,7 @@ impl App {
 
     pub async fn delete_daemon_token(&self, id: uuid::Uuid) -> Result<()> {
         self.db.delete_daemon_token(id).await?;
+        self.daemon_tracker.shutdown_daemon(id);
         Ok(())
     }
 
@@ -574,6 +583,7 @@ impl App {
     }
 
     pub async fn delete_daemon(&self, id: Uuid) -> Result<()> {
+        self.daemon_tracker.shutdown_daemon(id).await?;
         self.db.delete_daemon(id).await
     }
 
@@ -587,7 +597,10 @@ impl App {
     }
 
     pub async fn daemon_connected(&self, id: Uuid) -> Result<UnboundedReceiver<DaemonMessage>> {
-        self.daemon_tracker.daemon_connected(id).await
+        match self.db.get_daemon(id).await?.is_some() {
+            true => self.daemon_tracker.daemon_connected(id).await,
+            false => Err(AppError::daemon_not_found(id)),
+        }
     }
 
     pub async fn daemon_disconnected(&self, id: Uuid) -> Result<()> {

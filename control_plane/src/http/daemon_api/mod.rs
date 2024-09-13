@@ -30,7 +30,9 @@ async fn ws_handler(
 ) -> Result<impl IntoResponse> {
     let common_name: Uuid = common_name.parse()?;
     Ok(ws.on_upgrade(move |socket| async move {
-        handle_socket(app, socket, addr, common_name).await.ok();
+        if let Err(e) = handle_socket(app, socket, addr, common_name).await {
+            tracing::error!("socket handle error for daemon with id '{common_name}': {e}");
+        }
     }))
 }
 
@@ -131,6 +133,9 @@ async fn handle_socket(
                 match msg {
                     DaemonMessage::NotifyGraphUpdate => {
                         input.send_message(&Message::RefetchGraph).await?;
+                    },
+                    DaemonMessage::ShutdownConnection => {
+                        return Ok(())
                     }
                 }
             }

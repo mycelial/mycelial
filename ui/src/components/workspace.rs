@@ -264,7 +264,7 @@ fn Node(
                                 value => {
                                     let daemon_id = {
                                         let daemons = daemons.peek();
-                                        let daemon = daemons.iter().find(|daemon| daemon.name.as_deref() == Some(value));
+                                        let daemon = daemons.iter().find(|daemon| daemon.name.as_deref() == Some(value) || daemon.id.to_string() == value);
                                         if daemon.is_none() {
                                             tracing::error!("can't find daemon with name: {value}");
                                             return
