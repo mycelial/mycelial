@@ -135,16 +135,17 @@ fn parse_section_attr(
                                 ("input", "=", "bin") => {
                                     i = SectionIO::Bin;
                                 }
+                                ("input", "=", "bin_or_dataframe") => i = SectionIO::BinOrDataFrame,
                                 ("input", "=", "dataframe") => i = SectionIO::DataFrame,
                                 ("output", "=", "bin") => o = SectionIO::Bin,
                                 ("output", "=", "dataframe") => o = SectionIO::DataFrame,
                                 ("output", "=", "bin_or_dataframe") => {
                                     o = SectionIO::BinOrDataFrame
                                 }
-                                _ => {
+                                other => {
                                     return Err(ConfigurationError {
                                         span: attr.span(),
-                                        reason: "malformed parameters".into(),
+                                        reason: format!("malformed parameters: {other:?}").into(),
                                     })
                                 }
                             }

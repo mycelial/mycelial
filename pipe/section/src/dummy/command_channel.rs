@@ -1,5 +1,4 @@
 use crate::{
-    async_trait,
     command_channel::{
         Command, ReplyTo, RootChannel, SectionChannel, SectionRequest as _SectionRequest,
         WeakSectionChannel,
@@ -39,10 +38,10 @@ impl DummyRootChannel {
     }
 }
 
-pub type SectionRequest = _SectionRequest<DummyState, RepTo<Option<DummyState>>, RepTo<()>>;
+pub type SectionRequest<Id> = _SectionRequest<Id, DummyState, RepTo<Option<DummyState>>, RepTo<()>>;
 
-#[async_trait]
 impl RootChannel for DummyRootChannel {
+    type Id = ();
     type Error = DummyError;
     type SectionChannel = DummySectionChannel;
 
@@ -50,19 +49,19 @@ impl RootChannel for DummyRootChannel {
         Self {}
     }
 
-    async fn recv(&mut self) -> Result<SectionRequest, Self::Error> {
-        pending::<Result<SectionRequest, Self::Error>>().await
+    async fn recv(&mut self) -> Result<SectionRequest<Self::Id>, Self::Error> {
+        pending::<Result<SectionRequest<Self::Id>, Self::Error>>().await
     }
 
-    async fn send(&mut self, _section_id: u64, _command: Command) -> Result<(), Self::Error> {
+    async fn send(&mut self, _: Self::Id, _command: Command) -> Result<(), Self::Error> {
         ready(Ok(())).await
     }
 
-    fn add_section(&mut self, _section_id: u64) -> Result<Self::SectionChannel, Self::Error> {
+    fn add_section(&mut self, _section_id: Self::Id) -> Result<Self::SectionChannel, Self::Error> {
         Ok(DummySectionChannel {})
     }
 
-    fn remove_section(&mut self, _section_id: u64) -> Result<(), Self::Error> {
+    fn remove_section(&mut self, _section_id: Self::Id) -> Result<(), Self::Error> {
         Ok(())
     }
 }
@@ -86,7 +85,6 @@ pub struct RepTo<T> {
     _marker: PhantomData<T>,
 }
 
-#[async_trait]
 impl<T: Send> ReplyTo for RepTo<T> {
     type Error = DummyError;
     type With = T;
@@ -96,7 +94,6 @@ impl<T: Send> ReplyTo for RepTo<T> {
     }
 }
 
-#[async_trait]
 impl SectionChannel for DummySectionChannel {
     type Error = DummyError;
     type State = DummyState;
@@ -112,10 +109,6 @@ impl SectionChannel for DummySectionChannel {
         ready(Ok(())).await
     }
 
-    async fn log<T: Into<String> + Send>(&mut self, _log: T) -> Result<(), Self::Error> {
-        ready(Ok(())).await
-    }
-
     async fn recv(&mut self) -> Result<Command, Self::Error> {
         pending::<Result<Command, Self::Error>>().await
     }
@@ -128,7 +121,6 @@ impl SectionChannel for DummySectionChannel {
 #[derive(Debug)]
 pub struct DummyWeakChannel {}
 
-#[async_trait]
 impl WeakSectionChannel for DummyWeakChannel {
     async fn ack(self, _ack: Box<dyn Any + Send + 'static>) {
         ready(()).await

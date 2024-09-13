@@ -6,14 +6,15 @@ use std::collections::BTreeMap;
 use std::sync::Arc;
 
 pub trait Config<Chan: SectionChannel>: BaseConfig + DynSection<Chan> {
-    fn as_dyn_section(self: Box<Self>) -> Box<dyn DynSection<Chan>>;
+    fn as_dyn_section(&self) -> Box<dyn DynSection<Chan>>;
     fn as_dyn_config_ref(&self) -> &dyn BaseConfig;
     fn as_dyn_config_mut_ref(&mut self) -> &mut dyn BaseConfig;
+    fn inner_clone(&self) -> Box<dyn Config<Chan>>;
 }
 
 impl<Chan: SectionChannel, T: BaseConfig + DynSection<Chan> + Clone> Config<Chan> for T {
-    fn as_dyn_section(self: Box<Self>) -> Box<dyn DynSection<Chan>> {
-        self
+    fn as_dyn_section(&self) -> Box<dyn DynSection<Chan>> {
+        Box::new(self.clone())
     }
 
     fn as_dyn_config_ref(&self) -> &dyn BaseConfig {
@@ -22,6 +23,22 @@ impl<Chan: SectionChannel, T: BaseConfig + DynSection<Chan> + Clone> Config<Chan
 
     fn as_dyn_config_mut_ref(&mut self) -> &mut dyn BaseConfig {
         self
+    }
+    
+    fn inner_clone(&self) -> Box<dyn Config<Chan>> {
+        Box::new(self.clone())
+    }
+}
+
+impl<Chan: SectionChannel> Clone for Box<dyn Config<Chan>> {
+    fn clone(&self) -> Self {
+        self.inner_clone()
+    }
+}
+
+impl<Chan: SectionChannel> PartialEq for dyn Config<Chan> {
+    fn eq(&self, other: &Self) -> bool {
+        self.as_dyn_config_ref() == other.as_dyn_config_ref()
     }
 }
 

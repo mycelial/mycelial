@@ -146,7 +146,7 @@ impl<K: GraphKey, V: GraphValue> Graph<K, V> {
                         graphs.push(Graph::new());
                         break;
                     }
-                    Some(next_key) => match visited.get(&next_key) {
+                    Some(next_key) => match visited.get(next_key) {
                         Some(index) => {
                             graph_index = *index;
                             break;
@@ -339,22 +339,33 @@ mod test {
 
     #[test]
     fn test_subgraphs() {
-        let build_graph = |nodes: &mut dyn Iterator<Item=usize>| {
+        let build_graph = |nodes: &mut dyn Iterator<Item = usize>| {
             let mut graph = Graph::new();
-            nodes.for_each(|node| { graph.add_node(node, node); });
+            nodes.for_each(|node| {
+                graph.add_node(node, node);
+            });
             graph
         };
-        let add_edges = |graph: &mut Graph<usize, usize>, edges: &mut dyn Iterator<Item=(usize, usize)>| {
-            edges.for_each(|(from, to)| { graph.add_edge(from, to); });
+        let add_edges = |graph: &mut Graph<usize, usize>,
+                         edges: &mut dyn Iterator<Item = (usize, usize)>| {
+            edges.for_each(|(from, to)| {
+                graph.add_edge(from, to);
+            });
         };
 
         let mut graph = build_graph(&mut (1..10));
-        add_edges(&mut graph, &mut [(1, 2), (2, 4), (5, 2), (3, 4), (6, 7), (8, 3)].into_iter());
+        add_edges(
+            &mut graph,
+            &mut [(1, 2), (2, 4), (5, 2), (3, 4), (6, 7), (8, 3)].into_iter(),
+        );
         assert_eq!(
             vec![
                 {
                     let mut sub_graph = build_graph(&mut [1, 2, 3, 4, 5, 8].into_iter());
-                    add_edges(&mut sub_graph, &mut [(1, 2), (2, 4), (3, 4), (5, 2), (8, 3)].into_iter());
+                    add_edges(
+                        &mut sub_graph,
+                        &mut [(1, 2), (2, 4), (3, 4), (5, 2), (8, 3)].into_iter(),
+                    );
                     sub_graph
                 },
                 {
@@ -362,9 +373,7 @@ mod test {
                     add_edges(&mut sub_graph, &mut [(6, 7)].into_iter());
                     sub_graph
                 },
-                {
-                    build_graph(&mut [9].into_iter())
-                },
+                { build_graph(&mut [9].into_iter()) },
             ],
             graph.get_subgraphs()
         )

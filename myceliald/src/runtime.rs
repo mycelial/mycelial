@@ -1,18 +1,16 @@
 use crate::{
-    control_plane_client::{self, ControlPlaneClientHandle},
-    runtime_error::RuntimeError,
-    runtime_storage::{self, RuntimeStorage},
-    sqlite_storage::{self, SqliteStorageHandle},
-    Config, ConfigRegistry, Result,
+    control_plane_client::{self, ControlPlaneClientHandle}, runtime_error::RuntimeError, runtime_storage::{self, RuntimeStorage}, scheduler::{self, SchedulerHandle}, sqlite_storage::{self, SqliteStorageHandle}, Config, ConfigRegistry, Result
 };
 use serde::{Deserialize, Serialize};
 use std::{path::Path, sync::Arc, time::Duration};
-use tokio::sync::mpsc::{
-    unbounded_channel, UnboundedReceiver, UnboundedSender, WeakUnboundedSender,
+use tokio::sync::{
+    oneshot::{channel as oneshot_channel, Sender as OneshotSender},
+    mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender, WeakUnboundedSender},
 };
 
 #[derive(Debug)]
 pub struct Runtime {
+    scheduler_handle: SchedulerHandle,
     runtime_storage: RuntimeStorage,
     section_storage_handle: SqliteStorageHandle,
     control_plane_client_handle: ControlPlaneClientHandle,
@@ -50,13 +48,12 @@ pub struct Node {
 
 impl Node {
     pub fn deserialize_config(&mut self, registry: &ConfigRegistry) -> Result<()> {
-        let config = registry.deserialize_config(&*self.config).map_err(|e| {
+        let mut config = registry.deserialize_config(&*self.config).map_err(|_| {
             RuntimeError::RawConfigDeserializeError {
                 config_name: self.config.name().into(),
                 raw_config: self.config.as_dyn_config_ref().clone_config(),
             }
         })?;
-        let mut config = Arc::from(config);
         std::mem::swap(&mut self.config, &mut config);
         Ok(())
     }
@@ -101,10 +98,12 @@ impl Runtime {
     pub async fn new(database_path: &str) -> Result<Self> {
         let (tx, rx) = unbounded_channel();
         let database_path = Path::new(database_path);
-        let runtime_storage = runtime_storage::new(database_path).await?;
         let section_storage_handle = sqlite_storage::new(database_path).await?;
+        let scheduler_handle = scheduler::new(section_storage_handle.clone());
+        let runtime_storage = runtime_storage::new(database_path).await?;
         let control_plane_client_handle = control_plane_client::new(RuntimeHandle::new(&tx));
         Ok(Self {
+            scheduler_handle,
             runtime_storage,
             section_storage_handle,
             control_plane_client_handle,
@@ -127,8 +126,7 @@ impl Runtime {
                         tracing::error!("failed to deserialize node configs: {e}");
                         continue;
                     }
-
-                    tracing::info!("got graph: {graph:#?}");
+                    self.scheduler_handle.schedule(graph).await?
                 }
             }
         }
@@ -170,7 +168,7 @@ impl Runtime {
     }
 
     pub async fn shutdown(&mut self) -> anyhow::Result<()> {
-        //self.scheduler_handle.shutdown().await.ok();
+        self.scheduler_handle.shutdown().await.ok();
         self.section_storage_handle.shutdown().await.ok();
         self.control_plane_client_handle.shutdown().await.ok();
         Ok(())

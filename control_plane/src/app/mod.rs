@@ -96,7 +96,7 @@ impl AppError {
             err: anyhow::anyhow!("configuration for {name} is invalid"),
         }
     }
-    
+
     pub fn daemon_not_found(id: Uuid) -> Self {
         Self {
             kind: AppErrorKind::DaemonNotFound,
@@ -612,8 +612,7 @@ impl App {
         daemon_graph
             .nodes
             .iter_mut()
-            .map(|node| node.build_config(&self.config_registry))
-            .collect::<Result<()>>()?;
+            .try_for_each(|node| node.build_config(&self.config_registry))?;
         Ok(daemon_graph)
     }
 

@@ -630,7 +630,7 @@ where
             Ok(())
         })
     }
-    
+
     fn get_daemon(&self, id: Uuid) -> BoxFuture<'_, Result<Option<Daemon>>> {
         Box::pin(async move {
             let (query, values) = Query::select()
@@ -644,17 +644,17 @@ where
                 .from(Daemons::Table)
                 .and_where(Expr::col(Daemons::Id).eq(id))
                 .build_any_sqlx(&*self.query_builder);
-            Ok(
-                sqlx::query_with(&query, values).fetch_optional(&self.pool).await?
-                    .map(|row| Daemon {
-                        id: row.get(0),
-                        name: row.get(1),
-                        address: row.get(2),
-                        last_seen: row.get(3),
-                        joined_at: row.get(4),
-                        status: Default::default(),
-                    })
-            )
+            Ok(sqlx::query_with(&query, values)
+                .fetch_optional(&self.pool)
+                .await?
+                .map(|row| Daemon {
+                    id: row.get(0),
+                    name: row.get(1),
+                    address: row.get(2),
+                    last_seen: row.get(3),
+                    joined_at: row.get(4),
+                    status: Default::default(),
+                }))
         })
     }
 

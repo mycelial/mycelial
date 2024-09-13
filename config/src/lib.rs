@@ -97,6 +97,12 @@ impl Clone for Box<dyn Config> {
     }
 }
 
+impl PartialEq for dyn Config {
+    fn eq(&self, other: &Self) -> bool {
+        self.name() == other.name() && self.fields() == other.fields()
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum FieldType {
     Usize,

@@ -29,5 +29,6 @@ pub fn new<Chan: SectionChannel>() -> Result<ConfigRegistry<Chan>> {
     registry.add_config(|| Box::from(csv_transform::ToCsv::default()))?;
     registry.add_config(|| Box::from(dir::DirSource::default()))?;
     registry.add_config(|| Box::from(excel_connector::Excel::default()))?;
+    registry.add_config(|| Box::from(inspect::Inspect{}))?;
     Ok(registry)
 }

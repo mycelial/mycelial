@@ -43,7 +43,7 @@ impl DaemonTracker {
                     for daemon in daemons.values() {
                         daemon.notify_graph_update();
                     }
-                },
+                }
                 DaemonTrackerMessage::ShutdownDaemon(id) => {
                     if let Some(daemon_handle) = daemons.get(&id) {
                         daemon_handle.shutdown_connection()
@@ -68,7 +68,7 @@ impl DaemonHandle {
     pub fn notify_graph_update(&self) {
         self.tx.send(DaemonMessage::NotifyGraphUpdate).ok();
     }
-    
+
     pub fn shutdown_connection(&self) {
         self.tx.send(DaemonMessage::ShutdownConnection).ok();
     }
@@ -122,9 +122,11 @@ impl DaemonTrackerHandle {
             .await?;
         Ok(())
     }
-    
+
     pub async fn shutdown_daemon(&self, id: Uuid) -> Result<()> {
-        self.tx.send(DaemonTrackerMessage::ShutdownDaemon(id)).await?;
+        self.tx
+            .send(DaemonTrackerMessage::ShutdownDaemon(id))
+            .await?;
         Ok(())
     }
 }

@@ -63,6 +63,13 @@ pub enum RuntimeError {
 
     SerdeJsonError(serde_json::Error),
     ResetError(StdError),
+    
+    // Scheduler Errors
+    TaskFailedToStart(StdError),
+    SectionChannelAllocationError,
+    
+    // Section Storage Errors
+    StorageError(StdError),
 }
 
 impl std::fmt::Display for RuntimeError {

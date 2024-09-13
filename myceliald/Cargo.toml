@@ -7,6 +7,7 @@ edition = "2021"
 
 [dependencies]
 section = { path = "../pipe/section/" }
+stub = { path = "../pipe/section/section_impls/stub" }
 pki = { path = "../pki" }
 config_registry = { path = "../config_registry/", features=["section"] }
 config = { path = "../config" }
@@ -16,17 +17,17 @@ tokio = { version = "1", features = ["full"] }
 clap = { version = "4", features = ["derive", "env"] }
 reqwest = { version = "0.12", default-features = false, features = ["gzip", "json", "rustls-tls"] }
 anyhow = "1"
-base64 = { version = "0.21" }
 serde = { version = "1", features = ["derive"]}
 serde_json = "1"
-sqlx = { version = "0.7", features = ["sqlite", "any", "json", "runtime-tokio-rustls"]}
+sqlx = { version = "0.7", features = ["sqlite", "any", "json", "runtime-tokio-rustls", "uuid"] }
 log = "0.4"
-toml = "0.7"
-tracing = "0.1.40"
+tracing = "0.1"
 tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
-sha2 = "0.10.8"
+sha2 = "0.10"
 
 tokio-tungstenite = { version = "0.23.1", features = ["__rustls-tls", "connect", "rustls", "tokio-rustls"] }
-tungstenite = "0.23.0"
-uuid = { version = "1.10.0", features = ["serde"] }
-chrono = "0.4.38"
+tungstenite = "0.23"
+uuid = { version = "1", features = ["serde"] }
+chrono = "0.4"
+tokio-stream = "0.1.16"
+tokio-util = "0.7.12"

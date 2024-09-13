@@ -4,6 +4,7 @@ use crate::Result;
 use section::prelude::*;
 use serde::{Deserialize, Serialize};
 use sqlx::{sqlite::SqliteConnectOptions, ConnectOptions, Row, SqliteConnection};
+use uuid::Uuid;
 use std::any::{type_name, Any, TypeId};
 use std::path::Path;
 use tokio::sync::{
@@ -142,14 +143,14 @@ impl SqliteStorage {
         while let Some(msg) = rx.recv().await {
             match msg {
                 Message::StoreState {
-                    pipe_id,
+                    section_id,
                     state,
                     reply_to,
                 } => {
                     let result = sqlx::query(
                         "INSERT INTO state VALUES(?, ?) ON CONFLICT (id) DO UPDATE SET state = excluded.state"
                     )
-                        .bind(pipe_id as i64)
+                        .bind(section_id)
                         .bind(serde_json::to_string(&serde_json::Value::Object(state.map))?)
                         .execute(&mut self.connection)
                         .await
@@ -157,9 +158,9 @@ impl SqliteStorage {
                         .map_err(|e| e.into());
                     reply_to.send(result).ok();
                 }
-                Message::RetrieveState { pipe_id, reply_to } => {
+                Message::RetrieveState { section_id, reply_to } => {
                     let result = sqlx::query("SELECT state FROM state WHERE id = ?")
-                        .bind(pipe_id as i64)
+                        .bind(section_id)
                         .fetch_optional(&mut self.connection)
                         .await
                         .map(|row| {
@@ -195,12 +196,12 @@ impl SqliteStorage {
 #[derive(Debug)]
 pub enum Message {
     StoreState {
-        pipe_id: u64,
+        section_id: Uuid,
         state: SqliteState,
         reply_to: OneshotSender<Result<(), SectionError>>,
     },
     RetrieveState {
-        pipe_id: u64,
+        section_id: Uuid,
         reply_to: OneshotSender<Result<Option<SqliteState>, SectionError>>,
     },
     ResetState {
@@ -233,10 +234,10 @@ impl SqliteStorageHandle {
         Ok(rx.await?)
     }
 
-    pub async fn store_state(&self, pipe_id: u64, state: SqliteState) -> Result<(), SectionError> {
+    pub async fn store_state(&self, section_id: Uuid, state: SqliteState) -> Result<(), SectionError> {
         let (reply_to, rx) = oneshot_channel();
         self.send(Message::StoreState {
-            pipe_id,
+            section_id,
             state,
             reply_to,
         })
@@ -244,9 +245,9 @@ impl SqliteStorageHandle {
         rx.await?
     }
 
-    pub async fn retrieve_state(&self, pipe_id: u64) -> Result<Option<SqliteState>, SectionError> {
+    pub async fn retrieve_state(&self, section_id: Uuid) -> Result<Option<SqliteState>, SectionError> {
         let (reply_to, rx) = oneshot_channel();
-        self.send(Message::RetrieveState { pipe_id, reply_to })
+        self.send(Message::RetrieveState { section_id, reply_to })
             .await?;
         rx.await?
     }

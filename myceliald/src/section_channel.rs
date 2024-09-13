@@ -8,18 +8,18 @@ use tokio::sync::oneshot::{
 };
 
 use section::{
-    async_trait,
     command_channel::{
         Command, ReplyTo, RootChannel as RootChannelTrait, SectionChannel as SectionChannelTrait,
         SectionRequest as _SectionRequest, WeakSectionChannel as WeakSectionChannelTrait,
     },
     state::State as StateTrait,
 };
+use uuid::Uuid;
 use std::any::Any;
 use std::collections::BTreeMap;
 use std::marker::PhantomData;
 
-pub type SectionRequest<S> = _SectionRequest<S, OneshotReply<Option<S>>, OneshotReply<()>>;
+pub type SectionRequest<Id, S> = _SectionRequest<Id, S, OneshotReply<Option<S>>, OneshotReply<()>>;
 
 pub struct OneshotReply<T> {
     tx: OneshotSender<T>,
@@ -32,7 +32,6 @@ impl<T> OneshotReply<T> {
     }
 }
 
-#[async_trait]
 impl<T: Send> ReplyTo for OneshotReply<T> {
     type With = T;
     type Error = ChanError;
@@ -61,19 +60,31 @@ impl std::fmt::Display for ChanError {
 impl std::error::Error for ChanError {}
 
 // Root channel
+#[derive(Debug)]
 pub struct RootChannel<S: StateTrait> {
-    rx: UnboundedReceiver<SectionRequest<S>>,
-    tx: UnboundedSender<SectionRequest<S>>,
-    section_handles: BTreeMap<u64, UnboundedSender<Command>>,
+    rx: UnboundedReceiver<SectionRequest<Uuid, S>>,
+    tx: UnboundedSender<SectionRequest<Uuid, S>>,
+    section_handles: BTreeMap<Uuid, UnboundedSender<Command>>,
 }
 
-#[async_trait]
+impl<S: StateTrait> RootChannel<S> {
+    // FIXME: should be trait method
+    pub fn shutdown(&mut self) {
+        let mut section_handles = BTreeMap::new();
+        std::mem::swap(&mut section_handles, &mut self.section_handles);
+        for (_id, handle) in section_handles {
+            handle.send(Command::Stop).ok();
+        }
+    }
+}
+
 impl<S: StateTrait> RootChannelTrait for RootChannel<S> {
+    type Id = Uuid;
     type Error = ChanError;
-    type SectionChannel = SectionChannel<S>;
+    type SectionChannel = SectionChannel<Self::Id, S>;
 
     fn new() -> Self {
-        let (tx, rx) = unbounded_channel::<SectionRequest<S>>();
+        let (tx, rx) = unbounded_channel::<SectionRequest<Self::Id, S>>();
         Self {
             tx,
             rx,
@@ -81,7 +92,7 @@ impl<S: StateTrait> RootChannelTrait for RootChannel<S> {
         }
     }
 
-    fn add_section(&mut self, section_id: u64) -> Result<Self::SectionChannel, Self::Error> {
+    fn add_section(&mut self, section_id: Self::Id) -> Result<Self::SectionChannel, Self::Error> {
         if self.section_handles.contains_key(&section_id) {
             return Err(ChanError::SectionExists);
         }
@@ -96,21 +107,21 @@ impl<S: StateTrait> RootChannelTrait for RootChannel<S> {
         ))
     }
 
-    fn remove_section(&mut self, section_id: u64) -> Result<(), Self::Error> {
+    fn remove_section(&mut self, section_id: Self::Id) -> Result<(), Self::Error> {
         match self.section_handles.remove(&section_id) {
             Some(_) => Ok(()),
             None => Err(ChanError::NoSuchSection),
         }
     }
 
-    async fn recv(&mut self) -> Result<SectionRequest<S>, Self::Error> {
+    async fn recv(&mut self) -> Result<SectionRequest<Self::Id, S>, Self::Error> {
         match self.rx.recv().await {
             Some(msg) => Ok(msg),
             None => Err(ChanError::Closed),
         }
     }
 
-    async fn send(&mut self, section_id: u64, command: Command) -> Result<(), Self::Error> {
+    async fn send(&mut self, section_id: Self::Id, command: Command) -> Result<(), Self::Error> {
         let section_handle = match self.section_handles.get(&section_id) {
             Some(section) => section,
             None => return Err(ChanError::NoSuchSection),
@@ -121,21 +132,22 @@ impl<S: StateTrait> RootChannelTrait for RootChannel<S> {
 
 // section channels
 #[derive(Debug)]
-pub struct SectionChannel<S>
+pub struct SectionChannel<Id, S>
 where
+    Id: std::fmt::Debug + Copy + Send + Sync + 'static,
     S: StateTrait,
 {
-    id: u64,
-    root_tx: UnboundedSender<SectionRequest<S>>,
+    id: Id,
+    root_tx: UnboundedSender<SectionRequest<Id, S>>,
     rx: UnboundedReceiver<Command>,
     weak_tx: WeakUnboundedSender<Command>,
     _marker: PhantomData<S>,
 }
 
-impl<S: StateTrait> SectionChannel<S> {
+impl<Id: std::fmt::Debug + Copy + Send + Sync + 'static, S: StateTrait> SectionChannel<Id, S> {
     fn new(
-        id: u64,
-        root_tx: UnboundedSender<SectionRequest<S>>,
+        id: Id,
+        root_tx: UnboundedSender<SectionRequest<Id, S>>,
         rx: UnboundedReceiver<Command>,
         weak_tx: WeakUnboundedSender<Command>,
     ) -> Self {
@@ -149,8 +161,10 @@ impl<S: StateTrait> SectionChannel<S> {
     }
 }
 
-#[async_trait]
-impl<S: StateTrait> SectionChannelTrait for SectionChannel<S> {
+impl<Id, S> SectionChannelTrait for SectionChannel<Id, S>
+    where S: StateTrait,
+          Id: std::fmt::Debug + Copy + Send + Sync + 'static,
+{
     type State = S;
     type Error = ChanError;
     type WeakChannel = WeakSectionChannel;
@@ -182,16 +196,6 @@ impl<S: StateTrait> SectionChannelTrait for SectionChannel<S> {
         rx.await.map_err(|_| ChanError::Closed)
     }
 
-    // request to runtime
-    async fn log<T: Into<String> + Send>(&mut self, log: T) -> Result<(), Self::Error> {
-        self.root_tx
-            .send(SectionRequest::Log {
-                id: self.id,
-                message: log.into(),
-            })
-            .map_err(|_| ChanError::Closed)
-    }
-
     // request from runtime or from own weak ref?
     async fn recv(&mut self) -> Result<Command, Self::Error> {
         match self.rx.recv().await {
@@ -208,7 +212,11 @@ impl<S: StateTrait> SectionChannelTrait for SectionChannel<S> {
     }
 }
 
-impl<S: StateTrait> Drop for SectionChannel<S> {
+impl<Id, S> Drop for SectionChannel<Id, S>
+    where 
+        Id: std::fmt::Debug + Copy + Send + Sync + 'static,
+        S: StateTrait,
+{
     fn drop(&mut self) {
         self.root_tx
             .send(SectionRequest::Stopped { id: self.id })
@@ -220,7 +228,6 @@ pub struct WeakSectionChannel {
     weak_tx: WeakUnboundedSender<Command>,
 }
 
-#[async_trait]
 impl WeakSectionChannelTrait for WeakSectionChannel {
     async fn ack(self, payload: Box<dyn Any + Send + 'static>) {
         if let Some(tx) = self.weak_tx.upgrade() {
@@ -238,7 +245,7 @@ mod test {
     fn send() {
         fn test_send<T: Send>(_: T) {}
         let mut root_chan = RootChannel::<DummyState>::new();
-        let section_chan = root_chan.add_section(0).unwrap();
+        let section_chan = root_chan.add_section(Uuid::from_u128(0)).unwrap();
         let weak_chan = section_chan.weak_chan();
         test_send(root_chan);
         test_send(section_chan);
