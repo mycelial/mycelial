@@ -70,6 +70,11 @@ pub enum RuntimeError {
 
     // Section Storage Errors
     StorageError(StdError),
+    
+    // Graph Error
+    DanglingEdge,
+    GraphNodeOutputError,
+    MalformedGraph,
 }
 
 impl std::fmt::Display for RuntimeError {
