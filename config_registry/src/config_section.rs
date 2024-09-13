@@ -24,7 +24,7 @@ impl<Chan: SectionChannel, T: BaseConfig + DynSection<Chan> + Clone> Config<Chan
     fn as_dyn_config_mut_ref(&mut self) -> &mut dyn BaseConfig {
         self
     }
-    
+
     fn inner_clone(&self) -> Box<dyn Config<Chan>> {
         Box::new(self.clone())
     }

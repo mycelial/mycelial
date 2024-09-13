@@ -30,7 +30,8 @@ impl<T> SectionSink for T where
 pub type DynStream = Pin<Box<dyn SectionStream>>;
 pub type DynSink = Pin<Box<dyn SectionSink>>;
 pub trait DynSection<SectionChan: command_channel::SectionChannel>:
-    section::Section<DynStream, DynSink, SectionChan, Future = SectionFuture, Error = SectionError> + Send
+    section::Section<DynStream, DynSink, SectionChan, Future = SectionFuture, Error = SectionError>
+    + Send
 {
     fn dyn_start(
         self: Box<Self>,

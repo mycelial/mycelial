@@ -1,4 +1,4 @@
-#[cfg(feature="section")]
+#[cfg(feature = "section")]
 mod section;
 
 #[derive(Debug, Default, Clone, config::Configuration)]

@@ -1,8 +1,6 @@
-use crate::{
-    command_channel::{
-        Command, ReplyTo, RootChannel, SectionChannel, SectionRequest as _SectionRequest,
-        WeakSectionChannel,
-    },
+use crate::command_channel::{
+    Command, ReplyTo, RootChannel, SectionChannel, SectionRequest as _SectionRequest,
+    WeakSectionChannel,
 };
 use std::{
     any::Any,

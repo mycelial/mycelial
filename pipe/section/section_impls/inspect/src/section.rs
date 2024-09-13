@@ -1,8 +1,8 @@
 //! Inspect section
 use std::pin::pin;
 
-use section::{prelude::*, pretty_print::pretty_print_with_limit};
 use crate::Inspect;
+use section::{prelude::*, pretty_print::pretty_print_with_limit};
 
 #[derive(Debug)]
 struct InspectMessage(SectionMessage);
