@@ -1,15 +1,26 @@
 use std::{cmp::Ordering, collections::BTreeMap, pin::pin, time::Duration};
 
 use graph::Graph as GenericGraph;
-use section::{command_channel::ReplyTo as _, prelude::RootChannel as _, SectionError, SectionMessage};
+use section::{
+    command_channel::ReplyTo as _, prelude::RootChannel as _, SectionError, SectionMessage,
+};
 use sha2::{Digest, Sha256};
-use tokio::{sync::mpsc::{channel, unbounded_channel, Receiver, Sender, UnboundedReceiver, UnboundedSender}, task::JoinHandle};
+use tokio::{
+    sync::mpsc::{
+        channel, unbounded_channel, Receiver, Sender, UnboundedReceiver, UnboundedSender,
+    },
+    task::JoinHandle,
+};
 use tokio_stream::wrappers::ReceiverStream;
 use tokio_util::sync::PollSender;
 use uuid::Uuid;
 
 use crate::{
-    runtime::Graph as RawGraph, runtime_error::RuntimeError, section_channel::{RootChannel, SectionRequest}, sqlite_storage::{SqliteState, SqliteStorageHandle}, Config, Result
+    runtime::Graph as RawGraph,
+    runtime_error::RuntimeError,
+    section_channel::{RootChannel, SectionRequest},
+    sqlite_storage::{SqliteState, SqliteStorageHandle},
+    Config, Result,
 };
 
 use tokio::sync::oneshot::{channel as oneshot_channel, Sender as OneshotSender};
@@ -49,7 +60,7 @@ impl Task {
             section_handles: BTreeMap::new(),
         }
     }
-    
+
     fn spawn(mut self) -> TaskHandle {
         let (tx, rx) = unbounded_channel();
         tokio::spawn(async move {
@@ -61,16 +72,15 @@ impl Task {
         });
         TaskHandle { tx }
     }
-    
+
     async fn enter_loop(&mut self, mut rx: UnboundedReceiver<TaskMessage>) -> Result<()> {
         tracing::info!("running task {}", self.id);
         self.status = TaskStatus::Starting;
 
         loop {
-
             // task init loop
             while self.status != TaskStatus::Running {
-                tokio::select! { 
+                tokio::select! {
                     res = self.start_sections() => {
                         match res {
                             Ok(()) => {
@@ -97,11 +107,11 @@ impl Task {
                         }
                     }
                 }
-            };
+            }
 
             // task loop
             loop {
-                tokio::select!{
+                tokio::select! {
                     msg = self.root_channel.recv() => {
                         let msg = match msg {
                             Ok(msg) => msg,
@@ -126,13 +136,13 @@ impl Task {
                             SectionRequest::RetrieveState { id, reply_to } => {
                                 // FIXME: proper errors
                                 reply_to.reply(
-                                    self.storage_handle.retrieve_state(id).await.map_err(|e| RuntimeError::StorageError(e))?
+                                    self.storage_handle.retrieve_state(id).await.map_err(RuntimeError::StorageError)?
                                 ).await.ok();
                             },
                             SectionRequest::StoreState { id, state, reply_to } => {
                                 // FIXME: proper errors
                                 reply_to.reply(
-                                    self.storage_handle.store_state(id, state).await.map_err(|e| RuntimeError::StorageError(e))?
+                                    self.storage_handle.store_state(id, state).await.map_err(RuntimeError::StorageError)?
                                 ).await.ok();
                             },
                             _ => {}
@@ -164,28 +174,33 @@ impl Task {
             tokio::time::sleep(Duration::from_secs(3)).await;
         }
     }
-    
+
     async fn start_sections(&mut self) -> Result<()> {
         for (id, node) in self.graph.iter_nodes() {
             let section = node.as_dyn_section();
-            let section_channel = self.root_channel.add_section(id).map_err(|_| RuntimeError::SectionChannelAllocationError)?;
-            let handle = tokio::spawn(async move { 
-                section.dyn_start(
-                    Box::pin(stub::Stub::<SectionMessage, SectionError>::new()),
-                    Box::pin(stub::Stub::<SectionMessage, SectionError>::new()),
-                    section_channel
-                ).await
+            let section_channel = self
+                .root_channel
+                .add_section(id)
+                .map_err(|_| RuntimeError::SectionChannelAllocationError)?;
+            let handle = tokio::spawn(async move {
+                section
+                    .dyn_start(
+                        Box::pin(stub::Stub::<SectionMessage, SectionError>::new()),
+                        Box::pin(stub::Stub::<SectionMessage, SectionError>::new()),
+                        section_channel,
+                    )
+                    .await
             });
             self.section_handles.insert(id, handle);
         }
-        Ok(()) 
+        Ok(())
     }
-    
+
     async fn shutdown(&mut self) -> Result<()> {
         // send shutdown signal to all sections and removes all section handles from root channel
         self.root_channel.shutdown();
         let mut shutdown_timeout = pin!(tokio::time::sleep(Duration::from_secs(5)));
-        while self.section_handles.len() != 0 {
+        while !self.section_handles.is_empty() {
             tokio::select! {
                 _ = &mut shutdown_timeout => {
                     tracing::error!("task with id {} reached shutdown timeout, sections will be terminated", self.id);
@@ -204,11 +219,8 @@ impl Task {
                             Err(RuntimeError::ChannelRecvError)?
                         }
                     };
-                    match msg {
-                        SectionRequest::Stopped { id } => {
-                            self.section_handles.remove(&id);
-                        }
-                        _ => (),
+                    if let SectionRequest::Stopped { id } = msg {
+                        self.section_handles.remove(&id);
                     }
                 }
             }
@@ -232,12 +244,12 @@ pub struct TaskHandle {
 impl TaskHandle {
     async fn status(&self) -> TaskStatus {
         let (reply_to, rx) = oneshot_channel();
-        if let Err(_) = self.tx.send(TaskMessage::Status{ reply_to }) {
-            return TaskStatus::Down
+        if let Err(_) = self.tx.send(TaskMessage::Status { reply_to }) {
+            return TaskStatus::Down;
         }
         match rx.await {
             Ok(status) => status,
-            Err(_) => TaskStatus::Down
+            Err(_) => TaskStatus::Down,
         }
     }
 
@@ -250,16 +262,13 @@ impl TaskHandle {
 
 enum TaskMessage {
     Status { reply_to: OneshotSender<TaskStatus> },
-    Shutdown{ reply_to: OneshotSender<()> },
+    Shutdown { reply_to: OneshotSender<()> },
 }
-
-
 
 struct Scheduler {
     tasks: BTreeMap<String, TaskHandle>,
     storage_handle: SqliteStorageHandle,
 }
-
 
 impl Scheduler {
     fn spawn(mut self) -> SchedulerHandle {
@@ -321,17 +330,14 @@ impl Scheduler {
                     hasher.update(field.name.as_bytes());
                     hasher.update(field.value.to_string().as_bytes());
                 }
-            };
+            }
             for (from, to) in graph.iter_edges() {
                 hasher.update(from.as_bytes());
                 hasher.update(to.as_bytes());
-            };
-            tasks.insert(
-                format!("{:x}", hasher.finalize()),
-                graph,
-            );
-        };
-        
+            }
+            tasks.insert(format!("{:x}", hasher.finalize()), graph);
+        }
+
         let mut to_delete = Vec::<String>::new();
         let mut to_add = Vec::<(String, Graph)>::new();
 
@@ -347,7 +353,7 @@ impl Scheduler {
                             new_tasks.next();
                             current_keys.next();
                         }
-                        Ordering::Greater =>  {
+                        Ordering::Greater => {
                             // new key is greater than old key, means old key is not present in task set
                             // and this task needs to be shutdown
                             to_delete.push(current_keys.next().unwrap().to_string());
@@ -358,13 +364,9 @@ impl Scheduler {
                             to_add.push(new_tasks.next().unwrap());
                         }
                     }
-                },
-                (None, Some(_)) => {
-                    to_delete.push(current_keys.next().unwrap().to_string())
-                },
-                (Some(_), None) => {
-                    to_add.push(new_tasks.next().unwrap())
                 }
+                (None, Some(_)) => to_delete.push(current_keys.next().unwrap().to_string()),
+                (Some(_), None) => to_add.push(new_tasks.next().unwrap()),
             }
         }
         for id in to_delete {
@@ -375,7 +377,10 @@ impl Scheduler {
         }
         for (id, graph) in to_add {
             tracing::info!("adding new task with id: {id}");
-            self.tasks.insert(id.clone(), Task::new(id, graph, self.storage_handle.clone()).spawn());
+            self.tasks.insert(
+                id.clone(),
+                Task::new(id, graph, self.storage_handle.clone()).spawn(),
+            );
         }
         Ok(())
     }
@@ -421,5 +426,9 @@ impl SchedulerHandle {
 }
 
 pub fn new(storage_handle: SqliteStorageHandle) -> SchedulerHandle {
-    Scheduler{ tasks: BTreeMap::new(), storage_handle }.spawn()
+    Scheduler {
+        tasks: BTreeMap::new(),
+        storage_handle,
+    }
+    .spawn()
 }

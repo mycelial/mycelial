@@ -14,10 +14,10 @@ use section::{
     },
     state::State as StateTrait,
 };
-use uuid::Uuid;
 use std::any::Any;
 use std::collections::BTreeMap;
 use std::marker::PhantomData;
+use uuid::Uuid;
 
 pub type SectionRequest<Id, S> = _SectionRequest<Id, S, OneshotReply<Option<S>>, OneshotReply<()>>;
 
@@ -162,8 +162,9 @@ impl<Id: std::fmt::Debug + Copy + Send + Sync + 'static, S: StateTrait> SectionC
 }
 
 impl<Id, S> SectionChannelTrait for SectionChannel<Id, S>
-    where S: StateTrait,
-          Id: std::fmt::Debug + Copy + Send + Sync + 'static,
+where
+    S: StateTrait,
+    Id: std::fmt::Debug + Copy + Send + Sync + 'static,
 {
     type State = S;
     type Error = ChanError;
@@ -213,9 +214,9 @@ impl<Id, S> SectionChannelTrait for SectionChannel<Id, S>
 }
 
 impl<Id, S> Drop for SectionChannel<Id, S>
-    where 
-        Id: std::fmt::Debug + Copy + Send + Sync + 'static,
-        S: StateTrait,
+where
+    Id: std::fmt::Debug + Copy + Send + Sync + 'static,
+    S: StateTrait,
 {
     fn drop(&mut self) {
         self.root_tx

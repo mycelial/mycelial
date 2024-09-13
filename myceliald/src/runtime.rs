@@ -1,12 +1,14 @@
 use crate::{
-    control_plane_client::{self, ControlPlaneClientHandle}, runtime_error::RuntimeError, runtime_storage::{self, RuntimeStorage}, scheduler::{self, SchedulerHandle}, sqlite_storage::{self, SqliteStorageHandle}, Config, ConfigRegistry, Result
+    control_plane_client::{self, ControlPlaneClientHandle},
+    runtime_error::RuntimeError,
+    runtime_storage::{self, RuntimeStorage},
+    scheduler::{self, SchedulerHandle},
+    sqlite_storage::{self, SqliteStorageHandle},
+    Config, ConfigRegistry, Result,
 };
 use serde::{Deserialize, Serialize};
-use std::{path::Path, sync::Arc, time::Duration};
-use tokio::sync::{
-    oneshot::{channel as oneshot_channel, Sender as OneshotSender},
-    mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender, WeakUnboundedSender},
-};
+use std::{path::Path, time::Duration};
+use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender, WeakUnboundedSender};
 
 #[derive(Debug)]
 pub struct Runtime {

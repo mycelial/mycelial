@@ -10,7 +10,6 @@ members = [
     "ui",
 
     "pipe/arrow_msg",
-    "pipe/runtime",
     "pipe/section",
     "pipe/section/section_impls/dir",
     "pipe/section/section_impls/excel_connector",

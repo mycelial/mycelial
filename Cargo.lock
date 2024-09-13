@@ -4741,21 +4741,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "runtime"
-version = "0.3.0"
-dependencies = [
- "section",
- "serde_json",
- "stub",
- "tokio",
- "tokio-stream",
- "tokio-util",
- "toml 0.7.8",
- "tracing",
- "tracing-test",
-]
-
-[[package]]
 name = "rust-embed"
 version = "8.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6179,18 +6164,6 @@ dependencies = [
 
 [[package]]
 name = "toml"
-version = "0.7.8"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dd79e69d3b627db300ff956027cc6c3798cef26d22526befdfcd12feeb6d2257"
-dependencies = [
- "serde",
- "serde_spanned",
- "toml_datetime",
- "toml_edit 0.19.15",
-]
-
-[[package]]
-name = "toml"
 version = "0.8.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a1ed1f98e3fdc28d6d910e6737ae6ab1a93bf1985935a1193e68f93eeb68d24e"
@@ -6217,8 +6190,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1b5bb770da30e5cbfde35a2d7b9b8a2c4b8ef89548a7a6aeab5c9a576e3e7421"
 dependencies = [
  "indexmap",
- "serde",
- "serde_spanned",
  "toml_datetime",
  "winnow 0.5.40",
 ]
@@ -6338,27 +6309,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "tracing-test"
-version = "0.2.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "557b891436fe0d5e0e363427fc7f217abf9ccd510d5136549847bdcbcd011d68"
-dependencies = [
- "tracing-core",
- "tracing-subscriber",
- "tracing-test-macro",
-]
-
-[[package]]
-name = "tracing-test-macro"
-version = "0.2.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "04659ddb06c87d233c566112c1c9c5b9e98256d9af50ec3bc9c8327f873a7568"
-dependencies = [
- "quote",
- "syn 2.0.74",
-]
-
-[[package]]
 name = "tracing-wasm"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6386,7 +6336,7 @@ dependencies = [
  "serde_derive",
  "serde_json",
  "termcolor",
- "toml 0.8.19",
+ "toml",
 ]
 
 [[package]]

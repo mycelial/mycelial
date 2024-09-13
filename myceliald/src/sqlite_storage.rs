@@ -4,13 +4,13 @@ use crate::Result;
 use section::prelude::*;
 use serde::{Deserialize, Serialize};
 use sqlx::{sqlite::SqliteConnectOptions, ConnectOptions, Row, SqliteConnection};
-use uuid::Uuid;
 use std::any::{type_name, Any, TypeId};
 use std::path::Path;
 use tokio::sync::{
     mpsc::{channel, Receiver, Sender},
     oneshot::{channel as oneshot_channel, Sender as OneshotSender},
 };
+use uuid::Uuid;
 
 pub struct SqliteStorage {
     connection: SqliteConnection,
@@ -158,7 +158,10 @@ impl SqliteStorage {
                         .map_err(|e| e.into());
                     reply_to.send(result).ok();
                 }
-                Message::RetrieveState { section_id, reply_to } => {
+                Message::RetrieveState {
+                    section_id,
+                    reply_to,
+                } => {
                     let result = sqlx::query("SELECT state FROM state WHERE id = ?")
                         .bind(section_id)
                         .fetch_optional(&mut self.connection)
@@ -234,7 +237,11 @@ impl SqliteStorageHandle {
         Ok(rx.await?)
     }
 
-    pub async fn store_state(&self, section_id: Uuid, state: SqliteState) -> Result<(), SectionError> {
+    pub async fn store_state(
+        &self,
+        section_id: Uuid,
+        state: SqliteState,
+    ) -> Result<(), SectionError> {
         let (reply_to, rx) = oneshot_channel();
         self.send(Message::StoreState {
             section_id,
@@ -245,10 +252,16 @@ impl SqliteStorageHandle {
         rx.await?
     }
 
-    pub async fn retrieve_state(&self, section_id: Uuid) -> Result<Option<SqliteState>, SectionError> {
+    pub async fn retrieve_state(
+        &self,
+        section_id: Uuid,
+    ) -> Result<Option<SqliteState>, SectionError> {
         let (reply_to, rx) = oneshot_channel();
-        self.send(Message::RetrieveState { section_id, reply_to })
-            .await?;
+        self.send(Message::RetrieveState {
+            section_id,
+            reply_to,
+        })
+        .await?;
         rx.await?
     }
 }
