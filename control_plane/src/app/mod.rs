@@ -314,7 +314,7 @@ pub struct DaemonJoinResponse {
 #[derive(Debug, Serialize)]
 pub struct Daemon {
     pub id: Uuid,
-    pub name: String,
+    pub name: Option<String>,
     pub address: Option<String>,
     pub last_seen: Option<DateTime<Utc>>,
     pub joined_at: Option<DateTime<Utc>>,
@@ -436,9 +436,9 @@ impl App {
     }
 
     // workspace api
-    pub async fn get_workspace_graph(&self, name: &str) -> Result<WorkspaceState> {
+    pub async fn get_workspace(&self, name: &str) -> Result<WorkspaceState> {
         let daemons = self.db.list_daemons().await?;
-        let mut graph = self.db.get_workspace_graph(name).await?;
+        let mut graph = self.db.get_workspace(name).await?;
         graph.nodes.iter_mut().for_each(|node| {
             if let Err(e) = node.strip_secrets(&self.config_registry) {
                 tracing::error!("{e}");
@@ -573,6 +573,10 @@ impl App {
         Ok(stored_daemons.into_values().collect())
     }
 
+    pub async fn delete_daemon(&self, id: Uuid) -> Result<()> {
+        self.db.delete_daemon(id).await
+    }
+
     pub async fn daemon_set_last_seen(&self, id: Uuid, timestamp: DateTime<Utc>) -> Result<()> {
         self.db.daemon_set_last_seen(id, timestamp).await?;
         Ok(())
@@ -600,11 +604,7 @@ impl App {
         Ok(daemon_graph)
     }
 
-    pub async fn set_daemon_name(&self, id: Uuid, name: &str) -> Result<()> {
+    pub async fn set_daemon_name(&self, id: Uuid, name: Option<&str>) -> Result<()> {
         self.db.set_daemon_name(id, name).await
-    }
-
-    pub async fn unset_daemon_name(&self, id: Uuid) -> Result<()> {
-        self.db.unset_daemon_name(id).await
     }
 }

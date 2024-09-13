@@ -1,11 +1,11 @@
+use std::sync::Arc;
+
 use graph::Graph as GenericGraph;
 use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
 use uuid::Uuid;
 
 use crate::{runtime::Graph as RawGraph, Config, Result};
-use tokio::sync::oneshot::{
-    channel as oneshot_channel, Sender as OneshotSender,
-};
+use tokio::sync::oneshot::{channel as oneshot_channel, Sender as OneshotSender};
 
 type Graph = GenericGraph<Uuid, Config>;
 
@@ -35,7 +35,8 @@ impl Scheduler {
                     {
                         self.shutdown().await;
                         reply_to.send(())
-                    }.ok();
+                    }
+                    .ok();
                 }
             }
         }
@@ -44,11 +45,19 @@ impl Scheduler {
 
     /// Schedule graph assigned to daemon
     ///
-    /// 1. build graph from incoming graph
-    /// 2. split graph into sub-graphs
-    /// 3.
-    ///
+    /// 1. build graph from incoming 'raw' graph
+    /// 2. since incoming graph is a forrest - split graph into groups of connected nodes
+    /// 3. each group should have unique and idempotent id, which will be calculated as a hash of sorted node ids / configs
+    /// 4. calculate diff between previously spawned groups and new groups
+    /// 5. spawn tasks for new groups, shutdown outdated groups, groups with actual id should be ignored
     async fn schedule(&mut self, raw_graph: RawGraph) -> Result<()> {
+        let mut graph = Graph::new();
+        for node in raw_graph.nodes.into_iter() {
+            graph.add_node(node.id, Arc::from(node.config));
+        }
+        for edge in raw_graph.edges.into_iter() {
+            graph.add_edge(edge.from_id, edge.to_id);
+        }
         Ok(())
     }
 

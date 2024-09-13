@@ -128,6 +128,32 @@ impl<K: GraphKey, V: GraphValue> Graph<K, V> {
     pub fn iter_edges(&self) -> impl Iterator<Item = (K, K)> + Clone + '_ {
         self.edges.iter().map(|(key, value)| (*key, *value))
     }
+
+    pub fn iter_subgraphs(&self) -> IterSubGraphs<'_, K, V> {
+        IterSubGraphs::new(self)
+    }
+}
+
+pub struct IterSubGraphs<'a, K: GraphKey, V: GraphValue> {
+    visited: HashSet<K>,
+    graph: &'a Graph<K, V>,
+}
+
+impl<'a, K: GraphKey, V: GraphValue> IterSubGraphs<'a, K, V> {
+    fn new(graph: &'a Graph<K, V>) -> Self {
+        Self {
+            visited: HashSet::new(),
+            graph,
+        }
+    }
+}
+
+impl<'a, K: GraphKey, V: GraphValue> Iterator for IterSubGraphs<'a, K, V> {
+    type Item = Graph<K, V>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        None
+    }
 }
 
 #[cfg(test)]

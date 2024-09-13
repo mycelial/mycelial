@@ -358,7 +358,7 @@ impl ControlPlaneClient {
     pub async fn remove_daemon(&self, id: Uuid) -> Result<()> {
         let id: String = id.to_string();
         let response = reqwest::Client::new()
-            .delete(get_url(&[DAEMON_API, "daemons", id.as_str()])?)
+            .delete(get_url(&[DAEMON_API, id.as_str()])?)
             .send()
             .await?;
         match response.status() {
@@ -367,7 +367,7 @@ impl ControlPlaneClient {
         }
     }
 
-    pub async fn set_daemon_name(&self, id: Uuid, name: &str) -> Result<()> {
+    pub async fn set_daemon_name(&self, id: Uuid, name: Option<&str>) -> Result<()> {
         let response = reqwest::Client::new()
             .post(get_url(&[DAEMON_API, "set_name", &id.to_string()])?)
             .json(&serde_json::json!({"name": name}))

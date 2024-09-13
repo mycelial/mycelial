@@ -6,7 +6,7 @@ use crate::{
     Config, ConfigRegistry, Result,
 };
 use serde::{Deserialize, Serialize};
-use std::{path::Path, time::Duration};
+use std::{path::Path, sync::Arc, time::Duration};
 use tokio::sync::mpsc::{
     unbounded_channel, UnboundedReceiver, UnboundedSender, WeakUnboundedSender,
 };
@@ -23,8 +23,8 @@ pub struct Runtime {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Graph {
-    nodes: Vec<Node>,
-    edges: Vec<Edge>,
+    pub nodes: Vec<Node>,
+    pub edges: Vec<Edge>,
 }
 
 impl Graph {
@@ -37,7 +37,8 @@ impl Graph {
 
     pub fn deserialize_node_configs(&mut self, registry: &ConfigRegistry) -> Result<()> {
         self.nodes
-            .iter_mut().try_for_each(|node| node.deserialize_config(registry))
+            .iter_mut()
+            .try_for_each(|node| node.deserialize_config(registry))
     }
 }
 
@@ -49,12 +50,13 @@ pub struct Node {
 
 impl Node {
     pub fn deserialize_config(&mut self, registry: &ConfigRegistry) -> Result<()> {
-        let mut config = registry.deserialize_config(&*self.config).map_err(|e| {
+        let config = registry.deserialize_config(&*self.config).map_err(|e| {
             RuntimeError::RawConfigDeserializeError {
                 config_name: self.config.name().into(),
                 raw_config: self.config.as_dyn_config_ref().clone_config(),
             }
         })?;
+        let mut config = Arc::from(config);
         std::mem::swap(&mut self.config, &mut config);
         Ok(())
     }

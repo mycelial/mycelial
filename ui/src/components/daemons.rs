@@ -79,8 +79,12 @@ fn EditDaemonName(
                     };
                     if let Some(name) = event.values().get("new_daemon_name") {
                         let name = name.as_value();
-                        if let Err(e) = control_plane_client.set_daemon_name(id, &name).await {
-                            tracing::error!("failed to create workspace {name}: {e}");
+                        let name = match name.as_str() {
+                            "" => None,
+                            name => Some(name),
+                        };
+                        if let Err(e) = control_plane_client.set_daemon_name(id, name).await {
+                            tracing::error!("failed to create workspace {name:?}: {e}");
                         }
                     } else {
                         tracing::error!("failed to get value of `new_daemon_name` from form");
@@ -112,7 +116,7 @@ pub fn Daemons() -> Element {
     let control_plane_client = use_context::<ControlPlaneClient>();
     let mut daemons_state = use_signal(DaemonsState::new);
     let mut edit_daemon_name: Signal<Option<Uuid>> = use_signal(|| None);
-    let restart_fetcher = use_signal(|| ());
+    let mut restart_fetcher = use_signal(|| ());
     let _state_fetcher: Resource<Result<(), AppError>> = use_resource(move || async move {
         let daemons = control_plane_client.get_daemons().await.map_err(|e| {
             tracing::error!("failed to fetch daemons: {e}");
@@ -214,6 +218,7 @@ pub fn Daemons() -> Element {
                                                     Ok(()) => daemons_state.write().remove_daemon(daemon.id),
                                                     Err(e) => tracing::error!("failed to remove daemon: {e}"),
                                                 };
+                                                restart_fetcher.set(())
                                             }
                                         },
                                         class: "text-toadstool-1 border border-toadstool-1 px-4 py-1 my-1 mx-3 rounded bg-white hover:text-white hover:bg-toadstool-2",

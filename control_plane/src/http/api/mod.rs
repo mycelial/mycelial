@@ -30,10 +30,8 @@ pub fn new(app: crate::app::AppState) -> Router {
         .route("/api/daemon/tokens/:id", delete(daemon::delete_token))
         // daemons api
         .route("/api/daemon", get(daemon::list_daemons))
-        .route(
-            "/api/daemon/set_name/:id",
-            post(daemon::set_name).delete(daemon::unset_name),
-        )
+        .route("/api/daemon/:id", delete(daemon::delete_daemon))
+        .route("/api/daemon/set_name/:id", post(daemon::set_name))
         // assets
         .fallback(assets::assets)
         .layer(middleware::from_fn(crate::http::log_middleware))
