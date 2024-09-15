@@ -40,68 +40,78 @@ fn Doc() -> Element {
     rsx! {
         div {
             class: "my-2 p-4 w-9/12 bg-moss-3 text-black drop-shadow-md rounded-sm mx-auto",
-            id: "daemon-install-instructions",
-            p {
-                    "To add your local daemon to this Mycelial network, simply install the
-                    daemon using the instructions found "
-                    a {
-                    class: "underline",
-                    href: "https://docs.mycelial.com/getting-started/CLI/",
-                    target: "_blank",
-                    "here"
-                }
-                " and copied below:"
-            }
+            id: "daemon-join-instructions-container",
+
             div {
-                //TODO: make endpoint and token dynamic
-                id: "daemon-install-code-mac",
+                // TODO: Confirm that the join command is correct.
+                id: "daemon-join-instructions",
                 class: "py-2 my-4 bg-white text-night-2 shadow-none",
                 h3 {
                     class: "text-lg ml-2 py-2 uppercase",
-                    "Mac Installation Instructions"
+                    "Adding a New Mycelial Daemon to Your Mycelial Network"
+                }
+                p {
+                    class: "mb-2 ml-2",
+                    "To add a Mycelial Daemon to this Mycelial network, click the 'Add New Token' button below to generate a new one-time use join token."
+                }
+                p {
+                    class: "mb-2 ml-2",
+                    "Copy the token and run the following command in your terminal to join the Mycelial Daemon to this Mycelial network:"
                 }
                 div {
-                    class: "bg-grey-bright mx-2 py-2 rounded",
+                    class: "bg-grey-bright mx-2 px-2 py-2 rounded",
                     p {
-                        class: "ml-2 font-mono",
-                        "$ brew install mycelial/tap/mycelial"
+                        class: "mb-2 ml-2",
+                        "./myceliald -- join --control-plane-url=http://localhost:8000 --control-plane-tls-url=https://localhost:8010 --join-token  <YOUR NEW JOIN TOKEN GOES HERE>"
                     }
+                }
+                p {
+                    class: "mb-2 ml-2 mt-2",
+                    "Once joined, your Daemon will provide a confirmatory message in the terminal."
+                }
+                div {
+                    class: "bg-grey-bright mx-2 px-2 py-2 rounded",
                     p {
-                        class: "ml-2 font-mono",
-                        "$ mycelial init --daemon --endpoint \"http://localhost:7777\" --token \"d135801c-fd73-477c-b0a8-055d0d117485\""
+                        class: "mb-2 ml-2",
+                        "$ 2024-09-15T15:52:19.351601Z  INFO myceliald: join successful"
                     }
+                }
+                p {
+                    class: "mb-2 ml-2 mt-2",
+                    "All of your Mycelial Daemons, along with their most recent status metrics, are displayed in the table below."
+                }
+                p {
+                    class: "mb-2 ml-2 mt-2",
+                    "To start your Mycelial Daemon, run the following command in your terminal:"
+                }
+                div {
+                    class: "bg-grey-bright mx-2 px-2 py-2 rounded",
                     p {
-                        class: "ml-2 font-mono",
-                        "$ mycelial start --daemon"
+                        class: "mb-2 ml-2",
+                        "./myceliald"
                     }
                 }
 
             }
-            div {
-                //TODO: make endpoint and token dynamic
-                id: "daemon-install-code-linux",
-                class: "py-2 my-2 bg-white text-night-2 shadow-none",
+                div {
+                    // TODO: Confirm that the join command is correct.
+                    id: "daemon-join-additional-info",
+                    class: "py-2 my-4 bg-white text-night-2 shadow-none",
                 h3 {
                     class: "text-lg ml-2 py-2 uppercase",
-                    "Linux Installation Instructions"
+                    "Additional Information"
                 }
-                div {
-                    class: "bg-grey-bright mx-2 py-2 rounded",
-                    p {
-                        class: "mb-2 ml-2",
-                        "Mycelial maintains CLI builds for Debian and Fedora across several x86 and ARM chip architectures."
-                    }
-                    p {
-                        class: "ml-2",
-                        "Please visit the Mycelial CLI documentation page to find the installation instructions for your system "
-                        a {
-                            href: "https://docs.mycelial.com/getting-started/CLI",
-                            target: "_blank",
-                            class: "underline",
-                            "here"
-                        }
-                        "."
-                    }
+                p {
+                    class: "mb-2 ml-2 mt-2",
+                    "As the name implies, join tokens are one-time use only." 
+                }
+                p {
+                    class: "mb-2 ml-2 mt-2",
+                    "When your Mycelial Daemon attempts to joins the network, it presents the join token for validation. If the token is valid, the Daemon is added to the network and the token is marked as used. If the token is invalid, the Daemon is not added to the network."
+                }
+                p {
+                    class: "mb-2 ml-2 mt-2",
+                    "Subsequent peer-to-peer communications between Mycelial Daemons, as well as communications between Mycelial Daemons and the Mycelial Control Plane, use mutual TLS authentication. This ensures that all communications are secure and authenticated."
                 }
             }
         }
