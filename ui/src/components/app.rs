@@ -203,7 +203,7 @@ pub struct Node {
     pub id: Uuid,
     pub x: f64,
     pub y: f64,
-    pub config: Box<dyn config::Config>,
+    pub config: Box<dyn config_registry::Config>,
     pub daemon_id: Option<Uuid>,
 }
 

@@ -89,7 +89,7 @@ impl<S: Sink<WebsocketMessage> + Unpin> WebsocketInput<S> {
 async fn handle_socket(
     app: AppState,
     socket: WebSocket,
-    addr: SocketAddr,
+    _addr: SocketAddr,
     daemon_id: Uuid,
 ) -> Result<()> {
     let daemon = &mut Daemon::new(Arc::clone(&app), daemon_id).await?;

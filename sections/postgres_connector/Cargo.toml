@@ -1,0 +1,26 @@
+[package]
+name = "postgres_connector"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[features]
+default = ["section"]
+section = [
+    "dep:section", "dep:sqlx", "dep:chrono", "dep:tokio", "dep:sqlparser",
+    "dep:tracing", "dep:log"
+]
+
+[dependencies]
+sqlx = { version = "0.7", features = ["postgres", "runtime-tokio", "tls-rustls", "rust_decimal", "chrono", "uuid"], optional = true }
+section = { path = "../../section/", optional = true }
+chrono = { version = "0.4", optional = true }
+tokio = { version = "1", features = ["full"], optional = true }
+sqlparser = { version = "0.47", optional = true }
+tracing = { version = "0.1", optional = true }
+log = { version = "0.4", optional = true }
+config = { path = "../../config" }
+
+[dev-dependencies]
+stub = {path = "../stub/" }
+tracing-subscriber = "0.3"

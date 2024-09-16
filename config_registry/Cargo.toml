@@ -10,14 +10,16 @@ section = [
     "dir/section",
     "excel_connector/section",
     "inspect/section",
+    "postgres_connector/section",
 ]
 
 [dependencies]
 config = { path = "../config" }
-section = { path = "../pipe/section" }
+section = { path = "../section" }
 serde = "1"
 
-csv_transform = { path = "../pipe/section/section_impls/csv_transform", default-features=false }
-dir = { path = "../pipe/section/section_impls/dir", default-features=false }
-excel_connector = { path = "../pipe/section/section_impls/excel_connector", default-features=false }
-inspect  = { path = "../pipe/section/section_impls/inspect", default-features=false }
+csv_transform = { path = "../sections/csv_transform", default-features=false }
+dir = { path = "../sections/dir", default-features=false }
+excel_connector = { path = "../sections/excel_connector", default-features=false }
+inspect  = { path = "../sections/inspect", default-features=false }
+postgres_connector = { path = "../sections/postgres_connector", default-features=false }

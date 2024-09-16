@@ -6,14 +6,6 @@ use section::{
 };
 use tokio::sync::mpsc::Receiver;
 
-pub mod destination;
-pub mod source;
-
-pub(crate) mod stateful_query;
-
-pub(crate) type Result<T, E = SectionError> = std::result::Result<T, E>;
-
-#[derive(Debug)]
 #[allow(unused)]
 pub(crate) struct Table {
     name: Arc<str>,
@@ -31,7 +23,7 @@ pub(crate) struct PostgresColumn {
 }
 
 impl PostgresColumn {
-    fn new(name: impl Into<String>, data_type: impl Into<DataType>) -> Self {
+    pub fn new(name: impl Into<String>, data_type: impl Into<DataType>) -> Self {
         Self {
             name: name.into(),
             data_type: data_type.into(),
@@ -41,11 +33,8 @@ impl PostgresColumn {
 
 #[derive(Debug)]
 pub(crate) struct PostgresPayload {
-    /// column names
-    columns: Vec<PostgresColumn>,
-
-    /// values
-    values: Vec<Vec<Value>>,
+    pub columns: Vec<PostgresColumn>,
+    pub values: Vec<Vec<Value>>,
 }
 
 impl DataFrame for PostgresPayload {
@@ -71,7 +60,7 @@ pub struct PostgresMessage {
 }
 
 impl PostgresMessage {
-    fn new(origin: Arc<str>, stream: Receiver<Option<Chunk>>, ack: Option<Ack>) -> Self {
+    pub fn new(origin: Arc<str>, stream: Receiver<Option<Chunk>>, ack: Option<Ack>) -> Self {
         Self {
             origin,
             stream,

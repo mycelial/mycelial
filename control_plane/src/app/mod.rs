@@ -4,7 +4,6 @@ pub mod migration;
 pub mod tables;
 
 use chrono::{DateTime, Utc};
-use config::prelude::*;
 use config_registry::{self, ConfigRegistry};
 use daemon_tracker::DaemonMessage;
 use pki::{CertificateDer, CertifiedKey, KeyPair};
@@ -146,7 +145,7 @@ pub struct WorkspaceGraph {
 pub struct WorkspaceNode {
     pub id: uuid::Uuid,
     pub display_name: String,
-    pub config: Box<dyn config::Config>,
+    pub config: Box<dyn config_registry::Config>,
     pub daemon_id: Option<Uuid>,
     pub x: f64,
     pub y: f64,
@@ -156,7 +155,7 @@ impl WorkspaceNode {
     pub fn new(
         id: uuid::Uuid,
         display_name: String,
-        config: Box<dyn config::Config>,
+        config: Box<dyn config_registry::Config>,
         daemon_id: Option<Uuid>,
         x: f64,
         y: f64,
@@ -172,15 +171,8 @@ impl WorkspaceNode {
     }
 
     pub fn strip_secrets(&mut self, config_registry: &ConfigRegistry) -> Result<()> {
-        match config_registry.build_config(self.config.name()) {
+        match config_registry.deserialize_config(&*self.config) {
             Ok(mut config) => {
-                if let Err(e) = deserialize_into_config(&mut *self.config, &mut *config) {
-                    // FIXME: emit warning which will be visible in UI?
-                    tracing::error!(
-                        "failed to deserialize stored config with name: {}: {e}",
-                        config.name()
-                    );
-                };
                 config.strip_secrets();
                 std::mem::swap(&mut self.config, &mut config);
                 Ok(())
@@ -202,15 +194,13 @@ pub struct DaemonGraph {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct DaemonNode {
     id: uuid::Uuid,
-    config: Box<dyn config::Config>,
+    config: Box<dyn config_registry::Config>,
 }
 
 impl DaemonNode {
     fn build_config(&mut self, config_registry: &ConfigRegistry) -> Result<()> {
         let mut new_config = config_registry
-            .build_config(self.config.name())
-            .map_err(|e| anyhow::anyhow!("failed to build config {}: {e}", self.config.name()))?;
-        deserialize_into_config(&mut *self.config, &mut *new_config)
+            .deserialize_config(&*self.config)
             .map_err(|e| anyhow::anyhow!("failed to deserialize config: {e}"))?;
         std::mem::swap(&mut new_config, &mut self.config);
         Ok(())
@@ -255,11 +245,11 @@ pub enum WorkspaceOperation {
         id: Uuid,
         x: f64,
         y: f64,
-        config: Box<dyn config::Config>,
+        config: Box<dyn config_registry::Config>,
     },
     UpdateNodeConfig {
         id: Uuid,
-        config: Box<dyn config::Config>,
+        config: Box<dyn config_registry::Config>,
     },
     UpdateNodePosition {
         uuid: Uuid,
@@ -470,9 +460,7 @@ impl App {
                 let config_name = config.name();
                 let mut default_config = self
                     .config_registry
-                    .build_config(config_name)
-                    .map_err(|_| AppError::config_not_found(config_name))?;
-                deserialize_into_config(&**config, &mut *default_config)
+                    .deserialize_config(&**config)
                     .map_err(|_| AppError::invalid_config(config_name))?;
                 std::mem::swap(config, &mut default_config);
             }
@@ -535,7 +523,7 @@ impl App {
 
     pub async fn delete_daemon_token(&self, id: uuid::Uuid) -> Result<()> {
         self.db.delete_daemon_token(id).await?;
-        self.daemon_tracker.shutdown_daemon(id);
+        self.daemon_tracker.shutdown_daemon(id).await?;
         Ok(())
     }
 

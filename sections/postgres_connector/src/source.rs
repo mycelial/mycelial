@@ -21,13 +21,14 @@ use std::time::Duration;
 use std::{pin::pin, str::FromStr};
 
 use crate::{
+    message::{PostgresColumn, PostgresMessage, PostgresPayload},
     stateful_query::{self, StatefulVariable, StatefulVariableValue},
-    PostgresColumn, PostgresMessage, PostgresPayload, Result,
+    PostgresSource, Result,
 };
 use tokio::sync::mpsc::Sender;
 
 #[derive(Debug)]
-pub struct Postgres {
+struct PostgresSourceInner {
     url: String,
     origin: Arc<str>,
     query: Arc<str>,
@@ -35,12 +36,24 @@ pub struct Postgres {
     stateful_var: Option<StatefulVariable>,
 }
 
-impl Postgres {
+impl TryFrom<PostgresSource> for PostgresSourceInner {
+    type Error = SectionError;
+
+    fn try_from(value: PostgresSource) -> std::result::Result<Self, Self::Error> {
+        let url = format!(
+            "postgres://{}:{}@{}:{}/{}",
+            value.user, value.password, value.host, value.port, value.database
+        );
+        PostgresSourceInner::new(url, value.origin, value.query, value.poll_interval)
+    }
+}
+
+impl PostgresSourceInner {
     pub fn new(
         url: impl Into<String>,
         origin: impl AsRef<str>,
         query: impl AsRef<str>,
-        poll_interval: Duration,
+        poll_interval: u64,
     ) -> Result<Self> {
         let query = query.as_ref();
         let parser = stateful_query::StatefulVariableParser::new(query)?;
@@ -48,6 +61,7 @@ impl Postgres {
             Some((stateful_var, query)) => (Some(stateful_var), query),
             None => (None, query.to_string()),
         };
+        let poll_interval = Duration::from_secs(poll_interval);
         Ok(Self {
             url: url.into(),
             origin: Arc::from(origin.as_ref()),
@@ -370,7 +384,7 @@ pub(crate) fn from_pg_type_name(
     }
 }
 
-impl<Input, Output, SectionChan> Section<Input, Output, SectionChan> for Postgres
+impl<Input, Output, SectionChan> Section<Input, Output, SectionChan> for PostgresSource
 where
     Input: Stream + Send + 'static,
     Output: Sink<SectionMessage, Error = SectionError> + Send + 'static,
@@ -380,6 +394,9 @@ where
     type Future = SectionFuture;
 
     fn start(self, input: Input, output: Output, command: SectionChan) -> Self::Future {
-        Box::pin(async move { self.enter_loop(input, output, command).await })
+        Box::pin(async move {
+            let inner: PostgresSourceInner = self.try_into()?;
+            inner.enter_loop(input, output, command).await
+        })
     }
 }

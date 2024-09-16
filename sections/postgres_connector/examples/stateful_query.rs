@@ -1,4 +1,4 @@
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
 use section::{
     dummy::DummySectionChannel,
@@ -13,12 +13,16 @@ use stub::Stub;
 async fn main() -> Result<(), SectionError> {
     tracing_subscriber::fmt::init();
 
-    let pg_src = postgres_connector::source::Postgres::new(
-        "postgres://user:password@localhost:5432/postgres",
+    let pg_src = postgres_connector::PostgresSource::new(
+        "localhost",
+        5432,
+        "user",
+        "password",
+        "postgres",
         "public",
+        5,
         "select * from test where id > $id::i64 order by id limit 10000",
-        Duration::from_secs(5),
-    )?;
+    );
     let (tx, mut rx) = futures::channel::mpsc::channel(1);
     let tx = tx.sink_map_err(|_| "send error".into());
     let handle = tokio::spawn(pg_src.start(Stub::<()>::new(), tx, DummySectionChannel::new()));

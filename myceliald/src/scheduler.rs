@@ -1,15 +1,21 @@
-use std::{cmp::Ordering, collections::{BTreeMap, VecDeque}, pin::pin, time::Duration};
+use std::{
+    cmp::Ordering,
+    collections::{BTreeMap, VecDeque},
+    pin::pin,
+    time::Duration,
+};
 
 use graph::Graph as GenericGraph;
 use section::{
-    command_channel::ReplyTo as _, prelude::{RootChannel as _, SinkExt}, section::Section as _, SectionError, SectionMessage, SectionSink, SectionStream
+    command_channel::ReplyTo as _,
+    prelude::{RootChannel as _, SinkExt},
+    section::Section as _,
+    SectionError, SectionMessage,
 };
 use sha2::{Digest, Sha256};
 use stub::Stub;
 use tokio::{
-    sync::mpsc::{
-        channel, unbounded_channel, Receiver, Sender, UnboundedReceiver, UnboundedSender,
-    },
+    sync::mpsc::{channel, unbounded_channel, UnboundedReceiver, UnboundedSender},
     task::JoinHandle,
 };
 use tokio_stream::wrappers::ReceiverStream;
@@ -31,7 +37,9 @@ type Graph = GenericGraph<Uuid, Config>;
 /// Wrappings around tokio channel which allow Sender to behave as Sink and Receiver as a Stream
 ///
 /// Channels allow to glue pipe sections together (both static and dynamic)
-fn streaming_channel(buf_size: usize) -> (PollSender<SectionMessage>, ReceiverStream<SectionMessage>) {
+fn streaming_channel(
+    buf_size: usize,
+) -> (PollSender<SectionMessage>, ReceiverStream<SectionMessage>) {
     let (tx, rx) = channel(buf_size);
     (PollSender::new(tx), ReceiverStream::new(rx))
 }
@@ -178,60 +186,79 @@ impl Task {
         // build reverse index of edges
         let mut index = BTreeMap::<Uuid, Vec<Uuid>>::new();
         for (from, to) in self.graph.iter_edges() {
-            index.entry(to).and_modify(|vec| vec.push(from)).or_insert(vec![from]);         
+            index
+                .entry(to)
+                .and_modify(|vec| vec.push(from))
+                .or_insert(vec![from]);
         }
-        
+
         // edge case, when graph consists out of single ndoe
         if index.is_empty() {
-            let id = self.graph.iter_nodes().map(|(id, _)| id).next().ok_or(RuntimeError::MalformedGraph)?;
+            let id = self
+                .graph
+                .iter_nodes()
+                .map(|(id, _)| id)
+                .next()
+                .ok_or(RuntimeError::MalformedGraph)?;
             index.insert(id, vec![]);
         }
-        
+
         // find root node, root node is the only node which doesn't have output in graph
         let mut root_node = None;
         for (id, _) in self.graph.iter_nodes() {
             if self.graph.get_child_node(id).is_none() {
                 root_node = Some(id);
-                break
-            }           
+                break;
+            }
         }
-        
+
         let root_node = match root_node {
             None => Err(RuntimeError::MalformedGraph)?,
             Some(node) => node,
         };
-        
+
         // root node output will be redirected to stub
         let (tx, rx) = streaming_channel(1);
         // FIXME: what is there is a node with this id?
         let stub_id = Uuid::from_u128(stub_counter.next().unwrap());
-        let section_channel = self.root_channel.add_section(stub_id).map_err(|_| RuntimeError::SectionChannelAllocationError)?;
+        let section_channel = self
+            .root_channel
+            .add_section(stub_id)
+            .map_err(|_| RuntimeError::SectionChannelAllocationError)?;
         let stub_handle = tokio::spawn(async move {
-            Stub::<SectionMessage, SectionError>::new().start(
-                Box::pin(rx),
-                Box::pin(Stub::<SectionMessage, SectionError>::new()),
-                section_channel
-            ).await
+            Stub::<SectionMessage, SectionError>::new()
+                .start(
+                    Box::pin(rx),
+                    Box::pin(Stub::<SectionMessage, SectionError>::new()),
+                    section_channel,
+                )
+                .await
         });
         self.section_handles.insert(stub_id, stub_handle);
-        
+
         let mut queue = VecDeque::from([(root_node, tx)]);
         while let Some((node_id, prev_tx)) = queue.pop_front() {
             let node = match self.graph.get_node(node_id) {
                 Some(node) => node.clone(),
-                None => Err(RuntimeError::MalformedGraph)?
+                None => Err(RuntimeError::MalformedGraph)?,
             };
             let (tx, rx) = streaming_channel(1);
-            let section_channel = self.root_channel.add_section(node_id).map_err(|_| RuntimeError::SectionChannelAllocationError)?;
-            let handle = tokio::spawn(async move {
-                node
-                    .as_dyn_section()
-                    .dyn_start(
-                        Box::pin(rx),
-                        Box::pin(prev_tx.sink_map_err(|_| "failed to send message to downstream sink".into())),
-                        section_channel,
-                    ).await
-            });
+            let section_channel = self
+                .root_channel
+                .add_section(node_id)
+                .map_err(|_| RuntimeError::SectionChannelAllocationError)?;
+            let handle =
+                tokio::spawn(async move {
+                    node.as_dyn_section()
+                        .dyn_start(
+                            Box::pin(rx),
+                            Box::pin(prev_tx.sink_map_err(|_| {
+                                "failed to send message to downstream sink".into()
+                            })),
+                            section_channel,
+                        )
+                        .await
+                });
             self.section_handles.insert(node_id, handle);
             match index.get(&node_id) {
                 Some(parents) => {
@@ -242,13 +269,18 @@ impl Task {
                 None => {
                     // if node doesn't have input - stub it
                     let stub_id = Uuid::from_u128(stub_counter.next().unwrap());
-                    let section_channel = self.root_channel.add_section(stub_id).map_err(|_| RuntimeError::SectionChannelAllocationError)?;
+                    let section_channel = self
+                        .root_channel
+                        .add_section(stub_id)
+                        .map_err(|_| RuntimeError::SectionChannelAllocationError)?;
                     let stub_handle = tokio::spawn(async move {
-                        Stub::<SectionMessage, SectionError>::new().start(
-                            Box::pin(Stub::<SectionMessage, SectionError>::new()),
-                            Box::pin(tx),
-                            section_channel
-                        ).await
+                        Stub::<SectionMessage, SectionError>::new()
+                            .start(
+                                Box::pin(Stub::<SectionMessage, SectionError>::new()),
+                                Box::pin(tx),
+                                section_channel,
+                            )
+                            .await
                     });
                     self.section_handles.insert(stub_id, stub_handle);
                 }

@@ -23,4 +23,4 @@ run_control_plane:
 
 .PHONY: fmt
 fmt:
-	cargo fmt && cargo clippy --fix --allow-dirty --allow-staged
+	cargo fmt --all && cargo clippy --fix --allow-dirty --allow-staged

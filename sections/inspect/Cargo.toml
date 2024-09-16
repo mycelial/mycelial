@@ -8,6 +8,6 @@ default = ["section"]
 section = []
 
 [dependencies]
-section = { path = "../../" }
+section = { path = "../../section" }
 tracing = "0.1"
-config = { path = "../../../../config" }
+config = { path = "../../config" }

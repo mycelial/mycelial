@@ -1,11 +1,14 @@
 use crate::Result;
 use config::{prelude::deserialize_into_config, Config as BaseConfig};
+use section::dummy::DummySectionChannel;
 use section::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
-pub trait Config<Chan: SectionChannel>: BaseConfig + DynSection<Chan> {
+pub trait Config<Chan: SectionChannel = DummySectionChannel>:
+    BaseConfig + DynSection<Chan>
+{
     fn as_dyn_section(&self) -> Box<dyn DynSection<Chan>>;
     fn as_dyn_config_ref(&self) -> &dyn BaseConfig;
     fn as_dyn_config_mut_ref(&mut self) -> &mut dyn BaseConfig;
@@ -111,22 +114,42 @@ impl BaseConfig for RawConfig {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub struct ConfigMetaData<Chan> {
+#[derive(Debug, Eq)]
+pub struct ConfigMetaData<Chan: SectionChannel = DummySectionChannel> {
     pub input: bool,
     pub output: bool,
     pub ty: Arc<str>,
     ctor: ConfigConstructor<Chan>,
 }
 
-impl<Chan> ConfigMetaData<Chan> {
+impl<Chan: SectionChannel> Clone for ConfigMetaData<Chan> {
+    fn clone(&self) -> Self {
+        ConfigMetaData {
+            input: self.input,
+            output: self.output,
+            ty: Arc::clone(&self.ty),
+            ctor: self.ctor,
+        }
+    }
+}
+
+impl<Chan: SectionChannel> PartialEq for ConfigMetaData<Chan> {
+    fn eq(&self, other: &Self) -> bool {
+        self.input == other.input
+            && self.output == other.output
+            && self.ty == other.ty
+            && self.ctor == other.ctor
+    }
+}
+
+impl<Chan: SectionChannel> ConfigMetaData<Chan> {
     pub fn build_config(&self) -> Box<dyn Config<Chan>> {
         (self.ctor)()
     }
 }
 
 #[derive(Debug)]
-pub struct ConfigRegistry<Chan = section::dummy::DummySectionChannel> {
+pub struct ConfigRegistry<Chan: SectionChannel = section::dummy::DummySectionChannel> {
     registry: BTreeMap<Arc<str>, ConfigMetaData<Chan>>,
 }
 
@@ -165,6 +188,10 @@ impl<Chan: SectionChannel> ConfigRegistry<Chan> {
             Some(metadata) => Ok(metadata.build_config()),
             None => Err(format!("no config constructor for {name} found"))?,
         }
+    }
+
+    pub fn iter_values(&self) -> impl Iterator<Item = ConfigMetaData<Chan>> + '_ {
+        self.registry.values().cloned()
     }
 
     // deserialize raw config into real config

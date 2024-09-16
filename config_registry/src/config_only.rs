@@ -1,4 +1,5 @@
 use crate::Result;
+use config::prelude::*;
 pub use config::Config;
 use section::{dummy::DummySectionChannel, prelude::*};
 use std::collections::BTreeMap;
@@ -7,7 +8,7 @@ use std::sync::Arc;
 
 pub type ConfigConstructor = fn() -> Box<dyn Config>;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ConfigMetaData {
     pub input: bool,
     pub output: bool,
@@ -64,5 +65,10 @@ impl<Chan: SectionChannel> ConfigRegistry<Chan> {
             Some(metadata) => Ok(metadata.build_config()),
             None => Err(format!("no config constructor for {name} found"))?,
         }
+    }
+    pub fn deserialize_config(&self, raw_config: &dyn Config) -> Result<Box<dyn Config>> {
+        let mut config = self.build_config(raw_config.name())?;
+        deserialize_into_config(raw_config, &mut *config)?;
+        Ok(config)
     }
 }

@@ -70,7 +70,7 @@ pub enum RuntimeError {
 
     // Section Storage Errors
     StorageError(StdError),
-    
+
     // Graph Error
     DanglingEdge,
     GraphNodeOutputError,

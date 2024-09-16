@@ -10,7 +10,6 @@ use crate::{
     app::{AppError, Result},
 };
 use chrono::{DateTime, NaiveDateTime, Utc};
-use config::prelude::deserialize_into_config;
 use config_registry::ConfigRegistry;
 use derive_trait::derive_trait;
 use futures::future::BoxFuture;
@@ -342,43 +341,23 @@ where
                             .and_where(Expr::col(Nodes::Id).eq(id))
                             .lock_exclusive()
                             .build_any_sqlx(&*self.query_builder);
-                        let mut cur_config = match sqlx::query_with(&query, values)
+                        let cur_config = match sqlx::query_with(&query, values)
                             .fetch_optional(&mut *transaction)
                             .await?
                         {
-                            Some(row) => {
-                                let raw_config = row.get::<Json<_>, _>(0).0;
-                                let raw_config: Box<dyn config::Config> =
-                                    serde_json::from_value(raw_config)?;
-                                let mut cur_config = config_registry
-                                    .build_config(raw_config.name())
-                                    .map_err(|e| {
-                                        anyhow::anyhow!(
-                                            "failed to build config '{}': {e}",
-                                            raw_config.name()
-                                        )
-                                    })?;
-                                deserialize_into_config(&*raw_config, &mut *cur_config).map_err(
-                                    |e| {
-                                        anyhow::anyhow!(
-                                            "failed to deserialize into config: {}: {e}",
-                                            raw_config.name()
-                                        )
-                                    },
-                                )?;
-                                cur_config
+                            Some(_) => {
+                                config_registry.deserialize_config(&**config).map_err(|e| {
+                                    anyhow::anyhow!(
+                                        "failed to deserialize into config: {}: {e}",
+                                        config.name()
+                                    )
+                                })?
                             }
                             None => {
                                 tracing::error!("can't update node config for node with id {id}, node not found");
                                 continue;
                             }
                         };
-                        deserialize_into_config(&**config, &mut *cur_config).map_err(|e| {
-                            anyhow::anyhow!(
-                                "failed to deserialize incoming update into config: {}: {e}",
-                                cur_config.name()
-                            )
-                        })?;
                         let config_json = serde_json::to_string(&*cur_config)?;
                         Query::update()
                             .table(Nodes::Table)

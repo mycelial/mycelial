@@ -7,7 +7,6 @@ use crate::components::app::{
 };
 use crate::components::icons::{Delete, Edit, Pause, Play, Restart};
 use crate::components::node_state_form::NodeStateForm;
-use config::prelude::deserialize_into_config;
 use config::SectionIO;
 use config_registry::ConfigMetaData;
 use dioxus::prelude::*;
@@ -733,14 +732,8 @@ pub fn Workspace(workspace: String) -> Element {
             let graph = &mut *graph.write();
             daemons.set(workspace_state.daemons.clone());
             for node in workspace_state.nodes.iter() {
-                let config = match config_registry.build_config(node.config.name()) {
-                    Ok(mut config) => {
-                        if let Err(e) = deserialize_into_config(&*node.config, &mut *config) {
-                            tracing::error!("failed to deserialize into config: {e}");
-                            continue;
-                        }
-                        config
-                    }
+                let config = match config_registry.deserialize_config(&*node.config) {
+                    Ok(config) => config,
                     Err(e) => {
                         tracing::error!("failed to build config for {}: {e}", node.config.name());
                         continue;

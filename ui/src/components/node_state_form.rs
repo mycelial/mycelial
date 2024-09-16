@@ -23,7 +23,7 @@ pub struct NodeState {
     pub h: f64,
     #[serde(skip)]
     pub port_diameter: f64,
-    pub config: Box<dyn config::Config>,
+    pub config: Box<dyn config_registry::Config>,
     pub daemon_id: Option<Uuid>,
 }
 
@@ -36,7 +36,7 @@ impl Clone for NodeState {
             w: self.w,
             h: self.h,
             port_diameter: self.port_diameter,
-            config: self.config.clone_config(),
+            config: self.config.clone(),
             daemon_id: self.daemon_id,
         }
     }
@@ -47,7 +47,7 @@ impl NodeState {
         id: Uuid,
         x: f64,
         y: f64,
-        config: Box<dyn config::Config>,
+        config: Box<dyn config_registry::Config>,
         daemon_id: Option<Uuid>,
     ) -> Self {
         Self {

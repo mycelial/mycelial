@@ -8,7 +8,10 @@ use section::{
 };
 use std::{collections::HashSet, pin::pin};
 
-use crate::{escape, generate_schema};
+use crate::{
+    message::{escape, generate_schema},
+    PostgresDestination,
+};
 use log::LevelFilter;
 use sqlx::{
     postgres::PgConnectOptions, types::chrono::NaiveDateTime, ConnectOptions, Connection,
@@ -17,26 +20,35 @@ use sqlx::{
 use std::str::FromStr;
 use std::time::Duration;
 
-#[derive(Debug)]
-pub struct Postgres {
+struct PostgresDestinationInner {
     url: String,
     schema: String,
     truncate: bool,
-    max_parameters: usize,
+    max_parameters: u32,
 }
 
-impl Postgres {
+impl From<PostgresDestination> for PostgresDestinationInner {
+    fn from(value: PostgresDestination) -> Self {
+        let url = format!(
+            "postgres://{}:{}@{}:{}/{}",
+            value.user, value.password, value.host, value.port, value.database
+        );
+        PostgresDestinationInner::new(url, value.schema, value.truncate, value.max_parameters)
+    }
+}
+
+impl PostgresDestinationInner {
     pub fn new(
         url: impl Into<String>,
         schema: impl Into<String>,
         truncate: bool,
-        max_parameters: Option<usize>,
+        max_parameters: u32,
     ) -> Self {
         Self {
             url: url.into(),
             schema: escape(schema.into()),
             truncate,
-            max_parameters: max_parameters.unwrap_or(65535),
+            max_parameters,
         }
     }
 
@@ -104,7 +116,7 @@ impl Postgres {
                         let mut count = 0;
                         let data_types = columns.iter().map(|col| col.data_type()).collect::<Vec<_>>();
                         while let Some(row) = columns.iter_mut().map(|col| col.next()).collect::<Option<Vec<_>>>() {
-                            if count + row.len() >= self.max_parameters {
+                            if count + row.len() >= self.max_parameters as usize {
                                 count = 0;
                                 query.build().execute(&mut *transaction).await?;
                                 query = QueryBuilder::new(&insert_query);
@@ -180,7 +192,7 @@ fn to_naive_date(tu: TimeUnit, t: i64) -> Option<NaiveDateTime> {
     .map(|d| d.naive_utc())
 }
 
-impl<Input, Output, SectionChan> Section<Input, Output, SectionChan> for Postgres
+impl<Input, Output, SectionChan> Section<Input, Output, SectionChan> for PostgresDestination
 where
     Input: Stream<Item = SectionMessage> + Send + 'static,
     Output: Sink<SectionMessage, Error = SectionError> + Send + 'static,
@@ -190,6 +202,9 @@ where
     type Future = SectionFuture;
 
     fn start(self, input: Input, output: Output, command: SectionChan) -> Self::Future {
-        Box::pin(async move { self.enter_loop(input, output, command).await })
+        Box::pin(async move {
+            let inner: PostgresDestinationInner = self.into();
+            inner.enter_loop(input, output, command).await
+        })
     }
 }
