@@ -30,13 +30,6 @@ pub struct Graph {
 }
 
 impl Graph {
-    pub fn new() -> Self {
-        Self {
-            nodes: vec![],
-            edges: vec![],
-        }
-    }
-
     pub fn deserialize_node_configs(&mut self, registry: &ConfigRegistry) -> Result<()> {
         self.nodes
             .iter_mut()

@@ -323,6 +323,8 @@ impl Task {
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
+// FIXME:
+#[allow(unused)]
 pub enum TaskStatus {
     New,
     Starting,
@@ -334,10 +336,12 @@ pub struct TaskHandle {
     tx: UnboundedSender<TaskMessage>,
 }
 
+// FIXME:
+#[allow(unused)]
 impl TaskHandle {
     async fn status(&self) -> TaskStatus {
         let (reply_to, rx) = oneshot_channel();
-        if let Err(_) = self.tx.send(TaskMessage::Status { reply_to }) {
+        if self.tx.send(TaskMessage::Status { reply_to }).is_err() {
             return TaskStatus::Down;
         }
         match rx.await {
@@ -485,6 +489,8 @@ impl Scheduler {
     }
 }
 
+// FIXME:
+#[allow(unused)]
 enum SchedulerMessage {
     Schedule {
         raw_graph: RawGraph,

@@ -103,7 +103,7 @@ fn Doc() -> Element {
                 }
                 p {
                     class: "mb-2 ml-2 mt-2",
-                    "As the name implies, join tokens are one-time use only." 
+                    "As the name implies, join tokens are one-time use only."
                 }
                 p {
                     class: "mb-2 ml-2 mt-2",

@@ -273,6 +273,7 @@ pub enum WorkspaceOperation {
     },
 }
 
+#[allow(clippy::match_like_matches_macro)]
 impl WorkspaceOperation {
     fn needs_daemon_notification(&self) -> bool {
         match self {
