@@ -22,25 +22,25 @@ error: malformed parameters
 22 | #[section(output=)]
    | ^
 
-error: malformed parameters
+error: malformed parameters: ("input", "=", "foo")
   --> tests/compilation_fails_checks/bad_section_attributes.rs:28:1
    |
 28 | #[section(input=foo)]
    | ^
 
-error: malformed parameters
+error: malformed parameters: ("input", "=", "baz")
   --> tests/compilation_fails_checks/bad_section_attributes.rs:34:1
    |
 34 | #[section(input=baz)]
    | ^
 
-error: malformed parameters
+error: malformed parameters: ("inut", "=", "typo")
   --> tests/compilation_fails_checks/bad_section_attributes.rs:40:1
    |
 40 | #[section(inut=typo)]
    | ^
 
-error: malformed parameters
+error: malformed parameters: ("input", "-", "bin")
   --> tests/compilation_fails_checks/bad_section_attributes.rs:46:1
    |
 46 | #[section(input-bin)]
