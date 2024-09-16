@@ -1,13 +1,13 @@
 //! list or stream files from s3 bucket
 use std::{pin::pin, sync::Arc, time::Duration};
 
-use crate::{Result, StaticCredentialsProvider};
+use crate::{static_credentials_provider::StaticCredentialsProvider, Result, S3Source};
 use aws_config::{BehaviorVersion, Region, SdkConfig};
 use aws_sdk_s3::{config::SharedCredentialsProvider, Client};
 use section::prelude::*;
 
 #[derive(Debug)]
-pub struct S3Source {
+pub struct S3SourceInner {
     bucket: url::Url,
     region: String,
     access_key_id: String,
@@ -17,14 +17,30 @@ pub struct S3Source {
     interval: Duration,
 }
 
-impl S3Source {
+impl TryFrom<S3Source> for S3SourceInner {
+    type Error = SectionError;
+
+    fn try_from(value: S3Source) -> std::result::Result<Self, Self::Error> {
+        Self::new(
+            value.bucket.as_str(),
+            value.region,
+            value.access_key_id,
+            value.secret_key,
+            value.stream_binary,
+            value.start_after,
+            Duration::from_secs(value.interval),
+        )
+    }
+}
+
+impl S3SourceInner {
     pub fn new(
         bucket: impl AsRef<str>,
         region: impl Into<String>,
         access_key_id: impl Into<String>,
         secret_key: impl Into<String>,
         stream_binary: bool,
-        start_after: Option<impl AsRef<str>>,
+        start_after: impl Into<String>,
         interval: Duration,
     ) -> Result<Self> {
         let bucket = url::Url::try_from(bucket.as_ref())?;
@@ -32,7 +48,7 @@ impl S3Source {
             Err("expected url with 's3' schema")?
         };
         let region = region.into();
-        let start_after = start_after.as_ref().map(AsRef::as_ref).unwrap_or("").into();
+        let start_after = start_after.into();
         let access_key_id = access_key_id.into();
         let secret_key = secret_key.into();
         Ok(Self {
@@ -147,17 +163,18 @@ where
     type Future = SectionFuture;
 
     fn start(
-        mut self,
+        self,
         _input: Input,
         output: Output,
         mut section_channel: SectionChan,
     ) -> Self::Future {
         Box::pin(async move {
-            if self.stream_binary {
+            let mut inner: S3SourceInner = self.try_into()?;
+            if inner.stream_binary {
                 Err("binary streaming not yet implemented")?
             }
             let mut output = pin!(output);
-            let bucket = self
+            let bucket = inner
                 .bucket
                 .host()
                 .ok_or("bucket url doesn't contain host")?
@@ -165,34 +182,34 @@ where
             let config = SdkConfig::builder()
                 .credentials_provider(SharedCredentialsProvider::new(
                     StaticCredentialsProvider::new(
-                        self.access_key_id.clone(),
-                        self.secret_key.clone(),
+                        inner.access_key_id.clone(),
+                        inner.secret_key.clone(),
                     ),
                 ))
                 .behavior_version(BehaviorVersion::latest())
-                .region(Region::new(self.region.clone()))
+                .region(Region::new(inner.region.clone()))
                 .build();
             let client = Client::new(&config);
-            let prefix = self
+            let prefix = inner
                 .bucket
                 .path()
                 .strip_prefix('/')
                 .unwrap_or("")
                 .to_string();
-            self.bucket.set_path("");
+            inner.bucket.set_path("");
 
             let mut state = section_channel
                 .retrieve_state()
                 .await?
                 .unwrap_or(State::new());
             let mut start_after = state.get::<String>(START_AFTER_KEY)?.unwrap_or("".into());
-            start_after = self.start_after.clone().max(start_after);
-            let mut interval = tokio::time::interval(self.interval);
+            start_after = inner.start_after.clone().max(start_after);
+            let mut interval = tokio::time::interval(inner.interval);
             tracing::info!("start after: {start_after}");
             loop {
                 futures::select! {
                     cmd = section_channel.recv().fuse() => {
-                        if let HandleCommandResult::Stop = self.handle_command(cmd?, &mut state, &mut section_channel).await? {
+                        if let HandleCommandResult::Stop = inner.handle_command(cmd?, &mut state, &mut section_channel).await? {
                             return Ok(())
                         }
                     }
@@ -209,7 +226,7 @@ where
                             for object in result?.contents() {
                                 let key = object.key().ok_or("object without name")?.to_string();
                                 start_after = key.to_string();
-                                let path: Arc<str> = Arc::from(self.bucket.join(&key)?.to_string());
+                                let path: Arc<str> = Arc::from(inner.bucket.join(&key)?.to_string());
                                 let weak_chan = section_channel.weak_chan();
 
                                 let ack = Box::pin(async move { weak_chan.ack(Box::new(key)).await; });
@@ -224,7 +241,7 @@ where
                                 loop {
                                     futures::select!{
                                         cmd = section_channel.recv().fuse() => {
-                                            if let HandleCommandResult::Stop = self.handle_command(cmd?, &mut state, &mut section_channel).await? {
+                                            if let HandleCommandResult::Stop = inner.handle_command(cmd?, &mut state, &mut section_channel).await? {
                                                 return Ok(())
                                             }
                                         }

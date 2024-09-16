@@ -11,6 +11,7 @@ section = [
     "excel_connector/section",
     "inspect/section",
     "postgres_connector/section",
+    "s3/section",
 ]
 
 [dependencies]
@@ -23,3 +24,4 @@ dir = { path = "../sections/dir", default-features=false }
 excel_connector = { path = "../sections/excel_connector", default-features=false }
 inspect  = { path = "../sections/inspect", default-features=false }
 postgres_connector = { path = "../sections/postgres_connector", default-features=false }
+s3 = { path = "../sections/s3", default-features=false }

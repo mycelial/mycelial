@@ -1,4 +1,3 @@
-use std::time::Duration;
 
 use clap::Parser;
 use section::{dummy::DummySectionChannel, prelude::*, pretty_print::pretty_print};
@@ -24,16 +23,15 @@ async fn main() -> Result<(), SectionError> {
     tracing_subscriber::fmt::init();
     let cli = Cli::parse();
 
-    let source = s3::source::S3Source::new(
+    let source = s3::S3Source::new(
         cli.bucket,
         cli.region,
         cli.access_key_id,
         cli.secret_key,
         false,
-        None::<String>,
-        Duration::from_secs(5),
-    )
-    .unwrap();
+        "",
+        5,
+    );
 
     let (tx, rx) = channel::<SectionMessage>(1);
     let tx = PollSender::new(tx).sink_map_err(|_| "send error".into());

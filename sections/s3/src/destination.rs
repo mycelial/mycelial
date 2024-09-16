@@ -3,7 +3,7 @@ use std::{
     task::{Context, Poll},
 };
 
-use crate::{Result, StaticCredentialsProvider};
+use crate::{static_credentials_provider::StaticCredentialsProvider, Result, S3Destination};
 use aws_config::{BehaviorVersion, Region, SdkConfig};
 use aws_sdk_s3::{
     config::SharedCredentialsProvider,
@@ -16,7 +16,7 @@ use http_body::{Body, Frame, SizeHint};
 use section::prelude::*;
 
 #[derive(Debug)]
-pub struct S3Destination {
+pub struct S3DestinationInner {
     bucket: url::Url,
     region: String,
     access_key_id: String,
@@ -24,12 +24,27 @@ pub struct S3Destination {
     max_upload_part_size: usize,
 }
 
-impl S3Destination {
+impl TryFrom<S3Destination> for S3DestinationInner {
+    type Error = SectionError;
+
+    fn try_from(value: S3Destination) -> std::result::Result<Self, Self::Error> {
+        Self::new(
+            value.bucket.as_str(),
+            value.region,
+            value.access_key_id,
+            value.secret_key,
+            value.max_upload_part_size,
+        )
+    }
+}
+
+impl S3DestinationInner {
     pub fn new(
         bucket: impl AsRef<str>,
         region: impl Into<String>,
         access_key_id: impl Into<String>,
         secret_key: impl Into<String>,
+        max_upload_part_size: usize,
     ) -> Result<Self> {
         let url = url::Url::try_from(bucket.as_ref())?;
         let scheme = url.scheme();
@@ -44,7 +59,7 @@ impl S3Destination {
             region: region.into(),
             access_key_id: access_key_id.into(),
             secret_key: secret_key.into(),
-            max_upload_part_size: 1 << 23, // 8 MB
+            max_upload_part_size,
         })
     }
 
@@ -180,19 +195,20 @@ where
         mut section_channel: SectionChan,
     ) -> Self::Future {
         Box::pin(async move {
+            let inner: S3DestinationInner = self.try_into()?;
             let mut input = pin!(input);
             let config = SdkConfig::builder()
                 .credentials_provider(SharedCredentialsProvider::new(
                     StaticCredentialsProvider::new(
-                        self.access_key_id.clone(),
-                        self.secret_key.clone(),
+                        inner.access_key_id.clone(),
+                        inner.secret_key.clone(),
                     ),
                 ))
                 .behavior_version(BehaviorVersion::latest())
-                .region(Region::new(self.region.clone()))
+                .region(Region::new(inner.region.clone()))
                 .build();
             let client = Client::new(&config);
-            let bucket = self.bucket.host().unwrap().to_string();
+            let bucket = inner.bucket.host().unwrap().to_string();
             loop {
                 futures::select! {
                     cmd = section_channel.recv().fuse() => {
@@ -206,7 +222,7 @@ where
                             None => Err("input closed")?,
                             Some(msg) => msg,
                         };
-                        let key = self.bucket.join(msg.origin())?;
+                        let key = inner.bucket.join(msg.origin())?;
                         let key = key.path().strip_prefix('/').ok_or("bad object path")?;
                         let multipart_upload = client
                             .create_multipart_upload()
@@ -216,7 +232,7 @@ where
                             .await?;
                         let upload_id = multipart_upload.upload_id().ok_or("upload id missing")?;
                         let mut completed_parts = Vec::<CompletedPart>::new();
-                        let mut buf = ChunkBuffer::new(self.max_upload_part_size);
+                        let mut buf = ChunkBuffer::new(inner.max_upload_part_size);
                         let ack = msg.ack();
                         while let Some(chunk) = msg.next().await? {
                             let mut chunk = match chunk {
@@ -225,7 +241,7 @@ where
                             };
                             while let Some(rest) = buf.append(chunk) {
                                 chunk = rest;
-                                self.maybe_upload_part(
+                                inner.maybe_upload_part(
                                     &client,
                                     upload_id,
                                     &bucket,
@@ -236,7 +252,7 @@ where
                                 ).await?;
                             }
                         }
-                        self.maybe_upload_part(
+                        inner.maybe_upload_part(
                             &client,
                             upload_id,
                             &bucket,

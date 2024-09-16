@@ -22,7 +22,7 @@ members = [
     "sections/postgres_connector",
 ##  "sections/redshift_loader",
 ##  "sections/run",
-##  "sections/s3",
+    "sections/s3",
 ##  "sections/snowflake",
 ##  "sections/sqlite_connector",
 ##  "sections/tagging_transformer",

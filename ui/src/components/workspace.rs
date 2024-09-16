@@ -822,9 +822,9 @@ pub fn Workspace(workspace: String) -> Element {
             // section menu
             div {
                 div {
-                    class: "h-[calc(100vh-135px)] overflow-none select-none z-[100] min-w-96 max-w-96",
+                    class: "h-[calc(100vh-135px)] overflow-y-scroll select-none z-[100] min-w-96 max-w-96",
                     div {
-                        class: "border border-solid overflow-y-scroll bg-white grid grid-flow-rows gap-y-3 md:px-2 h-max-screen",
+                        class: "border border-solid overflow-none bg-white grid grid-flow-rows gap-y-3 md:px-2 h-max-screen",
                         h2 {
                             class: "justify-self-center mt-3",
                             "Pipeline Sections"

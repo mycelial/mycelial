@@ -93,13 +93,13 @@ async fn main() {
     tracing_subscriber::fmt::init();
     let cli = Cli::parse();
 
-    let destination = s3::destination::S3Destination::new(
+    let destination = s3::S3Destination::new(
         cli.bucket,
         cli.region,
         cli.access_key_id,
         cli.secret_key,
-    )
-    .unwrap();
+        1 << 23,
+    );
 
     let (tx, rx) = channel::<SectionMessage>(1);
     let rx = ReceiverStream::new(rx);

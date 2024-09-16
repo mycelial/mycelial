@@ -1,41 +1,98 @@
-use aws_credential_types::{
-    provider::future::ProvideCredentials as ProvideCredentialsFuture, Credentials,
-};
-use aws_sdk_s3::config::ProvideCredentials;
-use section::SectionError;
-
+#[cfg(feature = "section")]
 pub mod destination;
+#[cfg(feature = "section")]
 pub mod source;
+#[cfg(feature = "section")]
+pub(crate) mod static_credentials_provider;
 
-pub(crate) type Result<T, E = SectionError> = std::result::Result<T, E>;
+#[cfg(feature = "section")]
+pub(crate) type Result<T, E = section::SectionError> = std::result::Result<T, E>;
 
-#[derive(Debug)]
-pub(crate) struct StaticCredentialsProvider {
-    pub access_key_id: String,
-    pub secret_key: String,
+#[derive(Debug, Clone, config::Configuration)]
+#[section(output=bin_or_dataframe)]
+pub struct S3Source {
+    bucket: String,
+    region: String,
+    access_key_id: String,
+    #[field_type(password)]
+    secret_key: String,
+    stream_binary: bool,
+    start_after: String,
+    interval: u64,
 }
 
-impl StaticCredentialsProvider {
-    pub fn new(access_key_id: String, secret_key: String) -> Self {
+impl S3Source {
+    pub fn new(
+        bucket: impl Into<String>,
+        region: impl Into<String>,
+        access_key_id: impl Into<String>,
+        secret_key: impl Into<String>,
+        stream_binary: bool,
+        start_after: impl Into<String>,
+        interval: u64,
+    ) -> Self {
         Self {
-            access_key_id,
-            secret_key,
+            bucket: bucket.into(),
+            region: region.into(),
+            access_key_id: access_key_id.into(),
+            secret_key: secret_key.into(),
+            stream_binary,
+            start_after: start_after.into(),
+            interval,
         }
     }
 }
 
-impl ProvideCredentials for StaticCredentialsProvider {
-    fn provide_credentials<'a>(&'a self) -> ProvideCredentialsFuture<'a>
-    where
-        Self: 'a,
-    {
-        let credentials = Credentials::new(
-            &self.access_key_id,
-            &self.secret_key,
-            None,
-            None,
-            "StaticCredentials",
-        );
-        ProvideCredentialsFuture::new(async move { Ok(credentials) })
+impl Default for S3Source {
+    fn default() -> Self {
+        Self::new(
+            "s3://some_bucket/",
+            "us-east-1",
+            "access_key_id",
+            "",
+            false,
+            "",
+            30,
+        )
+    }
+}
+
+#[derive(Debug, Clone, config::Configuration)]
+#[section(input=bin)]
+pub struct S3Destination {
+    bucket: String,
+    region: String,
+    access_key_id: String,
+    secret_key: String,
+    max_upload_part_size: usize,
+}
+
+impl S3Destination {
+    pub fn new(
+        bucket: impl Into<String>,
+        region: impl Into<String>,
+        access_key_id: impl Into<String>,
+        secret_key: impl Into<String>,
+        max_upload_part_size: usize,
+    ) -> Self {
+        Self {
+            bucket: bucket.into(),
+            region: region.into(),
+            access_key_id: access_key_id.into(),
+            secret_key: secret_key.into(),
+            max_upload_part_size,
+        }
+    }
+}
+
+impl Default for S3Destination {
+    fn default() -> Self {
+        Self::new(
+            "s3://some-bucket/",
+            "us-east-1",
+            "access-key-id",
+            "",
+            1 << 23, // 8 MB
+        )
     }
 }
