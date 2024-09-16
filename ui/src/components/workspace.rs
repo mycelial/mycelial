@@ -344,6 +344,8 @@ struct ViewPortState {
     delta_x: f64,
     delta_y: f64,
     grabbed: bool,
+    // menu scroll top to compensate for scrolling offset
+    scroll_top: i32,
 }
 
 impl ViewPortState {
@@ -354,6 +356,7 @@ impl ViewPortState {
             delta_x: 0.0,
             delta_y: 0.0,
             grabbed: false,
+            scroll_top: 0,
         }
     }
 
@@ -423,7 +426,7 @@ fn ViewPort(
                     let node_state = Signal::new(NodeState::new(
                         id,
                         coords.x - *delta_x - vps_ref.delta_x(),
-                        coords.y - *delta_y - vps_ref.delta_y(),
+                        coords.y - *delta_y - vps_ref.delta_y() - vps_ref.scroll_top as f64,
                         config,
                         None,
                     ));
@@ -764,10 +767,11 @@ pub fn Workspace(workspace: String) -> Element {
     let mut dragged_edge: Signal<Option<DraggedEdge>> = use_signal(|| None);
     let mut selected_node: Signal<Option<Signal<NodeState>>> = use_signal(|| None);
     let disable_drag: Signal<bool> = use_signal(|| false);
-    let view_port_state = use_signal(ViewPortState::new);
+    let mut view_port_state = use_signal(ViewPortState::new);
     let menu_items = config_registry
         .iter_values()
         .collect::<Vec<ConfigMetaData>>();
+    let mut mounted_data = use_signal(|| None);
 
     rsx! {
         div {
@@ -823,6 +827,17 @@ pub fn Workspace(workspace: String) -> Element {
             div {
                 div {
                     class: "h-[calc(100vh-135px)] overflow-y-scroll select-none z-[100] min-w-96 max-w-96",
+                    onmounted: move |event| {
+                        // keep track of the element to record scroll top value of the menu
+                        mounted_data.set(Some(event.data));
+                    },
+                    onscroll: move |_| {
+                        if let Some(data) = &*mounted_data.read() {
+                            if let Some(element) = data.downcast::<web_sys::Element>() {
+                                view_port_state.write().scroll_top = element.scroll_top();
+                            }
+                        }
+                    },
                     div {
                         class: "border border-solid overflow-none bg-white grid grid-flow-rows gap-y-3 md:px-2 h-max-screen",
                         h2 {
