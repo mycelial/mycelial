@@ -3,13 +3,21 @@ name = "redshift_loader"
 version = "0.1.0"
 edition = "2021"
 
+[features]
+default = ["section"]
+section = [
+    "dep:tokio", "dep:sqlx", "dep:section",
+    "dep:chrono", "dep:log", "dep:tracing",
+]
+
 [dependencies]
-tokio = { version = "1", features = ["full"] }
-sqlx = { version = "0.7", features = ["postgres", "runtime-tokio", "tls-rustls", "rust_decimal", "chrono", "uuid"] }
-section = { path = "../../../section/" }
-chrono = "0.4"
-log = "0.4"
-tracing = "0.1"
+tokio = { version = "1", features = ["full"], optional=true}
+sqlx = { version = "0.7", features = ["postgres", "runtime-tokio", "tls-rustls", "rust_decimal", "chrono", "uuid"], optional=true }
+section = { path = "../../section/", optional=true }
+chrono = { version = "0.4", optional=true}
+log = { version = "0.4", optional=true}
+tracing = { version = "0.1", optional=true }
+config = { path = "../../config" }
 
 [dev-dependencies]
 stub = { path = "../stub" }

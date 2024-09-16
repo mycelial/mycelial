@@ -6,8 +6,16 @@ use tokio_stream::wrappers::ReceiverStream;
 
 #[derive(Parser)]
 struct Cli {
-    #[clap(short, long, env = "DATABASE_URL")]
-    database_url: String,
+    #[clap(short, long, env = "REDSHIFT_HOST")]
+    host: String,
+    #[clap(short, long, env = "REDSHIFT_PORT")]
+    port: u16,
+    #[clap(short, long, env = "REDSHIFT_USER")]
+    user: String,
+    #[clap(short, long, env = "REDSHIFT_PASSWORD")]
+    password: String,
+    #[clap(short, long, env = "REDSHIFT_DATABASE")]
+    database: String,
     #[clap(short, long, env = "OBJECT")]
     object: String,
     #[clap(short, long, env = "REGION")]
@@ -60,7 +68,11 @@ async fn main() -> Result<(), SectionError> {
     let cli = Cli::parse();
 
     let redshift_loader = redshift_loader::RedshiftLoader::new(
-        &cli.database_url,
+        &cli.host,
+        cli.port,
+        &cli.user,
+        &cli.password,
+        &cli.database,
         &cli.iam_role,
         &cli.region,
         "CSV",

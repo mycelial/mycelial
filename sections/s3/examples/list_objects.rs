@@ -1,4 +1,3 @@
-
 use clap::Parser;
 use section::{dummy::DummySectionChannel, prelude::*, pretty_print::pretty_print};
 use stub::Stub;

@@ -30,9 +30,10 @@ pub fn new<Chan: SectionChannel>() -> Result<ConfigRegistry<Chan>> {
     registry.add_config(|| Box::from(dir::DirSource::default()))?;
     registry.add_config(|| Box::from(excel_connector::Excel::default()))?;
     registry.add_config(|| Box::from(inspect::Inspect {}))?;
-    registry.add_config(|| Box::from(postgres_connector::PostgresSource::default()))?;
     registry.add_config(|| Box::from(postgres_connector::PostgresDestination::default()))?;
-    registry.add_config(|| Box::from(s3::S3Source::default()))?;
+    registry.add_config(|| Box::from(postgres_connector::PostgresSource::default()))?;
+    registry.add_config(|| Box::from(redshift_loader::RedshiftLoader::default()))?;
     registry.add_config(|| Box::from(s3::S3Destination::default()))?;
+    registry.add_config(|| Box::from(s3::S3Source::default()))?;
     Ok(registry)
 }
