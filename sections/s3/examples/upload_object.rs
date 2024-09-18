@@ -94,6 +94,7 @@ async fn main() {
     let cli = Cli::parse();
 
     let destination = s3::S3Destination::new(
+        "",
         cli.bucket,
         cli.region,
         cli.access_key_id,

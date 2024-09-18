@@ -23,6 +23,7 @@ async fn main() -> Result<(), SectionError> {
     let cli = Cli::parse();
 
     let source = s3::S3Source::new(
+        "",
         cli.bucket,
         cli.region,
         cli.access_key_id,

@@ -71,4 +71,10 @@ impl<Chan: SectionChannel> ConfigRegistry<Chan> {
         deserialize_into_config(raw_config, &mut *config)?;
         Ok(config)
     }
+
+    // deserialize and update config
+    pub fn deserialize_from_config(&self, from: &dyn Config, to: &mut dyn Config) -> Result<()> {
+        deserialize_into_config(from, to)?;
+        Ok(())
+    }
 }

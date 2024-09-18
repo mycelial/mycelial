@@ -335,33 +335,53 @@ where
                         .and_where(Expr::col(Edges::FromId).eq(from))
                         .build_any_sqlx(&*self.query_builder),
                     WorkspaceOperation::UpdateNodeConfig { id, ref config } => {
+                        // UI sends partial config updates since UI is not able to send full updates due to stripped secret
+                        // this function needs to extract old config value from database and update only specific fields
                         let (query, values) = Query::select()
                             .columns([Nodes::Config])
                             .from(Nodes::Table)
                             .and_where(Expr::col(Nodes::Id).eq(id))
                             .lock_exclusive()
                             .build_any_sqlx(&*self.query_builder);
-                        let cur_config = match sqlx::query_with(&query, values)
+
+                        let updated_config = match sqlx::query_with(&query, values)
                             .fetch_optional(&mut *transaction)
                             .await?
                         {
-                            Some(_) => {
-                                config_registry.deserialize_config(&**config).map_err(|e| {
-                                    anyhow::anyhow!(
-                                        "failed to deserialize into config: {}: {e}",
-                                        config.name()
-                                    )
-                                })?
+                            Some(row) => {
+                                let stored_config = row.get::<Json<_>, _>(0).0;
+                                let stored_config: Box<dyn config_registry::Config> =
+                                    serde_json::from_value(stored_config)?;
+                                // build real config to properly type check incoming raw config
+                                let mut stored_config = config_registry
+                                    .deserialize_config(&*stored_config)
+                                    .map_err(|e| {
+                                        anyhow::anyhow!(
+                                            "failed to build config '{}': {e}",
+                                            stored_config.name()
+                                        )
+                                    })?;
+                                // deserialize raw config values into stored config to update changed fields
+                                config_registry
+                                    .deserialize_from_config(&**config, &mut *stored_config)
+                                    .map_err(|e| {
+                                        anyhow::anyhow!(
+                                            "failed to build config '{}': {e}",
+                                            stored_config.name()
+                                        )
+                                    })?;
+                                stored_config
                             }
                             None => {
                                 tracing::error!("can't update node config for node with id {id}, node not found");
                                 continue;
                             }
                         };
-                        let config_json = serde_json::to_string(&*cur_config)?;
+                        tracing::info!("updated config: {:?}", updated_config);
+                        let json = serde_json::to_string(&*updated_config)?;
                         Query::update()
                             .table(Nodes::Table)
-                            .values([(Nodes::Config, config_json.into())])
+                            .values([(Nodes::Config, json.into())])
                             .and_where(Expr::col(Nodes::Id).eq(id))
                             .build_any_sqlx(&*self.query_builder)
                     }

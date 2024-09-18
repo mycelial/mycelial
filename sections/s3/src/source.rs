@@ -8,6 +8,7 @@ use section::prelude::*;
 
 #[derive(Debug)]
 pub struct S3SourceInner {
+    endpoint: Option<url::Url>,
     bucket: url::Url,
     region: String,
     access_key_id: String,
@@ -22,6 +23,7 @@ impl TryFrom<S3Source> for S3SourceInner {
 
     fn try_from(value: S3Source) -> std::result::Result<Self, Self::Error> {
         Self::new(
+            value.endpoint.as_str(),
             value.bucket.as_str(),
             value.region,
             value.access_key_id,
@@ -34,7 +36,9 @@ impl TryFrom<S3Source> for S3SourceInner {
 }
 
 impl S3SourceInner {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
+        endpoint: impl AsRef<str>,
         bucket: impl AsRef<str>,
         region: impl Into<String>,
         access_key_id: impl Into<String>,
@@ -43,6 +47,10 @@ impl S3SourceInner {
         start_after: impl Into<String>,
         interval: Duration,
     ) -> Result<Self> {
+        let endpoint = match endpoint.as_ref() {
+            "" => None,
+            endpoint => Some(endpoint.parse()?),
+        };
         let bucket = url::Url::try_from(bucket.as_ref())?;
         if bucket.scheme() != "s3" {
             Err("expected url with 's3' schema")?
@@ -52,6 +60,7 @@ impl S3SourceInner {
         let access_key_id = access_key_id.into();
         let secret_key = secret_key.into();
         Ok(Self {
+            endpoint,
             bucket,
             region,
             stream_binary,
@@ -187,8 +196,16 @@ where
                     ),
                 ))
                 .behavior_version(BehaviorVersion::latest())
-                .region(Region::new(inner.region.clone()))
-                .build();
+                .region(Region::new(inner.region.clone()));
+            let config = match inner.endpoint.take() {
+                None => config,
+                Some(endpoint) => {
+                    tracing::info!("using custom endpoint: {}", endpoint);
+                    config.endpoint_url(endpoint)
+                }
+            }
+            .build();
+
             let client = Client::new(&config);
             let prefix = inner
                 .bucket

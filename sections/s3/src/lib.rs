@@ -11,6 +11,7 @@ pub(crate) type Result<T, E = section::SectionError> = std::result::Result<T, E>
 #[derive(Debug, Clone, config::Configuration)]
 #[section(output=bin_or_dataframe)]
 pub struct S3Source {
+    endpoint: String,
     bucket: String,
     region: String,
     access_key_id: String,
@@ -22,7 +23,9 @@ pub struct S3Source {
 }
 
 impl S3Source {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
+        endpoint: impl Into<String>,
         bucket: impl Into<String>,
         region: impl Into<String>,
         access_key_id: impl Into<String>,
@@ -32,6 +35,7 @@ impl S3Source {
         interval: u64,
     ) -> Self {
         Self {
+            endpoint: endpoint.into(),
             bucket: bucket.into(),
             region: region.into(),
             access_key_id: access_key_id.into(),
@@ -46,6 +50,7 @@ impl S3Source {
 impl Default for S3Source {
     fn default() -> Self {
         Self::new(
+            "",
             "s3://some_bucket/",
             "us-east-1",
             "access_key_id",
@@ -60,6 +65,7 @@ impl Default for S3Source {
 #[derive(Debug, Clone, config::Configuration)]
 #[section(input=bin)]
 pub struct S3Destination {
+    endpoint: String,
     bucket: String,
     region: String,
     access_key_id: String,
@@ -69,6 +75,7 @@ pub struct S3Destination {
 
 impl S3Destination {
     pub fn new(
+        endpoint: impl Into<String>,
         bucket: impl Into<String>,
         region: impl Into<String>,
         access_key_id: impl Into<String>,
@@ -76,6 +83,7 @@ impl S3Destination {
         max_upload_part_size: usize,
     ) -> Self {
         Self {
+            endpoint: endpoint.into(),
             bucket: bucket.into(),
             region: region.into(),
             access_key_id: access_key_id.into(),
@@ -88,6 +96,7 @@ impl S3Destination {
 impl Default for S3Destination {
     fn default() -> Self {
         Self::new(
+            "",
             "s3://some-bucket/",
             "us-east-1",
             "access-key-id",
