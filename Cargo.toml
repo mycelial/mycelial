@@ -13,8 +13,8 @@ members = [
 
     "sections/dir",
     "sections/excel_connector",
-##  "sections/exec",
-##  "sections/file",
+#   "sections/exec",
+#   "sections/file",
     "sections/inspect",
 ##  "sections/kafka_connector",
 ##  "sections/mysql_connector",

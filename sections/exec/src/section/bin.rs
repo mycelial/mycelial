@@ -61,6 +61,13 @@ impl Message for Msg {
     }
 }
 
+pub struct ExecBin {
+    command: String,
+    args: String,
+    ack_passthrough: bool,
+    env: Vec<(String, String)>,
+}
+
 impl ExecBin {
     pub fn new(
         command: &str,
