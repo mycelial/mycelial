@@ -17,6 +17,7 @@ use section::prelude::*;
 
 #[derive(Debug)]
 pub struct S3DestinationInner {
+    endpoint: Option<url::Url>,
     bucket: url::Url,
     region: String,
     access_key_id: String,
@@ -29,6 +30,7 @@ impl TryFrom<S3Destination> for S3DestinationInner {
 
     fn try_from(value: S3Destination) -> std::result::Result<Self, Self::Error> {
         Self::new(
+            value.endpoint.as_str(),
             value.bucket.as_str(),
             value.region,
             value.access_key_id,
@@ -40,12 +42,17 @@ impl TryFrom<S3Destination> for S3DestinationInner {
 
 impl S3DestinationInner {
     pub fn new(
+        endpoint: impl AsRef<str>,
         bucket: impl AsRef<str>,
         region: impl Into<String>,
         access_key_id: impl Into<String>,
         secret_key: impl Into<String>,
         max_upload_part_size: usize,
     ) -> Result<Self> {
+        let endpoint = match endpoint.as_ref() {
+            "" => None,
+            endpoint => Some(endpoint.parse()?),
+        };
         let url = url::Url::try_from(bucket.as_ref())?;
         let scheme = url.scheme();
         if scheme != "s3" {
@@ -55,6 +62,7 @@ impl S3DestinationInner {
             Err("s3 url host missing")?
         }
         Ok(Self {
+            endpoint,
             bucket: url::Url::try_from(bucket.as_ref())?,
             region: region.into(),
             access_key_id: access_key_id.into(),
@@ -195,7 +203,7 @@ where
         mut section_channel: SectionChan,
     ) -> Self::Future {
         Box::pin(async move {
-            let inner: S3DestinationInner = self.try_into()?;
+            let mut inner: S3DestinationInner = self.try_into()?;
             let mut input = pin!(input);
             let config = SdkConfig::builder()
                 .credentials_provider(SharedCredentialsProvider::new(
@@ -205,8 +213,17 @@ where
                     ),
                 ))
                 .behavior_version(BehaviorVersion::latest())
-                .region(Region::new(inner.region.clone()))
-                .build();
+                .region(Region::new(inner.region.clone()));
+            let config = match inner.endpoint.take() {
+                None => config,
+                Some(endpoint) => {
+                    tracing::info!("using custom endpoint: {}", endpoint);
+                    config
+                        .region(Some(Region::new("localhost")))
+                        .endpoint_url(endpoint)
+                }
+            }
+            .build();
             let client = Client::new(&config);
             let bucket = inner.bucket.host().unwrap().to_string();
             loop {

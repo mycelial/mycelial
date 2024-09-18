@@ -201,7 +201,10 @@ where
                 None => config,
                 Some(endpoint) => {
                     tracing::info!("using custom endpoint: {}", endpoint);
-                    config.endpoint_url(endpoint)
+                    config
+                        // FIXME: region is ignored for custom endpoint
+                        .region(Some(Region::new("localhost")))
+                        .endpoint_url(endpoint)
                 }
             }
             .build();
