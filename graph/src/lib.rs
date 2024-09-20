@@ -90,6 +90,23 @@ impl<K: GraphKey, V: GraphValue> Graph<K, V> {
         ops
     }
 
+    // Add edge partial edge
+    //
+    // Function doesn't generate graph operations since it's not supposed to be used by UI.
+    // For now function is used only in myceliald scheduler.
+    // Connected nodes of the graph can be scheduled on different machines.
+    // Edge, which connects such nodes can't be added to graph via `add_edge` function, since from_node or to_node
+    // doesn't exist in such partial graph.
+    pub fn add_edge_partial(&mut self, from_node: K, to_node: K) {
+        if self.nodes.contains_key(&from_node) || self.nodes.contains_key(&to_node) {
+            self.edges.insert(from_node, to_node);
+        }
+    }
+
+    pub fn add_edge_unchecked(&mut self, from_node: K, to_node: K) {
+        self.edges.insert(from_node, to_node);
+    }
+
     pub fn get_child_node(&self, from_node: K) -> Option<&V> {
         match self.edges.get(&from_node).copied() {
             Some(to_node) => self.get_node(to_node),
@@ -131,40 +148,63 @@ impl<K: GraphKey, V: GraphValue> Graph<K, V> {
 
     pub fn get_subgraphs(&self) -> Vec<Graph<K, V>> {
         let mut graphs = Vec::<Graph<K, V>>::new();
-        let mut node_stack = Vec::<(K, V)>::new();
+        let mut stack = Vec::<StackItem<K, V>>::new();
         let mut visited = BTreeMap::<K, usize>::new();
-        for (mut key, node) in self.iter_nodes() {
-            if visited.contains_key(&key) {
+
+        #[derive(Debug)]
+        enum StackItem<K, V> {
+            Node(K, V),
+            Edge(K, K),
+        }
+
+        let nodes = self
+            .iter_nodes()
+            .map(|(id, _)| id)
+            .chain(self.edges.iter().flat_map(|(from, to)| [*from, *to]))
+            .collect::<Vec<K>>();
+
+        for node in nodes {
+            if visited.contains_key(&node) {
                 continue;
             }
             let graph_index;
-            node_stack.push((key, node.clone()));
+            let mut key = node;
             loop {
+                if let Some(index) = visited.get(&key) {
+                    graph_index = *index;
+                    break;
+                }
+                // graph can be partial
+                if let Some(node) = self.nodes.get(&key) {
+                    stack.push(StackItem::Node(key, node.clone()));
+                }
                 match self.edges.get(&key) {
+                    Some(to_node) => {
+                        stack.push(StackItem::Edge(key, *to_node));
+                        key = *to_node;
+                    }
                     None => {
                         graph_index = graphs.len();
                         graphs.push(Graph::new());
                         break;
                     }
-                    Some(next_key) => match visited.get(next_key) {
-                        Some(index) => {
-                            graph_index = *index;
-                            break;
-                        }
-                        None => {
-                            node_stack.push((*next_key, self.nodes.get(next_key).unwrap().clone()));
-                            key = *next_key;
-                        }
-                    },
                 }
             }
-            let sub_graph = graphs.get_mut(graph_index).unwrap();
-            while let Some((key, node)) = node_stack.pop() {
-                sub_graph.add_node(key, node);
-                if let Some(to) = self.edges.get(&key) {
-                    sub_graph.add_edge(key, *to);
+            let graph = graphs.get_mut(graph_index).unwrap();
+            while let Some(item) = stack.pop() {
+                match item {
+                    StackItem::Node(key, node) => {
+                        visited.insert(key, graph_index);
+                        graph.add_node(key, node);
+                    }
+                    StackItem::Edge(from, to) => {
+                        visited.insert(to, graph_index);
+                        // edge can be inserted before node
+                        // so we need to add edge without any checks here
+                        // it's safe, since stack of items can be build only from checked graph
+                        graph.add_edge_unchecked(from, to)
+                    }
                 }
-                visited.insert(key, graph_index);
             }
         }
         graphs
@@ -358,6 +398,7 @@ mod test {
             &mut graph,
             &mut [(1, 2), (2, 4), (5, 2), (3, 4), (6, 7), (8, 3)].into_iter(),
         );
+
         assert_eq!(
             vec![
                 {
@@ -376,6 +417,32 @@ mod test {
                 { build_graph(&mut [9].into_iter()) },
             ],
             graph.get_subgraphs()
-        )
+        );
+    }
+
+    #[test]
+    fn test_subgraphs_partial_graph() {
+        let mut graph = Graph::new();
+        graph.add_node(1, 1);
+        graph.add_edge_partial(1, 2);
+        graph.add_node(3, 3);
+        graph.add_edge_partial(4, 3);
+        assert_eq!(
+            vec![
+                {
+                    let mut graph = Graph::new();
+                    graph.add_node(1, 1);
+                    graph.add_edge_partial(1, 2);
+                    graph
+                },
+                {
+                    let mut graph = Graph::new();
+                    graph.add_node(3, 3);
+                    graph.add_edge_partial(4, 3);
+                    graph
+                }
+            ],
+            graph.get_subgraphs()
+        );
     }
 }

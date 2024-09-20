@@ -14,8 +14,8 @@ use config_registry::ConfigRegistry;
 use derive_trait::derive_trait;
 use futures::future::BoxFuture;
 use sea_query::{
-    Expr, MysqlQueryBuilder, Order, PostgresQueryBuilder, Query, QueryBuilder, SchemaBuilder,
-    SqliteQueryBuilder,
+    Condition, Expr, MysqlQueryBuilder, Order, PostgresQueryBuilder, Query, QueryBuilder,
+    SchemaBuilder, SqliteQueryBuilder,
 };
 use sea_query_binder::{SqlxBinder, SqlxValues};
 use sqlx::{
@@ -377,7 +377,6 @@ where
                                 continue;
                             }
                         };
-                        tracing::info!("updated config: {:?}", updated_config);
                         let json = serde_json::to_string(&*updated_config)?;
                         Query::update()
                             .table(Nodes::Table)
@@ -737,7 +736,11 @@ where
             let (query, values) = Query::select()
                 .columns([Edges::FromId, Edges::ToId])
                 .from(Edges::Table)
-                .and_where(Expr::col(Edges::FromId).is_in(node_ids))
+                .cond_where(
+                    Condition::any()
+                        .add(Expr::col(Edges::FromId).is_in(node_ids.clone()))
+                        .add(Expr::col(Edges::ToId).is_in(node_ids)),
+                )
                 .build_any_sqlx(&*self.query_builder);
             let edges = sqlx::query_with(&query, values)
                 .fetch_all(&self.pool)

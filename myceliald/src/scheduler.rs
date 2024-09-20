@@ -130,11 +130,19 @@ impl Task {
                         match msg {
                             SectionRequest::Stopped{ id } => {
                                 let reason = match self.section_handles.remove(&id) {
-                                    Some(handle) => Some(handle.await),
-                                    None => None,
+                                    Some(handle) => {
+                                        match handle.await {
+                                            Ok(reason) => reason,
+                                            Err(_) => Err("<unavailable>".into())
+                                        }
+                                    },
+                                    None => Err("<unavailable>".into())
                                 };
                                 let section_name = self.graph.get_node(id).map(|node| node.name()).unwrap_or("");
-                                tracing::error!("section with id '{id}', section name: '{}' stopped, section result: {:?}", section_name, reason);
+                                tracing::error!(
+                                    "section '{section_name}' with id '{id}' stopped, reason: {:?}",
+                                     reason.err().unwrap_or("ok".into())
+                                );
                                 self.shutdown().await?;
                                 self.status = TaskStatus::Starting;
                                 break
@@ -157,7 +165,6 @@ impl Task {
                     msg = rx.recv() => {
                         let msg = match msg {
                             None => {
-                                tracing::error!("scheduler closed channel, shutting down task with id {}", self.id);
                                 self.shutdown().await.ok();
                                 return Ok(())
                             },
@@ -191,6 +198,8 @@ impl Task {
                 .and_modify(|vec| vec.push(from))
                 .or_insert(vec![from]);
         }
+        tracing::info!("graph: {:?}", self.graph);
+        tracing::info!("index: {index:?}");
 
         // edge case, when graph consists out of single ndoe
         if index.is_empty() {
@@ -409,12 +418,13 @@ impl Scheduler {
     //
     // FIXME: got large graph building and hashing can time some time, it would be nice to have yielding to allow scheduler to run other tasks
     async fn schedule(&mut self, raw_graph: RawGraph) -> Result<()> {
+        tracing::info!("raw graph: {:?}", raw_graph);
         let mut graph = Graph::new();
         for node in raw_graph.nodes.into_iter() {
             graph.add_node(node.id, node.config);
         }
         for edge in raw_graph.edges.into_iter() {
-            graph.add_edge(edge.from_id, edge.to_id);
+            graph.add_edge_partial(edge.from_id, edge.to_id);
         }
         let mut tasks = BTreeMap::new();
 
@@ -434,6 +444,7 @@ impl Scheduler {
             }
             tasks.insert(format!("{:x}", hasher.finalize()), graph);
         }
+        tracing::info!("tasks: {:?}", tasks);
 
         let mut to_delete = Vec::<String>::new();
         let mut to_add = Vec::<(String, Graph)>::new();
