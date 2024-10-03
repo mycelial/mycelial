@@ -67,6 +67,7 @@ pub enum RuntimeError {
     // Scheduler Errors
     TaskFailedToStart(StdError),
     SectionChannelAllocationError,
+    SectionOutputAlreadySet,
 
     // Section Storage Errors
     StorageError(StdError),

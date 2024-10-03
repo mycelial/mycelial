@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet};
 use std::hash::Hash;
 
 pub trait GraphKey: std::fmt::Debug + Copy + Ord + Hash {}
@@ -60,6 +60,13 @@ impl<K: GraphKey, V: GraphValue> Graph<K, V> {
         self.nodes.iter().map(|(id, node_state)| (*id, node_state))
     }
 
+    // iter all nodes, including 'dangling' ones
+    pub fn all_nodes(&self) -> BTreeSet<K> {
+        self.nodes.keys().copied()
+            .chain(self.edges.iter().flat_map(|(from, to)| [*from, *to]))
+            .collect()
+    }
+
     pub fn node_count(&self) -> usize {
         self.nodes.len()
     }
@@ -85,8 +92,12 @@ impl<K: GraphKey, V: GraphValue> Graph<K, V> {
         ops
     }
 
+    pub fn get_edge(&self, from_node: K) -> Option<K> {
+        self.edges.get(&from_node).copied()
+    }
+
     fn check_loop(&self, from_node: K, to_node: K) -> bool {
-        let mut visited = HashSet::<K>::from_iter([from_node, to_node]);
+        let mut visited = BTreeSet::<K>::from_iter([from_node, to_node]);
         let mut next = to_node;
         while let Some(node) = self.edges.get(&next).copied() {
             if !visited.insert(node) {
@@ -174,17 +185,11 @@ impl<K: GraphKey, V: GraphValue> Graph<K, V> {
             Edge(K, K),
         }
 
-        let nodes = self
-            .iter_nodes()
-            .map(|(id, _)| id)
-            .chain(self.edges.iter().flat_map(|(from, to)| [*from, *to]))
-            .collect::<Vec<K>>();
-
-        for node in nodes {
+        for node in self.all_nodes() {
             if visited.contains_key(&node) {
                 continue;
             }
-            let graph_index;
+            let mut graph_index = graphs.len();
             let mut key = node;
             loop {
                 if let Some(index) = visited.get(&key) {
@@ -196,26 +201,40 @@ impl<K: GraphKey, V: GraphValue> Graph<K, V> {
                     stack.push(StackItem::Node(key, node.clone()));
                 }
                 match self.edges.get(&key) {
-                    Some(to_node) => {
+                    Some(to_node) if self.nodes.contains_key(to_node) => {
                         stack.push(StackItem::Edge(key, *to_node));
                         key = *to_node;
                     }
-                    None => {
+                    Some(to_node) => {
+                        stack.push(StackItem::Edge(key, *to_node));
                         graph_index = graphs.len();
                         graphs.push(Graph::new());
                         break;
                     }
+                    None => {
+                        if !stack.is_empty() {
+                            graphs.push(Graph::new());
+                        }
+                        break;
+                    }
                 }
+            }
+            if stack.is_empty() {
+                continue;
             }
             let graph = graphs.get_mut(graph_index).unwrap();
             while let Some(item) = stack.pop() {
                 match item {
                     StackItem::Node(key, node) => {
-                        visited.insert(key, graph_index);
+                        if self.nodes.contains_key(&key) {
+                            visited.insert(key, graph_index);
+                        }
                         graph.add_node(key, node);
                     }
                     StackItem::Edge(from, to) => {
-                        visited.insert(to, graph_index);
+                        if self.nodes.contains_key(&to) {
+                            visited.insert(to, graph_index);
+                        }
                         // edge can be inserted before node
                         // so we need to add edge without any checks here
                         // it's safe, since stack of items can be build only from checked graph
@@ -230,7 +249,7 @@ impl<K: GraphKey, V: GraphValue> Graph<K, V> {
 
 #[cfg(test)]
 mod test {
-    use std::collections::{HashMap, HashSet};
+    use std::collections::BTreeMap;
 
     use quickcheck::TestResult;
 
@@ -242,10 +261,10 @@ mod test {
     }
 
     #[test]
-    fn test_graph_add_iter_remove_node() {
+    fn graph_add_iter_remove_node() {
         let check = |input: Vec<u64>| -> TestResult {
             let mut graph = Graph::new();
-            let unique_ids: HashSet<u64> = HashSet::from_iter(input.iter().copied());
+            let unique_ids: BTreeSet<u64> = BTreeSet::from_iter(input.iter().copied());
 
             input.iter().for_each(|&id| {
                 graph.add_node(id, TestNode { id });
@@ -269,13 +288,13 @@ mod test {
     }
 
     #[test]
-    fn test_graph_add_iter_remove_edges() {
+    fn graph_add_iter_remove_edges() {
         let check = |input: Vec<u64>| -> TestResult {
             let mut graph = Graph::new();
             input.iter().for_each(|&id| {
                 graph.add_node(id, TestNode { id });
             });
-            let unique_ids: HashSet<u64> = HashSet::from_iter(input.iter().copied());
+            let unique_ids: BTreeSet<u64> = BTreeSet::from_iter(input.iter().copied());
             if unique_ids.len() < 2 {
                 return TestResult::discard();
             }
@@ -306,13 +325,13 @@ mod test {
     }
 
     #[test]
-    fn test_graph_edges_cleanup_on_node_removal() {
+    fn graph_edges_cleanup_on_node_removal() {
         let check = |input: Vec<u64>| -> TestResult {
             let mut graph = Graph::new();
             input.iter().for_each(|&id| {
                 graph.add_node(id, TestNode { id });
             });
-            let unique_ids: HashSet<u64> = HashSet::from_iter(input.iter().copied());
+            let unique_ids: BTreeSet<u64> = BTreeSet::from_iter(input.iter().copied());
             if unique_ids.len() < 2 {
                 return TestResult::discard();
             }
@@ -358,7 +377,7 @@ mod test {
     }
 
     #[test]
-    fn test_graph_edge_loop() {
+    fn graph_edge_loop() {
         let mut graph = Graph::new();
         graph.add_node(0, TestNode { id: 0 });
         graph.add_edge(0, 0);
@@ -366,10 +385,10 @@ mod test {
     }
 
     #[test]
-    fn test_prop_no_loops() {
+    fn prop_no_loops() {
         let check = |nodes: Vec<u64>| -> TestResult {
             let nodes = Vec::from_iter(
-                HashSet::<u64>::from_iter(nodes.iter().copied())
+                BTreeSet::<u64>::from_iter(nodes.iter().copied())
                     .iter()
                     .copied(),
             );
@@ -395,7 +414,7 @@ mod test {
     }
 
     #[test]
-    fn test_subgraphs() {
+    fn subgraphs() {
         let build_graph = |nodes: &mut dyn Iterator<Item = usize>| {
             let mut graph = Graph::new();
             nodes.for_each(|node| {
@@ -438,7 +457,7 @@ mod test {
     }
 
     #[test]
-    fn test_subgraphs_partial_graph() {
+    fn subgraphs_partial_graph() {
         let mut graph = Graph::new();
         graph.add_node(1, 1);
         graph.add_edge_partial(1, 2);
@@ -489,11 +508,11 @@ mod test {
 
     #[test]
     // splitted subgraphs in sum should result in exactly same graph
-    fn test_prop_subgraph_node_edge_count() {
-        let check = |prng_state: u64, edges: HashMap<u8, u8>| -> TestResult {
+    fn prop_subgraph_node_edge_count() {
+        let check = |prng_state: u64, edges: BTreeMap<u8, u8>| -> TestResult {
             let mut prng = XorShift::new(prng_state);
             let mut graph = Graph::new();
-            let mut initial_nodes = HashSet::new();
+            let mut initial_nodes = BTreeSet::new();
             for (from, to) in edges.iter().map(|(from, to)| (*from, *to)) {
                 // randomize dangling side
                 let node = match prng.next().unwrap() % 2 {
@@ -504,8 +523,8 @@ mod test {
                 initial_nodes.insert(node);
                 graph.add_edge_partial(from, to);
             }
-            let mut subgraph_total_nodes = HashSet::new();
-            let mut subgraph_total_edges = HashMap::new();
+            let mut subgraph_total_nodes = BTreeSet::new();
+            let mut subgraph_total_edges = BTreeMap::new();
             for graph in graph.get_subgraphs() {
                 for (key, _) in graph.iter_nodes() {
                     subgraph_total_nodes.insert(key);
@@ -516,21 +535,21 @@ mod test {
             }
             assert_eq!(initial_nodes, subgraph_total_nodes);
             assert_eq!(
-                graph.iter_edges().collect::<HashMap<_, _>>(),
+                graph.iter_edges().collect::<BTreeMap<_, _>>(),
                 subgraph_total_edges
             );
             TestResult::from_bool(true)
         };
-        quickcheck::quickcheck(check as fn(u64, HashMap<u8, u8>) -> TestResult);
+        quickcheck::quickcheck(check as fn(u64, BTreeMap<u8, u8>) -> TestResult);
     }
 
     #[test]
     // validate graphs are splitted correctly through alternative implementation of sub-graphing
-    fn test_prop_subgraph_validity() {
-        let check = |prng_state: u64, edges: HashMap<u8, u8>| -> TestResult {
+    fn prop_subgraph_validity() {
+        let check = |prng_state: u64, edges: BTreeMap<u8, u8>| -> TestResult {
             let mut prng = XorShift::new(prng_state);
             let mut initial_graph = Graph::new();
-            let mut initial_nodes = HashSet::new();
+            let mut initial_nodes = BTreeSet::new();
             for (from, to) in edges.iter().map(|(from, to)| (*from, *to)) {
                 // randomize dangling side
                 let node = match prng.next().unwrap() % 2 {
@@ -542,58 +561,72 @@ mod test {
                 initial_graph.add_edge_partial(from, to);
             }
             let mut graphs = vec![];
-            let mut nodes = initial_graph
-                .iter_nodes()
-                .map(|(id, _)| id)
-                .chain(
-                    initial_graph
-                        .edges
-                        .iter()
-                        .flat_map(|(from, to)| [*from, *to]),
-                )
-                .collect::<Vec<_>>();
-            let edges_hashmap = initial_graph.iter_edges().collect::<HashMap<_, _>>();
-            let mut visited = HashSet::<u8>::new();
+            let mut nodes = initial_graph.all_nodes().into_iter().collect::<Vec<_>>();
+            let edges_hashmap = initial_graph.iter_edges().collect::<BTreeMap<_, _>>();
+            let mut visited = BTreeSet::<u8>::new();
             while let Some(node) = nodes.pop() {
                 if visited.contains(&node) {
                     continue;
                 }
-                let graph = {
-                    graphs.push(Graph::new());
-                    graphs.last_mut().unwrap()
-                };
                 let mut stack = vec![node];
+
+                #[derive(Debug)]
+                enum GraphOp {
+                    AddNode(u8),
+                    AddEdge(u8, u8),
+                }
+                let mut graph_ops: Vec<GraphOp> = vec![];
+
                 while let Some(node) = stack.pop() {
-                    if initial_nodes.contains(&node) {
-                        graph.add_node(node, node);
+                    if !initial_nodes.contains(&node) {
+                        continue;
                     }
+                    graph_ops.push(GraphOp::AddNode(node));
                     edges_hashmap.iter().fold(&mut stack, |stack, (&f, &t)| {
                         // f is a parent
                         if t == node {
                             if !visited.contains(&f) {
-                                stack.push(f);
+                                if initial_nodes.contains(&f) {
+                                    stack.push(f);
+                                }
                                 visited.insert(f);
                             }
-                            graph.add_edge_partial(f, node)
+                            graph_ops.push(GraphOp::AddEdge(f, node));
                         }
                         // t is a child
                         if f == node {
                             if !visited.contains(&t) {
-                                stack.push(t);
+                                if initial_nodes.contains(&t) {
+                                    stack.push(t);
+                                }
                                 visited.insert(t);
                             }
-                            graph.add_edge_partial(node, t)
+                            graph_ops.push(GraphOp::AddEdge(node, t));
                         };
                         stack
                     });
+                }
+                if !graph_ops.is_empty() {
+                    let graph = {
+                        graphs.push(Graph::new());
+                        graphs.last_mut().unwrap()
+                    };
+                    while let Some(op) = graph_ops.pop() {
+                        match op {
+                            GraphOp::AddNode(node) => {
+                                graph.add_node(node, node);
+                            }
+                            GraphOp::AddEdge(from, to) => graph.add_edge_unchecked(from, to),
+                        }
+                    }
                 }
             }
             let mut subgraphs = initial_graph.get_subgraphs();
             subgraphs.sort();
             graphs.sort();
-            assert_eq!(initial_graph.get_subgraphs(), graphs,);
+            assert_eq!(subgraphs, graphs, "initial graph: {:?}", initial_graph);
             TestResult::from_bool(true)
         };
-        quickcheck::quickcheck(check as fn(u64, HashMap<u8, u8>) -> TestResult);
+        quickcheck::quickcheck(check as fn(u64, BTreeMap<u8, u8>) -> TestResult);
     }
 }
