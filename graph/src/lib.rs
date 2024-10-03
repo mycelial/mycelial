@@ -15,7 +15,7 @@ pub enum GraphOperation<K: GraphKey, T: GraphValue> {
     RemoveEdge(K, K),
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Graph<K: GraphKey, V: GraphValue> {
     nodes: BTreeMap<K, V>,
     edges: BTreeMap<K, K>,
@@ -75,19 +75,26 @@ impl<K: GraphKey, V: GraphValue> Graph<K, V> {
         if !(self.nodes.contains_key(&from_node) && self.nodes.contains_key(&to_node)) {
             return ops;
         };
-        let mut visited = HashSet::<K>::from_iter([from_node, to_node]);
-        let mut next = to_node;
-        while let Some(node) = self.edges.get(&next).copied() {
-            if !visited.insert(node) {
-                return ops;
-            };
-            next = node;
+        if self.check_loop(from_node, to_node) {
+            return ops;
         }
         if let Some(prev_node) = self.edges.insert(from_node, to_node) {
             ops.push(GraphOperation::RemoveEdge(from_node, prev_node));
         }
         ops.push(GraphOperation::AddEdge(from_node, to_node));
         ops
+    }
+
+    fn check_loop(&self, from_node: K, to_node: K) -> bool {
+        let mut visited = HashSet::<K>::from_iter([from_node, to_node]);
+        let mut next = to_node;
+        while let Some(node) = self.edges.get(&next).copied() {
+            if !visited.insert(node) {
+                return true;
+            };
+            next = node;
+        }
+        false
     }
 
     // Add edge partial edge
@@ -106,10 +113,10 @@ impl<K: GraphKey, V: GraphValue> Graph<K, V> {
             (true, true) => {
                 self.add_edge(from_node, to_node);
             }
-            (false, false) => (),
-            _ => {
+            (from, to) if from ^ to && !self.check_loop(from_node, to_node) => {
                 self.edges.insert(from_node, to_node);
             }
+            _ => (),
         }
     }
 
@@ -456,17 +463,45 @@ mod test {
         );
     }
 
+    #[derive(Debug, Clone, Copy)]
+    struct XorShift {
+        state: u64,
+    }
+
+    impl XorShift {
+        fn new(state: u64) -> Self {
+            Self {
+                state: state.max(1),
+            }
+        }
+    }
+
+    impl Iterator for XorShift {
+        type Item = u64;
+
+        fn next(&mut self) -> Option<Self::Item> {
+            self.state ^= self.state << 13;
+            self.state ^= self.state >> 7;
+            self.state ^= self.state << 17;
+            Some(self.state)
+        }
+    }
+
     #[test]
     // splitted subgraphs in sum should result in exactly same graph
-    fn test_prop_subgraph() {
-        let check = |edges: HashMap<u8, u8>| -> TestResult {
+    fn test_prop_subgraph_node_edge_count() {
+        let check = |prng_state: u64, edges: HashMap<u8, u8>| -> TestResult {
+            let mut prng = XorShift::new(prng_state);
             let mut graph = Graph::new();
             let mut initial_nodes = HashSet::new();
-            for (_, to) in edges.iter().map(|(from, to)| (*from, *to)) {
-                graph.add_node(to, to);
-                initial_nodes.insert(to);
-            }
             for (from, to) in edges.iter().map(|(from, to)| (*from, *to)) {
+                // randomize dangling side
+                let node = match prng.next().unwrap() % 2 {
+                    0 => from,
+                    _ => to,
+                };
+                graph.add_node(node, node);
+                initial_nodes.insert(node);
                 graph.add_edge_partial(from, to);
             }
             let mut subgraph_total_nodes = HashSet::new();
@@ -486,6 +521,79 @@ mod test {
             );
             TestResult::from_bool(true)
         };
-        quickcheck::quickcheck(check as fn(HashMap<u8, u8>) -> TestResult);
+        quickcheck::quickcheck(check as fn(u64, HashMap<u8, u8>) -> TestResult);
+    }
+
+    #[test]
+    // validate graphs are splitted correctly through alternative implementation of sub-graphing
+    fn test_prop_subgraph_validity() {
+        let check = |prng_state: u64, edges: HashMap<u8, u8>| -> TestResult {
+            let mut prng = XorShift::new(prng_state);
+            let mut initial_graph = Graph::new();
+            let mut initial_nodes = HashSet::new();
+            for (from, to) in edges.iter().map(|(from, to)| (*from, *to)) {
+                // randomize dangling side
+                let node = match prng.next().unwrap() % 2 {
+                    0 => from,
+                    _ => to,
+                };
+                initial_graph.add_node(node, node);
+                initial_nodes.insert(node);
+                initial_graph.add_edge_partial(from, to);
+            }
+            let mut graphs = vec![];
+            let mut nodes = initial_graph
+                .iter_nodes()
+                .map(|(id, _)| id)
+                .chain(
+                    initial_graph
+                        .edges
+                        .iter()
+                        .flat_map(|(from, to)| [*from, *to]),
+                )
+                .collect::<Vec<_>>();
+            let edges_hashmap = initial_graph.iter_edges().collect::<HashMap<_, _>>();
+            let mut visited = HashSet::<u8>::new();
+            while let Some(node) = nodes.pop() {
+                if visited.contains(&node) {
+                    continue;
+                }
+                let graph = {
+                    graphs.push(Graph::new());
+                    graphs.last_mut().unwrap()
+                };
+                let mut stack = vec![node];
+                while let Some(node) = stack.pop() {
+                    if initial_nodes.contains(&node) {
+                        graph.add_node(node, node);
+                    }
+                    edges_hashmap.iter().fold(&mut stack, |stack, (&f, &t)| {
+                        // f is a parent
+                        if t == node {
+                            if !visited.contains(&f) {
+                                stack.push(f);
+                                visited.insert(f);
+                            }
+                            graph.add_edge_partial(f, node)
+                        }
+                        // t is a child
+                        if f == node {
+                            if !visited.contains(&t) {
+                                stack.push(t);
+                                visited.insert(t);
+                            }
+                            graph.add_edge_partial(node, t)
+                        };
+                        stack
+                    });
+                }
+            }
+            let mut subgraphs = initial_graph.get_subgraphs();
+            subgraphs.sort();
+            graphs.sort();
+            assert_eq!(initial_graph.get_subgraphs(), graphs,);
+            TestResult::from_bool(true)
+        };
+        quickcheck::quickcheck(check as fn(u64, HashMap<u8, u8>) -> TestResult);
     }
 }

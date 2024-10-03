@@ -94,6 +94,7 @@ impl Task {
                             },
                             Err(e) => {
                                 tracing::error!("task with id {} failed to start: {e}", self.id);
+                                tokio::time::sleep(Duration::from_secs(3)).await;
                             }
                         }
                     },
