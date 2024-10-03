@@ -97,9 +97,19 @@ impl<K: GraphKey, V: GraphValue> Graph<K, V> {
     // Connected nodes of the graph can be scheduled on different machines.
     // Edge, which connects such nodes can't be added to graph via `add_edge` function, since from_node or to_node
     // doesn't exist in such partial graph.
+    // if both from_node and to_node exists in the graph - checked add edge will be performed to avoid forming loops
     pub fn add_edge_partial(&mut self, from_node: K, to_node: K) {
-        if self.nodes.contains_key(&from_node) || self.nodes.contains_key(&to_node) {
-            self.edges.insert(from_node, to_node);
+        match (
+            self.nodes.contains_key(&from_node),
+            self.nodes.contains_key(&to_node),
+        ) {
+            (true, true) => {
+                self.add_edge(from_node, to_node);
+            }
+            (false, false) => (),
+            _ => {
+                self.edges.insert(from_node, to_node);
+            }
         }
     }
 
@@ -213,7 +223,7 @@ impl<K: GraphKey, V: GraphValue> Graph<K, V> {
 
 #[cfg(test)]
 mod test {
-    use std::collections::HashSet;
+    use std::collections::{HashMap, HashSet};
 
     use quickcheck::TestResult;
 
@@ -444,5 +454,38 @@ mod test {
             ],
             graph.get_subgraphs()
         );
+    }
+
+    #[test]
+    // splitted subgraphs in sum should result in exactly same graph
+    fn test_prop_subgraph() {
+        let check = |edges: HashMap<u8, u8>| -> TestResult {
+            let mut graph = Graph::new();
+            let mut initial_nodes = HashSet::new();
+            for (_, to) in edges.iter().map(|(from, to)| (*from, *to)) {
+                graph.add_node(to, to);
+                initial_nodes.insert(to);
+            }
+            for (from, to) in edges.iter().map(|(from, to)| (*from, *to)) {
+                graph.add_edge_partial(from, to);
+            }
+            let mut subgraph_total_nodes = HashSet::new();
+            let mut subgraph_total_edges = HashMap::new();
+            for graph in graph.get_subgraphs() {
+                for (key, _) in graph.iter_nodes() {
+                    subgraph_total_nodes.insert(key);
+                }
+                for (from, to) in graph.iter_edges() {
+                    subgraph_total_edges.insert(from, to);
+                }
+            }
+            assert_eq!(initial_nodes, subgraph_total_nodes);
+            assert_eq!(
+                graph.iter_edges().collect::<HashMap<_, _>>(),
+                subgraph_total_edges
+            );
+            TestResult::from_bool(true)
+        };
+        quickcheck::quickcheck(check as fn(HashMap<u8, u8>) -> TestResult);
     }
 }
